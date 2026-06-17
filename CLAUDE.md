@@ -111,6 +111,7 @@ Orbit is an agent: tools (what it can do) + context (what it knows) + guardrails
 - **Flag technical debt explicitly** when it's created, in plain language, even when deferring it intentionally.
 - **Explain decisions in commit messages and PRs** the way a strong PM would: what changed and why.
 - Stack: Next.js, Supabase (db + auth), Prisma, Vitest, Vercel. RAG + MCP are the AI differentiators.
+- **This is Next.js 16, which changed conventions from earlier versions.** Before writing Next-specific code, read the relevant guide in `node_modules/next/dist/docs/` (flagged in `AGENTS.md`) and heed deprecation notices. Do not assume older Next patterns from training data.
 
 ---
 
