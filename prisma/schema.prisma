@@ -1,0 +1,116 @@
+// prisma-client-js is used instead of the Prisma 7 default (prisma-client) due to a
+// known module resolution issue with Next.js 16 + Turbopack. Migrate when fixed upstream.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // No url field: Prisma 7 reads the connection URL from prisma.config.ts, not here.
+}
+
+model User {
+  id             String          @id @default(cuid())
+  name           String
+  supabaseAuthId String?         @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  contactMethods ContactMethod[]
+  memberships    Membership[]
+  rsvps          Rsvp[]
+  foundedGroups  Group[]
+}
+
+model ContactMethod {
+  id          String            @id @default(cuid())
+  userId      String
+  type        ContactMethodType
+  value       String
+  isVerified  Boolean           @default(false)
+  isPreferred Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ContactMethodType {
+  EMAIL
+}
+
+model Group {
+  id                  String       @id @default(cuid())
+  name                String
+  founderId           String
+  inviteToken         String       @unique @default(cuid())
+  recurringActivities Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  founder             User         @relation(fields: [founderId], references: [id])
+  memberships         Membership[]
+  events              Event[]
+}
+
+model Membership {
+  id       String   @id @default(cuid())
+  userId   String
+  groupId  String
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+}
+
+model Event {
+  id            String    @id @default(cuid())
+  groupId       String
+  title         String
+  startsAt      DateTime
+  endsAt        DateTime?
+  activityLabel String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  group         Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  venues        Venue[]
+  rsvps         Rsvp[]
+
+  @@index([groupId])
+}
+
+model Venue {
+  id           String   @id @default(cuid())
+  eventId      String
+  name         String
+  address      String?
+  url          String?
+  displayLabel String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  rsvps        Rsvp[]
+
+  @@index([eventId])
+}
+
+model Rsvp {
+  id          String     @id @default(cuid())
+  eventId     String
+  userId      String
+  status      RsvpStatus
+  venueId     String?
+  respondedAt DateTime   @updatedAt
+  event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venue       Venue?     @relation(fields: [venueId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
+enum RsvpStatus {
+  IN
+  OUT
+}
