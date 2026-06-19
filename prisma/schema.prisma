@@ -101,12 +101,13 @@ model Rsvp {
   userId      String
   status      RsvpStatus
   venueId     String?
-  respondedAt DateTime   @updatedAt
+  respondedAt DateTime   @default(now()) @updatedAt
   event       Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   venue       Venue?     @relation(fields: [venueId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, userId])
+  @@index([eventId])
   @@index([userId])
 }
 
