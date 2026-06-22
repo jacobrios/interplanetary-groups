@@ -115,6 +115,14 @@ Orbit is an agent: tools (what it can do) + context (what it knows) + guardrails
 
 ---
 
+### How the build agent should work
+
+- **Ask or flag before assuming on anything that shapes product behavior, requirements, or architecture.** On pure implementation detail, use your judgment and pick the simplest thing that works, but record any notable choice (a line in the PR, and in build-notes §11 if it is a lasting decision) so the reasoning is visible later. Rule of thumb: if a future reader would ask "why was it done this way," either ask first or write it down. (This deliberately preserves "prescriptive on the what, open on the how." It is not a mandate to stop and ask about everything.)
+- **Stay in the lane of the current slice.** Do not refactor, rename, or "improve" code that is not part of the task, even when it looks better that way. Clean, focused diffs are part of what this codebase is meant to demonstrate. If you spot something worth changing elsewhere, note it rather than doing it.
+- **Flag uncertainty before proceeding, and verify instead of guessing.** If you are not confident about an approach or a detail, especially anything Next.js 16, Prisma 7, or Supabase specific, where conventions have shifted, say so and check the docs before acting. Confidence without certainty causes more damage than admitting a gap.
+
+---
+
 ## Out of scope for MVP (don't build, don't design around)
 
 Multi-group home UI · multi-venue UI · event nesting · logistics/travel features · multimodal input (forwarded emails, screenshots) · web push · photo avatars · opt-out attendance preferences. These are fast-follows; the data model accommodates them, the MVP does not implement them. See `docs/build-notes.md` §8.
