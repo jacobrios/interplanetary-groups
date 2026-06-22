@@ -11,10 +11,15 @@ export default function CopyInviteLink({ inviteToken }: Props) {
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
-    const url = `${window.location.origin}/join/${inviteToken}`
-    await navigator.clipboard.writeText(url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      const url = `${window.location.origin}/join/${inviteToken}`
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard write failed (permission denied or non-secure context).
+      // Silent fallback is acceptable for now — the link text is visible to copy manually.
+    }
   }
 
   return (
