@@ -48,11 +48,21 @@ export async function createGroupAction(
     user = data.user
   }
 
-  const { group } = await provisionFounderGroup({
-    supabaseAuthId: user.id,
-    founderName,
-    groupName,
-  })
+  let group: Awaited<ReturnType<typeof provisionFounderGroup>>["group"]
+  try {
+    const result = await provisionFounderGroup({
+      supabaseAuthId: user.id,
+      founderName,
+      groupName,
+    })
+    group = result.group
+  } catch {
+    return {
+      errors: {
+        general: "Something went wrong creating your group. Please try again.",
+      },
+    }
+  }
 
   redirect(`/groups/${group.id}`)
 }
