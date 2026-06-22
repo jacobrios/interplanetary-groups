@@ -3,6 +3,34 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ─── Design tokens ─────────────────────────────── */
+
+  /* Color: teal (primary action) and lime (Orbit brand) */
+  --color-teal: #2dd4bf;        /* single primary action */
+  --color-teal-hover: #14b8a6;
+  --color-lime: #a3e635;        /* Orbit brand — never a primary action */
+
+  /* Type scale (rem values honor device text size; unitless line-heights) */
+  --type-display:  1.75rem;   /* 28px */
+  --type-title:    1.5rem;    /* 24px */
+  --type-heading:  1.25rem;   /* 20px */
+  --type-body:     1.0625rem; /* 17px — raised base */
+  --type-meta:     0.9375rem; /* 15px */
+  --type-label:    0.875rem;  /* 14px */
+  --type-eyebrow:  0.8125rem; /* 13px — hard floor */
+
+  --leading-tight:  1.15;
+  --leading-normal: 1.5;
+
+  /* Neutrals (dark-first) */
+  --surface-page:   #0a0a0a;
+  --surface-card:   #141414;
+  --surface-input:  #1a1a1a;
+  --border-subtle:  #2a2a2a;
+  --text-primary:   #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-placeholder: #52525b;
 }
 
 @theme inline {
