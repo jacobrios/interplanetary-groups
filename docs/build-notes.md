@@ -201,3 +201,33 @@ Delivered the invite-link join flow: `/join/<inviteToken>` resolves a group, min
 - Real group page (event card, feed, pinned input): the viewer-aware `/groups/[id]` is an interim member landing only. The full page belongs to a later feed slice.
 - "Jesse joined" feed announcement (section 4): there is no Message or feed model in the schema yet, so the announcement belongs to the slice that introduces one.
 - Member-facing invite surfacing: deferred to the group-info page, which already carries the share link for founders by design. The first-arrival moment should be a calm "you made it in," not an immediate ask to recruit others.
+
+### Event-detail slice (23 June 2026)
+
+Delivered the event detail page at `/events/[id]`: a server-rendered page that reads the event, its venue(s), all group members, and all RSVPs in one Prisma query, derives the IN / OUT / HAVEN'T REPLIED roster buckets on the server, and renders the complete page before any JavaScript runs on the client. The RSVP write is a reusable `setRsvp` lib function (upsert on the `@@unique([eventId, userId])` compound key) driven by a server action and a colocated client form using `useActionState`. All three roster buckets are populated via a fixture seed script. 12 tests pass across 4 test files; QA'd browser-side after seeding (all buckets visible on load; "I'm in" / "Can't make it" write and update correctly; re-tap updates not duplicates; page re-renders server-side after each RSVP with no client loading flash).
+
+- **"HAVEN'T REPLIED" is the absence of an `Rsvp` row, never stored.** The `RsvpStatus` enum is `IN` / `OUT` only — confirmed against the schema. A member with no row for this event is HAVEN'T REPLIED; a member with an IN row is IN; OUT row is OUT. Counts fall out of these three buckets. Nothing about "pending" or counts is ever written to the database. This matches the §2 data-model decision and is enforced in the lib function (upsert; no third status value) and the server action (validates `status` is `IN` or `OUT` before passing to the lib).
+
+- **Route is flat `/events/[id]`, not nested under `/groups/[id]/events/[eventId]`.** An event belongs to exactly one group via a FK; the group id in the URL would be redundant and introduce a mismatch edge case (URL group id vs. event's actual `groupId` FK). The group context needed for the page (name for the eyebrow, memberships for the roster) is reached through the event relation rather than the URL.
+
+- **`setRsvp` is a standalone lib function, not inlined into the page action.** The home-screen quick-RSVP card (a later slice) needs the same write. Extracting it into `src/lib/events/rsvp.ts` now means the later slice is purely additive: import and call, no refactor. The function is TDD'd (test written first, watched fail, then implemented; 3 integration tests against the live dev DB).
+
+- **The RSVP action does not mint an anonymous session, unlike the join and create-group actions.** A user without a session has no group membership; letting them RSVP would write a row detached from any roster and misrepresent the "who's coming" picture. The page omits the RSVP control for unauthenticated viewers entirely. This is a deliberate behavioral divergence from the other actions, noted in both the action file and this entry.
+
+- **RSVP button treatment: teal primary "I'm in" + outlined secondary "Can't make it".** The original slice brief described lime as the primary color and two co-primary equal-weight buttons; this contradicts CLAUDE.md (teal is the single primary per screen; lime is Orbit-brand only, never an action). CLAUDE.md takes precedence over a brief restatement of design rules, so the standing convention was kept and the brief's language treated as an inversion. Active state is indicated by a checkmark prefix on the active button (✓ I'm in / ✓ Can't make it) — never by color alone, satisfying the §7 accessibility rule (red/green colorblind product owner).
+
+- **Placeholder avatar: deterministic initials on a hue seeded from the member's name.** Same name always produces the same color; the avatar color encodes identity, not status, so it does not conflict with the §7 "status by brightness plus icon or label, never by hue" rule. The designed celestial-doodle avatar is a deliberate fast-follow.
+
+**Tech debt opened in this slice** (also carried in the commit message):
+
+- Fixture seed script (`scripts/seed-fixture-event.ts`): deliberate bridge until Orbit's event-creation slice lands. Lands in the single real dev database (no separate test DB yet — see data-foundation §11 tech debt). Must be removed before launch. Medium.
+- Dates displayed in UTC, no timezone awareness: the page formats `startsAt`/`endsAt` as UTC times. Correct per-user display requires storing an event timezone and reading the viewer's locale, which belongs to a later slice. Low.
+
+**Deliberately deferred in this slice** (each flagged so it reads as a choice, not an oversight):
+
+- **No event creation.** Events are created by Orbit (scheduled and spontaneous) in later slices. The fixture seed is the bridge.
+- **No chat feed, no Message model, no pinned input.** That is the feed slice.
+- **No "Add to calendar" button.** A proper calendar export (an `.ics` with correct timezone handling for Apple, Google, and Outlook) is its own small slice. A dead button is worse than no button; the page is coherent without it.
+- **Single-venue UI.** The model supports a set of venues per event; the page shows `venues[0]`. Multi-venue UI is a fast-follow (§8).
+- **Email-capture ask omitted.** Per §3, Orbit asks for an email after the user's first RSVP. Orbit has no chat surface on this screen yet, so the ask waits for the slice that gives it a place to appear.
+- **Page is ungated.** Any session can view any event page. Membership-gating (confirming the viewer is a member of the event's group) belongs to the slice that builds access control across surfaces — consistent with how the group page was handled in prior slices.
