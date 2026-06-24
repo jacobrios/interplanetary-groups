@@ -51,7 +51,7 @@ export async function rsvpAction(
   try {
     await setRsvp({ supabaseAuthId: user.id, eventId, status })
   } catch {
-    return { errors: { general: "Something went wrong saving your RSVP. Please try again." } }
+    return { errors: { general: "Couldn't save that, try again." } }
   }
 
   // CRITICAL: revalidatePath must be called outside and after try/catch.
