@@ -90,7 +90,7 @@ Orbit is an agent: tools (what it can do) + context (what it knows) + guardrails
 
 - **Many-to-many user-to-group from day one.** Scope events, RSVPs, and Orbit's context per group. The multi-group home is a fast-follow; the backend must be ready so it's additive, not a retrofit.
 - **An RSVP attaches to exactly one event. Attendance never inherits from a parent.** No event nesting in the MVP schema, but never build a shortcut (e.g. a group-level RSVP implying event attendance) that would foreclose adding it later via a nullable parent reference.
-- **RSVP is per-person status (in / out / pending), never a stored count.** Counts are derived.
+- **RSVP is per-person status (in or out), never a stored count.** Counts are derived. "No reply yet" is the absence of an Rsvp row, not a third stored enum value; the RsvpStatus enum is IN / OUT only.
 - **Event location is a set of venue options (usually one); RSVPs carry an optional venue.** MVP UI stays single-location, but the model supports the split. A venue also carries an optional short display label that Orbit suggests once at creation time (a Level 1 prompt), stored on the venue and editable, never regenerated per render.
 - **Events store a start and an optional end** (multi-day gatherings are date ranges).
 - **Emails are never displayed anywhere in the UI,** even after capture. Member lists are names only.
