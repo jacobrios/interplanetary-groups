@@ -19,6 +19,7 @@ model User {
   memberships    Membership[]
   rsvps          Rsvp[]
   foundedGroups  Group[]
+  messages       Message[]
 }
 
 model ContactMethod {
@@ -50,6 +51,7 @@ model Group {
   founder             User         @relation(fields: [founderId], references: [id])
   memberships         Membership[]
   events              Event[]
+  messages            Message[]
 }
 
 model Membership {
@@ -78,6 +80,7 @@ model Event {
   rsvps         Rsvp[]
 
   @@index([groupId])
+  @@index([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
 }
 
 model Venue {
@@ -114,4 +117,41 @@ model Rsvp {
 enum RsvpStatus {
   IN
   OUT
+}
+
+// ── Chat feed ────────────────────────────────────────────────────────────────
+
+/**
+ * A single message in a group's conversation feed.
+ *
+ * authorType distinguishes member-authored messages from Orbit messages.
+ * Orbit is NOT a User row — keeping it out of the people graph means it
+ * can never appear in rosters, counts, or member lists.  A nullable authorId
+ * (set when MEMBER, null for ORBIT) mirrors the Rsvp.venueId nullable-FK
+ * + onDelete:SetNull pattern.
+ *
+ * Append-only: no updatedAt (matches the Membership/Rsvp precedent for
+ * non-editable rows).
+ *
+ * Future extensibility: a SYSTEM value on MessageAuthor cleanly absorbs
+ * the "Jesse joined" system announcement without another migration.
+ */
+model Message {
+  id         String        @id @default(cuid())
+  groupId    String
+  authorType MessageAuthor
+  authorId   String?       // set when MEMBER; null for ORBIT
+  body       String
+  createdAt  DateTime      @default(now())
+
+  group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([groupId])
+  @@index([authorId])
+}
+
+enum MessageAuthor {
+  MEMBER
+  ORBIT
 }

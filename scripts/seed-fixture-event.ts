@@ -18,7 +18,7 @@
 // NEVER wire this into build, postinstall, or any deploy step.
 
 import "dotenv/config" // must be first — tsx does not auto-load .env
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, MessageAuthor } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 
 // ── Instantiate a standalone Prisma client ───────────────────────────────────
@@ -35,6 +35,22 @@ const prisma = new PrismaClient({ adapter })
 // Using descriptive strings instead of cuid() so re-runs are idempotent.
 const FIXTURE_EVENT_ID = "fixture-event-1"
 const FIXTURE_VENUE_ID = "fixture-venue-1"
+
+// Orbit welcome messages — authored as ORBIT (authorId null), consistent with
+// the MessageAuthor enum design (Orbit is not a User row).  Copy follows
+// §7 rules: warm, plain, three-letter weekday abbrev, no em/en dashes.
+// These retire with the rest of the fixture bridge when Orbit's live event-
+// creation slice lands.
+const FIXTURE_MESSAGES = [
+  {
+    id: "fixture-message-welcome-1",
+    body: "Welcome to the group! I'll keep things organized so nobody has to be the planner.",
+  },
+  {
+    id: "fixture-message-welcome-2",
+    body: "First up: Climbing Sunday on Jul 19. I've penciled in Red Rock Canyon. Let me know if you're in.",
+  },
+] as const
 
 // Synthetic members — supabaseAuthId is null (no auth identity); they exist
 // only to populate roster buckets.
@@ -132,14 +148,35 @@ async function main() {
     }
   }
 
-  console.log(`\n✓ Fixture event seeded successfully.`)
+  // ── Upsert Orbit welcome messages ─────────────────────────────────────────
+  // authorType: ORBIT, authorId: null — Orbit is not a User row.
+  for (const msg of FIXTURE_MESSAGES) {
+    await prisma.message.upsert({
+      where: { id: msg.id },
+      create: {
+        id: msg.id,
+        groupId: targetGroupId,
+        authorType: MessageAuthor.ORBIT,
+        authorId: null,
+        body: msg.body,
+      },
+      update: {
+        groupId: targetGroupId,
+        body: msg.body,
+      },
+    })
+  }
+
+  console.log(`\n✓ Fixture seeded successfully.`)
   console.log(`  Event id:  ${FIXTURE_EVENT_ID}`)
   console.log(`  Group id:  ${targetGroupId}`)
-  console.log(`  Page url:  /events/${FIXTURE_EVENT_ID}`)
+  console.log(`  Home url:  /groups/${targetGroupId}`)
+  console.log(`  Event url: /events/${FIXTURE_EVENT_ID}`)
   console.log(`\n  Roster:`)
-  console.log(`    IN:             Alex, Sam`)
-  console.log(`    OUT:            Jordan`)
+  console.log(`    IN:              Alex, Sam`)
+  console.log(`    OUT:             Jordan`)
   console.log(`    HAVEN'T REPLIED: Casey (+ you, if you haven't RSVP'd yet)`)
+  console.log(`\n  Feed: 2 Orbit welcome messages`)
   console.log(`\n  Re-run anytime to reset the fixture to this state.\n`)
 
   await prisma.$disconnect()

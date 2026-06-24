@@ -247,3 +247,45 @@ Wired `useOptimistic` into `RsvpControls` so the RSVP buttons flip the moment th
 - **Accessibility treatment unchanged.** Active state is still the checkmark prefix (✓ I'm in / ✓ Can't make it) keyed off `optimisticStatus`. The teal/outlined button assignment is unchanged. Status is never communicated by color alone.
 
 **No component test added.** The vitest environment is `node`-only; adding jsdom and React Testing Library to assert a `useOptimistic` revert would be disproportionate and brittle (the brief explicitly cautions against forcing a brittle UI test). The rollback rests on `useOptimistic`'s documented revert-to-base semantics and is verified manually. The existing `setRsvp` integration tests, which cover the unchanged write path, still pass.
+
+### Group-home-chat slice (24 June 2026)
+
+Replaced the `/groups/[id]` placeholder landing with the real group home (walkthrough frame 06) and introduced the chat backend for the first time. The page now renders a pinned compact event card (counts-only status, 3-letter weekday abbrev, tappable link to detail), a scrollable chat feed with a pinned input, and a group-info stub at `/groups/[id]/info` that preserves invite-link reachability. Members can send messages that persist and appear optimistically. Orbit's presence is fixture-seeded welcome messages; zero model calls were made in this slice. The feed is the hard prerequisite for the Orbit-goes-live next slice. 28 new tests added across 4 new test files (format, roster, upcoming, messages); full suite is 40/40. TypeScript build clean.
+
+- **Message model: explicit `MessageAuthor { MEMBER, ORBIT }` enum + nullable `authorId`, not a seeded Orbit user.** Orbit is deliberately not a `User`/`Membership` row; keeping it out of the people graph means it can never appear in rosters, counts, or member lists (which would corrupt RSVP tallies and violate "member lists are names only"). A nullable `authorId` (`null` for ORBIT, set for MEMBER) mirrors the existing `Rsvp.venueId` nullable-FK + `onDelete: SetNull` pattern. The enum is self-documenting — no reader has to infer "null author = Orbit" — and a future `SYSTEM` value cleanly absorbs the deferred "Jesse joined" system announcement without another migration.
+
+- **Single source of truth for roster/counts/date formatting.** The roster derivation, counts formatting, and date/time helpers that were previously inlined in `events/[id]/page.tsx` were extracted into shared lib modules (`src/lib/events/roster.ts`, `src/lib/events/format.ts`). The event-detail page was updated to import from these modules, and the new home-screen card consumes the same functions. This is a pure, behavior-preserving extraction — nothing about what the detail page renders changed — confirmed by the full test suite staying green. No code was duplicated; the debt note in the original plan was removed by doing the work rather than logging it.
+
+- **`rsvpAction` revalidation widened additively.** The action previously revalidated only `/events/${eventId}`. When the optional `groupId` hidden field is present (supplied only by the home-card `RsvpControls`), it also calls `revalidatePath(\`/groups/${groupId}\`)` so the card's counts reflect the change on hard reload. The event-detail caller omits `groupId`; its behavior is unchanged.
+
+- **`RsvpControls` widened with backward-compatible `compact` and `groupId` props.** The compact prop tightens button padding for the home card; the default renders the full detail-page sizing. The event-detail page continues to pass neither prop and renders identically to before. This is the reuse the slice plan required: identical logic, smaller shell, no reinvention.
+
+- **Optimistic chat: `useOptimistic` list-reducer pattern, not the scalar-swap RSVP pattern.** RSVP uses `useOptimistic(scalar, identity-swap)`; chat uses `useOptimistic(array, (state, msg) => [...state, msg])`, the list-append reducer documented in the Next.js 16 forms guide (§"Optimistic updates") and illustrated there with a message-thread example. `GroupHome` is the single client island that owns both `useOptimistic` and the input state — they share a common parent so the optimistic list is consistent between the feed display and the input form. The rollback on failure is the same hard requirement as RSVP: a failed send reverts the optimistic message and shows a soft error ("Couldn't send that, try again."), never leaving a silently-failed message in the feed.
+
+- **Send arrow: contextual teal-on-type, not a second persistent primary.** The send arrow is dim (`--text-placeholder`) when the input is empty and turns teal (`--color-teal`) once the viewer has typed. This coexists with the card's persistent "I'm in" teal per the §7 send-arrow note: a contextual action (only live while composing text) is not a second persistent primary and does not violate the one-primary-action-per-screen rule.
+
+- **Invite-link bridge: minimal `/groups/[id]/info` stub.** The prior `/groups/[id]` route was the only place the founder's invite link lived. Rather than letting the link become unreachable when the route became the home, we added a minimal stub at `/groups/[id]/info` that carries only the invite-link UI (founder-gated, as before). The header chevron routes to this stub, matching the eventual group-info grammar (§7: "the group title with chevron opens group info"). When the full group-info page ships, this stub grows in place. Preserving the founder-only gate is intentional; member-facing invite surfacing is a group-info-slice product decision.
+
+- **No `startsAt` index existed for the soonest-upcoming-event query.** A composite `@@index([groupId, startsAt])` was added to `Event` in the same migration as the Message model to back the new `findSoonestUpcomingEvent` query efficiently.
+
+- **Chat-bubble surface tokens added to `globals.css`.** `--surface-orbit`, `--surface-bubble-member`, and `--surface-self` satisfy the §7 "chat voice system" structural rule using on-system neutrals: provably neither teal (which reads as a button) nor lime (which reads as Orbit). Values are functional placeholders; the pixel-level visual pass against the walkthrough is a deferred polish phase.
+
+**Tech debt opened in this slice** (carried in the commit message):
+
+- `RsvpControls` lives under `src/app/events/[id]/` but is now consumed by the home-screen card. Noted for future relocation to a shared components directory when the next refactor opens that area.
+- Chat-bubble fill tokens (`--surface-orbit`, `--surface-self`, `--surface-bubble-member`) are functional placeholders. The pixel-level pass against the walkthrough is a dedicated deferred phase.
+- Fixture seed still writes to the live dev database (pre-existing debt, now also seeds messages). Retires with the fixture bridge when Orbit's event-creation and posting slices land.
+- `prisma generate` is not wired into build/postinstall (pre-existing high-priority debt from data-foundation §11). After this slice the `MessageAuthor` enum is required at runtime — if the client isn't regenerated before a deploy, the enum will be missing. Wire `prisma generate` into the build step before the next Vercel deploy.
+
+**Deliberately deferred in this slice** (each flagged so it reads as a choice, not an oversight):
+
+- **Orbit posting live** (spark, interest gauging, nudges): next slice.
+- **Condensed card after RSVP**: left unbuilt per the §7 open question; full pinned card ships; revisit only if the live app proves it crowds the chat.
+- **Email-capture ask after first RSVP**: rides with Orbit's live posting.
+- **Membership gating of the home**: consistent with prior ungated surfaces, until the access-control slice.
+- **"Jesse joined" system announcement**: the `SYSTEM` MessageAuthor value is anticipated by the model design but not wired this slice (would require touching the join flow, out of lane).
+- **Multi-card swipe carousel**: one fixture event, so single-card only; carousel chrome waits for ≥2.
+- **Full group-info page**: its own slice; the stub grows in place.
+- **Pixel-level visual polish** against the walkthrough: a dedicated polish phase.
+
+**No component tests added.** Same rationale as the optimistic-RSVP slice: the vitest environment is node-only; testing useOptimistic revert in jsdom would be disproportionate and brittle. Chat optimistic behavior and the RSVP compact-card path are verified manually via the seed + dev server.

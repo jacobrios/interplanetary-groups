@@ -8,6 +8,17 @@ interface Props {
   eventId: string
   /** The viewer's current RSVP status, or null if they have not yet responded. */
   currentStatus: RsvpStatus | null
+  /**
+   * When true, renders tighter padding suitable for the compact home-screen
+   * card.  Default false renders the full detail-page sizing.
+   */
+  compact?: boolean
+  /**
+   * When provided (home-screen card), triggers an additional revalidatePath
+   * for the group home route on successful write so that the card's counts
+   * reflect the change on hard reload.  Omit from the event-detail caller.
+   */
+  groupId?: string
 }
 
 /**
@@ -30,7 +41,7 @@ interface Props {
  * Both buttons are disabled while the action is pending, preventing a double-tap from
  * starting a conflicting in-flight write.
  */
-export default function RsvpControls({ eventId, currentStatus }: Props) {
+export default function RsvpControls({ eventId, currentStatus, compact = false, groupId }: Props) {
   // Displayed status: flips instantly on tap; reverts to currentStatus on write failure.
   const [optimisticStatus, setOptimisticStatus] = useOptimistic(currentStatus)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -56,9 +67,15 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
     })
   }
 
+  // Padding scales between compact (home card) and full (event detail).
+  const btnPadding = compact ? "0.375rem 0.75rem" : "0.625rem 1rem"
+
   return (
     <form action={handle}>
       <input type="hidden" name="eventId" value={eventId} />
+      {/* groupId is optional — present only when RSVPing from the home card.
+          The action uses it to also revalidate the home route on success. */}
+      {groupId && <input type="hidden" name="groupId" value={groupId} />}
 
       {errorMsg && (
         <p
@@ -82,7 +99,7 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
           disabled={isPending}
           style={{
             flex: 1,
-            padding: "0.625rem 1rem",
+            padding: btnPadding,
             backgroundColor: isPending ? "var(--color-teal-hover)" : "var(--color-teal)",
             color: "#0a0a0a",
             fontSize: "var(--type-label)",
@@ -103,7 +120,7 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
           disabled={isPending}
           style={{
             flex: 1,
-            padding: "0.625rem 1rem",
+            padding: btnPadding,
             backgroundColor:
               optimisticStatus === RsvpStatus.OUT ? "var(--surface-input)" : "transparent",
             color: "var(--text-primary)",
