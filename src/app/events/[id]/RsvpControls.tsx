@@ -1,8 +1,7 @@
 // src/app/events/[id]/RsvpControls.tsx
 "use client"
-
-import { useActionState } from "react"
-import { rsvpAction, type RsvpState } from "@/app/actions/rsvp"
+import { useOptimistic, useTransition, useState } from "react"
+import { rsvpAction } from "@/app/actions/rsvp"
 import { RsvpStatus } from "@prisma/client"
 
 interface Props {
@@ -10,8 +9,6 @@ interface Props {
   /** The viewer's current RSVP status, or null if they have not yet responded. */
   currentStatus: RsvpStatus | null
 }
-
-const initialState: RsvpState = {}
 
 /**
  * Two-button RSVP form colocated with the event card.
@@ -25,18 +22,45 @@ const initialState: RsvpState = {}
  * Active state is indicated by the checkmark prefix — never by color alone.  This
  * satisfies the accessibility rule (§7: red/green colorblind product owner).
  *
- * Both buttons are disabled while the action is pending, so a double-tap cannot
- * produce a race.  The form stays on the event page after submission; revalidatePath
- * in the action re-renders the server component with the fresh RSVP state.
+ * Optimistic update: the button flips instantly on tap, before the server responds.
+ * useOptimistic reverts to currentStatus (the server-derived prop) automatically if
+ * the transition settles without a matching revalidatePath — i.e. on write failure.
+ * The error message from the action is surfaced; a silently-wrong button is never left.
+ *
+ * Both buttons are disabled while the action is pending, preventing a double-tap from
+ * starting a conflicting in-flight write.
  */
 export default function RsvpControls({ eventId, currentStatus }: Props) {
-  const [state, formAction, isPending] = useActionState(rsvpAction, initialState)
+  // Displayed status: flips instantly on tap; reverts to currentStatus on write failure.
+  const [optimisticStatus, setOptimisticStatus] = useOptimistic(currentStatus)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function handle(formData: FormData) {
+    startTransition(async () => {
+      const next = formData.get("status") as RsvpStatus
+      // Clear any prior error and flip the button immediately — before the round trip.
+      setErrorMsg(null)
+      setOptimisticStatus(next)
+      // Await the server action directly so optimisticStatus persists for the whole
+      // round trip (the documented useOptimistic + useTransition pattern from the
+      // Next.js forms guide).  On success, revalidatePath re-renders the page and
+      // currentStatus updates to match; optimistic and real values agree with no
+      // flicker.  On failure, the action returns errors and skips revalidatePath, so
+      // currentStatus stays unchanged; useOptimistic reverts automatically and
+      // errorMsg is shown.  A silently-wrong button is never left.
+      const result = await rsvpAction({}, formData)
+      if (result?.errors?.general) {
+        setErrorMsg(result.errors.general)
+      }
+    })
+  }
 
   return (
-    <form action={formAction}>
+    <form action={handle}>
       <input type="hidden" name="eventId" value={eventId} />
 
-      {state.errors?.general && (
+      {errorMsg && (
         <p
           style={{
             fontSize: "var(--type-meta)",
@@ -45,7 +69,7 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
             marginBottom: "0.75rem",
           }}
         >
-          {state.errors.general}
+          {errorMsg}
         </p>
       )}
 
@@ -68,7 +92,7 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
             cursor: isPending ? "not-allowed" : "pointer",
           }}
         >
-          {currentStatus === RsvpStatus.IN ? "✓ I'm in" : "I'm in"}
+          {optimisticStatus === RsvpStatus.IN ? "✓ I'm in" : "I'm in"}
         </button>
 
         {/* Secondary action — outlined, transparent fill */}
@@ -81,16 +105,16 @@ export default function RsvpControls({ eventId, currentStatus }: Props) {
             flex: 1,
             padding: "0.625rem 1rem",
             backgroundColor:
-              currentStatus === RsvpStatus.OUT ? "var(--surface-input)" : "transparent",
+              optimisticStatus === RsvpStatus.OUT ? "var(--surface-input)" : "transparent",
             color: "var(--text-primary)",
             fontSize: "var(--type-label)",
-            fontWeight: currentStatus === RsvpStatus.OUT ? 600 : 400,
+            fontWeight: optimisticStatus === RsvpStatus.OUT ? 600 : 400,
             border: "1px solid var(--border-subtle)",
             borderRadius: "0.5rem",
             cursor: isPending ? "not-allowed" : "pointer",
           }}
         >
-          {currentStatus === RsvpStatus.OUT ? "✓ Can't make it" : "Can't make it"}
+          {optimisticStatus === RsvpStatus.OUT ? "✓ Can't make it" : "Can't make it"}
         </button>
       </div>
     </form>

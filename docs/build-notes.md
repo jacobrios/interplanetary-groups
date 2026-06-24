@@ -231,3 +231,19 @@ Delivered the event detail page at `/events/[id]`: a server-rendered page that r
 - **Single-venue UI.** The model supports a set of venues per event; the page shows `venues[0]`. Multi-venue UI is a fast-follow (§8).
 - **Email-capture ask omitted.** Per §3, Orbit asks for an email after the user's first RSVP. Orbit has no chat surface on this screen yet, so the ask waits for the slice that gives it a place to appear.
 - **Page is ungated.** Any session can view any event page. Membership-gating (confirming the viewer is a member of the event's group) belongs to the slice that builds access control across surfaces — consistent with how the group page was handled in prior slices.
+
+### Optimistic-RSVP slice (23 June 2026)
+
+Wired `useOptimistic` into `RsvpControls` so the RSVP buttons flip the moment the user taps, before the server responds. This resolves the "tap feels slow" item flagged during event-detail QA. No schema change, no new screens, no change to `setRsvp` or the server action's write.
+
+- **`useOptimistic` for display, `revalidatePath` as truth.** `optimisticStatus` (derived from `currentStatus`, the server-rendered prop) flips instantly inside a `useTransition`. On success the action calls `revalidatePath`, the server component re-renders, and `currentStatus` updates to match; the optimistic and real values agree with no flicker. On failure the action returns an error and skips `revalidatePath`, so `currentStatus` stays unchanged; `useOptimistic` reverts to its base automatically once the transition settles.
+
+- **Rollback and notify on failure is a hard product requirement.** RSVP accuracy is the whole value of this product. A silently-wrong button (showing IN after a failed write) would misrepresent who is coming and corrode trust. The rollback path is the only acceptable outcome on failure: the button snaps back to the real previous status and a soft message appears ("Couldn't save that, try again."). No em or en dashes in the message copy, per CLAUDE.md §copy. The user always sees a state they can trust.
+
+- **`useActionState` replaced by `useTransition` + `useOptimistic` + `useState`.** The brief named `useActionState` as the expected companion; it was swapped for the trio because `useActionState`'s dispatch is not awaitable in the standard way, which means an optimistic value set before the dispatch can revert before the write completes — the silently-wrong state we must not ship. The documented Next.js pattern (forms guide, §"Optimistic updates") awaits the server function directly inside `startTransition`; `useTransition` provides the same `isPending` that `useActionState` did, and one `useState` holds the error the action returns. The server action (`rsvpAction`) is reused verbatim; only the client wiring changed.
+
+- **Double-tap safety.** Both buttons are disabled while `isPending` is true, so a rapid second tap cannot start a conflicting in-flight write. The screen always reflects a coherent state.
+
+- **Accessibility treatment unchanged.** Active state is still the checkmark prefix (✓ I'm in / ✓ Can't make it) keyed off `optimisticStatus`. The teal/outlined button assignment is unchanged. Status is never communicated by color alone.
+
+**No component test added.** The vitest environment is `node`-only; adding jsdom and React Testing Library to assert a `useOptimistic` revert would be disproportionate and brittle (the brief explicitly cautions against forcing a brittle UI test). The rollback rests on `useOptimistic`'s documented revert-to-base semantics and is verified manually. The existing `setRsvp` integration tests, which cover the unchanged write path, still pass.
