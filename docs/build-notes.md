@@ -313,3 +313,9 @@ Replaced the `/groups/[id]` placeholder landing with the real group home (walkth
 *Root cause.* The page root used `minHeight: "100dvh"`, which lets the flex container grow beyond the viewport as the feed fills. This triggers document-level scroll instead of feed-internal scroll. The "pinned" input bar was not actually pinned — it lived at the bottom of a growing document, drifting below the fold as messages were added.
 
 *Fix.* Changed `minHeight: "100dvh"` to `height: "100dvh"` and added `overflow: hidden` on the root container in `page.tsx`. The page is now locked to exactly viewport height. `MessageFeed` (already `flex: 1` + `overflowY: auto`) becomes the internal scroll region; `ChatInput` (`flexShrink: 0`) stays genuinely pinned at the bottom regardless of feed length. `MessageFeed` and `ChatInput` were not modified.
+
+---
+
+**Addition: auto-scroll to bottom on mount and on send**
+
+After the pinned-input fix made the feed its own internal scroll region, newly appended messages landed below the fold. Fixed in `MessageFeed.tsx`: a `bottomRef` sentinel `<div>` at the end of the message list, with `useEffect(() => { bottomRef.current?.scrollIntoView() }, [messages.length])`. Fires on mount (feed opens at the most recent messages) and whenever the message count changes (viewer's optimistic append is immediately visible). Dependency is `messages.length` (a primitive) not `messages` (new array reference every render), so the effect only fires when messages are actually added or removed. When the feed is empty the sentinel is not rendered; the `?.` guard makes the effect a no-op. Deliberate choice: no "only scroll if near the bottom" smart-scroll logic — that earns its complexity only with substantial scroll history and is not needed at MVP.
