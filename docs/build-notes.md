@@ -290,12 +290,26 @@ Replaced the `/groups/[id]` placeholder landing with the real group home (walkth
 
 **No component tests added.** Same rationale as the optimistic-RSVP slice: the vitest environment is node-only; testing useOptimistic revert in jsdom would be disproportionate and brittle. Chat optimistic behavior and the RSVP compact-card path are verified manually via the seed + dev server.
 
-### Chat input clears on send (feel fix, 25 June 2026)
+### Chat input clears on send + pinned-input layout (feel fixes, 25 June 2026)
 
-**Problem:** After sending a chat message the input stayed populated for ~500ms until the server action resolved, even though the optimistic message appeared instantly. This read as laggy/stuck.
+**Two issues fixed in this slice:**
 
-**Root cause:** `setInputValue("")` was called inside `startTransition(async () => {...})`. React treats `useState` updates made inside `startTransition` as concurrent (deferrable), so they don't apply until the transition settles — after `sendMessageAction` returns. Moving `setInputValue("")` to just before the `startTransition` call makes it an urgent synchronous update, applied on the same render tick as the form submission.
+---
 
-**Change:** One line moved in `GroupHome.tsx`. `addOptimisticMessage` and `setErrorMsg` remain inside `startTransition` (required — `useOptimistic` updates must be inside a transition). Nothing else touched: the server action, the write path, and the optimistic-revert-on-failure logic are all unchanged.
+**Issue 1: Input text not clearing after send**
 
-**Failure tradeoff:** On a failed send, the optimistic message still reverts and the soft error still shows. The input does not restore the typed text — deliberate, consistent with how the existing failure path works. The revert + error line is the signal.
+*Two-attempt history.* The initial symptom was that the input cleared ~500ms late (after the server action resolved). The first fix moved `setInputValue("")` from inside our explicit `startTransition` to just before it, on the theory that updates inside `startTransition` are deferrable. In the running app, this did not resolve the bug — the text was not clearing at all, not merely clearing late.
+
+*Real root cause.* React 19 automatically wraps functions passed to a form's `action` prop in a `startTransition`. From the React 19 release notes: *"Functions used as actions are automatically wrapped in a Transition."* Because `handleSubmit` was used as `<form action={handleSubmit}>`, it was always running inside React's implicit outer transition — making every `setState` call inside `handleSubmit` a deferred transition update, including `setInputValue("")`, regardless of whether it was inside or outside our own explicit `startTransition` call.
+
+*Fix.* Changed `<form action={onSubmit}>` to a plain `<form onSubmit={e => { e.preventDefault(); onSubmit(new FormData(e.currentTarget)) }}>` in `ChatInput.tsx`. A plain `onSubmit` event handler is not wrapped in a transition. `setInputValue("")` (already positioned before the explicit `startTransition`) is now a genuine urgent synchronous update and fires on the same render tick as the form submission. The explicit `startTransition` inside `handleSubmit` continues to own the async server action as before. Enter-to-send and send-button both work with the plain `onSubmit` handler (the browser fires `submit` on Enter in a single-line text input).
+
+*Failure behavior unchanged.* The optimistic message still reverts on failure; the soft error still shows; the input does not restore typed text on failure (deliberate tradeoff — the revert + error is the signal).
+
+---
+
+**Issue 2: Input scrolls out of view on send (pinned-input layout)**
+
+*Root cause.* The page root used `minHeight: "100dvh"`, which lets the flex container grow beyond the viewport as the feed fills. This triggers document-level scroll instead of feed-internal scroll. The "pinned" input bar was not actually pinned — it lived at the bottom of a growing document, drifting below the fold as messages were added.
+
+*Fix.* Changed `minHeight: "100dvh"` to `height: "100dvh"` and added `overflow: hidden` on the root container in `page.tsx`. The page is now locked to exactly viewport height. `MessageFeed` (already `flex: 1` + `overflowY: auto`) becomes the internal scroll region; `ChatInput` (`flexShrink: 0`) stays genuinely pinned at the bottom regardless of feed length. `MessageFeed` and `ChatInput` were not modified.
