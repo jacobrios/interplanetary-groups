@@ -58,5 +58,14 @@ export async function rsvpAction(
   // In Next.js it uses a similar internal throw mechanism to redirect() and
   // would be swallowed if placed inside the catch block.
   revalidatePath(`/events/${eventId}`)
+
+  // When the RSVP is submitted from the home-screen compact card, groupId is
+  // included in the form data so both the detail page and the home page
+  // revalidate.  The detail-page caller omits groupId, so this is additive.
+  const groupId = (formData.get("groupId") as string | null)?.trim() ?? ""
+  if (groupId) {
+    revalidatePath(`/groups/${groupId}`)
+  }
+
   return {}
 }

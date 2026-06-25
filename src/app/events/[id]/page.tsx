@@ -2,7 +2,8 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
-import { RsvpStatus } from "@prisma/client"
+import { deriveRoster } from "@/lib/events/roster"
+import { formatEventDate } from "@/lib/events/format"
 import RsvpControls from "./RsvpControls"
 import RosterAvatar from "./RosterAvatar"
 
@@ -38,25 +39,13 @@ export default async function EventPage({ params }: Props) {
 
   // ─── Derive roster buckets from membership + RSVP data ────────────────────
   // "HAVEN'T REPLIED" is the absence of an Rsvp row — never stored (§2, §11).
-  // Counts are derived from these buckets; nothing about counts or pending is
-  // written to the database.
-  const rsvpByUserId = new Map(event.rsvps.map((r) => [r.userId, r.status]))
-
-  type Member = { id: string; name: string }
-  const inMembers: Member[] = []
-  const outMembers: Member[] = []
-  const pendingMembers: Member[] = []
-
-  for (const { user } of event.group.memberships) {
-    const status = rsvpByUserId.get(user.id)
-    if (status === RsvpStatus.IN) inMembers.push(user)
-    else if (status === RsvpStatus.OUT) outMembers.push(user)
-    else pendingMembers.push(user)
-  }
-
-  // ─── Viewer RSVP state ────────────────────────────────────────────────────
-  const viewerStatus =
-    viewer ? (rsvpByUserId.get(viewer.id) ?? null) : null
+  // Derivation logic lives in src/lib/events/roster.ts, shared with the
+  // compact home-screen card.
+  const { inMembers, outMembers, pendingMembers, viewerStatus } = deriveRoster(
+    event.group.memberships.map((m) => m.user),
+    event.rsvps,
+    viewer?.id ?? null
+  )
 
   // ─── Event metadata ───────────────────────────────────────────────────────
   // Single-venue UI: show the first venue even though the model supports many.
@@ -253,43 +242,6 @@ function RosterSection({
   )
 }
 
-// ─── Date formatting ─────────────────────────────────────────────────────────
-
-/**
- * Formats event start (and optional end) as a compact display string using
- * three-letter weekday abbreviations per CLAUDE.md §copy rules.
- *
- * Times are displayed in UTC.  Timezone-aware display (the viewer's local zone)
- * is a fast-follow; storing the event timezone and surfacing it requires a schema
- * change and UI work that belongs to a later slice.
- *
- * Examples:
- *   "Sat, Jul 19 · 10am"
- *   "Sat, Jul 19 · 10am to 1pm"
- */
-function formatEventDate(startsAt: Date, endsAt: Date | null): string {
-  const utc = { timeZone: "UTC" } as const
-
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", ...utc }).format(startsAt)
-  const month = new Intl.DateTimeFormat("en-US", { month: "short", ...utc }).format(startsAt)
-  const day = new Intl.DateTimeFormat("en-US", { day: "numeric", ...utc }).format(startsAt)
-
-  const startTime = formatTime(startsAt)
-
-  if (!endsAt) {
-    return `${weekday}, ${month} ${day} · ${startTime}`
-  }
-
-  const endTime = formatTime(endsAt)
-  // "to" per CLAUDE.md copy rules: no em/en dashes in user-facing copy.
-  return `${weekday}, ${month} ${day} · ${startTime} to ${endTime}`
-}
-
-/** Formats a UTC time as "10am", "2:30pm", etc. */
-function formatTime(date: Date): string {
-  const h = date.getUTCHours()
-  const m = date.getUTCMinutes()
-  const ampm = h < 12 ? "am" : "pm"
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, "0")}${ampm}`
-}
+// formatEventDate and formatTime live in src/lib/events/format.ts — shared
+// with the compact home-screen card.  This file previously had inline copies;
+// the extraction was done in the group-home-chat slice (see §11 build log).

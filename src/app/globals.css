@@ -31,6 +31,25 @@
   --text-primary:   #f4f4f5;
   --text-secondary: #a1a1aa;
   --text-placeholder: #52525b;
+
+  /*
+   * Chat-bubble surface tokens (build-notes §7 "chat voice system").
+   * These satisfy the structural rule — Orbit, member, and self-bubble must be
+   * distinguishable at a glance by structure and weight, not hue — using
+   * on-system neutrals rather than the two reserved chromas (teal = primary
+   * action; lime = Orbit brand).  Values are functional placeholders; the
+   * pixel-level visual pass against the walkthrough is a deferred phase.
+   *
+   * --surface-orbit: soft muted fill for Orbit's speech bubbles.
+   * --surface-bubble-member: low-fill background when an outlined-only bubble
+   *   needs a hint of fill (member bubbles are primarily outlined).
+   * --surface-self: the viewer's "strongest fill" bubble — a neutral step
+   *   above surface-card, provably NOT teal (teal reads as a button) and NOT
+   *   lime (lime reads as Orbit).
+   */
+  --surface-orbit:         #1e2a20; /* muted green-tinted dark — reads as Orbit without being lime */
+  --surface-bubble-member: #1a1a1a; /* = surface-input; low fill, outlined primarily */
+  --surface-self:          #232323; /* strongest neutral fill — darker than surface-card */
 }
 
 @theme inline {
