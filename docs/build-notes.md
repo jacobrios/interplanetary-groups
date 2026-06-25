@@ -319,3 +319,11 @@ Replaced the `/groups/[id]` placeholder landing with the real group home (walkth
 **Addition: auto-scroll to bottom on mount and on send**
 
 After the pinned-input fix made the feed its own internal scroll region, newly appended messages landed below the fold. Fixed in `MessageFeed.tsx`: a `bottomRef` sentinel `<div>` at the end of the message list, with `useEffect(() => { bottomRef.current?.scrollIntoView() }, [messages.length])`. Fires on mount (feed opens at the most recent messages) and whenever the message count changes (viewer's optimistic append is immediately visible). Dependency is `messages.length` (a primitive) not `messages` (new array reference every render), so the effect only fires when messages are actually added or removed. When the feed is empty the sentinel is not rendered; the `?.` guard makes the effect a no-op. Deliberate choice: no "only scroll if near the bottom" smart-scroll logic — that earns its complexity only with substantial scroll history and is not needed at MVP.
+
+### Feel-pass register (items deferred from group-home work)
+
+Items below are deliberate deferrals, not bugs. Each is recorded here so it is not lost when the end-of-build polish pass opens.
+
+- **RSVP button cursor lag (feel pass).** After tapping I'm in / Can't make it on the home card or event detail, the button stays disabled for the full server round-trip, so the cursor shows the not-allowed state for roughly 0.5 to 1 second before returning to normal. The optimistic visual flip is instant; only the button's disabled-during-write state lingers. Deferred to the end-of-build feel pass. Any fix must stay a feel change and must not loosen the double-tap protection on the shared RSVP write path.
+
+- **No back-navigation from event detail to group home (small follow-on).** The event detail page predates the group home and has no affordance to return to it; the browser back button is the only way back. Add a back affordance that routes to the event's group home (derivable from the event, so it also works for a direct link, not just history). Its own small slice or part of the polish pass.
