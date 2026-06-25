@@ -289,3 +289,13 @@ Replaced the `/groups/[id]` placeholder landing with the real group home (walkth
 - **Pixel-level visual polish** against the walkthrough: a dedicated polish phase.
 
 **No component tests added.** Same rationale as the optimistic-RSVP slice: the vitest environment is node-only; testing useOptimistic revert in jsdom would be disproportionate and brittle. Chat optimistic behavior and the RSVP compact-card path are verified manually via the seed + dev server.
+
+### Chat input clears on send (feel fix, 25 June 2026)
+
+**Problem:** After sending a chat message the input stayed populated for ~500ms until the server action resolved, even though the optimistic message appeared instantly. This read as laggy/stuck.
+
+**Root cause:** `setInputValue("")` was called inside `startTransition(async () => {...})`. React treats `useState` updates made inside `startTransition` as concurrent (deferrable), so they don't apply until the transition settles — after `sendMessageAction` returns. Moving `setInputValue("")` to just before the `startTransition` call makes it an urgent synchronous update, applied on the same render tick as the form submission.
+
+**Change:** One line moved in `GroupHome.tsx`. `addOptimisticMessage` and `setErrorMsg` remain inside `startTransition` (required — `useOptimistic` updates must be inside a transition). Nothing else touched: the server action, the write path, and the optimistic-revert-on-failure logic are all unchanged.
+
+**Failure tradeoff:** On a failed send, the optimistic message still reverts and the soft error still shows. The input does not restore the typed text — deliberate, consistent with how the existing failure path works. The revert + error line is the signal.
