@@ -86,7 +86,8 @@ export default async function GroupPage({ params }: Props) {
   return (
     <div
       style={{
-        minHeight: "100dvh",
+        height: "100dvh",
+        overflow: "hidden",
         backgroundColor: "var(--surface-page)",
         color: "var(--text-primary)",
         display: "flex",

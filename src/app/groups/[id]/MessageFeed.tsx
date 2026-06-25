@@ -16,6 +16,7 @@
 // - Chat body stays at --type-body (17px), never shrunk (§7 firm rule).
 
 import { MessageAuthor } from "@prisma/client"
+import { useRef, useEffect } from "react"
 
 export interface FeedMessage {
   id: string
@@ -34,6 +35,19 @@ interface Props {
 }
 
 export default function MessageFeed({ messages, viewerId }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to the bottom sentinel on mount (so the feed opens at the most
+  // recent messages) and whenever the message count changes (so the viewer's
+  // just-sent optimistic message is immediately visible).
+  // Dependency is messages.length (a primitive) not messages (new array ref
+  // every render), so the effect only fires when messages are added/removed.
+  // When the feed is empty the sentinel is not rendered, bottomRef.current is
+  // null, and the optional-chain makes this a no-op.
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView()
+  }, [messages.length])
+
   if (messages.length === 0) {
     return (
       <div
@@ -190,6 +204,8 @@ export default function MessageFeed({ messages, viewerId }: Props) {
           </div>
         )
       })}
+      {/* Bottom sentinel — scrolled into view on mount and on message-count change */}
+      <div ref={bottomRef} />
     </div>
   )
 }

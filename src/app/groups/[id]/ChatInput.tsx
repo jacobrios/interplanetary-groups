@@ -56,7 +56,13 @@ export default function ChatInput({
         </p>
       )}
 
-      <form action={onSubmit} style={{ display: "flex", gap: "0.5rem" }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSubmit(new FormData(e.currentTarget))
+        }}
+        style={{ display: "flex", gap: "0.5rem" }}
+      >
         <input type="hidden" name="groupId" value={groupId} />
 
         <label htmlFor={inputId} style={{ display: "none" }}>

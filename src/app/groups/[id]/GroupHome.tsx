@@ -67,9 +67,9 @@ export default function GroupHome({
       isPending: true,
     }
 
+    setInputValue("")
     startTransition(async () => {
       setErrorMsg(null)
-      setInputValue("")
       addOptimisticMessage(optimistic)
       const result = await sendMessageAction({}, formData)
       if (result?.errors?.general) {
