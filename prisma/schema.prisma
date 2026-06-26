@@ -46,6 +46,7 @@ model Group {
   founderId           String
   inviteToken         String       @unique @default(cuid())
   recurringActivities Json?
+  timeZone            String       @default("UTC")
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   founder             User         @relation(fields: [founderId], references: [id])
@@ -80,7 +81,7 @@ model Event {
   rsvps         Rsvp[]
 
   @@index([groupId])
-  @@index([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
+  @@unique([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
 }
 
 model Venue {
