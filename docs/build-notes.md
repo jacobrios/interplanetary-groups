@@ -145,6 +145,18 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 
 *Build phase, begun June 2026. Entries here are decisions made while implementing, ADR-style, one per build slice. They realize and extend the product-design decisions in sections 1 to 10; they do not replace them.*
 
+### Before first Vercel deploy — prerequisites checklist
+
+Two High-priority tech-debt items from separate slice entries both come due at the moment of the first production deploy. Check both before pushing.
+
+1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
+   *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
+   *Detail:* Orbit scheduled-event slice §11 — "CRON_SECRET is a new required production env var."
+
+2. **Wire `prisma generate` into the build** (e.g. add `"prisma generate"` as a Vercel build command prefix, or add a `postinstall` script in `package.json`).
+   *Why it blocks deploy:* Prisma 7 does not auto-generate the client on install. After the Orbit slice the schema includes the `Group.timeZone` column and the `MessageAuthor.ORBIT` enum — a stale generated client will fail at runtime the first time either is touched.
+   *Detail:* Data-foundation slice §11 — "`prisma generate` does not auto-run in Prisma 7."
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
