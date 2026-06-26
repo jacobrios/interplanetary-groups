@@ -203,8 +203,11 @@ describe("reconcileScheduledEvents", () => {
     expect(result!.status).toBe("skipped")
     expect((result as { status: "skipped"; reason: string }).reason).toBe("upcoming_exists")
 
-    // Verify: still only the seeded event, no new one
+    // Verify: still only the seeded event, no new one, and no spurious announcement
     const eventCount = await prisma.event.count({ where: { groupId: group.id } })
     expect(eventCount).toBe(1)
+
+    const messageCount = await prisma.message.count({ where: { groupId: group.id } })
+    expect(messageCount).toBe(0)
   })
 })
