@@ -327,3 +327,33 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 - **RSVP button cursor lag (feel pass).** After tapping I'm in / Can't make it on the home card or event detail, the button stays disabled for the full server round-trip, so the cursor shows the not-allowed state for roughly 0.5 to 1 second before returning to normal. The optimistic visual flip is instant; only the button's disabled-during-write state lingers. Deferred to the end-of-build feel pass. Any fix must stay a feel change and must not loosen the double-tap protection on the shared RSVP write path.
 
 - **No back-navigation from event detail to group home (small follow-on).** The event detail page predates the group home and has no affordance to return to it; the browser back button is the only way back. Add a back affordance that routes to the event's group home (derivable from the event, so it also works for a direct link, not just history). Its own small slice or part of the polish pass.
+
+### Orbit scheduled event auto-creation (26 June 2026)
+
+Orbit now creates recurring events on a schedule rather than having them faked by a seed fixture. This is the first real event-creation path in the codebase and the first "Orbit acts autonomously" slice. Deliberately model-free: the rhythm arrives already structured (onboarding is deferred), so Orbit does only date math plus deterministic copy.
+
+**What landed:**
+
+- **`src/lib/orbit/rhythm.ts`** — `GroupRhythm` interface and `parseRhythm(json: unknown): GroupRhythm | null`, a defensive runtime validator for the raw `Group.recurringActivities Json?` blob. Stored as an array to honor the field's plural-by-design intent; this slice reads `rhythms[0]` only.
+- **`src/lib/orbit/occurrence.ts`** — `computeNextOccurrence(rhythm, timeZone, after)` using zero-dependency `Intl`-based timezone conversion (`zonedWallTimeToUtc`) with two-pass DST refinement. Unit-tested against `America/Los_Angeles` in both PDT (15:00Z) and PST (16:00Z) to prove DST correctness.
+- **`src/lib/events/create.ts`** — `createEvent({ groupId, title, startsAt, endsAt?, activityLabel?, venue? })`, the first real event-creation path, built as a clean reusable lib helper for the future spark (spontaneous-event) slice.
+- **`src/lib/orbit/announce.ts`** — `buildAnnouncement(event, rhythm)`, deterministic structured-extract-then-format copy (§7): `"Next up: climbing Sun at 8am. RSVP up top."` Generated from the just-created event so it can never contradict the card. Resolves the prior QA flag where the static fixture welcome could contradict the card.
+- **`src/lib/orbit/reconcile.ts`** — `reconcileScheduledEvents(now)`, the central engine: loads all groups sequentially, skips groups with no valid rhythm, skips groups with an existing upcoming event, creates one `Event` + one ORBIT `Message` for groups that need one. Catches Prisma P2002 (unique constraint) as a no-op for concurrent double-fire.
+- **`src/app/api/cron/orbit/route.ts`** — Next.js 16 route handler (`GET`, nodejs runtime, force-dynamic). Secured via `CRON_SECRET` (`Authorization: Bearer` header); graceful local-QA bypass when unset in non-production.
+- **`vercel.json`** — daily cron schedule (`0 13 * * *`; Vercel Hobby plan limit is once/day).
+- **`scripts/seed-fixture-rhythm.ts`** (replaces `seed-fixture-event.ts`) — seeds a structured rhythm and synthetic members, deletes old fixture sentinel rows. Retires when onboarding lands.
+- **Schema migration `add_group_timezone_and_unique_occurrence`** — two changes: (1) `Group.timeZone String @default("UTC")` (IANA timezone, queryable column, onboarding will write it later); (2) `Event.@@index([groupId, startsAt])` promoted to `@@unique([groupId, startsAt])` as the DB-level idempotency backstop for duplicate creation.
+
+**Timezone and display correctness:**
+
+`Group.timeZone` is a dedicated column (not buried in the `recurringActivities` blob) because timezone is a singular, queryable, group-level fact that the cron reads every run and onboarding will later write. The `recurringActivities` blob is plural by design (climbs, beers) while the timezone is one value for the group. For the demo group, `timeZone = "UTC"` is a deliberate seed-data choice: while `format.ts` still renders in UTC (the parked display debt), UTC makes the stored instant and the displayed hour the same number, so the card reads a correct "8am" today. This is not a logic shortcut — the `zonedWallTimeToUtc` conversion is built for real and DST-tested against `America/Los_Angeles`. Once the UTC-display fix lands, onboarding will populate a real zone and the display will convert to viewer-local.
+
+**Tech debt opened in this slice:**
+
+- **`@@unique([groupId, startsAt])`** means a group cannot hold two distinct events at the identical start instant. Acceptable for MVP scheduled mode; revisit when spark / the plural-rhythm design needs it (e.g. scope uniqueness to a future `source` field, or use a different idempotency key). Medium.
+- **`rhythms[0]` only.** Multiple concurrent rhythms per group (climbs + beers) and a multi-card carousel are deferred. Single upcoming occurrence per group is an explicit product decision for this slice. Low.
+- **Zero-dependency `Intl`-based timezone conversion.** `zonedWallTimeToUtc` has a latent failure mode for `timeLocal` values below roughly `05:00` in large-negative-offset zones (the first-pass candidate can land on the prior local day). MVP rhythms are daytime-only so this never fires; the code carries a DEBT comment. If timezone-agnostic scheduling is ever exposed to arbitrary user input, replace with an iteration-based approach or a date library. Low.
+- **Event and announcement are not in one transaction.** A crash between `createEvent` and `createMessage` leaves an event with no announcement; the upcoming-event guard prevents a retry. Low risk at once-per-day cron; revisit by threading a transaction through both calls if it matters. Low.
+- **`CRON_SECRET` is a new required production env var** (none existed before this slice). Must be set in Vercel environment variables before deploying. There is no `.env.example` in this project; documented in the PR. High (blocks a working deploy).
+- **Synthetic members now start with no RSVPs.** The seeded RSVPs belonged to the retired fixture event. A freshly auto-created scheduled event legitimately starts all-pending per §5 (auto-seeded RSVPs are a gauging-mode behavior); the roster demo is less rich but honest. Retires when onboarding lands. Low.
+- **Cron reconcile runs against the single shared dev database** (pre-existing debt from data-foundation §11). Low.
