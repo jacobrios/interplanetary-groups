@@ -48,6 +48,15 @@ function getLocalParts(
  * Convert a wall-clock local time in the given IANA timezone to a UTC Date.
  * Uses two refinement passes to handle DST boundaries correctly.
  *
+ * DEBT: The first-pass candidate treats (year, month, day, hour, minute) as-if-UTC,
+ * which only works when that UTC instant maps to a local time on the same calendar
+ * day. For timeLocal values in the pre-dawn hours (roughly < 05:00) in large
+ * negative-offset zones (e.g. America/Los_Angeles, UTC-8), the candidate can land on
+ * the prior local day and the hour-delta offset math diverges. MVP rhythms are
+ * daytime-only, so this never fires — but callers must not supply timeLocal < "05:00"
+ * with a large western offset until this is replaced with a proper iteration-based
+ * approach (e.g. binary-search on the offset, or a date library).
+ *
  * exported for testing only
  */
 export function zonedWallTimeToUtc(
