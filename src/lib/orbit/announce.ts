@@ -14,7 +14,7 @@ import { formatTime } from "@/lib/events/format"
  *
  * Template: "Next up: {activity} {weekday} at {time}. RSVP up top."
  *
- * - activity: from rhythm.activity (lowercased)
+ * - activity: from rhythm.activity (used as-is; rhythm parser stores it in the desired case)
  * - weekday: 3-letter abbreviation of event.startsAt in UTC
  * - time: formatTime(event.startsAt), e.g. "8am", "2:30pm"
  *
