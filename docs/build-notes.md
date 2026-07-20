@@ -128,8 +128,10 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 ## 9. Engineering process
 
 - **Stack:** Next.js, Supabase (database + auth), Prisma, Vitest, Vercel. RAG and MCP are the AI differentiators.
-- **Setup checklist:** CLAUDE.md before building; Superpowers plugin installed; Git from day one with deliberate commit history; evals baked in early, not retrofitted; subagent code reviewer (read-only tools) before commits, config checked into the repo; PostToolUse hook to auto-run tests after edits; PreToolUse hook protecting migration files and env configs.
-- **Design-source workflow.** Content and copy changes go through Claude Design in the live source, never by hand-editing the standalone export. The standalone walkthrough is rebuilt from the live gallery after any change, so source and export always agree, and there is exactly one standalone, one source of truth. Screenshots shared into a planning thread are source of truth as far as static images can convey; interaction states they cannot show are tracked as explicit open items rather than inferred.
+- **Setup checklist:** CLAUDE.md before building; Superpowers plugin installed; Git from day one with deliberate commit history; a separate dev/test database provisioned before the first slice, never a single environment shared with production; evals baked in early, not retrofitted; subagent code reviewer (read-only tools) before commits, config checked into the repo; PostToolUse hook to auto-run tests after edits; PreToolUse hook protecting migration files and env configs.
+- **Design-source workflow.** Content and copy changes go through Claude Design in the live source, never by hand-editing the standalone export. The standalone walkthrough is rebuilt from the live gallery after any change, so source and export always agree, and there is exactly one standalone, one source of truth.
+- **Hand the coding agent the real design source, never flattened images.** Use Claude Design's "Send to local coding agent" handoff, which transfers the actual CSS, the frame components, and the asset files (the Orbit mascot among them). Multi-screen PNG contact sheets fail twice over: individual screens are rendered too small for the agent to resolve fine detail, and any asset the agent never receives gets silently replaced with a placeholder that then looks like a deliberate design choice in the diff. Screenshots are fine for a human planning conversation. They are not a build input. (Amended after the July 2026 one-shot experiment; the earlier version of this note treated screenshots as an acceptable build source and that was wrong.)
+- **Before the agent writes visual code, make it describe what it sees.** A short describe-back of the design, in its own words, checked against the real thing. This surfaces a missing asset, an unreadable source, or a misread layout while it still costs one message instead of a whole slice.
 
 ## 10. Long-range vision (not planned, not architected for)
 
@@ -147,7 +149,7 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 
 ### Before first Vercel deploy — prerequisites checklist
 
-Two High-priority tech-debt items from separate slice entries both come due at the moment of the first production deploy. Check both before pushing.
+Three High-priority items come due at the moment of the first production deploy. Check all three before pushing.
 
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
@@ -156,6 +158,10 @@ Two High-priority tech-debt items from separate slice entries both come due at t
 2. **Wire `prisma generate` into the build** (e.g. add `"prisma generate"` as a Vercel build command prefix, or add a `postinstall` script in `package.json`).
    *Why it blocks deploy:* Prisma 7 does not auto-generate the client on install. After the Orbit slice the schema includes the `Group.timeZone` column and the `MessageAuthor.ORBIT` enum — a stale generated client will fail at runtime the first time either is touched.
    *Detail:* Data-foundation slice §11 — "`prisma generate` does not auto-run in Prisma 7."
+
+3. **Add `connection_limit=1` to the production `DATABASE_URL`.**
+   *Why it blocks deploy:* Vercel runs each serverless function as its own short-lived process, and each one opens its own Prisma connection pool. Without a per-connection cap, concurrent traffic can exhaust Supabase's connection ceiling and produce intermittent "too many connections" errors that never appear in local testing because local testing is never concurrent.
+   *Detail:* `pgbouncer=true` and `connection_limit=1` do different jobs and both are needed. `pgbouncer=true` tells Prisma it is talking to a transaction-mode pooler and to stop using prepared statements (correctness). `connection_limit=1` caps what each function instance opens (pool exhaustion). Setting one without the other leaves the other failure mode live.
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -371,3 +377,21 @@ Orbit now creates recurring events on a schedule rather than having them faked b
 - **Cron reconcile runs against the single shared dev database** (pre-existing debt from data-foundation §11). Low.
 - **`announce.ts` shares the parked UTC-display assumption.** `buildAnnouncement` formats weekday and time using UTC (same root cause as the parked `format.ts` display debt). For the demo group (`timeZone = "UTC"`) this produces correct copy. For any non-UTC group the announcement would name the wrong day and wrong hour from the member's perspective. Fix `announce.ts` in lockstep with `format.ts` when the UTC-display fix lands — both must convert to group-local at the same time to avoid card/announcement divergence. Low (dormant while demo group is UTC).
 - **`durationMinutes` is parsed but not wired to `endsAt`.** `GroupRhythm.durationMinutes` exists and `createEvent` accepts `endsAt`, but `reconcile.ts` creates events with no end time. Deliberate MVP shortcut: single-instant events are sufficient for scheduled mode. Wire it when the event detail needs a displayed end time. Low.
+
+### Sealed one-shot experiment (July 2026)
+
+A deliberate control experiment, not a build slice. The app was cloned into an isolated sandbox (separate GitHub repo, separate Supabase project) and the entire remaining feature set was attempted in a single pass with the usual human gates removed, to test the slice-by-slice process against its opposite. The sandbox repo survives as `interplanetary-groups-oneshot` for reference. Its code is not trusted and nothing from it is merged. Its decision log is preserved at `docs/experiments/oneshot-decisions.md`.
+
+**The core finding: one-shot features, not foundations.** One-shotting works well on an established codebase where the seams already exist and are tested, because the agent is fitting new work into proven integration points. It fails on a greenfield app because every seam is new and unverified at once. Every single failure in the experiment was a new seam, an edge case, or an unasked data-modeling question. Not one was the model failing to write code. The practical consequence for this project: keep building the skeleton deliberately until the app is real and its integration points are proven, then one-shot individual features onto that base.
+
+**Self-reported agent output is a claim, not a fact.** The experiment produced a guardrail that was reported as enforcing and did not enforce, a chat feature reported as working that the agent could not actually run, and "matches the mockups" three separate times before it was true. The decision log was valuable precisely because every claim in it was checked. Nothing here is an argument against agent logs; it is an argument that a log is evidence to verify, not a status report to accept.
+
+**Two cheap gates caught nearly everything.** Look at the actual rendered screen next to the design, and make the agent show that it works rather than tell you it works. Both take minutes. Together they catch the entire "looks done but isn't" class of failure, which was the dominant failure mode.
+
+**A one-shot silently drops whatever needs a modeling decision.** The design showed a "beers once a month" row alongside the climbing rhythm. There was no field for it in the data model, so the agent quietly built everything else and omitted it, with no flag. The pattern generalizes: an agent building at speed will implement whatever has an obvious data home and skip whatever would require asking a question. When a design implies data, the question of where that data lives has to be asked explicitly, by name, before the build starts.
+
+**A second-model audit was considered and declined.** Running an independent read-only architecture review from a different model (Codex or similar) would give genuine cross-checking, since the Superpowers reviewer is Claude reviewing Claude and shares its blind spots by construction. Declined for this project as redundant tooling on top of a review step that already exists. The residual risk is accepted knowingly: shared blind spots stay unexamined. Revisit if a review pass ever misses something structural.
+
+**Tech debt resolved by this experiment.** The experiment's Supabase project has been renamed `interplanetary-groups-dev-test` and promoted to the project's real dev/test database. This closes the "single shared database, no separate dev/test environment" debt logged in the data-foundation slice and referenced again in the Orbit scheduled-event slice. Credentials for it are kept strictly separate from production and a production build is never pointed at it.
+
+**Next phase intent: test bigger slices deliberately.** The goal of all of the above is faster-but-earned, not slower-forever. The gates are what make it safe to size slices up. Worth running as its own deliberate experiment on the real app once onboarding lands: a few related features in one slice, with the look-at-the-screen and show-me-it-works gates fully intact, and a comparison against the single-feature slice cadence.
