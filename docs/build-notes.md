@@ -440,3 +440,38 @@ The first real Anthropic API call in the product. The two-field create-group stu
 - **`Group.description` is written but unread** — deliberate, for the gap-ask/RAG slices. Low.
 - **Loose rhythms are stored and shown at playback but displayed nowhere post-onboarding** (the group info page shows no schedule today; unchanged by this slice). Low.
 - **Extraction latency sits inside a server action** with only the SDK's default timeout. Fine for Haiku-scale calls; revisit if the pause ever exceeds a few seconds in practice. Low.
+
+### Gap-ask conversational loop slice (21 July 2026)
+
+The static onboarding gap gate becomes a conversation, and Orbit gets its first generated prose anywhere in the product. When extraction leaves the primary rhythm unschedulable, the founder now lands on the screen-03 gap step: the playback card with a lime marker on the one gap, Orbit's one-sentence question (model-written, code-validated, template fallback), and a message input. One merge call per answer returns the merged state and the next question together, so each answer costs exactly one labeled pause. Two rounds maximum, then the existing edit-description escape hatch. This closes the §11 named candidate from the onboarding slice: ambiguous clock times ("Tuesdays at 7") are now flagged in structured output and asked about, never silently resolved.
+
+**What landed:**
+
+- **Schema widened, shared by both calls** — per-rhythm `timeAmbiguous` (true only for a clock number with no am/pm and no settling context) and top-level `clarifyingQuestion`, which rides the same response as the state; the initial extraction carries the first question, the merge call the next. `FIELD_RULES` and the call helper are shared between `extract.ts` and the new `merge.ts` so the two prompts cannot drift on field semantics.
+- **`src/lib/orbit/gap.ts`** — the pure decision seam: `validateQuestion` (one sentence, one trailing question mark, 8 to 140 chars, no dashes/newlines/sentence enders), template fallback, and `decideGapOutcome` (ready discards rider questions; two-answer cap; unshowable states escape). Fully unit-tested; the actions are plumbing over it.
+- **`normalize.ts` widened** — `ambiguous_time` in the gap classification (outranks unconfident cadence; absorbed into `both` when the day is also missing so one question covers both), and the incomplete result now carries partial display state: gapped primary at position zero, cleaned name suggestion or null, and the candidate hour in its own field. Ambiguous guesses are nulled in stored shape on every path; the guess never reaches a field confirm would write.
+- **`formatGapRhythmRow`** — deterministic gapped-row composition (known part + marker), with the ambiguous candidate shown bare ("Tue at 7"), deliberately without am/pm.
+- **`mergeGapAction`** — server-side distrust of the client round-trip (re-parse rhythms, whitelist the gap kind, clamp the round so tampering only shortens the loop); the create-group completeness gate is unchanged and remains the only door to creation.
+- **`StepGapAsk` + wizard gap step** — screen-03 UI; merge rounds run through `useTransition` with straight-line transitions; the shared `OrbitPause` keeps both pauses labeled in Orbit's voice ("working out" vs "updating" your schedule).
+- **Harness**: `try-merge.ts` runs the real loop end to end; `try-extract.ts` prints the generated question and the validator's verdict.
+
+**Decisions made at plan review (recorded deviations):**
+
+- **Send button is teal-when-typed, never lime** — the mockup's own final dark pass remaps its send buttons off lime; lime survives only as the gap marker and row-label tint (Orbit's cue, not an action).
+- **Gap-card name row is read-only** — a merge round can return a new suggestion, which would silently overwrite a mid-loop edit; renaming stays on Step 2.
+- **Hint examples model answerable answers** — "we start at 7pm", not the mockup's ambiguous "we start at 7".
+- **Two template sets** — `REASK_COPY` keeps description-editing phrasing for Step 1 (including the founder bailing out mid-loop); `GAP_REASK_COPY` is phrased for the message input.
+- **Merge action uses `useTransition`**, not a second `useActionState` — its result drives four transitions plus round bookkeeping; straight-line updates beat a second adjust-state-during-render block.
+
+**Deliberate behavioral consequences:**
+
+- **`nothing_schedulable` on the initial extraction keeps the static Step 1 treatment** — no partial card exists to anchor a conversation, so the conversational loop only opens on askable gaps. Mid-loop, a merge that loses everything schedulable escapes to describe rather than rendering an empty card.
+- **A vague answer consumes its round.** Two answers maximum, no exceptions; the escape hatch explainer sends the founder back to the description.
+- **The question is scoped to the primary rhythm.** Browser verification caught the model asking about a loose secondary's day; the prompt now forbids asking about non-primary rhythms — they are allowed to stay loose.
+- **Unambiguous times never trigger the loop.** Harness-verified negatives: "7am", "noon", "after work around 6", "Sunday mornings at 8".
+
+**Tech debt restated or opened in this slice:**
+
+- **Unauthenticated model calls, ceiling raised.** `/create` now spends up to three or four pre-auth billable calls per visitor (one extraction plus up to two merges, plus soft retries), up from one. Same MVP-traffic acceptance rationale; revisit before promoting the URL anywhere. Medium.
+- **Prompt quality remains manually verified** (`try-extract.ts`, `try-merge.ts`), not CI-covered; the interpretation and decision seams (normalize, gap) are what CI covers. Low.
+- **The gap-step answer path is exercised by pure-seam tests and manual walkthrough only** — no component tests, consistent with the rest of the wizard. Low.
