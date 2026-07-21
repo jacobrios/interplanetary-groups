@@ -4,7 +4,7 @@
 // Json? value of Group.recurringActivities and returns a typed GroupRhythm
 // or null.
 import { describe, it, expect } from "vitest"
-import { parseRhythm } from "../rhythm"
+import { parseRhythm, parseStoredRhythms } from "../rhythm"
 
 const VALID_RHYTHM = {
   activity: "climbing",
@@ -149,5 +149,86 @@ describe("parseRhythm", () => {
     const second = { ...VALID_RHYTHM, activity: "running", title: "Running Monday", daysOfWeek: [1] }
     const result = parseRhythm([VALID_RHYTHM, second])
     expect(result?.activity).toBe("climbing")
+  })
+})
+
+describe("parseRhythm time range", () => {
+  it("rejects out-of-range hours", () => {
+    expect(parseRhythm([{ ...VALID_RHYTHM, timeLocal: "99:99" }])).toBeNull()
+    expect(parseRhythm([{ ...VALID_RHYTHM, timeLocal: "24:00" }])).toBeNull()
+  })
+
+  it("rejects out-of-range minutes", () => {
+    expect(parseRhythm([{ ...VALID_RHYTHM, timeLocal: "08:60" }])).toBeNull()
+  })
+
+  it("accepts boundary times", () => {
+    expect(parseRhythm([{ ...VALID_RHYTHM, timeLocal: "00:00" }])).not.toBeNull()
+    expect(parseRhythm([{ ...VALID_RHYTHM, timeLocal: "23:59" }])).not.toBeNull()
+  })
+})
+
+describe("parseStoredRhythms", () => {
+  const LOOSE = {
+    activity: "beers",
+    title: "Beers",
+    cadence: null,
+    daysOfWeek: null,
+    timeLocal: null,
+  }
+
+  it("accepts a schedulable + loose pair", () => {
+    const result = parseStoredRhythms([VALID_RHYTHM, LOOSE])
+    expect(result).toHaveLength(2)
+    expect(result?.[0].cadence).toBe("weekly")
+    expect(result?.[1].cadence).toBeNull()
+  })
+
+  it("accepts monthly with day and no time", () => {
+    const result = parseStoredRhythms([{ ...LOOSE, cadence: "monthly", daysOfWeek: [5] }])
+    expect(result).not.toBeNull()
+    expect(result?.[0].daysOfWeek).toEqual([5])
+  })
+
+  it("accepts legacy fixture shape (fields absent rather than null)", () => {
+    // Rhythms written before this slice have no explicit nulls — absent
+    // optional fields must be treated as null, not as invalid.
+    expect(parseStoredRhythms([VALID_RHYTHM])).not.toBeNull()
+    expect(parseStoredRhythms([{ activity: "beers", title: "Beers" }])).not.toBeNull()
+  })
+
+  it("rejects unknown cadence strings", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, cadence: "yearly" }])).toBeNull()
+  })
+
+  it("rejects empty activity", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, activity: "" }])).toBeNull()
+  })
+
+  it("rejects empty title", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, title: "" }])).toBeNull()
+  })
+
+  it("rejects out-of-range day", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, daysOfWeek: [7] }])).toBeNull()
+  })
+
+  it("rejects present-but-empty daysOfWeek", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, daysOfWeek: [] }])).toBeNull()
+  })
+
+  it("rejects range-invalid time", () => {
+    expect(parseStoredRhythms([{ ...LOOSE, timeLocal: "99:99" }])).toBeNull()
+  })
+
+  it("rejects the whole array when any entry is invalid", () => {
+    expect(parseStoredRhythms([VALID_RHYTHM, { ...LOOSE, activity: "" }])).toBeNull()
+  })
+
+  it("rejects non-array and empty array", () => {
+    expect(parseStoredRhythms(null)).toBeNull()
+    expect(parseStoredRhythms(undefined)).toBeNull()
+    expect(parseStoredRhythms([])).toBeNull()
+    expect(parseStoredRhythms("nope")).toBeNull()
   })
 })
