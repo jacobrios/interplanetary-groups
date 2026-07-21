@@ -66,7 +66,7 @@ describe("normalizeExtraction — ready path", () => {
   it("never writes durationMinutes", () => {
     const r = normalizeExtraction(raw([{ ...CLIMB, durationMinutes: 90 }]))
     if (r.status !== "ready") throw new Error("expected ready")
-    const first = r.rhythms[0] as Record<string, unknown>
+    const first = r.rhythms[0] as unknown as Record<string, unknown>
     expect(first.durationMinutes == null).toBe(true)
   })
 })
