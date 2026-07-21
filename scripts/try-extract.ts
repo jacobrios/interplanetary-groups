@@ -20,10 +20,19 @@ async function main() {
   // Import after dotenv so ANTHROPIC_API_KEY is present at module load.
   const { extractGroupProfile } = await import("../src/lib/orbit/extract")
   const { normalizeExtraction } = await import("../src/lib/orbit/normalize")
+  const { readClarifyingQuestion, validateQuestion } = await import("../src/lib/orbit/gap")
 
   const raw = await extractGroupProfile(description)
   console.log("RAW:", JSON.stringify(raw, null, 2))
   console.log("NORMALIZED:", JSON.stringify(normalizeExtraction(raw), null, 2))
+
+  // The generated question and the code gate's verdict on it.
+  const question = readClarifyingQuestion(raw)
+  console.log("QUESTION:", JSON.stringify(question))
+  console.log(
+    "VALIDATED:",
+    question === null ? "(none)" : (validateQuestion(question) ?? "REJECTED, template will show")
+  )
 }
 
 main().catch((err) => {

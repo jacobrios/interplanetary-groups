@@ -84,11 +84,11 @@ describe("normalizeExtraction — ready path", () => {
 describe("normalizeExtraction — sanitization (raw output is a claim)", () => {
   it("range-checks time: 99:99 becomes null (missing), not a pass-through", () => {
     const r = normalizeExtraction(raw([{ ...CLIMB, timeLocal: "99:99" }]))
-    expect(r).toEqual({ status: "incomplete", missing: "time" })
+    expect(r).toMatchObject({ status: "incomplete", missing: "time" })
   })
 
   it("filters invalid day numbers; all-invalid becomes missing day", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [7, -1] }]))).toEqual({
+    expect(normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [7, -1] }]))).toMatchObject({
       status: "incomplete",
       missing: "day",
     })
@@ -114,23 +114,23 @@ describe("normalizeExtraction — sanitization (raw output is a claim)", () => {
   })
 
   it("tolerates garbage input shapes", () => {
-    expect(normalizeExtraction(null)).toEqual({
+    expect(normalizeExtraction(null)).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
-    expect(normalizeExtraction(undefined)).toEqual({
+    expect(normalizeExtraction(undefined)).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
-    expect(normalizeExtraction("climbing")).toEqual({
+    expect(normalizeExtraction("climbing")).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
-    expect(normalizeExtraction({ rhythms: "nope" })).toEqual({
+    expect(normalizeExtraction({ rhythms: "nope" })).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
-    expect(normalizeExtraction({ rhythms: [null, 42, "x"] })).toEqual({
+    expect(normalizeExtraction({ rhythms: [null, 42, "x"] })).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
@@ -139,14 +139,14 @@ describe("normalizeExtraction — sanitization (raw output is a claim)", () => {
 
 describe("normalizeExtraction — completeness gate", () => {
   it("missing time only", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, timeLocal: null }]))).toEqual({
+    expect(normalizeExtraction(raw([{ ...CLIMB, timeLocal: null }]))).toMatchObject({
       status: "incomplete",
       missing: "time",
     })
   })
 
   it("missing day only", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: null }]))).toEqual({
+    expect(normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: null }]))).toMatchObject({
       status: "incomplete",
       missing: "day",
     })
@@ -155,11 +155,11 @@ describe("normalizeExtraction — completeness gate", () => {
   it("missing both", () => {
     expect(
       normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: null, timeLocal: null }]))
-    ).toEqual({ status: "incomplete", missing: "both" })
+    ).toMatchObject({ status: "incomplete", missing: "both" })
   })
 
   it("day+time with unconfident cadence gets the targeted cadence re-ask, never silent weekly inference", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, cadence: null }]))).toEqual({
+    expect(normalizeExtraction(raw([{ ...CLIMB, cadence: null }]))).toMatchObject({
       status: "incomplete",
       missing: "cadence",
     })
@@ -170,18 +170,122 @@ describe("normalizeExtraction — completeness gate", () => {
       normalizeExtraction(
         raw([{ ...BEERS, isPrimary: true, daysOfWeek: [5], timeLocal: "18:00" }])
       )
-    ).toEqual({ status: "incomplete", missing: "nothing_schedulable" })
+    ).toMatchObject({ status: "incomplete", missing: "nothing_schedulable" })
   })
 
   it("no usable activity at all", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, activity: "  " }]))).toEqual({
+    expect(normalizeExtraction(raw([{ ...CLIMB, activity: "  " }]))).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
-    expect(normalizeExtraction(raw([]))).toEqual({
+    expect(normalizeExtraction(raw([]))).toMatchObject({
       status: "incomplete",
       missing: "nothing_schedulable",
     })
+  })
+})
+
+describe("normalizeExtraction — ambiguous time (the flag is a claim too)", () => {
+  // "Tuesdays at 7": the model's best guess rides in timeLocal, the flag says
+  // it was a guess. The guess must never reach stored shape as a fact.
+  const AMBIG = { ...CLIMB, daysOfWeek: [2], timeLocal: "19:00", timeAmbiguous: true }
+
+  it("primary with a known day and an ambiguous time classifies as ambiguous_time", () => {
+    const r = normalizeExtraction(raw([AMBIG]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "ambiguous_time" })
+    if (r.status !== "incomplete") return
+    expect(r.candidateTimeLocal).toBe("19:00")
+    expect(r.rhythms[0].timeLocal).toBeNull() // the guess never sits in stored shape
+  })
+
+  it("ambiguous time with no day collapses into both, candidate still carried", () => {
+    // One question covers day and am/pm together; the candidate still travels
+    // so the question and the merge can name the number the founder used.
+    const r = normalizeExtraction(raw([{ ...AMBIG, daysOfWeek: null }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "both" })
+    if (r.status !== "incomplete") return
+    expect(r.candidateTimeLocal).toBe("19:00")
+  })
+
+  it("a flagged rhythm with no stated time is just a missing time", () => {
+    const r = normalizeExtraction(raw([{ ...AMBIG, timeLocal: null }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "time" })
+    if (r.status !== "incomplete") return
+    expect(r.candidateTimeLocal).toBeNull()
+  })
+
+  it("non-boolean timeAmbiguous degrades to false", () => {
+    const r = normalizeExtraction(raw([{ ...AMBIG, timeAmbiguous: "yes" }]))
+    expect(r.status).toBe("ready")
+  })
+
+  it("an ambiguous time on a secondary rhythm degrades to null and never gates", () => {
+    const r = normalizeExtraction(
+      raw([CLIMB, { ...BEERS, timeLocal: "19:00", timeAmbiguous: true }])
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[1].timeLocal).toBeNull()
+  })
+
+  it("a designated ambiguous primary is passed over for a fully complete rhythm", () => {
+    const r = normalizeExtraction(
+      raw([{ ...AMBIG, isPrimary: true }, { ...CLIMB, isPrimary: false }])
+    )
+    expect(r.status).toBe("ready")
+    if (r.status !== "ready") return
+    expect(r.rhythms[0].timeLocal).toBe("08:00")
+  })
+
+  it("asks about ambiguity before cadence when both are open", () => {
+    // A stated weekday implies weekly per the prompt, so this combination is
+    // rare; when it happens, the am/pm answer often settles cadence for free.
+    const r = normalizeExtraction(raw([{ ...AMBIG, cadence: null }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "ambiguous_time" })
+  })
+})
+
+describe("normalizeExtraction — incomplete partial state", () => {
+  it("carries the gapped primary at position zero with derived titles", () => {
+    const r = normalizeExtraction(raw([BEERS, { ...CLIMB, timeLocal: null, isPrimary: true }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "time" })
+    if (r.status !== "incomplete") return
+    expect(r.rhythms).toHaveLength(2)
+    expect(r.rhythms[0].activity).toBe("climbing")
+    expect(r.rhythms[0].title).toBe("Climbing") // unschedulable: bare activity title
+    expect(r.rhythms[1].activity).toBe("beers")
+  })
+
+  it("carries the cleaned suggestion as the group name", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, timeLocal: null }], " Sunday — Climbers "))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.groupName).toBe("Sunday Climbers")
+  })
+
+  it("group name is null when no usable suggestion, never the derived fallback", () => {
+    // The derived fallback dereferences the primary's day, which incomplete
+    // states may not have; and a made-up name on the gap card would be a
+    // promise the extraction didn't earn.
+    const r = normalizeExtraction(raw([{ ...CLIMB, timeLocal: null }], null))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.groupName).toBeNull()
+  })
+
+  it("nothing_schedulable with no usable rhythm carries empty partial state", () => {
+    const r = normalizeExtraction(raw([]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "nothing_schedulable" })
+    if (r.status !== "incomplete") return
+    expect(r.rhythms).toEqual([])
+    expect(r.candidateTimeLocal).toBeNull()
+  })
+
+  it("normalizes a merged claim like any other: latest word wins arrives as new values", () => {
+    // Merge semantics (the founder's answer overriding prior fields) live in
+    // the model + schema; the pure path simply normalizes the latest claim.
+    const merged = raw([{ ...CLIMB, daysOfWeek: [6], timeLocal: "10:00", timeAmbiguous: false }])
+    const r = normalizeExtraction(merged)
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[0].daysOfWeek).toEqual([6])
+    expect(r.rhythms[0].timeLocal).toBe("10:00")
   })
 })
 
