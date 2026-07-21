@@ -39,6 +39,16 @@ describe("normalizeExtraction — ready path", () => {
     expect(r.groupName).toBe("Sunday Climbers")
   })
 
+  it("derives a day-free title for every-day rhythms", () => {
+    // A seven-day rhythm's events fall on any weekday, so the title must not
+    // name one ("Walks Sunday" on a Wednesday event would be wrong).
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, activity: "walks", daysOfWeek: [0, 1, 2, 3, 4, 5, 6], timeLocal: "06:00" }])
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[0].title).toBe("Walks")
+  })
+
   it("derives titles deterministically", () => {
     const r = normalizeExtraction(raw([CLIMB, BEERS]))
     if (r.status !== "ready") throw new Error("expected ready")

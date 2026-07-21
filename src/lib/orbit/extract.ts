@@ -32,7 +32,9 @@ const EXTRACTION_SCHEMA = {
         required: ["activity", "cadence", "daysOfWeek", "timeLocal", "isPrimary"],
         properties: {
           activity: { type: ["string", "null"] },
-          cadence: { type: ["string", "null"], enum: ["weekly", "monthly", null] },
+          cadence: {
+            anyOf: [{ type: "string", enum: ["weekly", "monthly"] }, { type: "null" }],
+          },
           daysOfWeek: { type: ["array", "null"], items: { type: "integer" } },
           timeLocal: { type: ["string", "null"] },
           isPrimary: { type: "boolean" },
@@ -46,7 +48,7 @@ const SYSTEM_PROMPT = `You read a founder's short description of their recurring
 
 Rules:
 - Each distinct recurring activity is one rhythm.
-- activity: a short noun phrase in the founder's own words (e.g. "climbing", "beers").
+- activity: one or two words in the founder's own words, naming the activity itself (e.g. "climbing", "beers", "board games"). Drop location and filler words: "climbing at the gym" is just "climbing".
 - cadence: "weekly" or "monthly" only when the description clearly supports it. A stated weekday ("Sundays", "every Tuesday") means weekly. "Every morning" or "every day" means weekly with all seven days. Yearly, one-off, or unclear cadence is null.
 - daysOfWeek: integers 0-6 with 0=Sunday, only for days the founder stated. Otherwise null.
 - timeLocal: 24-hour "HH:MM" only if the founder stated a time ("8" plus a morning context is "08:00"). Otherwise null.

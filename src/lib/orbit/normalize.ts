@@ -91,11 +91,17 @@ function titleCase(s: string): string {
     .join(" ")
 }
 
-/** Event title, derived deterministically — never extracted. */
+/**
+ * Event title, derived deterministically — never extracted. Schedulable
+ * rhythms get "{Activity} {Weekday}" ("Climbing Sunday"); an every-day
+ * rhythm gets the bare activity, since its events fall on any weekday and
+ * naming one would be wrong on most of them.
+ */
 function deriveTitle(c: Candidate): string {
-  return isSchedulable(c)
-    ? `${titleCase(c.activity)} ${WEEKDAY_FULL[c.daysOfWeek![0]]}`
-    : titleCase(c.activity)
+  if (isSchedulable(c) && c.daysOfWeek!.length < 7) {
+    return `${titleCase(c.activity)} ${WEEKDAY_FULL[c.daysOfWeek![0]]}`
+  }
+  return titleCase(c.activity)
 }
 
 /**
