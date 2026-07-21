@@ -37,12 +37,18 @@ export default function Step1Describe({
   isExtracting,
   extractState,
 }: Props) {
+  // "incomplete" here means the founder bailed out of the gap step back to
+  // Step 1, so the description-editing phrasing of REASK_COPY is the right
+  // one. "unusable" (nothing schedulable) deliberately keeps this static
+  // treatment: there is no partial card to anchor a conversation.
   const bubbleCopy =
     extractState.status === "incomplete"
-      ? REASK_COPY[extractState.missing]
-      : extractState.status === "error"
-        ? ERROR_COPY
-        : INTRO_COPY
+      ? REASK_COPY[extractState.gap.missing]
+      : extractState.status === "unusable"
+        ? REASK_COPY.nothing_schedulable
+        : extractState.status === "error"
+          ? ERROR_COPY
+          : INTRO_COPY
 
   const canSubmit = founderName.trim().length > 0 && description.trim().length > 0
 
