@@ -149,7 +149,7 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 
 ### Before first Vercel deploy — prerequisites checklist
 
-Three High-priority items come due at the moment of the first production deploy. Check all three before pushing.
+Five High-priority items come due at the moment of the first production deploy. Check all five before pushing.
 
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
@@ -162,6 +162,14 @@ Three High-priority items come due at the moment of the first production deploy.
 3. **Add `connection_limit=1` to the production `DATABASE_URL`.**
    *Why it blocks deploy:* Vercel runs each serverless function as its own short-lived process, and each one opens its own Prisma connection pool. Without a per-connection cap, concurrent traffic can exhaust Supabase's connection ceiling and produce intermittent "too many connections" errors that never appear in local testing because local testing is never concurrent.
    *Detail:* `pgbouncer=true` and `connection_limit=1` do different jobs and both are needed. `pgbouncer=true` tells Prisma it is talking to a transaction-mode pooler and to stop using prepared statements (correctness). `connection_limit=1` caps what each function instance opens (pool exhaustion). Setting one without the other leaves the other failure mode live.
+
+4. **Set `ANTHROPIC_API_KEY` in the Vercel dashboard** (Environment Variables → Production).
+   *Why it blocks deploy:* founder onboarding's extraction call requires it. Without it, every onboarding attempt fails soft on Step 1 and no group can be created through the designed flow.
+   *Detail:* Founder-onboarding slice §11. Server-side only; the key never reaches the browser.
+
+5. **Apply pending migrations to the production database** (currently `add_group_description` and everything before it).
+   *Why it blocks deploy:* the confirm action writes `Group.description`; a production database without the column fails every group creation.
+   *Detail:* Migrations to date have been applied to the dev-test project only (two-databases rule).
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -395,3 +403,39 @@ A deliberate control experiment, not a build slice. The app was cloned into an i
 **Tech debt resolved by this experiment.** The experiment's Supabase project has been renamed `interplanetary-groups-dev-test` and promoted to the project's real dev/test database. This closes the "single shared database, no separate dev/test environment" debt logged in the data-foundation slice and referenced again in the Orbit scheduled-event slice. Credentials for it are kept strictly separate from production and a production build is never pointed at it.
 
 **Next phase intent: test bigger slices deliberately.** The goal of all of the above is faster-but-earned, not slower-forever. The gates are what make it safe to size slices up. Worth running as its own deliberate experiment on the real app once onboarding lands: a few related features in one slice, with the look-at-the-screen and show-me-it-works gates fully intact, and a comparison against the single-feature slice cadence.
+
+### Founder-onboarding slice (21 July 2026)
+
+The first real Anthropic API call in the product. The two-field create-group stub is replaced by the designed three-beat flow: the founder describes the group in free text, `claude-haiku-4-5` extracts structured rhythms via structured outputs, a fully-tested normalization layer turns that claim into the stored shape, deterministic code composes the playback, and confirm creates the group with its first event already on the home screen (group-scoped reconcile at creation time, fail-soft).
+
+**What landed:**
+
+- **`src/lib/orbit/extract.ts`** — the extraction call: `claude-haiku-4-5`, a structured-outputs JSON schema where every field is required and "not stated" must be an explicit null, return type `unknown` by design. Every failure mode throws `ExtractionError` → one soft-retry state.
+- **`src/lib/orbit/normalize.ts`** — the claim-to-fact boundary (CLAUDE.md guardrail): field sanitization that degrades invalid values to "not stated," cadence whitelist (unknown → loose), primary promotion, the position-zero guarantee, and the completeness gate with targeted missing-field classification.
+- **`src/lib/orbit/playback.ts`** — deterministic playback rows and the five static re-ask templates. Composed from the same normalized fields the engine consumes, so card, announcement, and created event can never disagree.
+- **`src/lib/orbit/rhythm.ts` widened** — `StoredRhythm` + `parseStoredRhythms` (storage shape); `parseRhythm` (engine contract) unchanged except the mandated time-range fix (`"99:99"` no longer passes). All 30 pre-existing rhythm tests pass unchanged.
+- **`reconcileScheduledEvents(now, { groupId? })`** — optional scope so creation generates one group's first event without sweeping the database.
+- **`provisionFounderGroup`** gains `description` and `recurringActivities` writes (change to shipped code, called out in the PR).
+- **Wizard UI** at `/create`: Step 1 with the single tailed Orbit bubble (§7 exception), labeled extraction pause in Orbit's voice, re-asks that preserve the founder's text; Step 2 playback rows inside the feed-style bubble with an inline-editable group name.
+- **Schema migration `add_group_description`** — nullable `Group.description`.
+- `scripts/seed-fixture-rhythm.ts` deleted per its recorded retirement plan (onboarding has landed).
+
+**Decisions made at plan review:**
+
+- **`suggestedGroupName` is a structured extraction field** (venue-displayLabel precedent), not free model copy: normalized (trim, strip em/en dashes, collapse whitespace, cap 50 chars) with a deterministic `"{Weekday} {Activity}"` fallback, and inline-editable on the playback row. This resolves the tension between "name derived from the description" and "no model-written user-facing copy."
+- **`Group.description` column added now.** The founder's original words are irreplaceable source material for the gap-ask and RAG slices; nothing reads it yet, deliberately.
+- **Editable name row is a recorded deviation** from the read-only mockup playback: rename exists nowhere else in the product yet.
+
+**Deliberate behavioral consequences:**
+
+- **Monthly-only descriptions cannot create a group.** Weekly is the only schedulable cadence in this slice; a confidently-monthly primary gets the generic re-ask. Revisit when monthly scheduling lands.
+- **No silent weekly inference.** A description with day + time but unconfident cadence gets a targeted "Is that every week?" re-ask instead of a code-level guess — guessing wrong would silently create weekly events for a monthly group (§5 ask-if-missing). The prompt instructs the model that a stated weekday implies weekly, so this re-ask should be rare.
+- **The completeness gate is server-side.** The confirm action re-validates the client-held payload with `parseStoredRhythms` + `parseRhythm`; no request path creates a group without a schedulable primary at position 0.
+
+**Tech debt opened in this slice:**
+
+- **Unauthenticated model calls.** `/create` triggers a paid API call pre-auth with no rate limiting. Acceptable at MVP traffic; revisit before promoting the URL anywhere. Medium.
+- **Prompt quality is manually verified** (`scripts/try-extract.ts` harness), not CI-covered; the interpretation seam (normalize) is what CI covers. Low.
+- **`Group.description` is written but unread** — deliberate, for the gap-ask/RAG slices. Low.
+- **Loose rhythms are stored and shown at playback but displayed nowhere post-onboarding** (the group info page shows no schedule today; unchanged by this slice). Low.
+- **Extraction latency sits inside a server action** with only the SDK's default timeout. Fine for Haiku-scale calls; revisit if the pause ever exceeds a few seconds in practice. Low.
