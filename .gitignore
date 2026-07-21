@@ -39,7 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-docs/superpowers/
 
 # agent worktrees (build artifacts only, never committed)
 # Scoped to worktrees/ on purpose: .claude/settings.json and .claude/hooks/
