@@ -10,6 +10,7 @@
 
 import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
+import OrbitPause from "./OrbitPause"
 
 const INTRO_COPY =
   "Hi, I'm Orbit. Tell me about your group. What do you do together, and when do you usually meet?"
@@ -26,6 +27,9 @@ interface Props {
   formAction: (formData: FormData) => void
   isExtracting: boolean
   extractState: ExtractGroupState
+  /** Wins over the status-derived copy; the wizard passes the exhausted-loop
+   * explainer through here. */
+  bubbleOverride?: string
 }
 
 export default function Step1Describe({
@@ -36,19 +40,21 @@ export default function Step1Describe({
   formAction,
   isExtracting,
   extractState,
+  bubbleOverride,
 }: Props) {
   // "incomplete" here means the founder bailed out of the gap step back to
   // Step 1, so the description-editing phrasing of REASK_COPY is the right
   // one. "unusable" (nothing schedulable) deliberately keeps this static
   // treatment: there is no partial card to anchor a conversation.
   const bubbleCopy =
-    extractState.status === "incomplete"
+    bubbleOverride ??
+    (extractState.status === "incomplete"
       ? REASK_COPY[extractState.gap.missing]
       : extractState.status === "unusable"
         ? REASK_COPY.nothing_schedulable
         : extractState.status === "error"
           ? ERROR_COPY
-          : INTRO_COPY
+          : INTRO_COPY)
 
   const canSubmit = founderName.trim().length > 0 && description.trim().length > 0
 
@@ -168,37 +174,7 @@ export default function Step1Describe({
         {isExtracting ? (
           // The pause: a labeled thinking state in Orbit's voice. Inputs stay
           // mounted (disabled) so the founder's text is never lost.
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minHeight: "2.75rem" }}>
-            <div
-              aria-hidden
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                backgroundColor: "var(--color-lime)",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.6875rem",
-                fontWeight: 700,
-                color: "#0a0a0a",
-              }}
-            >
-              O
-            </div>
-            <p
-              role="status"
-              style={{
-                fontSize: "var(--type-body)",
-                lineHeight: "var(--leading-normal)",
-                color: "var(--text-secondary)",
-                margin: 0,
-              }}
-            >
-              {PAUSE_COPY}
-            </p>
-          </div>
+          <OrbitPause copy={PAUSE_COPY} />
         ) : (
           <button
             type="submit"
