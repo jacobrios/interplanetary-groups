@@ -77,4 +77,42 @@ describe("provisionFounderGroup", () => {
     // A second Group was created (each create-group call produces a new Group)
     expect(group2.id).not.toBe(group1.id)
   })
+
+  it("writes recurringActivities and description when provided", async () => {
+    const rhythms = [
+      {
+        activity: "climbing",
+        title: "Climbing Sunday",
+        cadence: "weekly" as const,
+        daysOfWeek: [0],
+        timeLocal: "08:00",
+      },
+    ]
+
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-rhythm-${Date.now()}`,
+      founderName: "[TEST] Founder Rhythm",
+      groupName: "[TEST] Sunday Climbers",
+      description: "we climb Sundays at 8",
+      recurringActivities: rhythms,
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.description).toBe("we climb Sundays at 8")
+    expect(group.recurringActivities).toEqual(rhythms)
+  })
+
+  it("leaves recurringActivities and description null when omitted", async () => {
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-norhythm-${Date.now()}`,
+      founderName: "[TEST] Founder Bare",
+      groupName: "[TEST] Group Bare",
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.recurringActivities).toBeNull()
+    expect(group.description).toBeNull()
+  })
 })
