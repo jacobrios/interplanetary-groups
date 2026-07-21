@@ -77,4 +77,48 @@ describe("provisionFounderGroup", () => {
     // A second Group was created (each create-group call produces a new Group)
     expect(group2.id).not.toBe(group1.id)
   })
+
+  it("writes recurringActivities and description when provided", async () => {
+    // Deliberately a non-schedulable (monthly) rhythm: this test runs against
+    // the shared dev-test DB in parallel with reconcile's full-sweep tests,
+    // and a schedulable rhythm here would race them (reconcile could try to
+    // create an event for this group mid-cleanup). Monthly is storage-valid
+    // but always skipped by the engine, which is all this test needs — it
+    // verifies the JSON write path, not scheduling.
+    const rhythms = [
+      {
+        activity: "beers",
+        title: "Beers",
+        cadence: "monthly" as const,
+        daysOfWeek: [5],
+        timeLocal: null,
+      },
+    ]
+
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-rhythm-${Date.now()}`,
+      founderName: "[TEST] Founder Rhythm",
+      groupName: "[TEST] Sunday Climbers",
+      description: "we climb Sundays at 8",
+      recurringActivities: rhythms,
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.description).toBe("we climb Sundays at 8")
+    expect(group.recurringActivities).toEqual(rhythms)
+  })
+
+  it("leaves recurringActivities and description null when omitted", async () => {
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-norhythm-${Date.now()}`,
+      founderName: "[TEST] Founder Bare",
+      groupName: "[TEST] Group Bare",
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.recurringActivities).toBeNull()
+    expect(group.description).toBeNull()
+  })
 })

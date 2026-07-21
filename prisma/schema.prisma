@@ -43,6 +43,7 @@ enum ContactMethodType {
 model Group {
   id                  String       @id @default(cuid())
   name                String
+  description         String? // founder's onboarding free text; source material for future gap-ask/RAG slices; nothing reads it yet
   founderId           String
   inviteToken         String       @unique @default(cuid())
   recurringActivities Json?

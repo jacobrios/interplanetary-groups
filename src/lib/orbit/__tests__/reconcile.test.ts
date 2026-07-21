@@ -183,6 +183,44 @@ describe("reconcileScheduledEvents", () => {
     expect(messageCount).toBe(0)
   })
 
+  it("with a groupId filter, touches only that group", async () => {
+    const { user, group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+    // Second group with the same valid rhythm, cleaned up inside the test
+    // (the shared afterEach tracking handles only one group).
+    const other = await prisma.group.create({
+      data: {
+        name: "[TEST] Reconcile Other Group",
+        founderId: user.id,
+        timeZone: "UTC",
+        recurringActivities: SUNDAY_RHYTHM as never,
+        memberships: { create: { userId: user.id } },
+      },
+    })
+
+    try {
+      const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+
+      // Only the filtered group appears in results and gets an event
+      expect(results).toHaveLength(1)
+      expect(results[0].groupId).toBe(group.id)
+      expect(results[0].status).toBe("created")
+      if (results[0].status === "created") eventIds.push(results[0].eventId)
+
+      const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+      for (const m of messages) messageIds.push(m.id)
+
+      // The other group was not touched
+      const otherEvents = await prisma.event.count({ where: { groupId: other.id } })
+      expect(otherEvents).toBe(0)
+      const otherMessages = await prisma.message.count({ where: { groupId: other.id } })
+      expect(otherMessages).toBe(0)
+    } finally {
+      await prisma.membership.deleteMany({ where: { groupId: other.id } }).catch(() => {})
+      await prisma.group.delete({ where: { id: other.id } }).catch(() => {})
+    }
+  })
+
   it("group with pre-existing upcoming event is skipped", async () => {
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 

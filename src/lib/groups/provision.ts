@@ -1,11 +1,16 @@
 // src/lib/groups/provision.ts
 import { prisma } from "@/lib/prisma"
-import type { Group, User } from "@prisma/client"
+import type { Group, Prisma, User } from "@prisma/client"
+import type { StoredRhythm } from "@/lib/orbit/rhythm"
 
 interface ProvisionInput {
   supabaseAuthId: string
   founderName: string
   groupName: string
+  /** Founder's onboarding free text; stored for future gap-ask/RAG slices. */
+  description?: string | null
+  /** Validated rhythm array (parseStoredRhythms shape); [0] is the schedulable primary. */
+  recurringActivities?: StoredRhythm[] | null
 }
 
 interface ProvisionResult {
@@ -27,6 +32,8 @@ export async function provisionFounderGroup({
   supabaseAuthId,
   founderName,
   groupName,
+  description,
+  recurringActivities,
 }: ProvisionInput): Promise<ProvisionResult> {
   return prisma.$transaction(async (tx) => {
     // Reuse the existing User if one already exists for this Supabase auth ID.
@@ -44,6 +51,12 @@ export async function provisionFounderGroup({
       data: {
         name: groupName,
         founderId: user.id,
+        description: description ?? null,
+        // Json? column: undefined omits the field entirely (stays NULL);
+        // the validated array is cast for Prisma's JSON input type.
+        recurringActivities: recurringActivities
+          ? (recurringActivities as unknown as Prisma.InputJsonValue)
+          : undefined,
         memberships: { create: { userId: user.id } },
       },
     })

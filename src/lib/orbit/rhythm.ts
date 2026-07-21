@@ -1,19 +1,38 @@
 // src/lib/orbit/rhythm.ts
 //
-// GroupRhythm is the typed view of one element from Group.recurringActivities
-// (a Prisma Json? column).  parseRhythm validates the raw value and returns a
-// typed object or null — no external validation library, just runtime checks.
+// Two typed views of Group.recurringActivities (a Prisma Json? column):
+//
+// - StoredRhythm / parseStoredRhythms: the widened storage shape written by
+//   onboarding. Cadence is a real field (weekly | monthly | null = loose),
+//   and day/time are nullable so loose rhythms ("beers once a month") can be
+//   stored and displayed without inventing a schedule.
+// - GroupRhythm / parseRhythm: the scheduling engine's contract. It answers
+//   "is there a schedulable rhythm at position 0" — the stored primary must
+//   be complete (activity, title, ≥1 day, range-valid time) on a weekly
+//   cadence, or the engine skips the group.
+//
+// No external validation library, just runtime checks.
 
 export interface GroupRhythm {
   activity: string           // event activity noun, e.g. "climbing" — used in announcement copy
   title: string              // -> Event.title, e.g. "Climbing Sunday"
   daysOfWeek: number[]       // 0=Sun … 6=Sat (JS getUTCDay convention)
   timeLocal: string          // "HH:mm" 24h wall-clock local time, e.g. "08:00"
-  cadence: "weekly"          // only value in MVP
+  cadence: "weekly"          // only schedulable cadence in MVP
   durationMinutes?: number | null
 }
 
-const TIME_LOCAL_RE = /^\d{2}:\d{2}$/
+export interface StoredRhythm {
+  activity: string                     // non-empty, founder's words
+  title: string                        // derived deterministically, non-empty
+  cadence: "weekly" | "monthly" | null // null = loose (yearly/unknown cadence)
+  daysOfWeek: number[] | null          // 0=Sun … 6=Sat; null = not stated
+  timeLocal: string | null             // "HH:mm" 24h, range-valid; null = not stated
+  durationMinutes?: number | null      // legacy field; never written by onboarding
+}
+
+// 24-hour wall-clock with range enforcement ("99:99" is not a time).
+const TIME_LOCAL_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 /**
  * Parse and validate the raw value of `Group.recurringActivities`.
@@ -61,4 +80,60 @@ export function parseRhythm(json: unknown): GroupRhythm | null {
     cadence: "weekly",
     durationMinutes: dm === undefined ? undefined : (dm as number | null),
   }
+}
+
+/**
+ * Validate the full recurringActivities array as the widened storage shape.
+ *
+ * Strict: any invalid entry rejects the whole array. This validates our own
+ * writes (normalize.ts output) and the confirm-action payload from the client,
+ * so partial acceptance would hide bugs rather than tolerate them.
+ *
+ * Absent optional fields are treated as null — rhythms written before this
+ * slice (seed fixtures) carry no explicit nulls.
+ */
+export function parseStoredRhythms(json: unknown): StoredRhythm[] | null {
+  if (!Array.isArray(json) || json.length === 0) return null
+
+  const out: StoredRhythm[] = []
+  for (const raw of json) {
+    if (raw === null || typeof raw !== "object") return null
+    const r = raw as Record<string, unknown>
+
+    if (typeof r.activity !== "string" || r.activity.length === 0) return null
+    if (typeof r.title !== "string" || r.title.length === 0) return null
+
+    let cadence: StoredRhythm["cadence"]
+    if (r.cadence === "weekly" || r.cadence === "monthly") cadence = r.cadence
+    else if (r.cadence === null || r.cadence === undefined) cadence = null
+    else return null
+
+    let daysOfWeek: number[] | null = null
+    if (r.daysOfWeek !== null && r.daysOfWeek !== undefined) {
+      if (!Array.isArray(r.daysOfWeek) || r.daysOfWeek.length === 0) return null
+      for (const d of r.daysOfWeek) {
+        if (typeof d !== "number" || !Number.isInteger(d) || d < 0 || d > 6) return null
+      }
+      daysOfWeek = r.daysOfWeek as number[]
+    }
+
+    let timeLocal: string | null = null
+    if (r.timeLocal !== null && r.timeLocal !== undefined) {
+      if (typeof r.timeLocal !== "string" || !TIME_LOCAL_RE.test(r.timeLocal)) return null
+      timeLocal = r.timeLocal
+    }
+
+    const dm = r.durationMinutes
+    if (dm !== undefined && dm !== null && typeof dm !== "number") return null
+
+    out.push({
+      activity: r.activity,
+      title: r.title,
+      cadence,
+      daysOfWeek,
+      timeLocal,
+      durationMinutes: dm === undefined ? undefined : (dm as number | null),
+    })
+  }
+  return out
 }

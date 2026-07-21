@@ -44,9 +44,17 @@ export type ReconcileResult =
  *
  * @param now  The reference instant.  Passed explicitly so callers (cron
  *             handler, tests) control the clock without mocking Date.now().
+ * @param opts.groupId  Optional scope: reconcile only this group.  Used by
+ *             group creation to generate the first event immediately without
+ *             sweeping every group in the database.
  */
-export async function reconcileScheduledEvents(now: Date): Promise<ReconcileResult[]> {
-  const groups = await prisma.group.findMany()
+export async function reconcileScheduledEvents(
+  now: Date,
+  opts?: { groupId?: string }
+): Promise<ReconcileResult[]> {
+  const groups = opts?.groupId
+    ? await prisma.group.findMany({ where: { id: opts.groupId } })
+    : await prisma.group.findMany()
   const results: ReconcileResult[] = []
 
   for (const group of groups) {

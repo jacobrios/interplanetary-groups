@@ -1,30 +1,45 @@
 // src/app/actions/create-group.ts
+//
+// Step 2 confirm: create the group from the founder-approved profile, then
+// generate the first event immediately (scoped reconcile) so the home is
+// alive on day one. The client-held rhythm payload is re-validated here —
+// the completeness gate is enforced server-side, so no request path can
+// create a group without a schedulable primary rhythm.
+
 "use server"
 
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { provisionFounderGroup } from "@/lib/groups/provision"
+import { parseStoredRhythms, parseRhythm } from "@/lib/orbit/rhythm"
+import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 
-export interface CreateGroupState {
-  errors?: {
-    founderName?: string
-    groupName?: string
-    general?: string
-  }
+export interface CreateGroupInput {
+  founderName: string
+  groupName: string
+  description: string
+  /** The normalized profile held by the wizard — re-validated, never trusted. */
+  rhythms: unknown
 }
 
-export async function createGroupAction(
-  _prevState: CreateGroupState,
-  formData: FormData
-): Promise<CreateGroupState> {
-  const founderName = (formData.get("founderName") as string | null)?.trim() ?? ""
-  const groupName = (formData.get("groupName") as string | null)?.trim() ?? ""
+const DESCRIPTION_MAX = 2000
 
-  // Validate required fields
-  const errors: CreateGroupState["errors"] = {}
-  if (!founderName) errors.founderName = "Your name is required."
-  if (!groupName) errors.groupName = "Group name is required."
-  if (Object.keys(errors).length > 0) return { errors }
+export async function createGroupAction(input: CreateGroupInput): Promise<{ error: string }> {
+  const founderName = input.founderName?.trim() ?? ""
+  const groupName = input.groupName?.trim() ?? ""
+  const description = (input.description ?? "").trim().slice(0, DESCRIPTION_MAX)
+
+  if (!founderName || !groupName) {
+    return { error: "Something went missing. Please try again." }
+  }
+
+  // Server-side completeness gate (the "no bypass" rule): the payload must be
+  // a valid stored-rhythm array whose position 0 is schedulable, regardless
+  // of what the client sends.
+  const rhythms = parseStoredRhythms(input.rhythms)
+  if (!rhythms || parseRhythm(rhythms) === null) {
+    return { error: "I lost track of your schedule. Go back a step and try again." }
+  }
 
   const supabase = await createClient()
 
@@ -38,12 +53,7 @@ export async function createGroupAction(
   if (!user) {
     const { data, error } = await supabase.auth.signInAnonymously()
     if (error || !data.user) {
-      return {
-        errors: {
-          general:
-            "Could not create a session. Please try again.",
-        },
-      }
+      return { error: "Could not create a session. Please try again." }
     }
     user = data.user
   }
@@ -54,14 +64,21 @@ export async function createGroupAction(
       supabaseAuthId: user.id,
       founderName,
       groupName,
+      description,
+      recurringActivities: rhythms,
     })
     group = result.group
   } catch {
-    return {
-      errors: {
-        general: "Something went wrong creating your group. Please try again.",
-      },
-    }
+    return { error: "Something went wrong creating your group. Please try again." }
+  }
+
+  // Create-time first event, scoped to this group only. Fail-soft: a failed
+  // event must never destroy a successfully created group — the founder still
+  // lands on a valid home and the daily cron catches up.
+  try {
+    await reconcileScheduledEvents(new Date(), { groupId: group.id })
+  } catch (err) {
+    console.error("[onboarding] first-event reconcile failed (cron will catch up):", err)
   }
 
   redirect(`/groups/${group.id}`)
