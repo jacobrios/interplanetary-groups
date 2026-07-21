@@ -79,13 +79,19 @@ describe("provisionFounderGroup", () => {
   })
 
   it("writes recurringActivities and description when provided", async () => {
+    // Deliberately a non-schedulable (monthly) rhythm: this test runs against
+    // the shared dev-test DB in parallel with reconcile's full-sweep tests,
+    // and a schedulable rhythm here would race them (reconcile could try to
+    // create an event for this group mid-cleanup). Monthly is storage-valid
+    // but always skipped by the engine, which is all this test needs — it
+    // verifies the JSON write path, not scheduling.
     const rhythms = [
       {
-        activity: "climbing",
-        title: "Climbing Sunday",
-        cadence: "weekly" as const,
-        daysOfWeek: [0],
-        timeLocal: "08:00",
+        activity: "beers",
+        title: "Beers",
+        cadence: "monthly" as const,
+        daysOfWeek: [5],
+        timeLocal: null,
       },
     ]
 
