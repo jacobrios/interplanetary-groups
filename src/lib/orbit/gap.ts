@@ -11,6 +11,7 @@
 // surface when generation fails or violates its constraints.
 
 import type { MissingField, NormalizedOnboarding } from "./normalize"
+import type { StoredRhythm } from "./rhythm"
 
 /** Gaps the conversational loop can ask about. nothing_schedulable has no
  * partial card to anchor a conversation, so it stays on (or escapes to) the
@@ -40,6 +41,110 @@ export const GAP_ROUND_INTRO: [string, string] = [
   "Here's what I got. One question:",
   "Thanks. One more thing:",
 ]
+
+/** Lead-in for a round whose answer moved nothing. Honest instead of
+ * grateful: no thanks for an answer that gave nothing, no pretending the
+ * repeat is a new question, and no scolding — Orbit re-asks softly. */
+export const GAP_STALLED_INTRO = "No worries. Let me ask again:"
+
+/**
+ * The full bubble line: deterministic lead-in plus the one validated (or
+ * template) question. The first ask always introduces the card; later
+ * rounds thank the founder only when their answer actually moved state.
+ */
+export function gapBubbleLine(question: string, answersGiven: number, stalled: boolean): string {
+  const intro =
+    answersGiven === 0 ? GAP_ROUND_INTRO[0] : stalled ? GAP_STALLED_INTRO : GAP_ROUND_INTRO[1]
+  return `${intro} ${question}`
+}
+
+/** The fields a founder's answer can genuinely move. Titles are derived
+ * display data and candidate/classification are code-side bookkeeping, so
+ * none of them count as movement. */
+interface GapStateSnapshot {
+  rhythms: StoredRhythm[]
+  groupName: string | null
+}
+
+function projectRhythms(rhythms: StoredRhythm[]): string {
+  return JSON.stringify(
+    rhythms.map((r) => ({
+      activity: r.activity,
+      cadence: r.cadence,
+      daysOfWeek: r.daysOfWeek,
+      timeLocal: r.timeLocal,
+    }))
+  )
+}
+
+/**
+ * Did the founder's answer move anything? Compares the schedule-bearing
+ * fields and the name suggestion between the state sent up and the state
+ * that came back. Drives the lead-in choice: a stalled round is
+ * acknowledged plainly instead of being thanked for nothing.
+ */
+export function gapAnswerMoved(prior: GapStateSnapshot, next: GapStateSnapshot): boolean {
+  return (
+    projectRhythms(prior.rhythms) !== projectRhythms(next.rhythms) ||
+    prior.groupName !== next.groupName
+  )
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function answerMentions(activity: string, answer: string): boolean {
+  return activity
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((word) => new RegExp(`\\b${escapeRegExp(word)}\\b`, "i").test(answer))
+}
+
+/**
+ * Carry-verbatim enforcement on the raw merged claim, before normalization.
+ * The merge rule is that fields the answer does not touch carry exactly;
+ * in practice the model can re-derive the activity from the description
+ * ("climbing" drifting to "climb" after an unrelated answer). A genuine
+ * founder-driven activity change necessarily names the new activity in the
+ * answer, so: when a rhythm's schedule fields (cadence, days) still match
+ * the prior rhythm at the same position but its activity changed to wording
+ * the answer never mentions, the prior activity is restored. Schedule
+ * mismatches are left alone — a restructured or reordered list must never
+ * be "corrected" by position.
+ */
+export function enforceActivityCarryOver(
+  raw: unknown,
+  prior: StoredRhythm[],
+  answer: string
+): unknown {
+  if (raw === null || typeof raw !== "object") return raw
+  const rhythms = (raw as Record<string, unknown>).rhythms
+  if (!Array.isArray(rhythms)) return raw
+
+  const out = structuredClone(raw) as { rhythms: unknown[] }
+  const n = Math.min(rhythms.length, prior.length)
+  for (let i = 0; i < n; i++) {
+    const item = out.rhythms[i]
+    if (item === null || typeof item !== "object") continue
+    const o = item as Record<string, unknown>
+    const p = prior[i]
+
+    const activity = typeof o.activity === "string" ? o.activity.trim() : ""
+    if (!activity || activity.toLowerCase() === p.activity.toLowerCase()) continue
+
+    const sameSchedule =
+      (o.cadence ?? null) === p.cadence &&
+      JSON.stringify(o.daysOfWeek ?? null) === JSON.stringify(p.daysOfWeek)
+    if (!sameSchedule) continue
+
+    if (!answerMentions(activity, answer)) {
+      o.activity = p.activity
+    }
+  }
+  return out
+}
 
 /** Hint line under the message input, per gap. Display-ready. The examples
  * deliberately model answerable answers: "we start at 7pm", never the

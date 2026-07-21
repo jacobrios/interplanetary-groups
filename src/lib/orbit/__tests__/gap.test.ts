@@ -10,14 +10,19 @@ import {
   GAP_HINT_EXAMPLES,
   GAP_REASK_COPY,
   GAP_ROUND_INTRO,
+  GAP_STALLED_INTRO,
   MAX_GAP_ROUNDS,
   QUESTION_MAX,
   decideGapOutcome,
+  enforceActivityCarryOver,
+  gapAnswerMoved,
+  gapBubbleLine,
   readClarifyingQuestion,
   resolveGapQuestion,
   validateQuestion,
 } from "../gap"
 import type { NormalizedOnboarding } from "../normalize"
+import type { StoredRhythm } from "../rhythm"
 
 const PARTIAL_RHYTHM = {
   activity: "climbing",
@@ -170,11 +175,150 @@ describe("decideGapOutcome", () => {
   })
 })
 
+describe("gapBubbleLine", () => {
+  it("first ask leads with what Orbit got", () => {
+    expect(gapBubbleLine("What time do you meet?", 0, false)).toBe(
+      "Here's what I got. One question: What time do you meet?"
+    )
+  })
+
+  it("a round that moved state says thanks", () => {
+    expect(gapBubbleLine("What days do you meet?", 1, false)).toBe(
+      "Thanks. One more thing: What days do you meet?"
+    )
+  })
+
+  it("a stalled round acknowledges plainly instead of thanking", () => {
+    expect(gapBubbleLine("What time do you meet?", 1, true)).toBe(
+      `${GAP_STALLED_INTRO} What time do you meet?`
+    )
+    expect(GAP_STALLED_INTRO).not.toContain("Thanks")
+  })
+
+  it("the stalled flag is ignored on the first ask (nothing to stall on)", () => {
+    expect(gapBubbleLine("What time do you meet?", 0, true)).toBe(
+      "Here's what I got. One question: What time do you meet?"
+    )
+  })
+})
+
+describe("gapAnswerMoved", () => {
+  const snapshot = (
+    over: Partial<{ rhythms: StoredRhythm[]; groupName: string | null }> = {}
+  ): { rhythms: StoredRhythm[]; groupName: string | null } => ({
+    rhythms: [PARTIAL_RHYTHM],
+    groupName: "Tuesday Climbers",
+    ...over,
+  })
+
+  it("identical state means the answer moved nothing", () => {
+    expect(gapAnswerMoved(snapshot(), snapshot())).toBe(false)
+  })
+
+  it("a title-only difference is derived display, not movement", () => {
+    expect(
+      gapAnswerMoved(snapshot(), snapshot({ rhythms: [{ ...PARTIAL_RHYTHM, title: "Climbing Tuesday" }] }))
+    ).toBe(false)
+  })
+
+  it("a filled field is movement", () => {
+    expect(
+      gapAnswerMoved(snapshot(), snapshot({ rhythms: [{ ...PARTIAL_RHYTHM, timeLocal: "19:00" }] }))
+    ).toBe(true)
+  })
+
+  it("a changed group name is movement", () => {
+    expect(gapAnswerMoved(snapshot(), snapshot({ groupName: "The Crushers" }))).toBe(true)
+  })
+
+  it("an added rhythm is movement", () => {
+    expect(
+      gapAnswerMoved(snapshot(), snapshot({ rhythms: [PARTIAL_RHYTHM, { ...PARTIAL_RHYTHM, activity: "beers" }] }))
+    ).toBe(true)
+  })
+})
+
+describe("enforceActivityCarryOver", () => {
+  // The merge model must not re-derive fields the answer never touched. The
+  // guard restores an activity that changed while its schedule stayed put
+  // and the answer never named the new wording — the signature of the model
+  // re-reading the description instead of carrying the prior state verbatim.
+  const prior = [
+    { activity: "climbing", title: "Climbing", cadence: "weekly" as const, daysOfWeek: [2], timeLocal: null },
+    { activity: "beers", title: "Beers", cadence: "monthly" as const, daysOfWeek: null, timeLocal: null },
+  ]
+  const mergedRaw = (rhythms: unknown[]) => ({
+    suggestedGroupName: "Tuesday Climbers",
+    clarifyingQuestion: null,
+    rhythms,
+  })
+  const rhythm = (over: Record<string, unknown> = {}) => ({
+    activity: "climbing",
+    cadence: "weekly",
+    daysOfWeek: [2],
+    timeLocal: null,
+    timeAmbiguous: false,
+    isPrimary: true,
+    ...over,
+  })
+
+  it("restores a drifted activity the answer never mentioned", () => {
+    const raw = mergedRaw([rhythm({ activity: "climb" })])
+    const out = enforceActivityCarryOver(raw, prior, "hmm not sure") as { rhythms: { activity: string }[] }
+    expect(out.rhythms[0].activity).toBe("climbing")
+  })
+
+  it("keeps an activity change the answer names", () => {
+    const raw = mergedRaw([rhythm({ activity: "yoga" })])
+    const out = enforceActivityCarryOver(raw, prior, "actually it's yoga we do") as {
+      rhythms: { activity: string }[]
+    }
+    expect(out.rhythms[0].activity).toBe("yoga")
+  })
+
+  it("leaves a rhythm alone when its schedule fields differ (not the same rhythm)", () => {
+    // A reordered or restructured list must never be 'corrected' by position.
+    const raw = mergedRaw([rhythm({ activity: "beers", cadence: "monthly", daysOfWeek: null })])
+    const out = enforceActivityCarryOver(raw, prior, "hmm not sure") as { rhythms: { activity: string }[] }
+    expect(out.rhythms[0].activity).toBe("beers")
+  })
+
+  it("matches whole words only: brunch does not mention run", () => {
+    const raw = mergedRaw([rhythm({ activity: "run" })])
+    const out = enforceActivityCarryOver(raw, prior, "brunch plans sound good") as {
+      rhythms: { activity: string }[]
+    }
+    expect(out.rhythms[0].activity).toBe("climbing")
+  })
+
+  it("a multi-word activity counts as mentioned when any word appears", () => {
+    const raw = mergedRaw([rhythm({ activity: "board games" })])
+    const out = enforceActivityCarryOver(raw, prior, "we mostly play games now") as {
+      rhythms: { activity: string }[]
+    }
+    expect(out.rhythms[0].activity).toBe("board games")
+  })
+
+  it("tolerates garbage raw and returns it untouched", () => {
+    expect(enforceActivityCarryOver(null, prior, "x")).toBeNull()
+    expect(enforceActivityCarryOver("nope", prior, "x")).toBe("nope")
+    const noRhythms = { suggestedGroupName: null }
+    expect(enforceActivityCarryOver(noRhythms, prior, "x")).toEqual(noRhythms)
+  })
+
+  it("does not mutate its input", () => {
+    const raw = mergedRaw([rhythm({ activity: "climb" })])
+    enforceActivityCarryOver(raw, prior, "hmm not sure")
+    expect((raw.rhythms[0] as { activity: string }).activity).toBe("climb")
+  })
+})
+
 describe("copy rules", () => {
   it("no em or en dashes in any gap copy", () => {
     const all = [
       ...Object.values(GAP_REASK_COPY),
       ...GAP_ROUND_INTRO,
+      GAP_STALLED_INTRO,
       ...Object.values(GAP_HINT_EXAMPLES),
     ]
     for (const copy of all) {
