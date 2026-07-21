@@ -5,7 +5,7 @@
 // from normalized fields (§7 structured-extract-then-format).
 
 import { describe, it, expect } from "vitest"
-import { formatRhythmRow, formatTimeLocal, REASK_COPY } from "../playback"
+import { formatGapRhythmRow, formatRhythmRow, formatTimeLocal, REASK_COPY } from "../playback"
 import type { StoredRhythm } from "../rhythm"
 
 const rhythm =(over: Partial<StoredRhythm>): StoredRhythm => ({
@@ -101,6 +101,66 @@ describe("formatRhythmRow", () => {
   })
 })
 
+describe("formatGapRhythmRow", () => {
+  // The gap card's gapped row: the known part of the value plus the marker
+  // Orbit points at with the lime underline. All composed by code.
+
+  it("time gap shows the known days and the what-time marker", () => {
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [1, 3] }), "time", null)
+    ).toEqual({ label: "CLIMBING", known: "Mon & Wed", marker: "what time?" })
+  })
+
+  it("day gap shows the known time", () => {
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", timeLocal: "19:00" }), "day", null)
+    ).toEqual({ label: "CLIMBING", known: "At 7pm", marker: "what days?" })
+  })
+
+  it("both gap has no known part", () => {
+    expect(formatGapRhythmRow(rhythm({ cadence: "weekly" }), "both", null)).toEqual({
+      label: "CLIMBING",
+      known: null,
+      marker: "what day and time?",
+    })
+  })
+
+  it("cadence gap shows day and time with the every-week marker", () => {
+    expect(
+      formatGapRhythmRow(rhythm({ daysOfWeek: [1, 3], timeLocal: "19:00" }), "cadence", null)
+    ).toEqual({ label: "CLIMBING", known: "Mon & Wed at 7pm", marker: "every week?" })
+  })
+
+  it("ambiguous gap shows the bare candidate hour, deliberately without am or pm", () => {
+    // The stored timeLocal is null for an ambiguous primary; the candidate
+    // travels separately and renders without am/pm — honest about not knowing.
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "19:00")
+    ).toEqual({ label: "CLIMBING", known: "Tue at 7", marker: "morning or evening?" })
+  })
+
+  it("bare candidate hour handles minutes and twelve o'clock", () => {
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "19:30")
+        .known
+    ).toBe("Tue at 7:30")
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "12:00")
+        .known
+    ).toBe("Tue at 12")
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "00:30")
+        .known
+    ).toBe("Tue at 12:30")
+  })
+
+  it("a null candidate degrades the ambiguous row to a plain time gap", () => {
+    expect(
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", null)
+    ).toEqual({ label: "CLIMBING", known: "Tue", marker: "what time?" })
+  })
+})
+
 describe("copy rules", () => {
   it("no em or en dashes anywhere in composed copy or re-ask templates", () => {
     const samples = [
@@ -128,5 +188,18 @@ describe("copy rules", () => {
     expect(REASK_COPY.nothing_schedulable).toBe(
       "Tell me a bit more about what your group does together and when. I need an activity, a day, and a time to get your schedule going."
     )
+    expect(REASK_COPY.ambiguous_time).toBe(
+      "Got it. Is that morning or evening? Add am or pm to your description and I'll set up the schedule."
+    )
+  })
+
+  it("gap markers carry no em or en dashes", () => {
+    const markers = [
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [1] }), "time", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly" }), "both", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "19:00")
+        .marker,
+    ]
+    for (const m of markers) expect(m).not.toMatch(/[—–]/)
   })
 })

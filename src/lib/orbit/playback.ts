@@ -11,6 +11,7 @@
 
 import type { StoredRhythm } from "./rhythm"
 import type { MissingField } from "./normalize"
+import type { GapAskable } from "./gap"
 
 const WEEKDAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -56,6 +57,63 @@ export function formatRhythmRow(r: StoredRhythm): { label: string; value: string
   }
 
   return { label, value: value.charAt(0).toUpperCase() + value.slice(1) }
+}
+
+/**
+ * "19:00" -> "7", "19:30" -> "7:30", "12:00" -> "12". The candidate reading
+ * of an ambiguous time, shown without am/pm — deliberately honest about the
+ * one thing Orbit doesn't know yet.
+ */
+function bareTime(timeLocal: string): string {
+  const [h, m] = timeLocal.split(":").map(Number) as [number, number]
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, "0")}`
+}
+
+/**
+ * The gap card's gapped row: the known part of the value (null when nothing
+ * usable is known) plus the short lime-underlined marker naming the gap.
+ * Composed entirely by code from normalized fields, like every other row.
+ * The classification in normalize.ts guarantees the fields each gap needs
+ * (a time gap has days, an ambiguous gap has days and a candidate); the
+ * defensive branches below degrade gracefully rather than trusting that.
+ */
+export function formatGapRhythmRow(
+  r: StoredRhythm,
+  missing: GapAskable,
+  candidateTimeLocal: string | null
+): { label: string; known: string | null; marker: string } {
+  const label = r.activity.split(/\s+/).slice(0, 2).join(" ").toUpperCase()
+  const days = r.daysOfWeek !== null ? formatDays(r.daysOfWeek) : null
+  const time = r.timeLocal !== null ? `at ${formatTimeLocal(r.timeLocal)}` : null
+
+  const gap = missing === "ambiguous_time" && candidateTimeLocal === null ? "time" : missing
+  let known: string | null
+  let marker: string
+  switch (gap) {
+    case "time":
+      known = days
+      marker = "what time?"
+      break
+    case "day":
+      known = time
+      marker = "what days?"
+      break
+    case "both":
+      known = null
+      marker = "what day and time?"
+      break
+    case "cadence":
+      known = [days, time].filter(Boolean).join(" ") || null
+      marker = "every week?"
+      break
+    case "ambiguous_time":
+      known = [days, `at ${bareTime(candidateTimeLocal!)}`].filter(Boolean).join(" ")
+      marker = "morning or evening?"
+      break
+  }
+  if (known !== null) known = known.charAt(0).toUpperCase() + known.slice(1)
+  return { label, known, marker }
 }
 
 /**
