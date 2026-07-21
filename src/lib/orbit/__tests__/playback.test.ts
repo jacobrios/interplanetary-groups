@@ -52,12 +52,12 @@ describe("formatRhythmRow", () => {
           timeLocal: "06:00",
         })
       ).value
-    ).toBe("every day at 6am")
+    ).toBe("Every day at 6am")
   })
 
   it("monthly with nothing stated", () => {
     expect(formatRhythmRow(rhythm({ activity: "beers", cadence: "monthly" })).value).toBe(
-      "once a month, we'll pick a day later"
+      "Once a month, we'll pick a day later"
     )
   })
 
@@ -77,13 +77,27 @@ describe("formatRhythmRow", () => {
 
   it("loose (no cadence)", () => {
     expect(formatRhythmRow(rhythm({ activity: "camping" })).value).toBe(
-      "we'll sort out timing later"
+      "We'll sort out timing later"
     )
   })
 
   it("label is uppercased activity capped at two words", () => {
     expect(formatRhythmRow(rhythm({ activity: "board game nights" })).label).toBe("BOARD GAME")
     expect(formatRhythmRow(rhythm({ activity: "beers" })).label).toBe("BEERS")
+  })
+
+  it("every value row starts with a capital letter, for consistent reading", () => {
+    const samples = [
+      rhythm({ cadence: "weekly", daysOfWeek: [0], timeLocal: "08:00" }),
+      rhythm({ cadence: "weekly", daysOfWeek: [0, 1, 2, 3, 4, 5, 6], timeLocal: "06:00" }),
+      rhythm({ activity: "beers", cadence: "monthly" }),
+      rhythm({ activity: "beers", cadence: "monthly", daysOfWeek: [5] }),
+      rhythm({ activity: "camping" }),
+    ]
+    for (const s of samples) {
+      const { value } = formatRhythmRow(s)
+      expect(value.charAt(0)).toBe(value.charAt(0).toUpperCase())
+    }
   })
 })
 

@@ -430,6 +430,7 @@ The first real Anthropic API call in the product. The two-field create-group stu
 
 - **Monthly-only descriptions cannot create a group.** Weekly is the only schedulable cadence in this slice; a confidently-monthly primary gets the generic re-ask. Revisit when monthly scheduling lands.
 - **No silent weekly inference.** A description with day + time but unconfident cadence gets a targeted "Is that every week?" re-ask instead of a code-level guess — guessing wrong would silently create weekly events for a monthly group (§5 ask-if-missing). The prompt instructs the model that a stated weekday implies weekly, so this re-ask should be rare.
+- **Ambiguous clock times get a silent plausible reading.** A time with no am/pm and no context ("Tuesdays at 7") is currently resolved by the model to a plausible hour (observed: 19:00). This is a known gap in ask-if-missing: the ambiguity is real but nothing asks about it. Mitigated today by the playback confirmation — the founder sees "Tue at 7pm" and can go back and correct it before anything is created. **Named candidate for the gap-ask slice**, where am/pm ambiguity should become a clarifying question rather than a model judgment call.
 - **The completeness gate is server-side.** The confirm action re-validates the client-held payload with `parseStoredRhythms` + `parseRhythm`; no request path creates a group without a schedulable primary at position 0.
 
 **Tech debt opened in this slice:**

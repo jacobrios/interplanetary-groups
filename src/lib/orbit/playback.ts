@@ -34,6 +34,8 @@ function formatDays(days: number[]): string {
  * One playback row per rhythm. The label is the founder's own activity word,
  * uppercased and capped at two words (§7 dynamic row labels). The value reads
  * as understood-but-not-scheduled for loose rhythms without apologizing.
+ * Every value row starts with a capital letter so the rows read consistently
+ * ("Once a month, ..." alongside "Tue at 6:30pm, ...").
  */
 export function formatRhythmRow(r: StoredRhythm): { label: string; value: string } {
   const label = r.activity.split(/\s+/).slice(0, 2).join(" ").toUpperCase()
@@ -53,7 +55,7 @@ export function formatRhythmRow(r: StoredRhythm): { label: string; value: string
     value = "we'll sort out timing later"
   }
 
-  return { label, value }
+  return { label, value: value.charAt(0).toUpperCase() + value.slice(1) }
 }
 
 /**
