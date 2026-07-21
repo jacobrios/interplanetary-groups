@@ -9,11 +9,34 @@
 
 import type { StoredRhythm } from "./rhythm"
 
-export type MissingField = "time" | "day" | "both" | "cadence" | "nothing_schedulable"
+export type MissingField =
+  | "time"
+  | "day"
+  | "both"
+  | "cadence"
+  | "ambiguous_time"
+  | "nothing_schedulable"
 
 export type NormalizedOnboarding =
   | { status: "ready"; groupName: string; rhythms: StoredRhythm[] }
-  | { status: "incomplete"; missing: MissingField }
+  | {
+      status: "incomplete"
+      missing: MissingField
+      /**
+       * Partial state for the gap-ask card and the merge call. The gapped
+       * primary is at [0]; empty only when no rhythm survived sanitization.
+       * Ambiguous time guesses are nulled here — see candidateTimeLocal.
+       */
+      rhythms: StoredRhythm[]
+      /** Cleaned suggestion or null — never the derived fallback (it needs a schedulable primary). */
+      groupName: string | null
+      /**
+       * The model's best-guess reading of an ambiguous clock time ("Tuesdays
+       * at 7" → "19:00"). Carried separately so the unverified guess never
+       * sits in a StoredRhythm field a later reader could take as fact.
+       */
+      candidateTimeLocal: string | null
+    }
 
 const WEEKDAY_FULL = [
   "Sunday",
@@ -33,6 +56,7 @@ interface Candidate {
   cadence: "weekly" | "monthly" | null
   daysOfWeek: number[] | null
   timeLocal: string | null
+  timeAmbiguous: boolean
   isPrimary: boolean
 }
 
@@ -74,14 +98,27 @@ function sanitize(raw: unknown): { rhythms: Candidate[]; suggestedName: string |
     const timeLocal =
       typeof o.timeLocal === "string" && TIME_RE.test(o.timeLocal) ? o.timeLocal : null
 
-    rhythms.push({ activity, cadence, daysOfWeek, timeLocal, isPrimary: o.isPrimary === true })
+    // The flag is only meaningful alongside a stated time; anything non-true,
+    // or a flag with no parsed time, degrades to false (just a missing time).
+    const timeAmbiguous = o.timeAmbiguous === true && timeLocal !== null
+
+    rhythms.push({
+      activity,
+      cadence,
+      daysOfWeek,
+      timeLocal,
+      timeAmbiguous,
+      isPrimary: o.isPrimary === true,
+    })
   }
   return { rhythms, suggestedName }
 }
 
-/** Complete enough to put an event on the card: weekly cadence, ≥1 day, a time. */
+/** Complete enough to put an event on the card: weekly cadence, ≥1 day, an unambiguous time. */
 function isSchedulable(c: Candidate): boolean {
-  return c.cadence === "weekly" && c.daysOfWeek !== null && c.timeLocal !== null
+  return (
+    c.cadence === "weekly" && c.daysOfWeek !== null && c.timeLocal !== null && !c.timeAmbiguous
+  )
 }
 
 function titleCase(s: string): string {
@@ -106,19 +143,70 @@ function deriveTitle(c: Candidate): string {
 
 /**
  * The one model-suggested string that reaches the founder: normalized (trim,
- * strip em/en dashes per the copy rules, collapse whitespace, cap length)
- * with a deterministic fallback composed from the schedulable primary.
- * The playback row is editable, so this is a starting point, not a decision.
+ * strip em/en dashes per the copy rules, collapse whitespace, cap length).
+ * Null when nothing usable was suggested. The playback row is editable, so
+ * this is a starting point, not a decision.
  */
-function normalizeName(suggested: string | null, primary: Candidate): string {
+function cleanSuggestedName(suggested: string | null): string | null {
   const cleaned = (suggested ?? "").replace(/[—–]/g, " ").replace(/\s+/g, " ").trim()
-  if (cleaned.length > 0) return cleaned.slice(0, NAME_MAX).trim()
-  return `${WEEKDAY_FULL[primary.daysOfWeek![0]]} ${titleCase(primary.activity)}`
+  return cleaned.length > 0 ? cleaned.slice(0, NAME_MAX).trim() : null
+}
+
+/**
+ * Which single gap Orbit should ask about, for an unschedulable primary.
+ * Priority: an ambiguous time is asked before an unconfident cadence (a
+ * stated weekday implies weekly per the prompt, so that overlap is rare, and
+ * the am/pm answer often settles cadence for free). A missing day absorbs an
+ * ambiguous time into "both" so one question covers day and am/pm together.
+ * We never invent a weekly schedule the founder didn't state: a complete
+ * day+time with unknown cadence asks "is that every week?" instead of
+ * guessing (guessing wrong would silently create weekly events for a
+ * monthly group).
+ */
+function classifyGap(primary: Candidate): MissingField {
+  const timeStated = primary.timeLocal !== null
+  const timeKnown = timeStated && !primary.timeAmbiguous
+  if (primary.cadence === null && primary.daysOfWeek !== null && timeKnown) {
+    return "cadence"
+  }
+  if (primary.cadence === "weekly" || primary.cadence === null) {
+    const noDay = primary.daysOfWeek === null
+    if (noDay && !timeKnown) return "both"
+    if (noDay) return "day"
+    if (!timeStated) return "time"
+    if (primary.timeAmbiguous) return "ambiguous_time"
+  }
+  // Confidently non-weekly (monthly-only) — nothing this slice can schedule.
+  return "nothing_schedulable"
+}
+
+/**
+ * Candidate → stored shape. Ambiguous time guesses are nulled on every path
+ * (primary and secondary, ready and incomplete): the guess is a claim the
+ * founder never confirmed, so it must not reach a field that confirm would
+ * write to the database.
+ */
+function toStored(c: Candidate): StoredRhythm {
+  return {
+    activity: c.activity,
+    title: deriveTitle(c),
+    cadence: c.cadence,
+    daysOfWeek: c.daysOfWeek,
+    timeLocal: c.timeAmbiguous ? null : c.timeLocal,
+  }
 }
 
 export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
   const { rhythms, suggestedName } = sanitize(raw)
-  if (rhythms.length === 0) return { status: "incomplete", missing: "nothing_schedulable" }
+  if (rhythms.length === 0) {
+    return {
+      status: "incomplete",
+      missing: "nothing_schedulable",
+      rhythms: [],
+      groupName: cleanSuggestedName(suggestedName),
+      candidateTimeLocal: null,
+    }
+  }
 
   // Primary selection with promotion (belt to the prompt's braces): the
   // model's isPrimary designation is honored only if that rhythm is
@@ -133,40 +221,28 @@ export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
   }
   const primary = rhythms[primaryIdx]
 
-  if (!isSchedulable(primary)) {
-    // Targeted re-asks where we can name the gap; the generic re-ask
-    // otherwise. We never invent a weekly schedule the founder didn't state:
-    // a complete day+time with unknown cadence asks "is that every week?"
-    // instead of guessing (guessing wrong would silently create weekly
-    // events for a monthly group).
-    if (primary.cadence === null && primary.daysOfWeek !== null && primary.timeLocal !== null) {
-      return { status: "incomplete", missing: "cadence" }
-    }
-    if (primary.cadence === "weekly" || primary.cadence === null) {
-      const noDay = primary.daysOfWeek === null
-      const noTime = primary.timeLocal === null
-      if (noDay && noTime) return { status: "incomplete", missing: "both" }
-      if (noTime) return { status: "incomplete", missing: "time" }
-      if (noDay) return { status: "incomplete", missing: "day" }
-    }
-    // Confidently non-weekly (monthly-only) — nothing this slice can schedule.
-    return { status: "incomplete", missing: "nothing_schedulable" }
-  }
-
-  // Position-zero guarantee: the schedulable primary is stored first, so the
-  // engine's parseRhythm (which reads [0]) always finds it.
+  // Position-zero guarantee, on both paths: the primary is stored first, so
+  // the engine's parseRhythm (which reads [0]) always finds the schedulable
+  // one on ready, and the gap card/merge call always find the gapped one on
+  // incomplete.
   const ordered = [primary, ...rhythms.filter((_, i) => i !== primaryIdx)]
-  const stored: StoredRhythm[] = ordered.map((c) => ({
-    activity: c.activity,
-    title: deriveTitle(c),
-    cadence: c.cadence,
-    daysOfWeek: c.daysOfWeek,
-    timeLocal: c.timeLocal,
-  }))
+  const stored = ordered.map(toStored)
+
+  if (!isSchedulable(primary)) {
+    return {
+      status: "incomplete",
+      missing: classifyGap(primary),
+      rhythms: stored,
+      groupName: cleanSuggestedName(suggestedName),
+      candidateTimeLocal: primary.timeAmbiguous ? primary.timeLocal : null,
+    }
+  }
 
   return {
     status: "ready",
-    groupName: normalizeName(suggestedName, primary),
+    groupName:
+      cleanSuggestedName(suggestedName) ??
+      `${WEEKDAY_FULL[primary.daysOfWeek![0]]} ${titleCase(primary.activity)}`,
     rhythms: stored,
   }
 }

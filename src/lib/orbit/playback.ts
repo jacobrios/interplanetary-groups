@@ -70,6 +70,8 @@ export const REASK_COPY: Record<MissingField, string> = {
   both: "I need a day and a time to set up your schedule. Add those to your description and try again.",
   cadence:
     "Got it. Is that every week? Say so in your description and I'll set up the schedule.",
+  ambiguous_time:
+    "Got it. Is that morning or evening? Add am or pm to your description and I'll set up the schedule.",
   nothing_schedulable:
     "Tell me a bit more about what your group does together and when. I need an activity, a day, and a time to get your schedule going.",
 }
