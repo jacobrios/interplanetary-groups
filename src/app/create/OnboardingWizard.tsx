@@ -51,6 +51,9 @@ export default function OnboardingWizard() {
   const [gap, setGap] = useState<GapPayload | null>(null)
   const [round, setRound] = useState(0)
   const [answerDraft, setAnswerDraft] = useState("")
+  // True when the last answer moved nothing; the lead-in acknowledges that
+  // plainly instead of thanking the founder for nothing.
+  const [stalled, setStalled] = useState(false)
   const [gapExhausted, setGapExhausted] = useState(false)
   const [mergeError, setMergeError] = useState(false)
   const [isMerging, startMerge] = useTransition()
@@ -78,6 +81,7 @@ export default function OnboardingWizard() {
     setGap(extractState.gap)
     setRound(0)
     setAnswerDraft("")
+    setStalled(false)
     setMergeError(false)
     setGapExhausted(false)
     setStep("gap")
@@ -105,6 +109,7 @@ export default function OnboardingWizard() {
       if (result.status === "incomplete") {
         setGap(result.gap)
         setRound(result.round)
+        setStalled(!result.progressed)
         setAnswerDraft("")
         return
       }
@@ -159,6 +164,7 @@ export default function OnboardingWizard() {
         founderName={founderName}
         gap={gap}
         round={round}
+        stalled={stalled}
         answer={answerDraft}
         onAnswerChange={setAnswerDraft}
         onSubmit={handleAnswerSubmit}

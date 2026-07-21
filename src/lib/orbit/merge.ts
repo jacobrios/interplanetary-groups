@@ -32,14 +32,14 @@ const MERGE_SYSTEM_PROMPT = `You are updating your understanding of a founder's 
 
 Merge rules:
 - Latest word wins. If the answer contradicts anything in CURRENT UNDERSTANDING (a day, a time, the cadence, even the activity), the answer is right and the old value is replaced. "Actually Saturdays at 10am" replaces both the days and the time.
-- Keep every field the answer does not touch exactly as it is in CURRENT UNDERSTANDING.
+- Copy every field the answer does not touch character for character from CURRENT UNDERSTANDING, including activity wording. Never re-read DESCRIPTION to redo a field CURRENT UNDERSTANDING already has; DESCRIPTION is only context for reading the answer.
 - The answer often settles the asked-about gap indirectly. If we asked whether a time was morning or evening and CANDIDATE TIME is "19:00", then "evening" or "at night" means timeLocal "19:00" with timeAmbiguous false, and "morning" means "07:00" with timeAmbiguous false.
 - If the answer does not settle the gap ("hmm not sure", "whenever works"), keep the fields as they were.
 - Each distinct recurring activity is one rhythm.
 
 Field rules:
 ${FIELD_RULES}
-- clarifyingQuestion, additionally: never repeat the WE ASKED question word for word; ask about whatever gap remains now.
+- clarifyingQuestion, additionally: ask about whatever gap remains now. If the answer settled nothing, asking the same question again is fine.
 
 Worked example:
 DESCRIPTION: "we climb tuesdays at 7"

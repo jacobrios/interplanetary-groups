@@ -15,7 +15,7 @@
 "use client"
 
 import type { GapPayload } from "@/app/actions/extract-group"
-import { GAP_HINT_EXAMPLES, GAP_ROUND_INTRO } from "@/lib/orbit/gap"
+import { GAP_HINT_EXAMPLES, gapBubbleLine } from "@/lib/orbit/gap"
 import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
 import OrbitPause from "./OrbitPause"
 
@@ -28,6 +28,8 @@ interface Props {
   founderName: string
   gap: GapPayload
   round: number
+  /** Last answer moved nothing: the lead-in acknowledges instead of thanks. */
+  stalled: boolean
   answer: string
   onAnswerChange: (v: string) => void
   onSubmit: () => void
@@ -80,6 +82,7 @@ export default function StepGapAsk({
   founderName,
   gap,
   round,
+  stalled,
   answer,
   onAnswerChange,
   onSubmit,
@@ -89,7 +92,7 @@ export default function StepGapAsk({
 }: Props) {
   const gapRow = formatGapRhythmRow(gap.rhythms[0], gap.missing, gap.candidateTimeLocal)
   const hasText = answer.trim().length > 0
-  const bubbleLine = `${GAP_ROUND_INTRO[Math.min(round, 1)]} ${gap.question}`
+  const bubbleLine = gapBubbleLine(gap.question, round, stalled)
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>

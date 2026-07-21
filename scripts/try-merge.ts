@@ -24,11 +24,15 @@ async function main() {
   const { extractGroupProfile } = await import("../src/lib/orbit/extract")
   const { mergeGapAnswer } = await import("../src/lib/orbit/merge")
   const { normalizeExtraction } = await import("../src/lib/orbit/normalize")
-  const { GAP_ROUND_INTRO, decideGapOutcome, readClarifyingQuestion } = await import(
-    "../src/lib/orbit/gap"
-  )
+  const {
+    decideGapOutcome,
+    enforceActivityCarryOver,
+    gapAnswerMoved,
+    gapBubbleLine,
+    readClarifyingQuestion,
+  } = await import("../src/lib/orbit/gap")
 
-  const report = (label: string, raw: unknown, answersGiven: number) => {
+  const report = (label: string, raw: unknown, answersGiven: number, stalled: boolean) => {
     const normalized = normalizeExtraction(raw)
     const outcome = decideGapOutcome(normalized, readClarifyingQuestion(raw), answersGiven)
     console.log(`\n=== ${label} ===`)
@@ -36,16 +40,13 @@ async function main() {
     console.log("NORMALIZED:", JSON.stringify(normalized, null, 2))
     console.log("OUTCOME:", JSON.stringify(outcome))
     if (outcome.kind === "ask") {
-      console.log(
-        "BUBBLE:",
-        `${GAP_ROUND_INTRO[Math.min(answersGiven, 1)]} ${outcome.question}`
-      )
+      console.log("BUBBLE:", gapBubbleLine(outcome.question, answersGiven, stalled))
     }
     return { normalized, outcome }
   }
 
   const raw = await extractGroupProfile(description)
-  let { normalized, outcome } = report("EXTRACT", raw, 0)
+  let { normalized, outcome } = report("EXTRACT", raw, 0, false)
 
   for (const [i, answer] of answers.entries()) {
     if (outcome.kind !== "ask") {
@@ -54,8 +55,9 @@ async function main() {
     }
     if (normalized.status !== "incomplete") break // unreachable when asking
 
-    // Build the merge input exactly as mergeGapAction would.
-    const mergedRaw = await mergeGapAnswer({
+    // Build the merge input, and post-process, exactly as mergeGapAction does.
+    const prior = { rhythms: normalized.rhythms, groupName: normalized.groupName }
+    let mergedRaw = await mergeGapAnswer({
       description,
       groupName: normalized.groupName,
       currentState: normalized.rhythms,
@@ -63,7 +65,14 @@ async function main() {
       askedAbout: outcome.missing,
       answer,
     })
-    ;({ normalized, outcome } = report(`MERGE ${i + 1} ("${answer}")`, mergedRaw, i + 1))
+    mergedRaw = enforceActivityCarryOver(mergedRaw, prior.rhythms, answer)
+
+    const next = normalizeExtraction(mergedRaw)
+    const stalled =
+      next.status === "incomplete" &&
+      !gapAnswerMoved(prior, { rhythms: next.rhythms, groupName: next.groupName })
+    if (stalled) console.log(`\n(answer ${i + 1} moved nothing; stalled lead-in)`)
+    ;({ normalized, outcome } = report(`MERGE ${i + 1} ("${answer}")`, mergedRaw, i + 1, stalled))
   }
 }
 

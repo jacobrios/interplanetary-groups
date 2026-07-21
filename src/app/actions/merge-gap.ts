@@ -18,6 +18,8 @@ import { normalizeExtraction } from "@/lib/orbit/normalize"
 import {
   MAX_GAP_ROUNDS,
   decideGapOutcome,
+  enforceActivityCarryOver,
+  gapAnswerMoved,
   readClarifyingQuestion,
   type GapAskable,
 } from "@/lib/orbit/gap"
@@ -45,7 +47,14 @@ export interface MergeGapInput {
 export type MergeGapResult =
   | { status: "error" }
   | { status: "ready"; profile: { groupName: string; rhythms: StoredRhythm[] } }
-  | { status: "incomplete"; gap: GapPayload; round: number }
+  | {
+      status: "incomplete"
+      gap: GapPayload
+      round: number
+      /** False when the answer moved nothing; the next lead-in acknowledges
+       * that plainly instead of thanking the founder for nothing. */
+      progressed: boolean
+    }
   | { status: "exhausted" }
 
 export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResult> {
@@ -88,6 +97,11 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
     return { status: "error" }
   }
 
+  // Carry-verbatim enforcement before normalization: an activity the answer
+  // never mentioned must not drift just because the model re-read the
+  // description (observed in QA: CLIMBING became CLIMB after "not sure").
+  raw = enforceActivityCarryOver(raw, currentState, answer)
+
   const normalized = normalizeExtraction(raw)
   const outcome = decideGapOutcome(normalized, readClarifyingQuestion(raw), round + 1)
 
@@ -105,6 +119,10 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
   return {
     status: "incomplete",
     round: round + 1,
+    progressed: gapAnswerMoved(
+      { rhythms: currentState, groupName },
+      { rhythms: normalized.rhythms, groupName: normalized.groupName }
+    ),
     gap: {
       missing: outcome.missing,
       question: outcome.question,
