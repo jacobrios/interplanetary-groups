@@ -74,6 +74,7 @@ export async function mergeGapAnswer(input: MergeGapCallInput): Promise<unknown>
     clarifyingQuestion: null,
     rhythms: input.currentState.map((r, i) => ({
       activity: r.activity,
+      venueName: r.venueName ?? null,
       cadence: r.cadence,
       daysOfWeek: r.daysOfWeek,
       timeLocal: r.timeLocal,

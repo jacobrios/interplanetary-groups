@@ -73,6 +73,7 @@ function projectRhythms(rhythms: StoredRhythm[]): string {
       cadence: r.cadence,
       daysOfWeek: r.daysOfWeek,
       timeLocal: r.timeLocal,
+      venueName: r.venueName ?? null,
     }))
   )
 }
@@ -142,6 +143,40 @@ export function enforceActivityCarryOver(
     if (!answerMentions(activity, answer)) {
       o.activity = p.activity
     }
+  }
+  return out
+}
+
+/**
+ * Venue carry-over on the raw merged claim, run right after the activity
+ * guard. A gap answer is about time, day, or cadence; it never legitimately
+ * removes a standing venue, so a merged rhythm that nulled a previously
+ * captured venueName gets it restored — but only when the rhythm is
+ * recognizably the same one (same activity), so a restructured list is
+ * never "corrected" by position. A replacement venue (non-null) is the
+ * founder's latest word and is left alone. Unlike the activity guard this
+ * consults no answer text: there is no legitimate path from any answer to
+ * "remove the venue", only to "replace it".
+ */
+export function enforceVenueCarryOver(raw: unknown, prior: StoredRhythm[]): unknown {
+  if (raw === null || typeof raw !== "object") return raw
+  const rhythms = (raw as Record<string, unknown>).rhythms
+  if (!Array.isArray(rhythms)) return raw
+
+  const out = structuredClone(raw) as { rhythms: unknown[] }
+  const n = Math.min(rhythms.length, prior.length)
+  for (let i = 0; i < n; i++) {
+    const item = out.rhythms[i]
+    if (item === null || typeof item !== "object") continue
+    const o = item as Record<string, unknown>
+    const p = prior[i]
+    if (!p.venueName) continue
+
+    const merged = typeof o.venueName === "string" ? o.venueName.trim() : ""
+    if (merged) continue
+
+    const activity = typeof o.activity === "string" ? o.activity.trim().toLowerCase() : ""
+    if (activity === p.activity.toLowerCase()) o.venueName = p.venueName
   }
   return out
 }
