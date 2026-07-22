@@ -12,6 +12,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { provisionFounderGroup } from "@/lib/groups/provision"
 import { parseStoredRhythms, parseRhythm } from "@/lib/orbit/rhythm"
+import { normalizeTimeZone } from "@/lib/groups/timezone"
 import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 
 export interface CreateGroupInput {
@@ -20,6 +21,12 @@ export interface CreateGroupInput {
   description: string
   /** The normalized profile held by the wizard — re-validated, never trusted. */
   rhythms: unknown
+  /**
+   * The founder's browser-inferred IANA timezone — a client-asserted claim,
+   * re-validated here (normalizeTimeZone) before it is stored. null when
+   * detection produced nothing; it degrades to "UTC" rather than blocking.
+   */
+  timeZone: string | null
 }
 
 const DESCRIPTION_MAX = 2000
@@ -40,6 +47,11 @@ export async function createGroupAction(input: CreateGroupInput): Promise<{ erro
   if (!rhythms || parseRhythm(rhythms) === null) {
     return { error: "I lost track of your schedule. Go back a step and try again." }
   }
+
+  // The timezone is a client claim: validate before it drives display or is
+  // stored. An unrecognized/absent zone becomes "UTC" — never a hard failure,
+  // so a founder is never blocked from creating a group over this field.
+  const timeZone = normalizeTimeZone(input.timeZone)
 
   const supabase = await createClient()
 
@@ -66,6 +78,7 @@ export async function createGroupAction(input: CreateGroupInput): Promise<{ erro
       groupName,
       description,
       recurringActivities: rhythms,
+      timeZone,
     })
     group = result.group
   } catch {

@@ -79,7 +79,7 @@ const EXPECTED_STARTS_AT = new Date("2099-06-14T08:00:00Z")
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function createTestUserAndGroup(recurringActivities: unknown) {
+async function createTestUserAndGroup(recurringActivities: unknown, timeZone = "UTC") {
   const suffix = Date.now()
   const user = await prisma.user.create({
     data: {
@@ -93,7 +93,7 @@ async function createTestUserAndGroup(recurringActivities: unknown) {
     data: {
       name: "[TEST] Reconcile Group",
       founderId: user.id,
-      timeZone: "UTC",
+      timeZone,
       recurringActivities: recurringActivities as never,
       memberships: { create: { userId: user.id } },
     },
@@ -219,6 +219,32 @@ describe("reconcileScheduledEvents", () => {
       await prisma.membership.deleteMany({ where: { groupId: other.id } }).catch(() => {})
       await prisma.group.delete({ where: { id: other.id } }).catch(() => {})
     }
+  })
+
+  it("renders a non-UTC group's event and announcement both in group time (no divergence)", async () => {
+    // Los Angeles is UTC-7 in summer. A Sunday-8am rhythm must produce an event
+    // at 15:00 UTC (8am PDT, still Sunday there) AND an announcement that says
+    // "Sun at 8am". The zone is deliberately not the test machine's own zone,
+    // so a reconcile that dropped the argument (rendering the announcement in
+    // the machine's local zone) would produce a different hour and fail here.
+    // This is the card/announcement divergence the slice prevents.
+    const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM, "America/Los_Angeles")
+
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].status).toBe("created")
+    if (results[0].status !== "created") throw new Error("narrowing")
+    eventIds.push(results[0].eventId)
+
+    const event = await prisma.event.findUnique({ where: { id: results[0].eventId } })
+    // 2099-06-14 08:00 America/Los_Angeles (PDT, UTC-7) = 15:00 UTC.
+    expect(event!.startsAt.toISOString()).toBe("2099-06-14T15:00:00.000Z")
+
+    const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+    expect(messages).toHaveLength(1)
+    messageIds.push(messages[0].id)
+    expect(messages[0].body).toBe("Next up: climbing Sun at 8am. RSVP up top.")
   })
 
   it("group with pre-existing upcoming event is skipped", async () => {

@@ -10,6 +10,7 @@
 
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
+import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -18,6 +19,14 @@ interface Props {
   groupName: string
   onGroupNameChange: (v: string) => void
   rhythms: StoredRhythm[]
+  /**
+   * The founder's browser-inferred IANA zone (or null before detection / when
+   * it produced nothing). This is the only place a wrong inference becomes
+   * visible before confirm, so the reference line renders on every path — the
+   * null/UTC case reads "Times in UTC", which is itself the signal to a founder
+   * in another zone that something is off.
+   */
+  timeZone: string | null
   onConfirm: () => void
   onBack: () => void
   isCreating: boolean
@@ -45,11 +54,15 @@ export default function Step2Playback({
   groupName,
   onGroupNameChange,
   rhythms,
+  timeZone,
   onConfirm,
   onBack,
   isCreating,
   error,
 }: Props) {
+  // Reference text, not an action: derived deterministically from the IANA zone
+  // (never teal, never lime). Falls back to "UTC" before detection resolves.
+  const zoneLabel = formatTimeZoneLabel(timeZone ?? "UTC")
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* Feed-style Orbit bubble: lime avatar, muted fill, no name label. */}
@@ -138,6 +151,21 @@ export default function Step2Playback({
               </div>
             )
           })}
+
+          {/* Quiet timezone reference line. Reference text (meta scale,
+              secondary color), never an action, never teal or lime. Always
+              shown so a wrong inference is visible before confirm. No period,
+              no dashes, plain register. */}
+          <p
+            style={{
+              fontSize: "var(--type-meta)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-secondary)",
+              margin: "0.75rem 0 0",
+            }}
+          >
+            Times in {zoneLabel}
+          </p>
         </div>
       </div>
 

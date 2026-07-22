@@ -11,6 +11,12 @@ interface ProvisionInput {
   description?: string | null
   /** Validated rhythm array (parseStoredRhythms shape); [0] is the schedulable primary. */
   recurringActivities?: StoredRhythm[] | null
+  /**
+   * Validated IANA timezone (normalizeTimeZone output). Omitted → the schema's
+   * "UTC" default applies. The caller is responsible for normalization; this
+   * function trusts the value it is handed.
+   */
+  timeZone?: string
 }
 
 interface ProvisionResult {
@@ -34,6 +40,7 @@ export async function provisionFounderGroup({
   groupName,
   description,
   recurringActivities,
+  timeZone,
 }: ProvisionInput): Promise<ProvisionResult> {
   return prisma.$transaction(async (tx) => {
     // Reuse the existing User if one already exists for this Supabase auth ID.
@@ -52,6 +59,8 @@ export async function provisionFounderGroup({
         name: groupName,
         founderId: user.id,
         description: description ?? null,
+        // undefined omits the field, leaving the schema's "UTC" default.
+        timeZone: timeZone ?? undefined,
         // Json? column: undefined omits the field entirely (stays NULL);
         // the validated array is cast for Prisma's JSON input type.
         recurringActivities: recurringActivities

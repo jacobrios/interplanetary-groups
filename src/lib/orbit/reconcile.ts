@@ -74,8 +74,11 @@ export async function reconcileScheduledEvents(
       continue
     }
 
-    // Step c: compute the next occurrence of this rhythm after `now`
-    const startsAt = computeNextOccurrence(rhythm, timeZone ?? "UTC", now)
+    // Step c: compute the next occurrence of this rhythm after `now`.
+    // The same zone drives the announcement copy below, so the event's instant
+    // and the words describing it can never disagree (build-notes §11).
+    const zone = timeZone ?? "UTC"
+    const startsAt = computeNextOccurrence(rhythm, zone, now)
 
     // Step d+e: create the event and the announcement
     // P2002 guard: if a concurrent run snuck in a duplicate, catch and skip.
@@ -87,12 +90,13 @@ export async function reconcileScheduledEvents(
         activityLabel: rhythm.activity,
       })
 
-      // Step e: announce in the group feed
+      // Step e: announce in the group feed, in the group's timezone so the
+      // stored copy matches the pinned card exactly.
       await createMessage({
         groupId,
         authorType: MessageAuthor.ORBIT,
         authorId: null,
-        body: buildAnnouncement(event, rhythm),
+        body: buildAnnouncement(event, rhythm, zone),
       })
 
       // Step f: record success

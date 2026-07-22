@@ -13,7 +13,7 @@
 
 "use client"
 
-import { useActionState, useState, useTransition } from "react"
+import { useActionState, useEffect, useState, useTransition } from "react"
 import {
   extractGroupAction,
   type ExtractGroupState,
@@ -40,6 +40,24 @@ export default function OnboardingWizard() {
   const [description, setDescription] = useState("")
   const [groupName, setGroupName] = useState("")
   const [rhythms, setRhythms] = useState<StoredRhythm[] | null>(null)
+
+  // Infer the founder's timezone silently from their browser (build-notes §11,
+  // timezone-capture slice): no picker, no question. Detected once on mount and
+  // held here for the whole wizard — it never round-trips the extraction/merge
+  // actions, so it survives every gap round and the escape back to Step 1, and
+  // reaches the server only at confirm. Detection runs in an effect (not during
+  // render) because the page is server-rendered first and the server's zone
+  // would not match the browser's; reading it at render would risk a hydration
+  // mismatch. null until the effect runs and whenever detection yields nothing;
+  // the server normalizes null to "UTC".
+  const [timeZone, setTimeZone] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || null)
+    } catch {
+      setTimeZone(null)
+    }
+  }, [])
 
   const [extractState, extractFormAction, isExtracting] = useActionState(
     extractGroupAction,
@@ -138,6 +156,7 @@ export default function OnboardingWizard() {
         groupName,
         description,
         rhythms,
+        timeZone,
       })
       if (result?.error) setCreateError(result.error)
     })
@@ -150,6 +169,7 @@ export default function OnboardingWizard() {
         groupName={groupName}
         onGroupNameChange={setGroupName}
         rhythms={rhythms}
+        timeZone={timeZone}
         onConfirm={handleConfirm}
         onBack={() => setStep("describe")}
         isCreating={isCreating}

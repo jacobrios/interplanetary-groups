@@ -25,6 +25,50 @@ describe("zonedWallTimeToUtc", () => {
     const d2 = zonedWallTimeToUtc(2026, 11, 15, 8, 0, "America/Los_Angeles")
     expect(d2.toISOString()).toBe("2026-11-15T16:00:00.000Z")
   })
+
+  // Early-morning wall times below the zone's offset magnitude. On the old
+  // (hour-delta-only) offset math these returned the right wall time on the
+  // WRONG (previous) local day; the date-inclusive offset fixes them. The
+  // measured failure envelope is: local hour < |UTC offset|. These cases sit
+  // at and below that boundary for each zone, in both DST states.
+  describe("day-boundary: early-morning wall times in negative-offset zones", () => {
+    it("7am PST (UTC-8), below the boundary, stays on the same local day → 15:00 UTC", () => {
+      // 2026-01-12 is a Monday; the event must be Monday, not Sunday.
+      const d = zonedWallTimeToUtc(2026, 1, 12, 7, 0, "America/Los_Angeles")
+      expect(d.toISOString()).toBe("2026-01-12T15:00:00.000Z")
+    })
+
+    it("7am PDT (UTC-7), below the boundary (summer) → 14:00 UTC same day", () => {
+      const d = zonedWallTimeToUtc(2026, 7, 13, 7, 0, "America/Los_Angeles")
+      expect(d.toISOString()).toBe("2026-07-13T14:00:00.000Z")
+    })
+
+    it("6am AKST (UTC-9), below the boundary → 15:00 UTC same day", () => {
+      const d = zonedWallTimeToUtc(2026, 1, 12, 6, 0, "America/Anchorage")
+      expect(d.toISOString()).toBe("2026-01-12T15:00:00.000Z")
+    })
+
+    it("8am AKDT (UTC-8), below the boundary (summer) → 16:00 UTC same day", () => {
+      const d = zonedWallTimeToUtc(2026, 7, 13, 8, 0, "America/Anchorage")
+      expect(d.toISOString()).toBe("2026-07-13T16:00:00.000Z")
+    })
+
+    it("9am HST (UTC-10), below the boundary → 19:00 UTC same day", () => {
+      // Honolulu observes no DST; UTC-10 year-round.
+      const d = zonedWallTimeToUtc(2026, 1, 12, 9, 0, "Pacific/Honolulu")
+      expect(d.toISOString()).toBe("2026-01-12T19:00:00.000Z")
+    })
+
+    it("5am CST (UTC-6), below the boundary → 11:00 UTC same day", () => {
+      const d = zonedWallTimeToUtc(2026, 1, 12, 5, 0, "America/Chicago")
+      expect(d.toISOString()).toBe("2026-01-12T11:00:00.000Z")
+    })
+
+    it("5am CDT (UTC-5), below the boundary (summer) → 10:00 UTC same day", () => {
+      const d = zonedWallTimeToUtc(2026, 7, 13, 5, 0, "America/Chicago")
+      expect(d.toISOString()).toBe("2026-07-13T10:00:00.000Z")
+    })
+  })
 })
 
 describe("computeNextOccurrence", () => {
@@ -56,6 +100,28 @@ describe("computeNextOccurrence", () => {
     const after = new Date("2026-07-12T16:01:00Z") // 9:01am PDT (past the 8am slot)
     const result = computeNextOccurrence(SUNDAY_RHYTHM, "America/Los_Angeles", after)
     expect(result.toISOString()).toBe("2026-07-19T15:00:00.000Z") // next Sunday PDT
+  })
+
+  it("archetype: a Monday-7am Pacific rhythm lands on Monday, not the Sunday before", () => {
+    // The failure the fold-in prevents: 7am is below LA's winter offset (8), so
+    // the old conversion returned Monday's 7am wall time stamped on Sunday.
+    const monday7am: GroupRhythm = {
+      activity: "climbing",
+      title: "Climbing Monday",
+      daysOfWeek: [1], // Monday
+      timeLocal: "07:00",
+      cadence: "weekly",
+    }
+    // 2026-01-12 is a Monday. Ask from the preceding Thursday.
+    const after = new Date("2026-01-08T12:00:00Z")
+    const result = computeNextOccurrence(monday7am, "America/Los_Angeles", after)
+    // 7am PST (UTC-8) on Monday 2026-01-12 = 15:00 UTC, and it must be a Monday.
+    expect(result.toISOString()).toBe("2026-01-12T15:00:00.000Z")
+    const weekdayInLA = new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      timeZone: "America/Los_Angeles",
+    }).format(result)
+    expect(weekdayInLA).toBe("Mon")
   })
 
   it("multi-day rhythm picks nearest: Mon+Wed, after Tuesday → next is Wednesday", () => {

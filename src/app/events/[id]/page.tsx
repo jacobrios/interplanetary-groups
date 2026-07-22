@@ -53,7 +53,7 @@ export default async function EventPage({ params }: Props) {
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
 
-  const dateLabel = formatEventDate(event.startsAt, event.endsAt)
+  const dateLabel = formatEventDate(event.startsAt, event.endsAt, event.group.timeZone)
 
   return (
     <main
