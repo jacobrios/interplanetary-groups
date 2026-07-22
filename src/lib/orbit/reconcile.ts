@@ -88,6 +88,11 @@ export async function reconcileScheduledEvents(
         title: rhythm.title,
         startsAt,
         activityLabel: rhythm.activity,
+        // Standing-place snapshot: the rhythm's venue becomes this event's
+        // Venue row ({name} only; label/address/url are per-event concerns,
+        // left null). A later change to the rhythm's standing place will not
+        // alter events already created — deliberate, see build-notes §11.
+        venue: rhythm.venueName ? { name: rhythm.venueName } : null,
       })
 
       // Step e: announce in the group feed, in the group's timezone so the

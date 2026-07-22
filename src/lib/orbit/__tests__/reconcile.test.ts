@@ -247,6 +247,51 @@ describe("reconcileScheduledEvents", () => {
     expect(messages[0].body).toBe("Next up: climbing Sun at 8am. RSVP up top.")
   })
 
+  it("snapshots the rhythm's venueName into a Venue row ({name} only)", async () => {
+    const { group } = await createTestUserAndGroup([
+      { ...SUNDAY_RHYTHM[0], venueName: "Summit Gym" },
+    ])
+
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].status).toBe("created")
+    if (results[0].status !== "created") throw new Error("narrowing")
+    eventIds.push(results[0].eventId)
+
+    const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+    for (const m of messages) messageIds.push(m.id)
+
+    // Venue rows cascade-delete with their Event, so eventIds cleanup covers them.
+    const venue = await prisma.venue.findFirst({ where: { eventId: results[0].eventId } })
+    expect(venue).not.toBeNull()
+    expect(venue!.name).toBe("Summit Gym")
+    expect(venue!.displayLabel).toBeNull()
+    expect(venue!.address).toBeNull()
+    expect(venue!.url).toBeNull()
+  })
+
+  // Regression pin, not a TDD test: this passes before the reconcile change
+  // (no venue is ever created today) and can only fail if the change
+  // over-reaches, e.g. by always passing a venue object. That is exactly
+  // what it guards: the no-venue flow stays byte-identical at the DB level.
+  it("a rhythm without venueName creates no Venue row (no-venue flow unchanged)", async () => {
+    const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].status).toBe("created")
+    if (results[0].status !== "created") throw new Error("narrowing")
+    eventIds.push(results[0].eventId)
+
+    const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+    for (const m of messages) messageIds.push(m.id)
+
+    const venueCount = await prisma.venue.count({ where: { eventId: results[0].eventId } })
+    expect(venueCount).toBe(0)
+  })
+
   it("group with pre-existing upcoming event is skipped", async () => {
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 
