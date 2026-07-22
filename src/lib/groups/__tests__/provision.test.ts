@@ -121,4 +121,29 @@ describe("provisionFounderGroup", () => {
     expect(group.recurringActivities).toBeNull()
     expect(group.description).toBeNull()
   })
+
+  it("writes the timeZone when provided", async () => {
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-tz-${Date.now()}`,
+      founderName: "[TEST] Founder TZ",
+      groupName: "[TEST] Group TZ",
+      timeZone: "America/Chicago",
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.timeZone).toBe("America/Chicago")
+  })
+
+  it("defaults timeZone to 'UTC' when omitted (schema default)", async () => {
+    const { user, group } = await provisionFounderGroup({
+      supabaseAuthId: `test-auth-notz-${Date.now()}`,
+      founderName: "[TEST] Founder No TZ",
+      groupName: "[TEST] Group No TZ",
+    })
+    groupIds.push(group.id)
+    userIds.push(user.id)
+
+    expect(group.timeZone).toBe("UTC")
+  })
 })

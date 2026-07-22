@@ -32,6 +32,8 @@ interface Props {
     venues: { displayLabel: string | null; name: string }[]
   }
   groupId: string
+  /** The group's IANA timezone; the card renders the event instant in it. */
+  timeZone: string
   inCount: number
   outCount: number
   pendingCount: number
@@ -42,6 +44,7 @@ interface Props {
 export default function EventCard({
   event,
   groupId,
+  timeZone,
   inCount,
   outCount,
   pendingCount,
@@ -50,7 +53,7 @@ export default function EventCard({
 }: Props) {
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
-  const dateLabel = formatEventDate(event.startsAt, event.endsAt)
+  const dateLabel = formatEventDate(event.startsAt, event.endsAt, timeZone)
   const countsLabel = formatCounts({ inCount, outCount, pendingCount })
 
   return (

@@ -179,6 +179,7 @@ export default async function GroupPage({ params }: Props) {
           <EventCard
             event={upcomingEvent}
             groupId={group.id}
+            timeZone={group.timeZone}
             inCount={inCount}
             outCount={outCount}
             pendingCount={pendingCount}
