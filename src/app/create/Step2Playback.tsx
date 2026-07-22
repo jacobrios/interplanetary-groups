@@ -8,7 +8,7 @@
 
 "use client"
 
-import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 
@@ -19,6 +19,8 @@ interface Props {
   groupName: string
   onGroupNameChange: (v: string) => void
   rhythms: StoredRhythm[]
+  /** Per-rhythm standing-place edit; index matches the rhythms array. */
+  onVenueNameChange: (index: number, value: string) => void
   /**
    * The founder's browser-inferred IANA zone (or null before detection / when
    * it produced nothing). This is the only place a wrong inference becomes
@@ -54,6 +56,7 @@ export default function Step2Playback({
   groupName,
   onGroupNameChange,
   rhythms,
+  onVenueNameChange,
   timeZone,
   onConfirm,
   onBack,
@@ -141,13 +144,40 @@ export default function Step2Playback({
           </div>
 
           {/* One row per rhythm, primary first; loose rhythms read as
-              understood-but-not-scheduled. */}
+              understood-but-not-scheduled. Beneath each value line sits the
+              standing-place input (always-on, the group-name precedent, but
+              quieter: label scale, subtle border). Neutral colors on purpose,
+              never lime — venue is optional and never blocks Continue, so it
+              must not borrow the gap marker's "Orbit needs this" cue. */}
           {rhythms.map((r, i) => {
             const row = formatRhythmRow(r)
             return (
               <div key={i} style={{ marginBottom: i === rhythms.length - 1 ? 0 : "0.5rem" }}>
                 <p style={rowLabelStyle}>{row.label}</p>
                 <p style={rowValueStyle}>{row.value}</p>
+                <input
+                  id={`venueName-${i}`}
+                  type="text"
+                  value={r.venueName ?? ""}
+                  onChange={(e) => onVenueNameChange(i, e.target.value)}
+                  disabled={isCreating}
+                  maxLength={VENUE_NAME_MAX}
+                  placeholder="Where do you usually meet? (optional)"
+                  aria-label={`Where you usually meet for ${r.activity}`}
+                  style={{
+                    width: "100%",
+                    marginTop: "0.25rem",
+                    padding: "0.25rem 0.5rem",
+                    backgroundColor: "var(--surface-input)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "0.375rem",
+                    color: "var(--text-primary)",
+                    fontSize: "var(--type-label)",
+                    lineHeight: "var(--leading-normal)",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
               </div>
             )
           })}

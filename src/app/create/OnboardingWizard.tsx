@@ -146,6 +146,14 @@ export default function OnboardingWizard() {
     extractFormAction(formData)
   }
 
+  // The Step 2 venue input writes the raw editing string into rhythm state
+  // (typing is never fought); trim-or-null happens once at confirm below.
+  function handleVenueNameChange(index: number, value: string) {
+    setRhythms((prev) =>
+      prev ? prev.map((r, i) => (i === index ? { ...r, venueName: value } : r)) : prev
+    )
+  }
+
   function handleConfirm() {
     if (!rhythms) return
     setCreateError(null)
@@ -155,7 +163,12 @@ export default function OnboardingWizard() {
         founderName,
         groupName,
         description,
-        rhythms,
+        // Empty venue inputs never reach the wire as empty strings; the
+        // server's parseStoredRhythms re-nulls them anyway (no bypass).
+        rhythms: rhythms.map((r) => ({
+          ...r,
+          venueName: r.venueName?.trim() ? r.venueName.trim() : null,
+        })),
         timeZone,
       })
       if (result?.error) setCreateError(result.error)
@@ -169,6 +182,7 @@ export default function OnboardingWizard() {
         groupName={groupName}
         onGroupNameChange={setGroupName}
         rhythms={rhythms}
+        onVenueNameChange={handleVenueNameChange}
         timeZone={timeZone}
         onConfirm={handleConfirm}
         onBack={() => setStep("describe")}
