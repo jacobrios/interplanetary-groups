@@ -361,6 +361,8 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **No step indicator on Step 2 or the gap step (originated in the founder-onboarding slice, unrecorded until the gap-ask QA pass).** The mockups show a wizard header of the Orbit lockup, a back chevron, and a "STEP 2 OF 3" step indicator; the shipped flow instead reuses the "Start your group / No sign-up needed" page header on every beat. The back function is covered by the existing "Edit my description" link, but the step indicator has no equivalent anywhere in the shipped flow, and it matters most while a founder is stuck in a gap round wondering how much is left. Lineage recorded deliberately: this was decided in passing and never written down, the same pattern as the collapsed WHO row, and it is logged here so the polish pass inherits it as a known gap rather than rediscovering it.
 
+- **Multi-day schedule copy joins every day with "&" (noticed 22 July 2026).** The Step 2 rhythm row composes multi-day schedules as "Mon & Wed & Fri at 8am" (`playback.ts` joins all day abbreviations with " & "), where §7's schedule-copy rule reads more like "Mon, Wed & Fri" (commas between items, ampersand before the last). Presentation only; the structured day data underneath is correct. Deferred to the end-of-build polish pass.
+
 ### Orbit scheduled event auto-creation (26 June 2026)
 
 Orbit now creates recurring events on a schedule rather than having them faked by a seed fixture. This is the first real event-creation path in the codebase and the first "Orbit acts autonomously" slice. Deliberately model-free: the rhythm arrives already structured (onboarding is deferred), so Orbit does only date math plus deterministic copy.
@@ -562,3 +564,11 @@ The inverse of the silent-drop failure this register warns about: the walkthroug
 - **Observed, not changed:** `parseRhythm` rejects on a wrong-type `durationMinutes` while `venueName` degrades to null — a strictness asymmetry that predates the never-gates rule. Left alone (stay in lane).
 
 **QA data note.** Browser verification created four groups in the dev-test DB via the real wizard (two "Sunday Climbers" from the original pass — one venued, one not — "Saturday Yoga", and a third "Sunday Climbers" from the revision pass proving the tap-revealed input persists; the gap-round and seeded-path spot checks stopped before confirm and created nothing). Left in place as the PR's inspectable evidence; expendable dev data thereafter, deletable at the owner's discretion.
+
+### Walkthrough crops checked in as reference (22 July 2026)
+
+Documentation only, no code. `docs/design/walkthrough-screens/` now holds five cropped PNG exports of the walkthrough gallery, two screens per file (`screens-01-02.png` through `screens-09-10.png`), with a README stating what they are and are not.
+
+**This does not contradict §9's "screenshots are not a build input" rule; that rule holds unchanged.** §9 governs what an agent builds visual code from, and the answer remains Claude Design's "Send to local coding agent" handoff. These crops serve the two *human* verification gates instead: the describe-back checkpoint before an agent writes visual code, and human verification of a "matches the design" claim against a rendered screen. §9 recorded that the earlier full-gallery contact sheet failed twice over, on legibility and on missing assets. Cropping to two screens per file fixes only the legibility half — the crops still carry no CSS, tokens, or assets — which is exactly why they are checked in as reference, not source.
+
+**The walkthrough predates several shipped decisions, deliberately.** One worked example: these screens show a venue only on event surfaces (the pinned card, the event detail Where row), never on the CLIMBS/BEERS rhythm rows, because nothing captured a venue when they were drawn; the venue-capture slice (above) has since closed that path. Recorded decisions in CLAUDE.md and this file win over these screens wherever they disagree. The folder exists for the human verification gates, not as an authority on product behavior.
