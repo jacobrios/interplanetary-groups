@@ -15,6 +15,7 @@ import {
   QUESTION_MAX,
   decideGapOutcome,
   enforceActivityCarryOver,
+  enforceVenueCarryOver,
   gapAnswerMoved,
   gapBubbleLine,
   readClarifyingQuestion,
@@ -236,6 +237,15 @@ describe("gapAnswerMoved", () => {
       gapAnswerMoved(snapshot(), snapshot({ rhythms: [PARTIAL_RHYTHM, { ...PARTIAL_RHYTHM, activity: "beers" }] }))
     ).toBe(true)
   })
+
+  it("a venue change is movement (a venue-only answer is not a stalled round)", () => {
+    expect(
+      gapAnswerMoved(
+        snapshot(),
+        snapshot({ rhythms: [{ ...PARTIAL_RHYTHM, venueName: "Summit Gym" }] })
+      )
+    ).toBe(true)
+  })
 })
 
 describe("enforceActivityCarryOver", () => {
@@ -310,6 +320,73 @@ describe("enforceActivityCarryOver", () => {
     const raw = mergedRaw([rhythm({ activity: "climb" })])
     enforceActivityCarryOver(raw, prior, "hmm not sure")
     expect((raw.rhythms[0] as { activity: string }).activity).toBe("climb")
+  })
+})
+
+describe("enforceVenueCarryOver", () => {
+  // A gap answer is about time, day, or cadence; it never legitimately
+  // removes a standing venue. A merged rhythm that nulled a previously
+  // captured venueName gets it restored, keyed on same-activity so a
+  // restructured list is never "corrected" by position.
+  const prior: StoredRhythm[] = [
+    { activity: "climbing", title: "Climbing", cadence: "weekly", daysOfWeek: [2], timeLocal: null, venueName: "Summit Gym" },
+  ]
+  const mergedRaw = (rhythms: unknown[]) => ({
+    suggestedGroupName: "Tuesday Climbers",
+    clarifyingQuestion: null,
+    rhythms,
+  })
+  const rhythm = (over: Record<string, unknown> = {}) => ({
+    activity: "climbing",
+    cadence: "weekly",
+    daysOfWeek: [2],
+    timeLocal: "19:00",
+    timeAmbiguous: false,
+    isPrimary: true,
+    venueName: null,
+    ...over,
+  })
+
+  it("restores a venueName the merged output nulled (a time answer never removes a venue)", () => {
+    const out = enforceVenueCarryOver(mergedRaw([rhythm()]), prior) as {
+      rhythms: { venueName: unknown }[]
+    }
+    expect(out.rhythms[0].venueName).toBe("Summit Gym")
+  })
+
+  it("leaves a replacement venue alone (latest word wins)", () => {
+    const out = enforceVenueCarryOver(mergedRaw([rhythm({ venueName: "Movement" })]), prior) as {
+      rhythms: { venueName: unknown }[]
+    }
+    expect(out.rhythms[0].venueName).toBe("Movement")
+  })
+
+  it("does nothing when prior had no venue", () => {
+    const noVenuePrior = [{ ...prior[0], venueName: null }]
+    const out = enforceVenueCarryOver(mergedRaw([rhythm()]), noVenuePrior) as {
+      rhythms: { venueName: unknown }[]
+    }
+    expect(out.rhythms[0].venueName).toBeNull()
+  })
+
+  it("does not restore across an activity change", () => {
+    const out = enforceVenueCarryOver(mergedRaw([rhythm({ activity: "running" })]), prior) as {
+      rhythms: { venueName: unknown }[]
+    }
+    expect(out.rhythms[0].venueName).toBeNull()
+  })
+
+  it("passes garbage shapes through untouched", () => {
+    expect(enforceVenueCarryOver(null, prior)).toBeNull()
+    expect(enforceVenueCarryOver("nope", prior)).toBe("nope")
+    const noRhythms = { suggestedGroupName: null }
+    expect(enforceVenueCarryOver(noRhythms, prior)).toEqual(noRhythms)
+  })
+
+  it("does not mutate its input", () => {
+    const raw = mergedRaw([rhythm()])
+    enforceVenueCarryOver(raw, prior)
+    expect((raw.rhythms[0] as { venueName: unknown }).venueName).toBeNull()
   })
 })
 

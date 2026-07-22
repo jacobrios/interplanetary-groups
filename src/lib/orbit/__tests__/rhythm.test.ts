@@ -4,7 +4,7 @@
 // Json? value of Group.recurringActivities and returns a typed GroupRhythm
 // or null.
 import { describe, it, expect } from "vitest"
-import { parseRhythm, parseStoredRhythms } from "../rhythm"
+import { parseRhythm, parseStoredRhythms, VENUE_NAME_MAX } from "../rhythm"
 
 const VALID_RHYTHM = {
   activity: "climbing",
@@ -230,5 +230,55 @@ describe("parseStoredRhythms", () => {
     expect(parseStoredRhythms(undefined)).toBeNull()
     expect(parseStoredRhythms([])).toBeNull()
     expect(parseStoredRhythms("nope")).toBeNull()
+  })
+})
+
+describe("parseStoredRhythms — venueName", () => {
+  it("accepts and trims a venueName string", () => {
+    const result = parseStoredRhythms([{ ...VALID_RHYTHM, venueName: "  Summit Gym " }])
+    expect(result?.[0].venueName).toBe("Summit Gym")
+  })
+
+  it("absent venueName parses as null (legacy rows)", () => {
+    expect(parseStoredRhythms([VALID_RHYTHM])?.[0].venueName).toBeNull()
+  })
+
+  it("explicit null is null", () => {
+    expect(parseStoredRhythms([{ ...VALID_RHYTHM, venueName: null }])?.[0].venueName).toBeNull()
+  })
+
+  it("empty and whitespace-only degrade to null, never reject (venue never gates creation)", () => {
+    const result = parseStoredRhythms([{ ...VALID_RHYTHM, venueName: "   " }])
+    expect(result).not.toBeNull()
+    expect(result?.[0].venueName).toBeNull()
+  })
+
+  it("caps at VENUE_NAME_MAX", () => {
+    const result = parseStoredRhythms([{ ...VALID_RHYTHM, venueName: "x".repeat(200) }])
+    expect(result?.[0].venueName?.length).toBeLessThanOrEqual(VENUE_NAME_MAX)
+  })
+
+  it("rejects the array on a non-string non-null venueName (strict on our own writes)", () => {
+    expect(parseStoredRhythms([{ ...VALID_RHYTHM, venueName: 42 }])).toBeNull()
+  })
+})
+
+describe("parseRhythm — venueName (lenient: a bad venue can never stop scheduling)", () => {
+  it("carries a valid venueName", () => {
+    expect(parseRhythm([{ ...VALID_RHYTHM, venueName: "Summit Gym" }])?.venueName).toBe("Summit Gym")
+  })
+
+  it("absent venueName is null", () => {
+    expect(parseRhythm([VALID_RHYTHM])?.venueName).toBeNull()
+  })
+
+  it("a wrong-type venueName degrades to null and the rhythm still parses", () => {
+    const result = parseRhythm([{ ...VALID_RHYTHM, venueName: 42 }])
+    expect(result).not.toBeNull()
+    expect(result?.venueName).toBeNull()
+  })
+
+  it("empty string degrades to null", () => {
+    expect(parseRhythm([{ ...VALID_RHYTHM, venueName: "" }])?.venueName).toBeNull()
   })
 })

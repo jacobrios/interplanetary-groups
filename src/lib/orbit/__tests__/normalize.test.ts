@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from "vitest"
 import { normalizeExtraction } from "../normalize"
+import { VENUE_NAME_MAX } from "../rhythm"
 
 const CLIMB = {
   activity: "climbing",
@@ -316,5 +317,77 @@ describe("normalizeExtraction — group name", () => {
     const wrongType = normalizeExtraction(raw([CLIMB], 42))
     if (wrongType.status !== "ready") throw new Error("expected ready")
     expect(wrongType.groupName).toBe("Sunday Climbing")
+  })
+})
+
+describe("normalizeExtraction — venueName", () => {
+  it("carries a trimmed venueName per rhythm on the ready path", () => {
+    const r = normalizeExtraction(
+      raw([
+        { ...CLIMB, venueName: "  Summit Gym " },
+        { ...BEERS, venueName: "Lucky Lab" },
+      ])
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[0].venueName).toBe("Summit Gym")
+    expect(r.rhythms[1].venueName).toBe("Lucky Lab") // loose rhythms carry venues too
+  })
+
+  it("absent, null, wrong-type, and empty venueName all become null", () => {
+    for (const venueName of [undefined, null, 42, ""]) {
+      const r = normalizeExtraction(raw([{ ...CLIMB, venueName }]))
+      if (r.status !== "ready") throw new Error("expected ready")
+      expect(r.rhythms[0].venueName).toBeNull()
+    }
+  })
+
+  it("caps venueName at VENUE_NAME_MAX", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, venueName: "x".repeat(200) }]))
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[0].venueName!.length).toBeLessThanOrEqual(VENUE_NAME_MAX)
+  })
+
+  it("carries venueName into the incomplete partial state so a gap round cannot lose it", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, timeLocal: null, venueName: "Summit Gym" }]))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.rhythms[0].venueName).toBe("Summit Gym")
+  })
+
+  it("keeps the venue when an ambiguous time guess is nulled (only the guess is unconfirmed)", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, timeLocal: "07:00", timeAmbiguous: true, venueName: "Summit Gym" }])
+    )
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.rhythms[0].timeLocal).toBeNull()
+    expect(r.rhythms[0].venueName).toBe("Summit Gym")
+  })
+})
+
+// Regression pins, not TDD tests: these pass on first run by design, because
+// isSchedulable and classifyGap do not read venueName and this slice forbids
+// touching them. They exist so any future change that lets venue participate
+// in the completeness gate fails loudly. Nothing environmental (timezone,
+// locale, clock) affects them.
+describe("normalizeExtraction — venue never gates (regression pins)", () => {
+  it("a full schedule with no venue is still ready", () => {
+    expect(normalizeExtraction(raw([{ ...CLIMB, venueName: null }])).status).toBe("ready")
+  })
+
+  it("venueName does not change gap classification", () => {
+    const gapCases: Array<[Record<string, unknown>, string]> = [
+      [{ ...CLIMB, timeLocal: null, venueName: "Summit Gym" }, "time"],
+      [{ ...CLIMB, daysOfWeek: null, venueName: "Summit Gym" }, "day"],
+      [{ ...CLIMB, daysOfWeek: null, timeLocal: null, venueName: "Summit Gym" }, "both"],
+      [{ ...CLIMB, cadence: null, venueName: "Summit Gym" }, "cadence"],
+      [
+        { ...CLIMB, timeLocal: "07:00", timeAmbiguous: true, venueName: "Summit Gym" },
+        "ambiguous_time",
+      ],
+    ]
+    for (const [rhythm, expected] of gapCases) {
+      const r = normalizeExtraction(raw([rhythm]))
+      if (r.status !== "incomplete") throw new Error(`expected incomplete for ${expected}`)
+      expect(r.missing).toBe(expected)
+    }
   })
 })

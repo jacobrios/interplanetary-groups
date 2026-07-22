@@ -7,7 +7,7 @@
 // promotion, the position-zero guarantee, and the completeness gate.
 // Pure and synchronous by design so every rule is unit-testable.
 
-import type { StoredRhythm } from "./rhythm"
+import { cleanVenueName, type StoredRhythm } from "./rhythm"
 
 export type MissingField =
   | "time"
@@ -58,6 +58,7 @@ interface Candidate {
   timeLocal: string | null
   timeAmbiguous: boolean
   isPrimary: boolean
+  venueName: string | null
 }
 
 /**
@@ -109,6 +110,9 @@ function sanitize(raw: unknown): { rhythms: Candidate[]; suggestedName: string |
       timeLocal,
       timeAmbiguous,
       isPrimary: o.isPrimary === true,
+      // Venue never participates in the completeness gate below; it is
+      // carried data, sanitized like everything else (trim/cap/empty→null).
+      venueName: cleanVenueName(o.venueName),
     })
   }
   return { rhythms, suggestedName }
@@ -193,6 +197,9 @@ function toStored(c: Candidate): StoredRhythm {
     cadence: c.cadence,
     daysOfWeek: c.daysOfWeek,
     timeLocal: c.timeAmbiguous ? null : c.timeLocal,
+    // The venue is confirmed founder input like the activity, not a guess
+    // like an ambiguous time, so it survives every path unchanged.
+    venueName: c.venueName,
   }
 }
 

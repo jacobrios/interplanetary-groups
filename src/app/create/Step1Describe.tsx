@@ -150,7 +150,7 @@ export default function Step1Describe({
             id="description"
             name="description"
             rows={5}
-            placeholder="e.g. A few of us climb at the gym on Sunday mornings at 8, and we grab beers once a month."
+            placeholder="e.g. A few of us climb at Summit Gym on Sunday mornings at 8, and we grab beers once a month."
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
             disabled={isExtracting}
@@ -196,6 +196,23 @@ export default function Step1Describe({
             Continue
           </button>
         )}
+
+        {/* Hint line below the primary action (mockup screen 01 position).
+            Reference text: meta scale, secondary color, never an action.
+            Rendered in the pause state too — it explains what Orbit is
+            doing with the description either way. */}
+        <p
+          style={{
+            fontSize: "var(--type-meta)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            textAlign: "center",
+            margin: 0,
+          }}
+        >
+          Orbit reads this to set your days, send reminders, and build a shared group page.
+          Mention your usual spot too, if you have one.
+        </p>
       </form>
     </div>
   )

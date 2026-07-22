@@ -19,6 +19,7 @@ import {
   MAX_GAP_ROUNDS,
   decideGapOutcome,
   enforceActivityCarryOver,
+  enforceVenueCarryOver,
   gapAnswerMoved,
   readClarifyingQuestion,
   type GapAskable,
@@ -101,6 +102,9 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
   // never mentioned must not drift just because the model re-read the
   // description (observed in QA: CLIMBING became CLIMB after "not sure").
   raw = enforceActivityCarryOver(raw, currentState, answer)
+  // Activity first, so a drift-restored activity lets the venue guard's
+  // same-activity match succeed.
+  raw = enforceVenueCarryOver(raw, currentState)
 
   const normalized = normalizeExtraction(raw)
   const outcome = decideGapOutcome(normalized, readClarifyingQuestion(raw), round + 1)

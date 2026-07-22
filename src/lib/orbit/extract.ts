@@ -38,9 +38,10 @@ export const EXTRACTION_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["activity", "cadence", "daysOfWeek", "timeLocal", "timeAmbiguous", "isPrimary"],
+        required: ["activity", "cadence", "daysOfWeek", "timeLocal", "timeAmbiguous", "isPrimary", "venueName"],
         properties: {
           activity: { type: ["string", "null"] },
+          venueName: { type: ["string", "null"] },
           cadence: {
             anyOf: [{ type: "string", enum: ["weekly", "monthly"] }, { type: "null" }],
           },
@@ -57,6 +58,7 @@ export const EXTRACTION_SCHEMA = {
 // Per-field semantics, shared verbatim between the extraction and merge
 // prompts so the two calls can never drift on what a field means.
 export const FIELD_RULES = `- activity: one or two words in the founder's own words, naming the activity itself (e.g. "climbing", "beers", "board games"). Drop location and filler words: "climbing at the gym" is just "climbing".
+- venueName: where the group usually meets, in the founder's own words, one short phrase (e.g. "Summit Gym", "the gym", "Maria's place"). "climbing at the gym" is activity "climbing" with venueName "the gym". Only a place the founder actually stated; if no place is mentioned, null. Never invent a venue, and never move the place into activity.
 - cadence: "weekly" or "monthly" only when the description clearly supports it. A stated weekday ("Sundays", "every Tuesday") means weekly. "Every morning" or "every day" means weekly with all seven days. Yearly, one-off, or unclear cadence is null.
 - daysOfWeek: integers 0-6 with 0=Sunday, only for days the founder stated. Otherwise null.
 - timeLocal: 24-hour "HH:MM" only if the founder stated a time. Use context to read it ("8" with a morning context is "08:00"). Otherwise null.
