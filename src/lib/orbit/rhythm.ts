@@ -20,6 +20,7 @@ export interface GroupRhythm {
   timeLocal: string          // "HH:mm" 24h wall-clock local time, e.g. "08:00"
   cadence: "weekly"          // only schedulable cadence in MVP
   durationMinutes?: number | null
+  venueName?: string | null  // standing place; snapshotted into a per-event Venue row
 }
 
 export interface StoredRhythm {
@@ -29,10 +30,26 @@ export interface StoredRhythm {
   daysOfWeek: number[] | null          // 0=Sun … 6=Sat; null = not stated
   timeLocal: string | null             // "HH:mm" 24h, range-valid; null = not stated
   durationMinutes?: number | null      // legacy field; never written by onboarding
+  venueName?: string | null            // standing place, founder's words; optional like
+                                       // durationMinutes so pre-slice rows parse as null
 }
 
 // 24-hour wall-clock with range enforcement ("99:99" is not a time).
 const TIME_LOCAL_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+
+export const VENUE_NAME_MAX = 80
+
+/**
+ * Trim, cap at VENUE_NAME_MAX, empty → null. The one definition of venue
+ * string hygiene, shared by both parsers here and sanitize() in normalize.ts.
+ * Never rejects: venue is a refinable detail, and an unusable value must
+ * degrade to "no venue", not block anything (venue never gates).
+ */
+export function cleanVenueName(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const t = v.trim().slice(0, VENUE_NAME_MAX).trim()
+  return t.length > 0 ? t : null
+}
 
 /**
  * Parse and validate the raw value of `Group.recurringActivities`.
@@ -79,6 +96,10 @@ export function parseRhythm(json: unknown): GroupRhythm | null {
     timeLocal: r.timeLocal,
     cadence: "weekly",
     durationMinutes: dm === undefined ? undefined : (dm as number | null),
+    // Lenient on purpose: an unusable venueName degrades to null instead of
+    // rejecting, because a null here means the group never schedules again,
+    // and no venue value may ever have that power (venue never gates).
+    venueName: cleanVenueName(r.venueName),
   }
 }
 
@@ -126,6 +147,14 @@ export function parseStoredRhythms(json: unknown): StoredRhythm[] | null {
     const dm = r.durationMinutes
     if (dm !== undefined && dm !== null && typeof dm !== "number") return null
 
+    // Strict on type (a non-string value is a writer bug, same philosophy as
+    // durationMinutes above), but a string is cleaned rather than judged:
+    // empty degrades to null, because the Step 2 input legitimately produces
+    // empty strings and rejecting them would gate creation on a venue.
+    if (r.venueName !== undefined && r.venueName !== null && typeof r.venueName !== "string") {
+      return null
+    }
+
     out.push({
       activity: r.activity,
       title: r.title,
@@ -133,6 +162,7 @@ export function parseStoredRhythms(json: unknown): StoredRhythm[] | null {
       daysOfWeek,
       timeLocal,
       durationMinutes: dm === undefined ? undefined : (dm as number | null),
+      venueName: cleanVenueName(r.venueName),
     })
   }
   return out
