@@ -31,21 +31,40 @@ export function formatEventDate(
   endsAt: Date | null,
   timeZone: string
 ): string {
-  const zone = { timeZone } as const
-
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "short", ...zone }).format(startsAt)
-  const month = new Intl.DateTimeFormat("en-US", { month: "short", ...zone }).format(startsAt)
-  const day = new Intl.DateTimeFormat("en-US", { day: "numeric", ...zone }).format(startsAt)
-
+  const datePart = `${formatWeekdayShort(startsAt, timeZone)}, ${formatMonthDay(startsAt, timeZone)}`
   const startTime = formatTime(startsAt, timeZone)
 
   if (!endsAt) {
-    return `${weekday}, ${month} ${day} · ${startTime}`
+    return `${datePart} · ${startTime}`
   }
 
   const endTime = formatTime(endsAt, timeZone)
   // "to" per CLAUDE.md copy rules: no em or en dashes in user-facing copy.
-  return `${weekday}, ${month} ${day} · ${startTime} to ${endTime}`
+  return `${datePart} · ${startTime} to ${endTime}`
+}
+
+/**
+ * "Fri". The three-letter weekday of CLAUDE.md §copy, extracted so schedule
+ * copy and Orbit's generated copy read the same implementation rather than
+ * each keeping their own Intl call.
+ */
+export function formatWeekdayShort(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone }).format(date)
+}
+
+/**
+ * "Friday". The abbreviation rule is about card real estate; inside a sentence
+ * Orbit speaks the day the way a person would.
+ */
+export function formatWeekdayLong(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone }).format(date)
+}
+
+/** "Jul 24". */
+export function formatMonthDay(date: Date, timeZone: string): string {
+  const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone }).format(date)
+  const day = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone }).format(date)
+  return `${month} ${day}`
 }
 
 /**

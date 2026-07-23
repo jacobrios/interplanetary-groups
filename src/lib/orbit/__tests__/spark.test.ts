@@ -18,6 +18,9 @@ import {
   detectSparkClaim,
   chooseProposedDate,
   isGaugeLive,
+  buildGaugeMessage,
+  buildTallyLine,
+  chipLabels,
   SPARK_SCHEMA,
   ACTIVITY_MAX,
 } from "../spark"
@@ -201,5 +204,156 @@ describe("isGaugeLive", () => {
     // Already 25 Jul in UTC, still Fri 24 Jul in Midway.
     expect(isGaugeLive(midwayProposed, MIDWAY, new Date("2026-07-25T10:59:00Z"))).toBe(true)
     expect(isGaugeLive(midwayProposed, MIDWAY, new Date("2026-07-25T11:00:00Z"))).toBe(false)
+  })
+})
+
+describe("buildGaugeMessage", () => {
+  it("proposes the day in Orbit's own voice", () => {
+    const msg = buildGaugeMessage(
+      "beers",
+      new Date("2026-07-24T00:00:00Z"), // Fri
+      "UTC",
+      new Date("2026-07-20T12:00:00Z") // Mon
+    )
+    expect(msg).toBe("Love it. Anyone in for beers this Friday?")
+  })
+
+  it("makes no promise it cannot keep in this half", () => {
+    const msg = buildGaugeMessage(
+      "beers",
+      new Date("2026-07-24T00:00:00Z"),
+      "UTC",
+      new Date("2026-07-20T12:00:00Z")
+    )
+    expect(msg).not.toMatch(/three|set it up|makes it happen/i)
+  })
+
+  it("names the date outright when the day is more than a week away", () => {
+    // The fallback buffer can land eight days out, and "this Friday" would
+    // then be wrong in the feed.
+    const msg = buildGaugeMessage(
+      "beers",
+      new Date("2026-07-31T00:00:00Z"),
+      "UTC",
+      new Date("2026-07-23T12:00:00Z") // Thu
+    )
+    expect(msg).toBe("Love it. Anyone in for beers on Friday, Jul 31?")
+  })
+
+  it("uses no em or en dashes", () => {
+    const msg = buildGaugeMessage(
+      "board games",
+      new Date("2026-07-24T00:00:00Z"),
+      "UTC",
+      new Date("2026-07-20T12:00:00Z")
+    )
+    expect(msg).not.toMatch(/[—–]/)
+  })
+})
+
+describe("chipLabels", () => {
+  it("abbreviates the weekday on the different-day chip", () => {
+    const labels = chipLabels(new Date("2026-07-24T00:00:00Z"), "UTC")
+    expect(labels.notThatDay).toBe("📅 Yes, can't Fri")
+  })
+
+  it("keeps the yes and no chips fixed", () => {
+    const labels = chipLabels(new Date("2026-07-24T00:00:00Z"), "UTC")
+    expect(labels.in).toBe("✋ I'm in")
+    expect(labels.out).toBe("🙏 Next time")
+  })
+
+  it("reads the weekday off the stored date in the group's zone", () => {
+    const labels = chipLabels(new Date("2026-07-25T02:00:00Z"), "Pacific/Midway")
+    expect(labels.notThatDay).toBe("📅 Yes, can't Fri")
+  })
+})
+
+describe("buildTallyLine", () => {
+  const names = new Map([
+    ["u1", "Jesse"],
+    ["u2", "Maya"],
+    ["u3", "Sam"],
+    ["u4", "Ada"],
+    ["u5", "Kit"],
+  ])
+  const inVote = (userId: string) => ({ userId, answer: "IN" as const })
+
+  it("says nothing at all before anyone has voted", () => {
+    expect(buildTallyLine([], names)).toBe("")
+  })
+
+  it("names one person", () => {
+    expect(buildTallyLine([inVote("u1")], names)).toBe("Jesse is in so far")
+  })
+
+  it("names two people", () => {
+    expect(buildTallyLine([inVote("u1"), inVote("u2")], names)).toBe(
+      "Jesse & Maya are in so far"
+    )
+  })
+
+  it("collapses to names plus a count beyond two", () => {
+    expect(
+      buildTallyLine([inVote("u1"), inVote("u2"), inVote("u3")], names)
+    ).toBe("Jesse, Maya & 1 other are in so far")
+
+    expect(
+      buildTallyLine(
+        [inVote("u1"), inVote("u2"), inVote("u3"), inVote("u4")],
+        names
+      )
+    ).toBe("Jesse, Maya & 2 others are in so far")
+  })
+
+  it("never counts down to the bar, at any count", () => {
+    // The promise and the countdown both land in part two, with the delivery.
+    for (const n of [1, 2, 3, 4, 5]) {
+      const votes = ["u1", "u2", "u3", "u4", "u5"].slice(0, n).map(inVote)
+      expect(buildTallyLine(votes, names)).not.toMatch(/more|happen|three/i)
+    }
+  })
+
+  it("shows people who want a different day, and only when there are any", () => {
+    expect(buildTallyLine([inVote("u1")], names)).toBe("Jesse is in so far")
+
+    expect(
+      buildTallyLine(
+        [inVote("u1"), { userId: "u2", answer: "NOT_THAT_DAY" as const }],
+        names
+      )
+    ).toBe("Jesse is in so far · 1 wants a different day")
+
+    expect(
+      buildTallyLine(
+        [
+          inVote("u1"),
+          { userId: "u2", answer: "NOT_THAT_DAY" as const },
+          { userId: "u3", answer: "NOT_THAT_DAY" as const },
+        ],
+        names
+      )
+    ).toBe("Jesse is in so far · 2 want a different day")
+  })
+
+  it("still speaks when the only answers are different-day ones", () => {
+    expect(
+      buildTallyLine([{ userId: "u2", answer: "NOT_THAT_DAY" as const }], names)
+    ).toBe("1 wants a different day")
+  })
+
+  it("leaves declines out of the line entirely", () => {
+    expect(
+      buildTallyLine(
+        [inVote("u1"), { userId: "u2", answer: "OUT" as const }],
+        names
+      )
+    ).toBe("Jesse is in so far")
+  })
+
+  it("skips a voter whose name it does not have rather than printing a blank", () => {
+    expect(buildTallyLine([inVote("u1"), inVote("ghost")], names)).toBe(
+      "Jesse is in so far"
+    )
   })
 })

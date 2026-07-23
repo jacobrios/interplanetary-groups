@@ -5,7 +5,12 @@
 // argument).  The existing cases pass "UTC" explicitly, so they still exercise
 // the same composition logic; non-UTC cases below prove the zone conversion.
 import { describe, it, expect } from "vitest"
-import { formatEventDate } from "../format"
+import {
+  formatEventDate,
+  formatWeekdayShort,
+  formatWeekdayLong,
+  formatMonthDay,
+} from "../format"
 
 describe("formatEventDate", () => {
   it("formats a start-only date as 'Weekday, Mon D · Hpm'", () => {
@@ -78,5 +83,27 @@ describe("formatEventDate", () => {
     const winter = formatEventDate(new Date("2026-01-11T16:00:00Z"), null, "America/Los_Angeles")
     expect(summer).toBe("Sun, Jul 19 · 8am")
     expect(winter).toBe("Sun, Jan 11 · 8am")
+  })
+})
+
+describe("weekday and month-day pieces", () => {
+  it("abbreviates the weekday to three letters", () => {
+    expect(formatWeekdayShort(new Date("2026-07-24T12:00:00Z"), "UTC")).toBe("Fri")
+  })
+
+  it("spells the weekday out for prose", () => {
+    expect(formatWeekdayLong(new Date("2026-07-24T12:00:00Z"), "UTC")).toBe("Friday")
+  })
+
+  it("renders the month and day", () => {
+    expect(formatMonthDay(new Date("2026-07-24T12:00:00Z"), "UTC")).toBe("Jul 24")
+  })
+
+  it("reads all three in the group's zone, not the server's", () => {
+    // 2026-07-25T02:00Z is still Fri 24 Jul in UTC-11.
+    const instant = new Date("2026-07-25T02:00:00Z")
+    expect(formatWeekdayShort(instant, "Pacific/Midway")).toBe("Fri")
+    expect(formatWeekdayLong(instant, "Pacific/Midway")).toBe("Friday")
+    expect(formatMonthDay(instant, "Pacific/Midway")).toBe("Jul 24")
   })
 })
