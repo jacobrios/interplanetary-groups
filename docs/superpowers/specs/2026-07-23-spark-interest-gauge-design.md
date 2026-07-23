@@ -38,11 +38,13 @@ This corrects an earlier draft of this spec, which auto-counted the initiator an
 
 ## What the group sees
 
-Orbit posts one message in its normal voice, proposing a specific day and naming the bar out loud: *"Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up."* Saying the bar out loud is deliberate. It tells people their tap matters and it sets the expectation that nothing happens without them.
+Orbit posts one message in its normal voice, proposing a specific day: *"Love it. Anyone in for beers this Friday?"* Under it sits a quiet line showing where things stand, and under that, the three chips.
 
-Under that message sits a quiet line showing where things stand, and under that, the three chips.
+**Orbit does not promise anything in this half, and that is a correction to an earlier draft.** The designed copy is *"...If three of you are in, I'll set it up,"* and the tally closes with *"one more makes it happen."* Both are promises this half cannot keep, because three yeses do not create anything until part two. Shipping the promise without the delivery would put a visible lie in the feed, which is worse than shipping a smaller sentence.
 
-The tally is honest about all three answers. Two people in reads as who they are by name; more than two collapses to names plus a count. When people have said they want a different day, that shows too, because hiding it would misrepresent the group to itself and it is the signal part two acts on.
+So the promise and the countdown clause land in part two, together with the ability to honor them. The walkthrough copy arrives complete rather than half-arriving here. Recorded as a deliberate deviation with a named closing slice, not as a copy shortcut.
+
+The tally stays honest at every count. It appears only once somebody has actually voted, since "nobody is in yet" is noise the chips already imply. One or two people show by name; more collapses to names plus a count. When people have said they want a different day, that shows too, because hiding it would misrepresent the group to itself and it is the signal part two acts on.
 
 Chips are live only while the gauge is. Once the proposed day has passed, the message stays in the feed as history and the chips are gone. No pinning, no banner, no residue.
 
