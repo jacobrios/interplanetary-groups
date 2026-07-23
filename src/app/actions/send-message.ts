@@ -11,6 +11,12 @@ export interface SendMessageState {
   errors?: {
     general?: string
   }
+  /**
+   * The id of the message just created. The group home hands it to spark
+   * detection once the send has settled, so Orbit can read what was said
+   * without the input ever waiting on it.
+   */
+  messageId?: string
 }
 
 /**
@@ -55,13 +61,15 @@ export async function sendMessageAction(
     return { errors: { general: "You need to be signed in to send messages." } }
   }
 
+  let messageId: string
   try {
-    await createMessage({
+    const message = await createMessage({
       groupId,
       authorType: MessageAuthor.MEMBER,
       authorId: user.id,
       body,
     })
+    messageId = message.id
   } catch (err) {
     const msg = err instanceof Error ? err.message : ""
     if (msg === "EMPTY_BODY") {
@@ -74,5 +82,5 @@ export async function sendMessageAction(
   // In Next.js it uses a similar internal throw mechanism to redirect() and
   // would be swallowed if placed inside the catch block.
   revalidatePath(`/groups/${groupId}`)
-  return {}
+  return { messageId }
 }
