@@ -22,7 +22,7 @@ Spark as a whole opens six integration points at once: a model call in the messa
 - **Detection runs after the send completes**, in a transition whose pending flag is not wired to the input. The chat input is never disabled waiting on Orbit.
 - **Three chips**, per `Orbit Suggestion Chips · Spec` (checked into `docs/design/` by Task 1): yes at full strength, "Next time" and "Yes, can't {Day}" quiet.
 - **A vote belongs to a specific proposal, not to the idea.** This is why `GaugeVote` hangs off `Gauge` (which carries the proposed date) and not off an idea record.
-- **The initiator gets no automatic yes.** Floating an idea is not agreeing to a day Orbit had not yet picked. Product-owner correction on spec review. The "never ask twice" rule it was mistakenly borrowed from is intact and governs part two (gauge yes → event RSVP without a second tap).
+- **The initiator is counted only when they named the day themselves.** "Beers on Friday?" is a yes to Friday and re-asking would be asking twice; "beers sometime" is a yes to nothing, because Orbit picked the day afterward. Product-owner correction, then refinement, on spec review. Two rules tighten as a result: the two-day buffer applies only to a day Orbit guesses, never to one someone stated; and a day counts as stated only when exactly one is named, so "Friday or Saturday" falls back rather than silently picking one and counting them for it. The "never ask twice" rule this was over-borrowed from is intact and governs part two.
 - **Orbit makes no promise in this half.** No "if three of you are in, I'll set it up", no "one more makes it happen". Both land in part two with the delivery. Deliberate deviation from the mockup copy, closed by the named slice.
 - **One fixed emoji on the yes chip**, not one matched to the activity. Nothing maps activity to emoji; a table that guesses wrong reads worse than one that never tries.
 - **Fallback day is the coming Friday**, pushed to the following Friday when that is under two days out so the group has time to answer. Explicitly a placeholder for build-notes §5 override learning.
@@ -63,8 +63,8 @@ Spark as a whole opens six integration points at once: a model call in the messa
 
 CLAUDE.md currently states as settled a thing we have just overturned. Any future session loads that claim as fact, so it is fixed at the top of the slice rather than in end-of-slice bookkeeping.
 
-- [ ] **CLAUDE.md line 28** — remove "the initiator never being asked twice" from the already-settled list. What is settled is the three-person threshold and below-threshold ideas leaving no residue.
-- [ ] **CLAUDE.md line 19** — "(initiator included)" reads as an automatic yes. Reword: the initiator counts toward the three like anyone else, by voting.
+- [ ] **CLAUDE.md line 28** — "the initiator never being asked twice" is too blunt to be true. Replace with the precise rule: the initiator is counted only when they named the day Orbit is proposing, and votes like anyone else when they did not.
+- [ ] **CLAUDE.md line 19** — "(initiator included)" reads as an unconditional automatic yes. Reword to match the line above.
 - [ ] **CLAUDE.md lines 21 to 26** — all five open questions are now answered. Replace the list with a pointer to the spec and a one-line statement of what was settled, keeping the section short (it is rewritten at every slice boundary anyway).
 - [ ] **build-notes §5, "Auto-seed RSVPs"** — the line is correct as written, but it is the line the one-shot misread into an initiator auto-vote. Add one clause: floating an idea is not itself a yes.
 - [ ] **build-notes §5, "Spontaneous mode"** — "(including the initiator)" is true of the count and ambiguous about the mechanism. Clarify that the initiator is counted by voting.
@@ -136,6 +136,8 @@ Schema, every field required with explicit nulls, matching the extraction doctri
 
 Prompt must be conservative and say so explicitly: a spark is a genuine suggestion that the group do something together. Agreement, reactions, questions about the event already scheduled, and small talk are not sparks. Never invent an activity.
 
+`statedDayOfWeek` is set **only when exactly one day is named**. Two or more floated as options ("Friday or Saturday?") is null, because that proposes choice rather than a day, and picking one silently would then count the initiator for a day they did not settle on. This rule is load-bearing for the initiator decision, not cosmetic; pin it with a test.
+
 - [ ] **Step 1: failing tests first, watched fail.** Cover: `isSpark:false` returns `{spark:false}`; a valid spark normalizes; a spark with a blank or missing activity degrades to `{spark:false}` (no activity means nothing to gauge); `statedDayOfWeek` outside 0 to 6 degrades to null rather than rejecting; a non-object claim returns `{spark:false}`; activity is trimmed and capped.
 - [ ] **Step 2:** implement. Reuse `cleanVenueName`'s trim-cap-empty-to-null shape for the activity via a local `cleanActivity` (or reuse directly if the cap suits; do not duplicate the logic).
 - [ ] **Step 3:** widen `callExtractionModel(system, user, schema = EXTRACTION_SCHEMA)` in `extract.ts`. Existing callers untouched.
@@ -147,7 +149,7 @@ Prompt must be conservative and say so explicitly: a spark is a genuine suggesti
 
 **Produces:** `chooseProposedDate(statedDayOfWeek, timeZone, now): Date` — group-local midnight of the chosen day; and `isGaugeLive(proposedDate, timeZone, now): boolean`.
 
-- [ ] **Step 1: failing tests first.** A stated weekday resolves to its next occurrence. No stated day gives the coming Friday. No stated day on a Thursday gives the *following* Friday (under the two-day buffer). A stated day that is today resolves to next week, not today. Both a large-negative-offset zone and UTC, so the day-boundary fix stays proven. `isGaugeLive` is true through the end of the local proposed day and false after.
+- [ ] **Step 1: failing tests first.** A stated weekday resolves to its next occurrence. **A stated day that is today resolves to today**, not next week: the two-day buffer is fallback-only, and pushing a stated day out a week would count the initiator for a day they did not mean (pin this, it is the bug the initiator refinement exposed). No stated day gives the coming Friday. No stated day on a Thursday gives the *following* Friday, the buffer doing its one job. Both a large-negative-offset zone and UTC, so the day-boundary fix stays proven. `isGaugeLive` is true through the end of the local proposed day and false after.
 - [ ] **Step 2:** implement on top of `zonedWallTimeToUtc` and `getLocalParts`. Do not write a second wall-clock reader.
 - [ ] Verify: tests green; the occurrence suite's existing anchors unchanged.
 
@@ -209,7 +211,8 @@ Structured-extract-then-format throughout: the model supplies fields, code compo
 - [ ] A real idea ("we should finally grab beers sometime") produces an Orbit reply naming a specific day, with three chips.
 - [ ] An ordinary message ("sounds good") produces nothing: no reply, no gauge row.
 - [ ] **The chat input stays usable through the whole detection round trip** — type a second message immediately after the first. This is the decision that shaped the architecture; it needs to be seen, not assumed.
-- [ ] The person who floated the idea starts at zero and is counted only after tapping.
+- [ ] Someone who floats an idea with no day starts at zero and is counted only after tapping.
+- [ ] Someone who names the day ("beers on Friday?") is already counted, and is not asked to confirm the day they just proposed.
 - [ ] Tapping updates the tally; tapping a different chip changes the answer rather than adding one. Confirm one row in the database, not two.
 - [ ] "Yes, can't Fri" lands in the different-day clause and not in the in-count.
 - [ ] **Three yeses creates no event.** Pinned deliberately, so the day part two lands, the boundary moved on purpose.

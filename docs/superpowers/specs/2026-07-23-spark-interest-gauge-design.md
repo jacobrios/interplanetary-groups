@@ -30,9 +30,16 @@ These came out of the phase-one conversation and are not open for re-litigation 
 
 **A vote belongs to a specific proposal, not to the idea.** Saying yes to beers-on-Friday is not saying yes to beers-in-general. This is what makes part two's day-change behavior fall out for free instead of needing a clean-up step bolted on later.
 
-**The initiator votes like everyone else.** Floating an idea is not agreeing to a day. Orbit names a day the person never mentioned, so counting them as in would put words in their mouth about the one thing the gauge is actually asking.
+**The initiator is counted only when they named the day themselves.** "Does anyone want to grab beers on Friday?" is a yes to Friday, and asking that person to tap a chip confirming the day they just proposed is asking twice. "We should grab beers sometime" is not a yes to anything, because Orbit picked the day afterward.
 
-This corrects an earlier draft of this spec, which auto-counted the initiator and in doing so contradicted the rule directly above it: a vote cannot belong to a specific proposal *and* be inferred from a message that predates the proposal. The "never ask twice" rule the auto-count was borrowed from is real, but it governs something else, and it survives intact: a yes given during gauging carries through to the created event's RSVP without a second tap. That is part two's job, and it is unaffected.
+This is the principle applied exactly rather than bluntly: a vote has to be about the day being proposed. It rejects counting someone for a day they never mentioned, and it permits counting someone who named it. An earlier draft of this spec auto-counted the initiator in both cases, which contradicted the rule directly above it; the correction, and then this refinement, came from the product owner on review.
+
+Two consequences fall out of it, both tightening rules elsewhere in this document:
+
+- **The two-day buffer applies only to the day Orbit guesses, never to a day someone stated.** "Beers Friday" said on a Friday means today, and pushing it a week out would count the initiator for a day they did not mean. A stated day is taken at face value, including today, even though that leaves only hours to gather answers. That is what they asked for.
+- **A day is only "stated" when exactly one is named.** "Beers Friday or Saturday?" floats options rather than proposing a day, so Orbit falls back to its own pick and the initiator votes like anyone else. Silently choosing one of their two and counting them for it would be the original mistake wearing a disguise.
+
+The "never ask twice" rule this was originally over-borrowed from is intact and governs something else: a yes given during gauging carries through to the created event's RSVP without a second tap. That is part two's job and it is unaffected.
 
 **The bar is three people, including the initiator.** Already settled in build notes; restated because it is load-bearing here.
 
@@ -102,11 +109,12 @@ Both gates hold, per the standing agreement.
 
 1. A real idea produces a gauge naming a specific day, with three chips.
 2. An ordinary message produces nothing at all: no Orbit reply, no gauge, no model spend visible in the feed.
-3. The person who floated the idea starts at zero like everyone else and is counted only once they tap.
-4. Tapping changes the tally; tapping a different chip changes your answer rather than adding a second one.
-5. Three yeses does **not** create an event. This one is pinned deliberately, so that the day part two lands, the boundary moved on purpose rather than by accident.
-6. Someone choosing "Yes, can't Fri" appears in the different-day count and not in the in count.
-7. A gauge whose day has passed renders as history with no chips.
+3. Someone who floats an idea without a day starts at zero and is counted only once they tap.
+4. Someone who names the day themselves is already counted, and is never asked to confirm the day they just proposed.
+5. Tapping changes the tally; tapping a different chip changes your answer rather than adding a second one.
+6. Three yeses does **not** create an event. This one is pinned deliberately, so that the day part two lands, the boundary moved on purpose rather than by accident.
+7. Someone choosing "Yes, can't Fri" appears in the different-day count and not in the in count.
+8. A gauge whose day has passed renders as history with no chips.
 
 The suite baseline was recorded before any code was written on this branch: **267 tests across 19 files, all green**, which matches the number build notes recorded at the end of the venue slice. The finishing number is therefore a real comparison and not a figure with nothing behind it.
 
