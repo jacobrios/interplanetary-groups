@@ -116,24 +116,31 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 
 ### Remaining before MVP complete
 
-The slower-changing companion to the CLAUDE.md "Where the build is" paragraph: that one holds the current state and the immediate next slice, this holds the full remaining register. Drafted from the repo on 23 July 2026; the MVP-versus-polish split is an inference for the product owner to correct, flagged per item where it is not obvious.
+The slower-changing companion to the CLAUDE.md "Where the build is" paragraph: that one holds the current state and the immediate next slice, this holds the full remaining register.
 
-- **Spark / spontaneous events** (Orbit posting live, interest gauging with chips, nudges; §5). The confirmed next slice. MVP core: this is the product thesis, Orbit as an active coordinator rather than a cron job.
-- **Change-request slice** (Orbit edits group details on request, announce-and-easy-revert; §4). MVP. Directly resolves the venue-capture DEBT below: today a founder who skips a venue at onboarding has no way to add one later, and no group can switch venues.
-- **Email-capture ask after the first RSVP** (§3). MVP. Deferred repeatedly because it needs a live RSVP surface with Orbit present to attach to; it rides with Orbit's live posting (spark).
-- **Onboarding share moment (mockup 04).** Not built. The invite link is reachable today at `/groups/[id]/info`, so founders can already invite people; what is missing is the designed dedicated screen that hands the founder their link at peak setup momentum. Stays in the MVP register (getting a second person in is the product's activation point, and burying the link on an info page is a real drop-off risk), but it is small and it is not a blocker. This is the same finding as the feel-pass register's missing "STEP 2 OF 3" indicator: the shipped wizard cannot say "of 3" because there is no third step. One collapsed step, two symptoms; treat them as one problem.
+**What "MVP complete" means here, because the word does double duty.** It means the walkthrough is demonstrable end to end as a portfolio piece, not that the product is ready for real users. That is the axis every item is classified against. A few items below are genuine requirements for a launched product yet invisible in a demo; they carry a **"launch, not demo"** label so they read as deliberately deferred rather than forgotten. Drafted from the repo on 23 July 2026; where an item's classification is a judgment call rather than something read off the repo, it says so.
+
+Demo-critical (the portfolio piece is not complete without these):
+
+- **Spark / spontaneous events** (Orbit posting live, interest gauging with chips, nudges; §5). The confirmed next slice, and the core of the demo: this is the product thesis, Orbit as an active coordinator rather than a cron job.
+- **Add to calendar (.ics) button** (§6). More load-bearing than a deferred button looks: §6 makes the one-way .ics the MVP reminder workaround precisely because there is no web push, so without it a product that pitches Orbit as the thing that remembers for you has no reminder mechanism at all to demonstrate. Deferred in the event-detail slice (a dead button is worse than none); it comes back as a real export.
+- **Change-request slice** (Orbit edits group details on request, announce-and-easy-revert; §4). Demonstrates Orbit's transparency-on-changes behavior, and directly resolves the venue-capture DEBT below: today a founder who skips a venue at onboarding has no way to add one later, and no group can switch venues.
+- **Onboarding share moment (mockup 04).** Not built. The invite link is reachable today at `/groups/[id]/info`, so founders can already invite people; what is missing is the designed dedicated screen that hands the founder their link at peak setup momentum. Stays in the demo-critical set (getting a second person in is the product's activation point, and burying the link on an info page is a real drop-off risk), but it is small and it is not a blocker. This is the same finding as the feel-pass register's missing "STEP 2 OF 3" indicator: the shipped wizard cannot say "of 3" because there is no third step. One collapsed step, two symptoms; treat them as one problem.
 - **Multi-card peek-and-dots carousel.** Not built. The group home renders a single pinned card, and the carousel chrome was deferred until there are two or more events (group-home-chat slice). A spark-created spontaneous event sitting alongside the standing scheduled one is exactly that two-or-more condition, so this comes live with spark, not as open-ended polish.
 - **"Jesse joined" system announcement** (the `SYSTEM` MessageAuthor value, anticipated by the Message model but never wired; §4).
-- **Access-control / membership gating.** No surface is membership-gated today (group home, event detail, group info all viewable by any session). This slice is the home CLAUDE.md points at for that standing gap.
-- **Add to calendar (.ics) button** (§6; deferred in the event-detail slice, a dead button being worse than none).
 - **Group-naming nudge** (§5): a day or two in, Orbit prompts the group to pick a fun name together. The first demonstration of Orbit driving engagement beyond logistics.
 - **Full group-info page** (the `/groups/[id]/info` stub grows in place). Mockup 10 and §4 define its contents concretely, recorded here as sub-items so the register stays findable:
   - the member list (names only, per §3);
   - the standing rhythm rows (schedule plus venue, the surface that will consume `formatRhythmRow(r).value · r.venueName`);
   - the founder powers: remove member, and reset invite link (§4);
   - Leave group (warm, destructive-styled, never buried; §4).
-- **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font).
-- **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature.
+- **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font). What makes the demo look finished rather than scaffolded.
+
+Launch, not demo (real requirements for a launched product, invisible in a walkthrough, deferred on purpose):
+
+- **Email-capture ask after the first RSVP** (§3). A genuine §3 requirement before real users: it is how a member gets reminders and gets back in from another device. Invisible in a demo, because a walkthrough never clears its own session or waits a day for a reminder. Needs a live RSVP surface with Orbit present to attach to, so it rides with Orbit's live posting (spark) whenever it is built.
+- **Access-control / membership gating.** No surface is membership-gated today (group home, event detail, group info all viewable by any session). **Not required for the portfolio demo; required before any real person uses the product.** CLAUDE.md points at this slice as the home for that standing gap. Labeled explicitly because leaving it unlabeled is how it stays ambiguous forever.
+- **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature, and only relevant once the thing is actually being put in front of someone.
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
