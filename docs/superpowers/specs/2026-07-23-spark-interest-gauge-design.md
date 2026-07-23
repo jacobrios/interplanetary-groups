@@ -30,7 +30,9 @@ These came out of the phase-one conversation and are not open for re-litigation 
 
 **A vote belongs to a specific proposal, not to the idea.** Saying yes to beers-on-Friday is not saying yes to beers-in-general. This is what makes part two's day-change behavior fall out for free instead of needing a clean-up step bolted on later.
 
-**The initiator never taps.** Whoever floated the idea is counted as in from the moment the gauge appears.
+**The initiator votes like everyone else.** Floating an idea is not agreeing to a day. Orbit names a day the person never mentioned, so counting them as in would put words in their mouth about the one thing the gauge is actually asking.
+
+This corrects an earlier draft of this spec, which auto-counted the initiator and in doing so contradicted the rule directly above it: a vote cannot belong to a specific proposal *and* be inferred from a message that predates the proposal. The "never ask twice" rule the auto-count was borrowed from is real, but it governs something else, and it survives intact: a yes given during gauging carries through to the created event's RSVP without a second tap. That is part two's job, and it is unaffected.
 
 **The bar is three people, including the initiator.** Already settled in build notes; restated because it is load-bearing here.
 
@@ -58,7 +60,13 @@ If the person named a day, Orbit uses it. That is extraction, and it is the same
 
 If nobody named a day, Orbit picks one, because proposing something concrete beats asking an open question. The rule: **the coming Friday, or the following Friday if that is less than two days out.** Friday because casual social plans default to the end of the week; the two-day buffer because a gauge needs time to collect three answers, and proposing tomorrow does not give a group that.
 
-**This is the weakest guess in the slice and it is flagged as such.** It is a heuristic with no data behind it, and it is cheap to change later because it lives in one place. If it feels wrong, say so and I will use a different rule.
+**Accepted as a starting heuristic (23 July).** It has no data behind it, and it lives in one place so it stays cheap to change.
+
+**It is a starting point because Orbit is expected to stop guessing.** Over time a group reveals when it is actually free: propose Friday, watch the group land on Tuesday, and the next idea should be proposed for Tuesday. This is not new scope. It is the override-learning behavior already recorded in build notes §5, which says a group that shoots down a default three times stops getting that default, and treats overrides as training data. This spec is where it finds its first home.
+
+Nothing extra needs storing for it now. The gauge rows this slice writes, each carrying the day Orbit proposed, are themselves the raw material; whether a gauge was answered, ignored, or moved is derivable from the votes and the date. That is why learning can be added later as behavior rather than as a migration.
+
+It is genuinely a later slice for a reason worth stating: the only signal available in part one is "that day does not work," which says the guess was wrong without saying what is right. Knowing that Tuesday works comes from watching where plans actually land, and plans do not land until part two creates them.
 
 **The gauge proposes a day, not a time.** Screen 07 says "this Friday" with no clock time, and that is correct: nobody needs to agree on 7pm to say they are interested. Screen 08's card does show a time, which means part two has to produce one, and nothing in the product currently knows what time a group grabs beers. **That is an open question for part two, named now so it does not get quietly answered with "7pm because the mockup said so."**
 
@@ -66,7 +74,7 @@ If nobody named a day, Orbit picks one, because proposing something concrete bea
 
 The spec sheet's yes chip reads "🍻 I'm in", with the emoji matched to the activity. Nothing in the product can map an activity to an emoji. The options are a hardcoded table that will be wrong for anything outside it, or a model call spending money on decoration.
 
-**Recommendation: ship one fixed emoji on the yes chip and record the deviation.** The other two chips are fixed in the design already, so only the first one changes. If the activity flavor matters to you, the alternative is a small table covering the handful of activities the demo actually shows, with a generic fallback. Your call; I have a mild preference for the fixed emoji because a table that gets it wrong reads worse than one that never tries.
+**Settled (23 July): one fixed emoji on the yes chip, deviation recorded.** The other two chips are already fixed in the design, so only the first one changes. The rejected alternative was a small activity table; a table that guesses wrong reads worse than one that never tries, and an emoji is decoration that does not justify a model call.
 
 ## What gets stored
 
@@ -78,7 +86,7 @@ Two things deliberately get **no** storage in this slice: the one-bump rule and 
 
 ## Not in this slice
 
-Creating the event at three yeses · seeding those yeses as RSVPs · Orbit proposing a different day · the two-card home screen · the one-bump resurface · parking interest for later · reading RSVP intent out of ordinary chat ("see you Monday") · the email ask · membership gating.
+Creating the event at three yeses · seeding those yeses as RSVPs · Orbit proposing a different day · Orbit learning a group's natural day from its history · the two-card home screen · the one-bump resurface · parking interest for later · reading RSVP intent out of ordinary chat ("see you Monday") · the email ask · membership gating.
 
 Each of these has a home. None of them belongs here.
 
@@ -92,7 +100,7 @@ Both gates hold, per the standing agreement.
 
 1. A real idea produces a gauge naming a specific day, with three chips.
 2. An ordinary message produces nothing at all: no Orbit reply, no gauge, no model spend visible in the feed.
-3. The initiator is already counted without tapping anything.
+3. The person who floated the idea starts at zero like everyone else and is counted only once they tap.
 4. Tapping changes the tally; tapping a different chip changes your answer rather than adding a second one.
 5. Three yeses does **not** create an event. This one is pinned deliberately, so that the day part two lands, the boundary moved on purpose rather than by accident.
 6. Someone choosing "Yes, can't Fri" appears in the different-day count and not in the in count.
@@ -108,9 +116,12 @@ The suite baseline was recorded before any code was written on this branch: **26
 
 ---
 
-## Open, and needing an answer before the plan is written
+## Review, 23 July
 
-1. **The yes chip's emoji** — fixed, or a small activity table? (Recommendation above.)
-2. **The Friday fallback** — accepted as a starting heuristic, or do you want a different default day?
+Read and approved by the product owner, with one correction and both open questions answered.
 
-Everything else in this document is settled.
+**The correction: the initiator does not get an automatic yes.** Caught on review and applied above. It was not a preference call; the auto-count contradicted the rule that a vote belongs to a specific proposal, since the initiator's message predates the proposal it was being counted as a vote on. The spec was internally inconsistent and now is not.
+
+**Both open questions are closed:** one fixed emoji on the yes chip, and Friday accepted as the starting fallback with override learning recorded as its successor.
+
+Nothing in this document is open. The implementation plan is written from here.
