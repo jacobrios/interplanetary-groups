@@ -16,6 +16,7 @@
 // Model: claude-haiku-4-5, via the shared callExtractionModel.
 
 import { callExtractionModel } from "./extract"
+import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
 import { cleanShortText } from "./rhythm"
 
 /**
@@ -110,4 +111,65 @@ export function normalizeSpark(raw: unknown): NormalizedSpark {
     typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6 ? d : null
 
   return { spark: true, activity, statedDayOfWeek }
+}
+
+// ── Which day Orbit proposes ─────────────────────────────────────────────────
+
+const FRIDAY = 5
+
+/**
+ * How much notice Orbit gives itself when IT picks the day. A gauge needs time
+ * to collect answers, and proposing tomorrow does not give a group that.
+ *
+ * Fallback-only, deliberately. A day someone stated is taken at face value,
+ * including today: pushing it out a week would propose a day they did not mean
+ * and then count them for it.
+ */
+const FALLBACK_BUFFER_DAYS = 2
+
+/** Weekday of a local calendar date, 0 = Sunday, read without touching the server's zone. */
+function weekdayOf(year: number, month: number, day: number): number {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+/**
+ * The day Orbit proposes, as the group-local midnight instant.
+ *
+ * Stated day: its next occurrence, counting today. Nothing stated: the coming
+ * Friday, pushed a week when that is inside the notice buffer. Friday because
+ * casual social plans default to the end of the week.
+ *
+ * This is a starting heuristic with no data behind it (accepted 23 July 2026),
+ * and it lives in one place so it stays cheap to replace with the
+ * override-learning behavior in build-notes §5.
+ */
+export function chooseProposedDate(
+  statedDayOfWeek: number | null,
+  timeZone: string,
+  now: Date
+): Date {
+  const today = getLocalParts(now, timeZone)
+  const todayDow = weekdayOf(today.year, today.month, today.day)
+
+  let offsetDays: number
+  if (statedDayOfWeek !== null) {
+    offsetDays = (statedDayOfWeek - todayDow + 7) % 7
+  } else {
+    offsetDays = (FRIDAY - todayDow + 7) % 7
+    if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
+  }
+
+  // Date.UTC absorbs the day overflow, so month and year ends need no special case.
+  return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
+}
+
+/**
+ * A gauge is live until the end of its proposed day in the group's zone. After
+ * that the message stays in the feed as history and the chips are gone: no
+ * pinning, no banner, no residue.
+ */
+export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): boolean {
+  const day = getLocalParts(proposedDate, timeZone)
+  const endOfDay = zonedWallTimeToUtc(day.year, day.month, day.day + 1, 0, 0, timeZone)
+  return now.getTime() < endOfDay.getTime()
 }
