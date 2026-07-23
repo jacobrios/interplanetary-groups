@@ -82,11 +82,21 @@ ${FIELD_RULES}`
 export class ExtractionError extends Error {}
 
 /**
- * One structured-outputs call against the shared schema. Both onboarding
- * calls (extraction and gap-answer merge) go through here; the returned
- * value is a claim for normalize.ts, never a fact.
+ * One structured-outputs call. Both onboarding calls (extraction and
+ * gap-answer merge) go through here against the shared EXTRACTION_SCHEMA;
+ * spark detection passes its own schema. The returned value is always a
+ * claim for a normalize layer, never a fact.
+ *
+ * The schema is a parameter rather than a second near-identical call helper:
+ * everything else about the call (model, key check, stop-reason handling,
+ * JSON parse, error mapping) is identical, and duplicating it is the
+ * duplication the timezone slice already rejected once.
  */
-export async function callExtractionModel(system: string, user: string): Promise<unknown> {
+export async function callExtractionModel(
+  system: string,
+  user: string,
+  schema: unknown = EXTRACTION_SCHEMA
+): Promise<unknown> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new ExtractionError("ANTHROPIC_API_KEY is not set")
   }
@@ -102,7 +112,7 @@ export async function callExtractionModel(system: string, user: string): Promise
       output_config: {
         format: {
           type: "json_schema",
-          schema: EXTRACTION_SCHEMA as unknown as Record<string, unknown>,
+          schema: schema as Record<string, unknown>,
         },
       },
       messages: [{ role: "user", content: user }],
