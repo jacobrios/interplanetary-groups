@@ -25,8 +25,10 @@
 
 import { useOptimistic, useTransition, useState } from "react"
 import { sendMessageAction } from "@/app/actions/send-message"
+import { detectSparkAction } from "@/app/actions/detect-spark"
 import { MessageAuthor } from "@prisma/client"
 import MessageFeed, { type FeedMessage } from "./MessageFeed"
+import type { FeedGauge } from "./GaugeChips"
 import ChatInput from "./ChatInput"
 
 interface Props {
@@ -34,6 +36,7 @@ interface Props {
   initialMessages: FeedMessage[]
   viewerId: string | null
   viewerName: string | null
+  gauges: FeedGauge[]
 }
 
 export default function GroupHome({
@@ -41,6 +44,7 @@ export default function GroupHome({
   initialMessages,
   viewerId,
   viewerName,
+  gauges,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -52,6 +56,18 @@ export default function GroupHome({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
   const [isPending, startTransition] = useTransition()
+
+  // A SECOND transition, for Orbit reading what was just said.
+  //
+  // Its pending flag is deliberately dropped on the floor and never reaches
+  // ChatInput's `disabled`. That is the whole architecture of this slice: the
+  // message posts, the input stays live, and Orbit's reply arrives a beat
+  // later on its own. Wiring this flag to the input would lock the keyboard
+  // for two to three seconds on the most-used interaction in the product.
+  //
+  // Best-effort by design: closing the tab in that beat means Orbit never
+  // answers. It fails quietly rather than wrongly.
+  const [, startDetection] = useTransition()
 
   function handleSubmit(formData: FormData) {
     const body = (formData.get("body") as string | null)?.trim() ?? ""
@@ -76,6 +92,16 @@ export default function GroupHome({
         setErrorMsg(result.errors.general)
         // useOptimistic auto-reverts to initialMessages once the transition
         // settles with no matching revalidatePath — removing the failed entry.
+        return
+      }
+
+      // The send has settled. Hand the message to Orbit in its own transition
+      // so this one can finish and release the input.
+      if (result?.messageId) {
+        const messageId = result.messageId
+        startDetection(async () => {
+          await detectSparkAction(messageId)
+        })
       }
     })
   }
@@ -92,7 +118,7 @@ export default function GroupHome({
       }}
     >
       {/* Scrollable feed */}
-      <MessageFeed messages={optimisticMessages} viewerId={viewerId} />
+      <MessageFeed messages={optimisticMessages} viewerId={viewerId} gauges={gauges} />
 
       {/* Pinned input — only for authenticated members */}
       {canPost && (

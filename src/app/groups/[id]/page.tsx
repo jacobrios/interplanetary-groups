@@ -22,9 +22,12 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { findSoonestUpcomingEvent } from "@/lib/events/upcoming"
 import { deriveRoster } from "@/lib/events/roster"
+import { findLiveGauges } from "@/lib/gauges/read"
+import { buildTallyLine, chipLabels } from "@/lib/orbit/spark"
 import EventCard from "./EventCard"
 import GroupHome from "./GroupHome"
 import type { FeedMessage } from "./MessageFeed"
+import type { FeedGauge } from "./GaugeChips"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -73,6 +76,23 @@ export default async function GroupPage({ params }: Props) {
     orderBy: { createdAt: "asc" },
     include: { author: true },
   })
+
+  // ── Live gauges ───────────────────────────────────────────────────────────
+  // Everything the group reads about a gauge is composed here, deterministically,
+  // from the vote rows: nothing about a tally is stored. A gauge whose day has
+  // passed is simply absent, so its message renders as plain history.
+  const liveGauges = await findLiveGauges(group.id, new Date())
+
+  const gauges: FeedGauge[] = liveGauges.map((g) => ({
+    id: g.id,
+    orbitMessageId: g.orbitMessageId,
+    tallyLine: buildTallyLine(
+      g.votes,
+      new Map(g.votes.map((v) => [v.userId, v.user.name]))
+    ),
+    labels: chipLabels(g.proposedDate, group.timeZone),
+    viewerAnswer: g.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
+  }))
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
@@ -227,6 +247,7 @@ export default async function GroupPage({ params }: Props) {
           initialMessages={messages}
           viewerId={viewer?.id ?? null}
           viewerName={viewer?.name ?? null}
+          gauges={gauges}
         />
       </div>
     </div>
