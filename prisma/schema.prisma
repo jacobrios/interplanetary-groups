@@ -20,6 +20,7 @@ model User {
   rsvps          Rsvp[]
   foundedGroups  Group[]
   messages       Message[]
+  gaugeVotes     GaugeVote[]
 }
 
 model ContactMethod {
@@ -54,6 +55,7 @@ model Group {
   memberships         Membership[]
   events              Event[]
   messages            Message[]
+  gauges              Gauge[]
 }
 
 model Membership {
@@ -149,6 +151,9 @@ model Message {
   group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
+  gaugeAsSource Gauge? @relation("GaugeSource")
+  gaugeAsOrbit  Gauge? @relation("GaugeOrbit")
+
   @@index([groupId])
   @@index([authorId])
 }
@@ -156,4 +161,72 @@ model Message {
 enum MessageAuthor {
   MEMBER
   ORBIT
+}
+
+// ── Spark: gauging interest ──────────────────────────────────────────────────
+
+/**
+ * One round of Orbit gauging interest in a floated idea.
+ *
+ * sourceMessageId is unique and that is the whole idempotency story: a
+ * double-fired detection hits the constraint and is caught as a no-op, the
+ * same P2002 pattern reconcile.ts already uses.  We deliberately do NOT add a
+ * "spark already checked" column to Message — that would widen the migration
+ * to cover a rare duplicate *cost*, while the unique constraint already covers
+ * the duplicate *harm* (two Orbit messages for one idea).
+ *
+ * proposedDate is the group-local midnight of the day Orbit proposed, stored
+ * as one instant via zonedWallTimeToUtc and read back through the group's
+ * zone like every other time in the product.  A gauge is live until the end of
+ * that local day.
+ *
+ * Nothing about the tally is stored: counts, names, and whether the bar has
+ * been reached are all derived from GaugeVote rows, the same rule RSVPs follow.
+ */
+model Gauge {
+  id              String   @id @default(cuid())
+  groupId         String
+  sourceMessageId String   @unique // the MEMBER message that sparked it; also the idempotency key
+  orbitMessageId  String   @unique // Orbit's gauge message, where the chips render
+  activity        String // "beers" — the member's own words, sanitized
+  proposedDate    DateTime // group-local midnight of the proposed day
+  createdAt       DateTime @default(now())
+
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sourceMessage Message     @relation("GaugeSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  orbitMessage  Message     @relation("GaugeOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
+  votes         GaugeVote[]
+
+  @@index([groupId])
+}
+
+/**
+ * One person's answer on one gauge.  A vote belongs to a specific proposal,
+ * not to the idea: saying yes to beers-on-Friday is not saying yes to
+ * beers-in-general, which is why this hangs off Gauge (carrying the proposed
+ * date) and not off an idea record.
+ *
+ * Unique on (gaugeId, userId): changing your mind updates the single row, it
+ * never adds a second one.
+ */
+model GaugeVote {
+  id        String      @id @default(cuid())
+  gaugeId   String
+  userId    String
+  answer    GaugeAnswer
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  gauge Gauge @relation(fields: [gaugeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gaugeId, userId])
+  @@index([gaugeId])
+  @@index([userId])
+}
+
+enum GaugeAnswer {
+  IN
+  OUT
+  NOT_THAT_DAY // willing, but the proposed day does not work
 }
