@@ -47,9 +47,9 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 
 - **Nudge sparingly.** Orbit pings the group only when it moves the needle (turnout genuinely uncertain). Exact thresholds are post-launch tuning. Reminders point to the card; responses never flood the feed.
 - **Scheduled mode auto-creates the next occurrence** from the rhythm learned at onboarding, so the home is alive on day one. Vercel Cron drives scheduled triggers.
-- **Spontaneous mode:** Orbit listens passively, gauges interest with chips when someone floats an idea, and only creates an event at the three-person threshold (including the initiator). Below threshold, ideas scroll away with no residue.
+- **Spontaneous mode:** Orbit listens passively, gauges interest with chips when someone floats an idea, and only creates an event at the three-person threshold. The initiator counts toward that three, but by voting like everyone else; the only exception is when they named the proposed day themselves, which already is their yes. Below threshold, ideas scroll away with no residue.
 - **The one-bump rule.** A buried gauge that is still viable (close to threshold) earns at most one fresh bump, then dies gracefully. Never pinned, never bannered.
-- **Auto-seed RSVPs.** People who said yes during gauging are seeded as "in" on the created event. Never ask twice.
+- **Auto-seed RSVPs.** People who said yes during gauging are seeded as "in" on the created event. Never ask twice. This governs a yes already given; floating an idea is not itself a yes, so the person who raised it is not seeded on that basis.
 - **Interest without a viable date is stashed as context** and resurfaced when the calendar opens up. Enthusiasm is parked, not lost.
 - **Concrete-first proposals.** Orbit proposes a specific day at gauge time (anchoring beats open-ended polling) and pencils a venue at lock time. Venue suggestions must key off the group's actual spots from context, not generic geography.
 - **Override learning.** Track which defaults get rejected. A group that shoots down Friday three times stops getting Friday proposals. Overrides are training data.

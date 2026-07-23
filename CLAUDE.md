@@ -16,16 +16,11 @@ This file loads every session. It is the standing context and the rules that mus
 
 Onboarding is fully built end to end: the founder describes the group in free text, Haiku extracts structured rhythms, the normalize layer turns that claim into stored shape, a gap-ask conversational loop resolves a missing or ambiguous day or time (never a venue, which never gates), the founder can add the group's meeting spot at the playback step, deterministic code composes the playback, and confirm creates the group with its first scheduled event and the founder's detected timezone already on the home screen. Orbit so far acts only on a daily Vercel cron that auto-creates the next recurring occurrence; it does not yet post, listen, or coordinate live in the feed. Just landed: venue capture at onboarding, walkthrough reference crops, and this documentation-consolidation slice.
 
-**Next slice: spark (spontaneous events).** Orbit listens passively in the feed, gauges interest with chips when someone floats an idea, and creates an event at the three-person threshold (initiator included). This is the product thesis becoming real: Orbit as an active coordinator, not a cron job. Venue capture was sequenced ahead of it on purpose, so spark can pencil in the group's actual spot instead of inventing a plausible one.
+**Next slice: spark, part one (Orbit gauges interest).** Orbit listens passively in the feed, and when someone floats an idea it replies proposing a specific day with three one-tap chips and a live tally. Nothing is created yet; creation at the three-person threshold is part two. This is the product thesis becoming real: Orbit as an active coordinator, not a cron job. Venue capture was sequenced ahead of it on purpose, so spark can pencil in the group's actual spot instead of inventing a plausible one.
 
-Open product questions to settle before spark can be spec'd:
-- Whether spark detection runs synchronously inside the send-message action. The one-shot did, which pushed message send from roughly 0.5s to 2-3s, a feel tradeoff in the most-used interaction in the product.
-- What triggers a model call at all: a keyword pre-filter before the model, versus a call on every message. A recurring-cost question on a product with no revenue.
-- The gauge chip labels, and whether MAYBE surfaces as a chip at all (it stays in the data model either way).
-- Whether the one-bump rule ships in this slice or defers.
-- Sizing: spark opens several new seams at once (a model call in the send path, gauge and vote storage, threshold logic, auto-seeded RSVPs into event creation). build-notes §11 names the next deliberate experiment as a bigger slice on proven ground with both verification gates intact, and spark is the candidate. Settle this in the spark spec, not here.
+The spark product questions are closed. `docs/superpowers/specs/2026-07-23-spark-interest-gauge-design.md` is the settled intent: a model call on every member message with no pre-filter, detection running after the send so the input is never blocked, the three chips exactly as `docs/design/orbit-suggestion-chips-spec.html` draws them, the one-bump rule deferred, and the slice cut at gauging so creation lands separately.
 
-Already settled by build-notes §5, not open: the three-person creation threshold, the initiator never being asked twice, and below-threshold ideas scrolling away with no residue.
+Already settled by build-notes §5, not open: the three-person creation threshold, and below-threshold ideas scrolling away with no residue. **The initiator is counted only when they named the day Orbit is proposing** (their message already is that yes); when Orbit picked the day, the initiator votes like anyone else. A day counts as named only when exactly one is named. The "never ask twice" rule governs carrying a gauge yes through to the created event's RSVP, which is part two's job.
 
 ---
 

@@ -9,3 +9,5 @@ Cropped exports from the Claude Design gallery, two screens per file. Exported 2
 What they are for: the describe-back checkpoint before an agent writes visual code, and human verification of a "matches the design" claim against a rendered screen. A difference from these screens is a question to raise, not a defect to fix.
 
 The live Claude Design gallery is the source of truth for the design itself. If a screen changed there and not here, these are stale.
+
+**One sibling file is different: `../orbit-suggestion-chips-spec.html` is a real build source.** It is a standalone spec sheet for Orbit's suggestion chips, and unlike these crops it carries actual CSS and its own token values, so visual code may be built from it. It exists because screen 07's chip row is clipped by the fixed phone frame.
