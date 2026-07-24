@@ -178,32 +178,32 @@ describe("detectSparkClaim", () => {
 
 describe("chooseProposedDate", () => {
   it("takes a stated weekday at its next occurrence", () => {
-    const d = chooseProposedDate(3, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(3, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
     expect(d.toISOString()).toBe("2026-07-22T00:00:00.000Z") // Wed
   })
 
   it("takes a stated day that is today as today, not next week", () => {
     // The two-day buffer is fallback-only. Pushing a stated day out a week
     // would count the person who named it for a day they did not mean.
-    const d = chooseProposedDate(5, "UTC", new Date("2026-07-24T12:00:00Z")) // Fri
+    const d = chooseProposedDate(5, null, "UTC", new Date("2026-07-24T12:00:00Z")) // Fri
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z") // the same Friday
   })
 
   it("falls back to the coming Friday when nobody named a day", () => {
-    const d = chooseProposedDate(null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(null, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
   it("pushes the fallback a week when the coming Friday is under two days out", () => {
-    const thu = chooseProposedDate(null, "UTC", new Date("2026-07-23T12:00:00Z"))
+    const thu = chooseProposedDate(null, null, "UTC", new Date("2026-07-23T12:00:00Z"))
     expect(thu.toISOString()).toBe("2026-07-31T00:00:00.000Z")
 
-    const fri = chooseProposedDate(null, "UTC", new Date("2026-07-24T12:00:00Z"))
+    const fri = chooseProposedDate(null, null, "UTC", new Date("2026-07-24T12:00:00Z"))
     expect(fri.toISOString()).toBe("2026-07-31T00:00:00.000Z")
   })
 
   it("keeps the coming Friday at exactly two days out", () => {
-    const wed = chooseProposedDate(null, "UTC", new Date("2026-07-22T12:00:00Z"))
+    const wed = chooseProposedDate(null, null, "UTC", new Date("2026-07-22T12:00:00Z"))
     expect(wed.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
@@ -212,16 +212,16 @@ describe("chooseProposedDate", () => {
     // buffer pushes a week. In Midway it is still Wednesday, so the coming
     // Friday clears the buffer and stands.
     const now = new Date("2026-07-23T02:00:00Z")
-    expect(chooseProposedDate(null, "UTC", now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, "UTC", now).toISOString()).toBe(
       "2026-07-31T00:00:00.000Z"
     )
-    expect(chooseProposedDate(null, MIDWAY, now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, MIDWAY, now).toISOString()).toBe(
       "2026-07-24T11:00:00.000Z" // local midnight Fri 24 Jul in UTC-11
     )
   })
 
   it("returns group-local midnight for a stated day in a far-offset zone", () => {
-    const d = chooseProposedDate(4, MIDWAY, new Date("2026-07-23T02:00:00Z")) // local Wed
+    const d = chooseProposedDate(4, null, MIDWAY, new Date("2026-07-23T02:00:00Z")) // local Wed
     expect(d.toISOString()).toBe("2026-07-23T11:00:00.000Z") // local midnight Thu 23 Jul
   })
 })

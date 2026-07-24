@@ -19,6 +19,8 @@ import {
   formatWeekdayShort,
 } from "@/lib/events/format"
 import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
+// Type-only, so it erases at compile time and cannot pull the model SDK back in.
+import type { PartOfDay } from "./spark"
 
 /**
  * The activity is one or two words in the member's own words and lands inside
@@ -27,9 +29,95 @@ import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
  */
 export const ACTIVITY_MAX = 40
 
-// ── Which day Orbit proposes ─────────────────────────────────────────────────
+// ── When Orbit proposes ──────────────────────────────────────────────────────
 
 const FRIDAY = 5
+const SATURDAY = 6
+
+/**
+ * Where an unstated time lands. Both numbers are placeholders with no data
+ * behind them (accepted 24 July 2026), kept here beside the day fallback so
+ * the override-learning behavior in build-notes §5 replaces all four at once.
+ */
+export const EVENING_TIME = "19:00"
+export const MORNING_TIME = "09:00"
+
+export interface ResolvedSparkTime {
+  /** Always concrete: the event has to start at some o'clock. */
+  timeLocal: string
+  /**
+   * The sentence Orbit adds to own up to a guess, or null when it did not
+   * guess. Deliberately narrow: it fires only when someone stated an hour
+   * whose half of the day Orbit had to pick. A fully unstated time gets no
+   * line, because there is nothing the group said that could be misread.
+   */
+  disclosure: string | null
+}
+
+/**
+ * The one place a sparked event's start time is decided.
+ *
+ * A stated unambiguous time wins outright. A genuine coin flip keeps the
+ * stated hour and lands in the evening, plus one disclosure sentence: it does
+ * not fall to the default, because the person said 8 and a card reading 7
+ * would contradict them. Nothing stated falls to the part-of-day default.
+ */
+export function resolveSparkTime({
+  statedTime,
+  timeAmbiguous,
+  partOfDay,
+}: {
+  statedTime: string | null
+  timeAmbiguous: boolean
+  partOfDay: PartOfDay | null
+}): ResolvedSparkTime {
+  if (statedTime === null) {
+    return {
+      timeLocal: partOfDay === "morning" ? MORNING_TIME : EVENING_TIME,
+      disclosure: null,
+    }
+  }
+
+  if (!timeAmbiguous) {
+    return { timeLocal: statedTime, disclosure: null }
+  }
+
+  // A coin flip. Keep their hour, put it in the evening, and say so.
+  // A known-morning activity would never have reached here: the model settles
+  // "breakfast at 8" itself.
+  const [h, m] = splitTime(statedTime)
+  const eveningHour = h >= 1 && h <= 11 ? h + 12 : h === 0 ? 12 : h
+  const timeLocal = `${pad(eveningHour)}:${pad(m)}`
+
+  return {
+    timeLocal,
+    disclosure: `You said ${spokenHour(statedTime)}, so I'm taking that as ${formatTimeLocalLabel(timeLocal)}.`,
+  }
+}
+
+/** "20:00" → "8pm", "08:30" → "8:30am". The group-facing label. */
+export function formatTimeLocalLabel(timeLocal: string): string {
+  const [h, m] = splitTime(timeLocal)
+  const suffix = h < 12 ? "am" : "pm"
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}${suffix}` : `${h12}:${pad(m)}${suffix}`
+}
+
+/** "08:30" → "8:30": the number as the member themselves said it, no suffix. */
+function spokenHour(timeLocal: string): string {
+  const [h, m] = splitTime(timeLocal)
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}` : `${h12}:${pad(m)}`
+}
+
+function splitTime(t: string): [number, number] {
+  const [h, m] = t.split(":").map(Number)
+  return [h, m]
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0")
+}
 
 /**
  * How much notice Orbit gives itself when IT picks the day. A gauge needs time
@@ -50,15 +138,19 @@ function weekdayOf(year: number, month: number, day: number): number {
  * The day Orbit proposes, as the group-local midnight instant.
  *
  * Stated day: its next occurrence, counting today. Nothing stated: the coming
- * Friday, pushed a week when that is inside the notice buffer. Friday because
- * casual social plans default to the end of the week.
+ * Friday for an evening or unknown idea, the coming Saturday for a morning one,
+ * each pushed a week when it is inside the notice buffer. Friday because casual
+ * social plans default to the end of the week; Saturday because that reasoning
+ * is about evenings and a morning idea should not inherit it.
  *
- * This is a starting heuristic with no data behind it (accepted 23 July 2026),
- * and it lives in one place so it stays cheap to replace with the
- * override-learning behavior in build-notes §5.
+ * These are starting heuristics with no data behind them (Friday accepted
+ * 23 July 2026, Saturday 24 July 2026), and they live in one place beside the
+ * time defaults so all four stay cheap to replace with the override-learning
+ * behavior in build-notes §5.
  */
 export function chooseProposedDate(
   statedDayOfWeek: number | null,
+  partOfDay: PartOfDay | null,
   timeZone: string,
   now: Date
 ): Date {
@@ -69,7 +161,11 @@ export function chooseProposedDate(
   if (statedDayOfWeek !== null) {
     offsetDays = (statedDayOfWeek - todayDow + 7) % 7
   } else {
-    offsetDays = (FRIDAY - todayDow + 7) % 7
+    // Friday was chosen on end-of-the-week social logic, which is about
+    // evenings. A morning idea inherits Saturday instead: "breakfast sometime"
+    // proposed for Friday 7pm would be wrong twice over.
+    const fallbackDay = partOfDay === "morning" ? SATURDAY : FRIDAY
+    offsetDays = (fallbackDay - todayDow + 7) % 7
     if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
   }
 

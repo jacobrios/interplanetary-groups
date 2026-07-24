@@ -70,7 +70,12 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
     )
     if (already) return { status: "quiet" }
 
-    const proposedDate = chooseProposedDate(spark.statedDayOfWeek, group.timeZone, now)
+    const proposedDate = chooseProposedDate(
+      spark.statedDayOfWeek,
+      spark.partOfDay,
+      group.timeZone,
+      now
+    )
 
     const result = await createGauge({
       groupId: group.id,
