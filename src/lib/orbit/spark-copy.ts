@@ -15,6 +15,7 @@ import type { GaugeAnswer } from "@prisma/client"
 
 import {
   formatMonthDay,
+  formatTime,
   formatWeekdayLong,
   formatWeekdayShort,
 } from "@/lib/events/format"
@@ -207,17 +208,26 @@ export interface ChipLabels {
   notThatDay: string
 }
 
+/** Three people, including an initiator who named the day themselves. */
+export const SPARK_THRESHOLD = 3
+
 /**
- * Orbit's gauge message. Deliberately makes no promise: "if three of you are
- * in, I'll set it up" is a promise this half cannot keep, because three yeses
- * do not create anything until part two. A visible lie in the feed is worse
- * than a smaller sentence.
+ * Orbit's gauge message, including the promise to set it up.
+ *
+ * Part one withheld that clause because three yeses created nothing then. It is
+ * honored now by promoteGaugeToEvent, in the same tap that produces the third
+ * yes, so the sentence is true when it is said.
+ *
+ * The disclosure clause sits between the question and the promise: it is about
+ * the time Orbit had to guess, so it belongs beside the plan, not after the
+ * commitment.
  */
 export function buildGaugeMessage(
   activity: string,
   proposedDate: Date,
   timeZone: string,
-  now: Date
+  now: Date,
+  disclosure: string | null
 ): string {
   const weekday = formatWeekdayLong(proposedDate, timeZone)
 
@@ -231,7 +241,11 @@ export function buildGaugeMessage(
       ? `on ${weekday}, ${formatMonthDay(proposedDate, timeZone)}`
       : `this ${weekday}`
 
-  return `Love it. Anyone in for ${activity} ${when}?`
+  const disclosureClause = disclosure ? ` ${disclosure}` : ""
+
+  // The promise part one deliberately withheld. It can be kept now: three
+  // yeses create the event in the same tap that produces the third one.
+  return `Love it. Anyone in for ${activity} ${when}?${disclosureClause} If three of you are in, I'll set it up.`
 }
 
 /** The three chips. Weekday abbreviated on the third per the copy rule. */
@@ -252,8 +266,8 @@ export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
  * plus a count, and people who want a different day are shown because hiding
  * them would misrepresent the group to itself.
  *
- * No countdown to the bar at any count. That clause lands in part two together
- * with the ability to honor it.
+ * Counts down only at one away from the bar. Part one had no countdown at any
+ * count, because nothing happened when the bar was met.
  */
 export function buildTallyLine(
   votes: GaugeVoteLike[],
@@ -285,7 +299,31 @@ export function buildTallyLine(
     )
   }
 
+  // One away, and only one away: at zero or one the countdown would be
+  // pressure rather than information, and past the bar there is nothing left
+  // to count down to.
+  if (inNames.length === SPARK_THRESHOLD - 1) {
+    parts.push("one more makes it happen")
+  }
+
   return parts.join(" · ")
+}
+
+/**
+ * What Orbit says in the feed the moment a gauge becomes an event.
+ *
+ * States the time out loud on purpose: the time may be Orbit's own default or
+ * its reading of an ambiguous hour, and the group should see it the moment it
+ * is fixed rather than discovering it on the card later.
+ */
+export function buildSparkAnnouncement(
+  activity: string,
+  startsAt: Date,
+  timeZone: string
+): string {
+  const weekday = formatWeekdayShort(startsAt, timeZone)
+  const time = formatTime(startsAt, timeZone)
+  return `Three of you are in, so ${activity} is on for ${weekday} at ${time}. It's up top now.`
 }
 
 /** The group-local midnight that starts the day `instant` falls in. */

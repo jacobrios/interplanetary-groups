@@ -82,7 +82,7 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
       sourceMessageId: message.id,
       activity: spark.activity,
       proposedDate,
-      body: buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now),
+      body: buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now, null),
       // Counted only when they named the day: their message already is that
       // yes. When Orbit picked the day, they vote like anyone else.
       initiatorUserId: spark.statedDayOfWeek !== null ? user.id : null,
