@@ -11,7 +11,11 @@ import { formatEventDate } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { detectSparkClaim, normalizeSpark } from "@/lib/orbit/spark"
-import { buildGaugeMessage, chooseProposedDate } from "@/lib/orbit/spark-copy"
+import {
+  buildGaugeMessage,
+  chooseProposedDate,
+  resolveSparkTime,
+} from "@/lib/orbit/spark-copy"
 
 export type DetectSparkResult = { status: "gauged" } | { status: "quiet" }
 
@@ -77,12 +81,27 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
       now
     )
 
+    // One resolution, one place. The disclosure rides along with it: Orbit
+    // says what it assumed only when it actually had to assume something.
+    const { timeLocal, disclosure } = resolveSparkTime({
+      statedTime: spark.statedTime,
+      timeAmbiguous: spark.timeAmbiguous,
+      partOfDay: spark.partOfDay,
+    })
+
     const result = await createGauge({
       groupId: group.id,
       sourceMessageId: message.id,
       activity: spark.activity,
       proposedDate,
-      body: buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now, null),
+      proposedTime: timeLocal,
+      body: buildGaugeMessage(
+        spark.activity,
+        proposedDate,
+        group.timeZone,
+        now,
+        disclosure
+      ),
       // Counted only when they named the day: their message already is that
       // yes. When Orbit picked the day, they vote like anyone else.
       initiatorUserId: spark.statedDayOfWeek !== null ? user.id : null,

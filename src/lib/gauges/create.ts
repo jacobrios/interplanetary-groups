@@ -20,6 +20,13 @@ export interface CreateGaugeInput {
   activity: string
   /** Group-local midnight of the proposed day. */
   proposedDate: Date
+  /**
+   * Group-local "HH:mm" the event will start at if this gauge reaches the bar.
+   * Resolved at detection (stated time, or the part-of-day default) so
+   * creation reads a stored value instead of re-deriving one from the original
+   * message days later.
+   */
+  proposedTime: string
   /** Orbit's composed message body. Copy lives in orbit/spark-copy.ts, not here. */
   body: string
   /**
@@ -50,6 +57,7 @@ export async function createGauge({
   sourceMessageId,
   activity,
   proposedDate,
+  proposedTime,
   body,
   initiatorUserId,
 }: CreateGaugeInput): Promise<CreateGaugeResult> {
@@ -71,6 +79,7 @@ export async function createGauge({
           orbitMessageId: orbitMessage.id,
           activity,
           proposedDate,
+          proposedTime,
         },
       })
 
