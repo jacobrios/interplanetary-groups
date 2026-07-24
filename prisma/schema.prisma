@@ -77,14 +77,25 @@ model Event {
   startsAt      DateTime
   endsAt        DateTime?
   activityLabel String?
+  /// The gauge that created this event, when it was sparked rather than
+  /// scheduled. Unique, so one gauge can only ever produce one event however
+  /// many times the third yes is double-tapped. Null means Orbit's cron
+  /// created it, which is also how the cron guard tells the two apart.
+  gaugeId       String?   @unique
+  /// Idempotency key for the scheduled path only: "<groupId>:<ISO instant>",
+  /// written exclusively by reconcile.ts. Replaces the old
+  /// @@unique([groupId, startsAt]), which forbade a sparked event from sharing
+  /// an instant with the standing one (build-notes §11, spark part two).
+  scheduledKey  String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   group         Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  gauge         Gauge?    @relation(fields: [gaugeId], references: [id], onDelete: SetNull)
   venues        Venue[]
   rsvps         Rsvp[]
 
   @@index([groupId])
-  @@unique([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
+  @@index([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
 }
 
 model Venue {
@@ -190,12 +201,18 @@ model Gauge {
   orbitMessageId  String   @unique // Orbit's gauge message, where the chips render
   activity        String // "beers" — the member's own words, sanitized
   proposedDate    DateTime // group-local midnight of the proposed day
+  /// Group-local "HH:mm" the event will start at, resolved once at detection:
+  /// the member's stated time when they gave one, otherwise the part-of-day
+  /// default. Nullable only for gauges written before this slice; a pre-slice
+  /// gauge reaching threshold falls back to the evening default.
+  proposedTime    String?
   createdAt       DateTime @default(now())
 
   group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sourceMessage Message     @relation("GaugeSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
   orbitMessage  Message     @relation("GaugeOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
   votes         GaugeVote[]
+  event         Event?
 
   @@index([groupId])
 }
