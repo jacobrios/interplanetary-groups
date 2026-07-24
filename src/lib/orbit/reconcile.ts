@@ -14,9 +14,10 @@
 //
 // 2. Event + announcement are NOT in one transaction: a crash between
 //    createEvent and createMessage leaves an event with no announcement.
-//    The upcoming-event guard (findSoonestUpcomingEvent) means reconcile
+//    The scheduled-event guard (hasUpcomingScheduledEvent) means reconcile
 //    will skip that group on retry, so the orphaned event is permanent
 //    without manual intervention. Low risk at once-per-day cadence.
+//    (promote.ts, the spark path, does hold its whole set in one transaction.)
 
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor } from "@prisma/client"
@@ -25,7 +26,7 @@ import { computeNextOccurrence } from "./occurrence"
 import { buildAnnouncement } from "./announce"
 import { createEvent } from "@/lib/events/create"
 import { createMessage } from "@/lib/messages/create"
-import { findSoonestUpcomingEvent } from "@/lib/events/upcoming"
+import { hasUpcomingScheduledEvent } from "@/lib/events/upcoming-list"
 
 export type ReconcileResult =
   | { groupId: string; status: "created"; eventId: string }
@@ -36,7 +37,8 @@ export type ReconcileResult =
  *
  * For each group that has a valid rhythm and no upcoming event, creates one
  * Event and one ORBIT feed announcement.  Groups without a rhythm or that
- * already have an upcoming event are skipped.
+ * already have an upcoming SCHEDULED event are skipped. A sparked event does
+ * not count: it is not evidence the schedule has run.
  *
  * Groups are processed sequentially (not Promise.all) to avoid subtle timing
  * races in the upcoming-event guard during integration tests and low-volume
@@ -67,9 +69,12 @@ export async function reconcileScheduledEvents(
       continue
     }
 
-    // Step b: skip if an upcoming event already exists (idempotency guard)
-    const upcoming = await findSoonestUpcomingEvent(groupId)
-    if (upcoming) {
+    // Step b: skip if the STANDING rhythm already has an upcoming occurrence.
+    // Deliberately not "any upcoming event": a sparked event is not evidence
+    // that the schedule has run, and counting it would silently withhold the
+    // group's recurring event until the spark had passed.
+    const alreadyScheduled = await hasUpcomingScheduledEvent(groupId, now)
+    if (alreadyScheduled) {
       results.push({ groupId, status: "skipped", reason: "upcoming_exists" })
       continue
     }
@@ -88,6 +93,10 @@ export async function reconcileScheduledEvents(
         title: rhythm.title,
         startsAt,
         activityLabel: rhythm.activity,
+        // The scheduled path's own idempotency key, replacing the dropped
+        // @@unique([groupId, startsAt]). Two cron runs racing on the same
+        // occurrence still collide on P2002 and come back as a skip.
+        scheduledKey: `${groupId}:${startsAt.toISOString()}`,
         // Standing-place snapshot: the rhythm's venue becomes this event's
         // Venue row ({name} only; label/address/url are per-event concerns,
         // left null). A later change to the rhythm's standing place will not
@@ -107,7 +116,7 @@ export async function reconcileScheduledEvents(
       // Step f: record success
       results.push({ groupId, status: "created", eventId: event.id })
     } catch (err) {
-      // Step g: Prisma unique-constraint violation (@@unique[groupId, startsAt])
+      // Step g: Prisma unique-constraint violation (the unique scheduledKey)
       if ((err as { code?: string }).code === "P2002") {
         results.push({ groupId, status: "skipped", reason: "duplicate" })
         continue
