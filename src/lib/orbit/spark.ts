@@ -19,7 +19,7 @@
 // Anthropic import. Keep it that way: this module must stay server-only.
 
 import { callExtractionModel } from "./extract"
-import { cleanShortText } from "./rhythm"
+import { cleanShortText, TIME_LOCAL_RE } from "./rhythm"
 import { ACTIVITY_MAX } from "./spark-copy"
 
 // Every field required with explicit nulls, matching the extraction doctrine:
@@ -27,11 +27,16 @@ import { ACTIVITY_MAX } from "./spark-copy"
 export const SPARK_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["isSpark", "activity", "statedDayOfWeek"],
+  required: ["isSpark", "activity", "statedDayOfWeek", "statedTime", "timeAmbiguous", "partOfDay"],
   properties: {
     isSpark: { type: "boolean" },
     activity: { type: ["string", "null"] },
     statedDayOfWeek: { type: ["integer", "null"] },
+    statedTime: { type: ["string", "null"] },
+    timeAmbiguous: { type: "boolean" },
+    partOfDay: {
+      anyOf: [{ type: "string", enum: ["morning", "evening"] }, { type: "null" }],
+    },
   },
 } as const
 
@@ -48,7 +53,10 @@ If you are not sure, answer isSpark false. Missing a real idea costs nothing; in
 Fields:
 - isSpark: true only when the message genuinely proposes the group do something together.
 - activity: one or two words in the member's own words naming the activity ("beers", "climbing", "board games"). Drop filler and location words: "grab a beer at Tony's" is just "beers". Never invent an activity. Null when isSpark is false.
-- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named.`
+- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named.
+- statedTime: 24-hour "HH:MM" only if the message stated a time. Use the activity to read it: "beers at 8" is "20:00", "breakfast at 8" is "08:00". Null when no time was stated.
+- timeAmbiguous: true only when a clock number was given with no am or pm AND the activity does not settle it. "beers at 8" is not ambiguous, because beers do not happen at 8 in the morning. "breakfast at 8" is not ambiguous. "meet at 8" for something that happens at both ends of the day IS ambiguous: set statedTime to your best reading and timeAmbiguous to true. When statedTime is null, timeAmbiguous is false.
+- partOfDay: "morning" for activities that happen in the morning (breakfast, coffee, a sunrise hike), "evening" for activities that happen at night (beers, dinner, drinks, a movie). Null when the activity could genuinely be either, or when you are unsure. This is about the activity itself, not about any time that was stated.`
 
 export interface SparkContext {
   /**
@@ -59,9 +67,24 @@ export interface SparkContext {
   upcomingEvent: string | null
 }
 
+/**
+ * What kind of activity this is, which is what settles an unstated time. About
+ * the activity itself, never about any hour the message named.
+ */
+export type PartOfDay = "morning" | "evening"
+
 export type NormalizedSpark =
   | { spark: false }
-  | { spark: true; activity: string; statedDayOfWeek: number | null }
+  | {
+      spark: true
+      activity: string
+      statedDayOfWeek: number | null
+      /** Validated "HH:mm", or null when none was stated. */
+      statedTime: string | null
+      /** A clock number with no am/pm that the activity does not settle. */
+      timeAmbiguous: boolean
+      partOfDay: PartOfDay | null
+    }
 
 /**
  * One structured-outputs call. Returns raw model output: a claim, not a fact.
@@ -106,5 +129,16 @@ export function normalizeSpark(raw: unknown): NormalizedSpark {
   const statedDayOfWeek =
     typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6 ? d : null
 
-  return { spark: true, activity, statedDayOfWeek }
+  const statedTime =
+    typeof o.statedTime === "string" && TIME_LOCAL_RE.test(o.statedTime) ? o.statedTime : null
+
+  // Ambiguity is a property of a time that exists. Without one there is
+  // nothing to be uncertain about, and letting the flag stand alone would
+  // send the disclosure line out with nothing to disclose.
+  const timeAmbiguous = statedTime !== null && o.timeAmbiguous === true
+
+  const partOfDay: PartOfDay | null =
+    o.partOfDay === "morning" || o.partOfDay === "evening" ? o.partOfDay : null
+
+  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay }
 }

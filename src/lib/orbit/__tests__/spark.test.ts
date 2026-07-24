@@ -30,6 +30,12 @@ import {
 // boundary is read in the group's zone and not the server's.
 const MIDWAY = "Pacific/Midway"
 
+// Part two widened NormalizedSpark with three time fields, so a strict
+// toEqual on a spark now has to state them. Kept as toEqual rather than
+// relaxed to toMatchObject on purpose: strict equality is what catches a field
+// appearing that nobody intended.
+const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null }
+
 describe("normalizeSpark", () => {
   it("treats a no-spark claim as no spark", () => {
     expect(
@@ -40,19 +46,19 @@ describe("normalizeSpark", () => {
   it("carries a valid spark through with its activity and stated day", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: 5 })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: 5 })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: 5, ...NO_TIME })
   })
 
   it("keeps Sunday, which is day zero", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "brunch", statedDayOfWeek: 0 })
-    ).toEqual({ spark: true, activity: "brunch", statedDayOfWeek: 0 })
+    ).toEqual({ spark: true, activity: "brunch", statedDayOfWeek: 0, ...NO_TIME })
   })
 
   it("carries a spark with no stated day", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: null })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
   })
 
   it("is not a spark when there is no activity to gauge", () => {
@@ -71,7 +77,7 @@ describe("normalizeSpark", () => {
     for (const bad of [7, -1, 9, 1.5, "5", true, null]) {
       expect(
         normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: bad })
-      ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+      ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
     }
   })
 
@@ -84,7 +90,7 @@ describe("normalizeSpark", () => {
   it("trims and caps the activity", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "  beers  ", statedDayOfWeek: null })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
 
     const long = normalizeSpark({
       isSpark: true,
@@ -93,6 +99,45 @@ describe("normalizeSpark", () => {
     })
     expect(long.spark).toBe(true)
     if (long.spark) expect(long.activity.length).toBe(ACTIVITY_MAX)
+  })
+})
+
+describe("normalizeSpark, time fields", () => {
+  const base = { isSpark: true, activity: "beers", statedDayOfWeek: 5 }
+
+  it("keeps a valid stated time", () => {
+    const r = normalizeSpark({ ...base, statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening" })
+    expect(r).toEqual({
+      spark: true, activity: "beers", statedDayOfWeek: 5,
+      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening",
+    })
+  })
+
+  it("treats a malformed time as no time at all", () => {
+    // A claim, not a fact: "99:99" and "8pm" are both the model failing the
+    // contract, and the product must degrade to its default rather than
+    // putting an unparseable string anywhere near an event.
+    for (const bad of ["99:99", "8pm", "8", "", null, 20]) {
+      const r = normalizeSpark({ ...base, statedTime: bad, timeAmbiguous: false, partOfDay: null })
+      expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false })
+    }
+  })
+
+  it("cannot report ambiguity when there is no time to be ambiguous about", () => {
+    const r = normalizeSpark({ ...base, statedTime: null, timeAmbiguous: true, partOfDay: null })
+    expect(r).toMatchObject({ statedTime: null, timeAmbiguous: false })
+  })
+
+  it("rejects a part of day it does not recognise", () => {
+    const r = normalizeSpark({ ...base, statedTime: null, timeAmbiguous: false, partOfDay: "afternoon" })
+    expect(r).toMatchObject({ partOfDay: null })
+  })
+
+  it("still normalizes a spark from a model that omitted the new fields", () => {
+    // Defensive: the schema requires them, but normalize is the boundary and
+    // must not throw on a response that skipped one.
+    const r = normalizeSpark(base)
+    expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false, partOfDay: null })
   })
 })
 
