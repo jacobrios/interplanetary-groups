@@ -243,3 +243,42 @@ describe("findLiveGauges", () => {
     }
   })
 })
+
+describe("createGauge and the person who floated the idea", () => {
+  it("counts them when they named the day themselves", async () => {
+    // Their message already is a yes to that day; asking them to tap a chip
+    // confirming the day they just proposed is asking twice.
+    const src = await sourceMessage("beers on Friday?")
+
+    const result = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "beers",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      body: "Love it. Anyone in for beers this Friday?",
+      initiatorUserId: userId,
+    })
+    if (result.status !== "created") throw new Error("fixture failed")
+
+    const votes = await prisma.gaugeVote.findMany({ where: { gaugeId: result.gauge.id } })
+    expect(votes).toHaveLength(1)
+    expect(votes[0].userId).toBe(userId)
+    expect(votes[0].answer).toBe("IN")
+  })
+
+  it("starts at zero when Orbit picked the day", async () => {
+    // Floating an idea is not a yes to a day Orbit chose afterward.
+    const src = await sourceMessage("we should grab dinner sometime")
+
+    const result = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "dinner",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      body: "Love it. Anyone in for dinner this Friday?",
+    })
+    if (result.status !== "created") throw new Error("fixture failed")
+
+    expect(await prisma.gaugeVote.count({ where: { gaugeId: result.gauge.id } })).toBe(0)
+  })
+})

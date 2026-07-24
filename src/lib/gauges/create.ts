@@ -10,7 +10,7 @@
 // announcement pair (noted there, not retrofitted here).
 
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor } from "@prisma/client"
+import { GaugeAnswer, MessageAuthor } from "@prisma/client"
 import type { Gauge } from "@prisma/client"
 
 export interface CreateGaugeInput {
@@ -22,6 +22,15 @@ export interface CreateGaugeInput {
   proposedDate: Date
   /** Orbit's composed message body. Copy lives in orbit/spark.ts, not here. */
   body: string
+  /**
+   * Set ONLY when the member named the proposed day themselves. Their message
+   * already is a yes to that day, and asking them to tap a chip confirming the
+   * day they just proposed is asking twice.
+   *
+   * Left unset when Orbit picked the day: floating an idea is not a yes to a
+   * day chosen afterward, so they vote like anyone else.
+   */
+  initiatorUserId?: string | null
 }
 
 export type CreateGaugeResult =
@@ -42,6 +51,7 @@ export async function createGauge({
   activity,
   proposedDate,
   body,
+  initiatorUserId,
 }: CreateGaugeInput): Promise<CreateGaugeResult> {
   try {
     const gauge = await prisma.$transaction(async (tx) => {
@@ -54,7 +64,7 @@ export async function createGauge({
         },
       })
 
-      return tx.gauge.create({
+      const created = await tx.gauge.create({
         data: {
           groupId,
           sourceMessageId,
@@ -63,6 +73,16 @@ export async function createGauge({
           proposedDate,
         },
       })
+
+      // Seeded inside the same transaction, so the gauge is never briefly
+      // visible showing nobody in when somebody already is.
+      if (initiatorUserId) {
+        await tx.gaugeVote.create({
+          data: { gaugeId: created.id, userId: initiatorUserId, answer: GaugeAnswer.IN },
+        })
+      }
+
+      return created
     })
 
     return { status: "created", gauge }
