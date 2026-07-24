@@ -40,15 +40,22 @@ const TIME_LOCAL_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 export const VENUE_NAME_MAX = 80
 
 /**
- * Trim, cap at VENUE_NAME_MAX, empty → null. The one definition of venue
- * string hygiene, shared by both parsers here and sanitize() in normalize.ts.
- * Never rejects: venue is a refinable detail, and an unusable value must
- * degrade to "no venue", not block anything (venue never gates).
+ * Trim, cap, empty → null. The one definition of short-string hygiene for
+ * anything the model hands back in the member's own words: venue names here,
+ * spark activities in spark.ts.
+ *
+ * Never rejects. These are all refinable details that must degrade to "not
+ * stated" rather than blocking anything.
  */
-export function cleanVenueName(v: unknown): string | null {
+export function cleanShortText(v: unknown, max: number): string | null {
   if (typeof v !== "string") return null
-  const t = v.trim().slice(0, VENUE_NAME_MAX).trim()
+  const t = v.trim().slice(0, max).trim()
   return t.length > 0 ? t : null
+}
+
+/** Venue string hygiene, shared by both parsers here and sanitize() in normalize.ts. */
+export function cleanVenueName(v: unknown): string | null {
+  return cleanShortText(v, VENUE_NAME_MAX)
 }
 
 /**

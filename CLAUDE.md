@@ -14,18 +14,15 @@ This file loads every session. It is the standing context and the rules that mus
 
 *Rewritten at each slice boundary. It lives here, not in build-notes, because it churns every slice and must load every session.*
 
-Onboarding is fully built end to end: the founder describes the group in free text, Haiku extracts structured rhythms, the normalize layer turns that claim into stored shape, a gap-ask conversational loop resolves a missing or ambiguous day or time (never a venue, which never gates), the founder can add the group's meeting spot at the playback step, deterministic code composes the playback, and confirm creates the group with its first scheduled event and the founder's detected timezone already on the home screen. Orbit so far acts only on a daily Vercel cron that auto-creates the next recurring occurrence; it does not yet post, listen, or coordinate live in the feed. Just landed: venue capture at onboarding, walkthrough reference crops, and this documentation-consolidation slice.
+Onboarding is fully built end to end: the founder describes the group in free text, Haiku extracts structured rhythms, the normalize layer turns that claim into stored shape, a gap-ask conversational loop resolves a missing or ambiguous day or time (never a venue, which never gates), the founder can add the group's meeting spot at the playback step, deterministic code composes the playback, and confirm creates the group with its first scheduled event and the founder's detected timezone already on the home screen.
 
-**Next slice: spark (spontaneous events).** Orbit listens passively in the feed, gauges interest with chips when someone floats an idea, and creates an event at the three-person threshold (initiator included). This is the product thesis becoming real: Orbit as an active coordinator, not a cron job. Venue capture was sequenced ahead of it on purpose, so spark can pencil in the group's actual spot instead of inventing a plausible one.
+**Orbit now listens.** Just landed, spark part one: every member message goes to the model after the send settles (never inside it, so the chat input is never blocked), and when someone floats an idea Orbit replies proposing a specific day with three one-tap chips and a running tally derived from the vote rows. Orbit also still runs on a daily Vercel cron that auto-creates the next recurring occurrence. What Orbit cannot yet do is finish the job: **nothing is created, at any vote count.**
 
-Open product questions to settle before spark can be spec'd:
-- Whether spark detection runs synchronously inside the send-message action. The one-shot did, which pushed message send from roughly 0.5s to 2-3s, a feel tradeoff in the most-used interaction in the product.
-- What triggers a model call at all: a keyword pre-filter before the model, versus a call on every message. A recurring-cost question on a product with no revenue.
-- The gauge chip labels, and whether MAYBE surfaces as a chip at all (it stays in the data model either way).
-- Whether the one-bump rule ships in this slice or defers.
-- Sizing: spark opens several new seams at once (a model call in the send path, gauge and vote storage, threshold logic, auto-seeded RSVPs into event creation). build-notes §11 names the next deliberate experiment as a bigger slice on proven ground with both verification gates intact, and spark is the candidate. Settle this in the spark spec, not here.
+**Next slice: spark, part two (creation at the threshold).** Three yeses creates the event, the gauge yeses seed as RSVPs without a second tap, the home screen carries a second card, and Orbit's copy gains the promise and countdown clauses this half deliberately withholds. Open questions to settle before it can be spec'd, both named by part one rather than discovered late:
+- **What time a sparked event starts.** The gauge proposes a day, not a time, which is correct. Screen 08's card shows a time, and nothing in the product knows what time a group grabs beers. Do not answer this with "7pm because the mockup said so."
+- **`Event.@@unique([groupId, startsAt])`** means a sparked event cannot share an instant with the standing scheduled one. Inherited, not opened by part one, and it bites the moment creation lands.
 
-Already settled by build-notes §5, not open: the three-person creation threshold, the initiator never being asked twice, and below-threshold ideas scrolling away with no residue.
+Settled and not open: the three-person threshold; below-threshold ideas scrolling away with no residue; **the initiator counted only when they named the day Orbit is proposing** (their message already is that yes, and it is seeded at gauge creation), voting like anyone else when Orbit picked the day; a day counting as named only when exactly one is named; and the "never ask twice" rule governing the carry-through of a gauge yes to the created event's RSVP, which is part two's job. Reasoning in build-notes §11, spark part one.
 
 ---
 

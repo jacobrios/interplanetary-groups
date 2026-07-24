@@ -17,6 +17,7 @@
 
 import { MessageAuthor } from "@prisma/client"
 import { useRef, useEffect } from "react"
+import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 
 export interface FeedMessage {
   id: string
@@ -32,9 +33,16 @@ export interface FeedMessage {
 interface Props {
   messages: FeedMessage[]
   viewerId: string | null
+  /**
+   * Live gauges, keyed to the Orbit message each one renders under. A gauge
+   * whose day has passed is simply absent, so its message stays in the feed as
+   * history with no chips: no pinning, no banner, no residue.
+   */
+  gauges?: FeedGauge[]
 }
 
-export default function MessageFeed({ messages, viewerId }: Props) {
+export default function MessageFeed({ messages, viewerId, gauges = [] }: Props) {
+  const gaugeByMessageId = new Map(gauges.map((g) => [g.orbitMessageId, g]))
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Scroll to the bottom sentinel on mount (so the feed opens at the most
@@ -87,6 +95,7 @@ export default function MessageFeed({ messages, viewerId }: Props) {
       {messages.map((msg) => {
         const isOrbit = msg.authorType === MessageAuthor.ORBIT
         const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
+        const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
 
         return (
           <div
@@ -101,44 +110,52 @@ export default function MessageFeed({ messages, viewerId }: Props) {
           >
             {/* Orbit: lime avatar + muted fill, no name label */}
             {isOrbit && (
-              <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
-                <div
-                  aria-label="Orbit"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    backgroundColor: "var(--color-lime)",
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "0.6875rem",
-                    fontWeight: 700,
-                    color: "#0a0a0a",
-                  }}
-                >
-                  O
-                </div>
-                <div
-                  style={{
-                    backgroundColor: "var(--surface-orbit)",
-                    borderRadius: "4px 16px 16px 16px",
-                    padding: "0.5rem 0.75rem",
-                    maxWidth: "80%",
-                  }}
-                >
-                  <p
+              <div style={{ width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
+                  <div
+                    aria-label="Orbit"
                     style={{
-                      fontSize: "var(--type-body)",
-                      lineHeight: "var(--leading-normal)",
-                      color: "var(--text-primary)",
-                      margin: 0,
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--color-lime)",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.6875rem",
+                      fontWeight: 700,
+                      color: "#0a0a0a",
                     }}
                   >
-                    {msg.body}
-                  </p>
+                    O
+                  </div>
+                  <div
+                    style={{
+                      backgroundColor: "var(--surface-orbit)",
+                      borderRadius: "4px 16px 16px 16px",
+                      padding: "0.5rem 0.75rem",
+                      maxWidth: "80%",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: "var(--type-body)",
+                        lineHeight: "var(--leading-normal)",
+                        color: "var(--text-primary)",
+                        margin: 0,
+                      }}
+                    >
+                      {msg.body}
+                    </p>
+                    {/* Where things stand, inside the bubble under Orbit's words. */}
+                    {gauge && <GaugeTally line={gauge.tallyLine} />}
+                  </div>
                 </div>
+
+                {/* The three answers, indented under the bubble. Only a viewer
+                    with a session can answer, matching the RSVP control. */}
+                {gauge && viewerId !== null && <GaugeChips gauge={gauge} />}
               </div>
             )}
 
