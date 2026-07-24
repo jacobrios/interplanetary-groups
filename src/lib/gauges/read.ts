@@ -13,9 +13,10 @@ export type LiveGauge = Gauge & {
 }
 
 /**
- * Two days of slack on either side of `now`, so the coarse database filter can
- * never exclude a gauge that the precise check would have called live. Every
- * IANA offset sits well inside 24 hours.
+ * How far back of `now` the coarse database filter reaches. Two days, so it
+ * can never exclude a gauge the precise check would have called live: the
+ * widest a local day can still be open is under 24 hours behind. There is no
+ * upper bound because a proposed day is never more than eight days out.
  */
 const WINDOW_MS = 2 * 24 * 60 * 60 * 1000
 

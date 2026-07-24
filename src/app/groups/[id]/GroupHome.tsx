@@ -100,7 +100,10 @@ export default function GroupHome({
       if (result?.messageId) {
         const messageId = result.messageId
         startDetection(async () => {
-          await detectSparkAction(messageId)
+          // The action is soft on the server; this catch covers the trip
+          // itself. Going offline in the beat after sending must leave the
+          // message standing, not surface an error boundary.
+          await detectSparkAction(messageId).catch(() => {})
         })
       }
     })

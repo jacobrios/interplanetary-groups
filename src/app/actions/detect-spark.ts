@@ -32,11 +32,10 @@ export type DetectSparkResult = { status: "gauged" } | { status: "quiet" }
  * the feed. Orbit staying quiet costs nothing visible; Orbit interjecting
  * wrongly teaches people to tune it out.
  *
- * revalidatePath fires only when a gauge was actually created. Ordinary
- * chatter is the common case, and re-rendering the group on every message
- * would make Orbit expensive to have around.
  */
 export async function detectSparkAction(messageId: string): Promise<DetectSparkResult> {
+  let gaugedGroupId: string | null = null
+
   try {
     const user = await getCurrentUser()
     if (!user) return { status: "quiet" }
@@ -90,10 +89,23 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
 
     if (result.status !== "created") return { status: "quiet" }
 
-    revalidatePath(`/groups/${group.id}`)
-    return { status: "gauged" }
-  } catch {
+    gaugedGroupId = group.id
+  } catch (err) {
     // Soft by design: the member's message stands, and nothing is said.
+    // Logged because a mute Orbit is otherwise indistinguishable from a quiet
+    // one, and the failure modes here (a missing API key, a rejected schema)
+    // would leave it silently mute for every message with no signal anywhere.
+    console.error("[detect-spark] detection failed", err)
     return { status: "quiet" }
   }
+
+  // CRITICAL: revalidatePath must be called outside and after try/catch.
+  // In Next.js it uses a similar internal throw mechanism to redirect() and
+  // would be swallowed if placed inside the catch block.
+  //
+  // Only fires when a gauge was actually created. Ordinary chatter is the
+  // common case, and re-rendering the group on every message would make Orbit
+  // expensive to have around.
+  revalidatePath(`/groups/${gaugedGroupId}`)
+  return { status: "gauged" }
 }

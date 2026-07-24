@@ -83,16 +83,28 @@ export default async function GroupPage({ params }: Props) {
   // passed is simply absent, so its message renders as plain history.
   const liveGauges = await findLiveGauges(group.id, new Date())
 
-  const gauges: FeedGauge[] = liveGauges.map((g) => ({
-    id: g.id,
-    orbitMessageId: g.orbitMessageId,
-    tallyLine: buildTallyLine(
-      g.votes,
-      new Map(g.votes.map((v) => [v.userId, v.user.name]))
-    ),
-    labels: chipLabels(g.proposedDate, group.timeZone),
-    viewerAnswer: g.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
-  }))
+  // Names are shown only for members, the same way deriveRoster only ever
+  // displays members' RSVPs.  Voting itself is not membership-gated (that is
+  // the standing access-control gap), but a name rendered inside a group's
+  // feed should belong to that group.
+  const memberIds = new Set(group.memberships.map((m) => m.userId))
+
+  const gauges: FeedGauge[] = liveGauges.map((g) => {
+    const memberVotes = g.votes.filter((v) => memberIds.has(v.userId))
+
+    return {
+      id: g.id,
+      orbitMessageId: g.orbitMessageId,
+      tallyLine: buildTallyLine(
+        memberVotes,
+        new Map(memberVotes.map((v) => [v.userId, v.user.name]))
+      ),
+      labels: chipLabels(g.proposedDate, group.timeZone),
+      // Read from the unfiltered rows: the viewer's own chip must reflect what
+      // they actually chose, member or not.
+      viewerAnswer: g.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
+    }
+  })
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
