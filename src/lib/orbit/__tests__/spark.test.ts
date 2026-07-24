@@ -13,17 +13,15 @@ vi.mock("../extract", async (importOriginal) => ({
 }))
 
 import { callExtractionModel } from "../extract"
+import { normalizeSpark, detectSparkClaim, SPARK_SCHEMA } from "../spark"
 import {
-  normalizeSpark,
-  detectSparkClaim,
   chooseProposedDate,
   isGaugeLive,
   buildGaugeMessage,
   buildTallyLine,
   chipLabels,
-  SPARK_SCHEMA,
   ACTIVITY_MAX,
-} from "../spark"
+} from "../spark-copy"
 
 // Weekday anchors, verified against Intl before they were written down:
 // 2026-07-20 Mon · 07-22 Wed · 07-23 Thu · 07-24 Fri · 07-31 Fri.

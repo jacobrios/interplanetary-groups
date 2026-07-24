@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/prisma"
 import type { Gauge, GaugeVote, User } from "@prisma/client"
-import { isGaugeLive } from "@/lib/orbit/spark"
+import { isGaugeLive } from "@/lib/orbit/spark-copy"
 
 export type LiveGauge = Gauge & {
   votes: (GaugeVote & { user: User })[]

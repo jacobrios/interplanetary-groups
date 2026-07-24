@@ -7,7 +7,7 @@ import { GaugeAnswer } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { castVote } from "@/lib/gauges/vote"
-import { isGaugeLive } from "@/lib/orbit/spark"
+import { isGaugeLive } from "@/lib/orbit/spark-copy"
 
 export interface GaugeVoteState {
   errors?: {

@@ -10,12 +10,8 @@ import { findSoonestUpcomingEvent } from "@/lib/events/upcoming"
 import { formatEventDate } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
-import {
-  buildGaugeMessage,
-  chooseProposedDate,
-  detectSparkClaim,
-  normalizeSpark,
-} from "@/lib/orbit/spark"
+import { detectSparkClaim, normalizeSpark } from "@/lib/orbit/spark"
+import { buildGaugeMessage, chooseProposedDate } from "@/lib/orbit/spark-copy"
 
 export type DetectSparkResult = { status: "gauged" } | { status: "quiet" }
 

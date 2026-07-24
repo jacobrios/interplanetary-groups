@@ -20,7 +20,7 @@ export interface CreateGaugeInput {
   activity: string
   /** Group-local midnight of the proposed day. */
   proposedDate: Date
-  /** Orbit's composed message body. Copy lives in orbit/spark.ts, not here. */
+  /** Orbit's composed message body. Copy lives in orbit/spark-copy.ts, not here. */
   body: string
   /**
    * Set ONLY when the member named the proposed day themselves. Their message
