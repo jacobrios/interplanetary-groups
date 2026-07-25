@@ -337,12 +337,31 @@ describe("reconcileScheduledEvents", () => {
     // card, which is why it gets a test rather than an assertion.
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 
-    // A sparked event: no scheduledKey, and sitting in the future.
+    // A sparked event: carries a gaugeId, and sits in the future. The gaugeId is
+    // what the guard keys off, so a fixture without one is not a sparked event.
+    const src = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: userId!, body: "beers?" },
+    })
+    const orbitMsg = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.ORBIT, authorId: null, body: "Anyone in for beers?" },
+    })
+    messageIds.push(src.id, orbitMsg.id)
+    const gauge = await prisma.gauge.create({
+      data: {
+        groupId: group.id,
+        sourceMessageId: src.id,
+        orbitMessageId: orbitMsg.id,
+        activity: "beers",
+        proposedDate: new Date("2099-06-19T00:00:00Z"),
+        proposedTime: "19:00",
+      },
+    })
     const sparked = await prisma.event.create({
       data: {
         groupId: group.id,
         title: "[TEST] Sparked Beers",
         startsAt: new Date("2099-06-19T19:00:00Z"),
+        gaugeId: gauge.id,
       },
     })
     eventIds.push(sparked.id)

@@ -16,10 +16,9 @@ import { prisma } from "@/lib/prisma"
 import { MessageAuthor, RsvpStatus } from "@prisma/client"
 
 import { createEventInTx } from "@/lib/events/create"
-import { getLocalParts, zonedWallTimeToUtc } from "@/lib/orbit/occurrence"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
-import { buildSparkAnnouncement, EVENING_TIME } from "@/lib/orbit/spark-copy"
-import { hasReachedThreshold } from "./threshold"
+import { buildSparkAnnouncement, sparkStartInstant } from "@/lib/orbit/spark-copy"
+import { countIn, hasReachedThreshold } from "./threshold"
 
 export type PromoteResult =
   | { status: "created"; eventId: string }
@@ -54,7 +53,7 @@ export async function promoteGaugeToEvent(
   }
 
   const zone = gauge.group.timeZone
-  const startsAt = startInstant(gauge.proposedDate, gauge.proposedTime, zone)
+  const startsAt = sparkStartInstant(gauge.proposedDate, gauge.proposedTime, zone)
 
   // A gauge stays live until the end of its day, so the third yes can arrive
   // after the proposed start. A card and an announcement for something that
@@ -67,6 +66,20 @@ export async function promoteGaugeToEvent(
 
   try {
     const eventId = await prisma.$transaction(async (tx) => {
+      // Re-read the votes inside the transaction rather than seeding from the
+      // snapshot above. Two people can tap the third yes in the same second:
+      // the unique gaugeId stops the second EVENT, but the loser's vote row can
+      // land after the winner's read, and seeding the stale snapshot would leave
+      // that person with a yes on the gauge and no RSVP on the event, asked
+      // again for an answer they already gave. Re-reading also refuses to
+      // create an event for a gauge that dropped back below the bar between the
+      // read and the write.
+      const votes = await tx.gaugeVote.findMany({
+        where: { gaugeId: gauge.id },
+        select: { userId: true, answer: true },
+      })
+      if (!hasReachedThreshold(votes)) throw new BelowThresholdInTx()
+
       const event = await createEventInTx(tx, {
         groupId: gauge.group.id,
         title: titleFor(gauge.activity),
@@ -84,7 +97,7 @@ export async function promoteGaugeToEvent(
       // OUT, because "next time" and "can't that day" both mean not coming to
       // the event this creates.
       await tx.rsvp.createMany({
-        data: gauge.votes.map((v) => ({
+        data: votes.map((v) => ({
           eventId: event.id,
           userId: v.userId,
           status: v.answer === "IN" ? RsvpStatus.IN : RsvpStatus.OUT,
@@ -97,7 +110,7 @@ export async function promoteGaugeToEvent(
           groupId: gauge.group.id,
           authorType: MessageAuthor.ORBIT,
           authorId: null,
-          body: buildSparkAnnouncement(gauge.activity, startsAt, zone),
+          body: buildSparkAnnouncement(gauge.activity, startsAt, zone, countIn(votes), now),
         },
       })
 
@@ -110,18 +123,18 @@ export async function promoteGaugeToEvent(
     if ((err as { code?: string }).code === "P2002") {
       return { status: "skipped", reason: "already_created" }
     }
+    // The in-transaction re-check found the gauge back below the bar. Rolling
+    // back by throwing is how the event, the RSVPs and the announcement all
+    // un-happen together.
+    if (err instanceof BelowThresholdInTx) {
+      return { status: "skipped", reason: "below_threshold" }
+    }
     throw err
   }
 }
 
-/** The proposed day's local midnight plus the stored time, as one instant. */
-function startInstant(proposedDate: Date, proposedTime: string | null, zone: string): Date {
-  const day = getLocalParts(proposedDate, zone)
-  // Null only for gauges written before part two shipped; they fall to the
-  // evening default rather than blocking a group that is ready to go.
-  const [hour, minute] = (proposedTime ?? EVENING_TIME).split(":").map(Number)
-  return zonedWallTimeToUtc(day.year, day.month, day.day, hour, minute, zone)
-}
+/** Signals a rollback of the creation transaction; never escapes this module. */
+class BelowThresholdInTx extends Error {}
 
 /** "beers" becomes "Beers": the card wants a title, not a fragment. */
 function titleFor(activity: string): string {

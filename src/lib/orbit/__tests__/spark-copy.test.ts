@@ -7,6 +7,7 @@ import {
   chooseProposedDate,
   formatTimeLocalLabel,
   resolveSparkTime,
+  sparkStartInstant,
 } from "../spark-copy"
 
 describe("resolveSparkTime", () => {
@@ -164,14 +165,68 @@ describe("buildTallyLine, the countdown", () => {
 })
 
 describe("buildSparkAnnouncement", () => {
+  const WED = new Date("2026-07-22T12:00:00Z")
+
   it("names the day and the time, so the guess is visible the moment it is made", () => {
     const startsAt = new Date("2026-07-24T19:00:00Z")
-    expect(buildSparkAnnouncement("beers", startsAt, "UTC"))
+    expect(buildSparkAnnouncement("beers", startsAt, "UTC", 3, WED))
       .toBe("Three of you are in, so beers is on for Fri at 7pm. It's up top now.")
+  })
+
+  it("tells the truth when a later yes is what got it over the line", () => {
+    // Reachable when promotion fails transiently at the bar and a fourth yes
+    // retries it. Saying "Three of you are in" to four people is a small lie in
+    // Orbit's own voice, and the bar itself lives in one place for this reason.
+    const startsAt = new Date("2026-07-24T19:00:00Z")
+    expect(buildSparkAnnouncement("beers", startsAt, "UTC", 4, WED))
+      .toBe("Four of you are in, so beers is on for Fri at 7pm. It's up top now.")
+  })
+
+  it("names the date outright when the day is more than a week out", () => {
+    // The fallback buffer can land eight days away, where a bare "Fri" is
+    // ambiguous between this Friday and next. Matches buildGaugeMessage.
+    const startsAt = new Date("2026-07-31T19:00:00Z")
+    expect(buildSparkAnnouncement("beers", startsAt, "UTC", 3, WED))
+      .toBe("Three of you are in, so beers is on for Fri, Jul 31 at 7pm. It's up top now.")
   })
 
   it("never uses an em dash", () => {
     const startsAt = new Date("2026-07-24T19:00:00Z")
-    expect(buildSparkAnnouncement("beers", startsAt, "UTC")).not.toMatch(/[—–]/)
+    expect(buildSparkAnnouncement("beers", startsAt, "UTC", 3, WED)).not.toMatch(/[—–]/)
+  })
+})
+
+describe("resolveSparkTime, a morning activity settles its own ambiguity", () => {
+  it("keeps a morning hour when the model flagged ambiguity but named the part of day", () => {
+    // "hike at 6": the flag says coin flip, the activity says morning. Trusting
+    // the normalized field over the flag is what stops a 6am sunrise hike
+    // becoming 6pm, and there is nothing to disclose because the activity, not
+    // Orbit, did the deciding.
+    expect(resolveSparkTime({ statedTime: "06:00", timeAmbiguous: true, partOfDay: "morning" }))
+      .toEqual({ timeLocal: "06:00", disclosure: null })
+  })
+
+  it("still flips an evening or unknown activity", () => {
+    expect(resolveSparkTime({ statedTime: "06:00", timeAmbiguous: true, partOfDay: null }).timeLocal)
+      .toBe("18:00")
+  })
+})
+
+describe("sparkStartInstant", () => {
+  it("combines the proposed day and the stored time in the group's zone", () => {
+    const day = new Date("2026-07-24T00:00:00Z")
+    expect(sparkStartInstant(day, "19:00", "UTC").toISOString()).toBe("2026-07-24T19:00:00.000Z")
+  })
+
+  it("falls back to the evening default for a gauge written before this slice", () => {
+    const day = new Date("2026-07-24T00:00:00Z")
+    expect(sparkStartInstant(day, null, "UTC").toISOString()).toBe("2026-07-24T19:00:00.000Z")
+  })
+
+  it("reads the day in the group's zone, not the server's", () => {
+    // Local midnight Fri 24 Jul in UTC-11, plus 19:00 local.
+    const day = new Date("2026-07-24T11:00:00Z")
+    expect(sparkStartInstant(day, "19:00", "Pacific/Midway").toISOString())
+      .toBe("2026-07-25T06:00:00.000Z")
   })
 })

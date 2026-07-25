@@ -4,17 +4,17 @@
 //
 // Layout:
 //   Header: Orbit logo (home button) · group title + chevron (→ group info)
-//   Pinned compact event card (soonest upcoming event)
+//   Pinned event cards, soonest first, in a peek-and-dots carousel (up to 3)
 //   Chat feed (own scroll region, --type-body 17px, never shrunk)
 //   Pinned message input
 //
-// Data: single server render before any JS runs.  The event, roster counts,
+// Data: single server render before any JS runs.  The events, roster counts,
 // and message feed all arrive together from one query pass.
 //
 // Deliberately deferred per §11:
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
 // - Membership gating (consistent with prior ungated surfaces)
-// - Multi-card carousel (single fixture event; carousel chrome waits for ≥2)
+// - Carousel active-dot state (interim chrome; no design handoff yet)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
 
 import { notFound } from "next/navigation"

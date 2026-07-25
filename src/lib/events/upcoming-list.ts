@@ -16,16 +16,27 @@ export type { UpcomingEvent }
 
 /**
  * Whether Orbit's schedule has already put a future occurrence on the board.
- * Only rows carrying a scheduledKey count: that key is written exclusively by
- * reconcile.ts, so it is what distinguishes a scheduled event from a sparked
- * one without a separate source column.
+ *
+ * Keyed on the ABSENCE of a gaugeId, not the presence of a scheduledKey. Both
+ * would answer "is this a sparked event" for rows written from this slice on,
+ * but only the negative form is also right about rows written before it: every
+ * event that existed before spark part two came from reconcile.ts, and none of
+ * them carry a scheduledKey. Asking for a scheduledKey would have made every
+ * pre-existing occurrence invisible to this guard on the very first run after
+ * the migration, and the constraint that used to catch the resulting duplicate
+ * was dropped in that same migration. That is a duplicate event and a duplicate
+ * announcement in every group with a standing rhythm, which is why this is the
+ * negative test and why it needs no backfill.
+ *
+ * scheduledKey remains the cron's idempotency key on write; it is just not the
+ * right question to ask on read.
  */
 export async function hasUpcomingScheduledEvent(
   groupId: string,
   now: Date
 ): Promise<boolean> {
   const existing = await prisma.event.findFirst({
-    where: { groupId, startsAt: { gte: now }, scheduledKey: { not: null } },
+    where: { groupId, startsAt: { gte: now }, gaugeId: null },
     select: { id: true },
   })
   return existing !== null
@@ -43,7 +54,11 @@ export async function findUpcomingEvents(
 ): Promise<UpcomingEvent[]> {
   return prisma.event.findMany({
     where: { groupId, startsAt: { gte: now } },
-    orderBy: { startsAt: "asc" },
+    // createdAt breaks the tie this slice deliberately made possible: with a 7pm
+    // default and any evening rhythm two events can share an instant, and
+    // without a second key which card sits first is unspecified and can move
+    // between renders with nobody having done anything.
+    orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     take: limit,
     include: { venues: true },
   })

@@ -15,6 +15,7 @@ import {
   buildGaugeMessage,
   chooseProposedDate,
   resolveSparkTime,
+  sparkStartInstant,
 } from "@/lib/orbit/spark-copy"
 
 export type DetectSparkResult = { status: "gauged" } | { status: "quiet" }
@@ -66,13 +67,31 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
     if (!spark.spark) return { status: "quiet" }
 
     // Never open a second gauge for something the group is already being asked
-    // about. This costs a model call to discover, which is the price of
-    // knowing what the activity is before we can compare it.
+    // about, or already has on the calendar. This costs a model call to
+    // discover, which is the price of knowing what the activity is before we can
+    // compare it.
+    //
+    // Two checks, because part two split them apart. findLiveGauges stops
+    // returning a gauge once it has produced its event, which is right for the
+    // chips but would leave a hole here: without the second check, "beers
+    // Friday?" asked again the day after a beers event was created would open a
+    // fresh gauge and eventually a duplicate event, which is now legal at the
+    // database level. Asking about a plan the group already made is the clutter
+    // this product exists to avoid.
+    const activityKey = spark.activity.toLowerCase()
     const live = await findLiveGauges(group.id, now)
-    const already = live.some(
-      (g) => g.activity.toLowerCase() === spark.activity.toLowerCase()
-    )
-    if (already) return { status: "quiet" }
+    if (live.some((g) => g.activity.toLowerCase() === activityKey)) {
+      return { status: "quiet" }
+    }
+    const alreadyOnCalendar = await prisma.event.findFirst({
+      where: {
+        groupId: group.id,
+        startsAt: { gte: now },
+        activityLabel: { equals: spark.activity, mode: "insensitive" },
+      },
+      select: { id: true },
+    })
+    if (alreadyOnCalendar) return { status: "quiet" }
 
     const proposedDate = chooseProposedDate(
       spark.statedDayOfWeek,
@@ -88,6 +107,16 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
       timeAmbiguous: spark.timeAmbiguous,
       partOfDay: spark.partOfDay,
     })
+
+    // A stated day is taken at face value including today, so a message sent
+    // after the resolved hour ("climb Saturday at 9?" posted Saturday at 11)
+    // would open a gauge whose start has already gone. Part one could afford
+    // that because its message promised nothing; part two's promises to set it
+    // up, and promotion would refuse forever with nothing said. Better to stay
+    // quiet than to make a promise that is already impossible.
+    if (sparkStartInstant(proposedDate, timeLocal, group.timeZone) <= now) {
+      return { status: "quiet" }
+    }
 
     const result = await createGauge({
       groupId: group.id,

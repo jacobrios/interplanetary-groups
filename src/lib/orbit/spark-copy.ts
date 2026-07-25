@@ -83,9 +83,16 @@ export function resolveSparkTime({
     return { timeLocal: statedTime, disclosure: null }
   }
 
-  // A coin flip. Keep their hour, put it in the evening, and say so.
-  // A known-morning activity would never have reached here: the model settles
-  // "breakfast at 8" itself.
+  // The model flagged a coin flip but also told us the activity is a morning
+  // one, which settles it. Trust the normalized field over the flag rather than
+  // assuming the model is self-consistent: "hike at 6" with partOfDay morning
+  // must stay 6am, not become a 6pm sunrise hike. Nothing to disclose, because
+  // the activity did the deciding, not Orbit.
+  if (partOfDay === "morning") {
+    return { timeLocal: statedTime, disclosure: null }
+  }
+
+  // A genuine coin flip. Keep their hour, put it in the evening, and say so.
   const [h, m] = splitTime(statedTime)
   const eveningHour = h >= 1 && h <= 11 ? h + 12 : h === 0 ? 12 : h
   const timeLocal = `${pad(eveningHour)}:${pad(m)}`
@@ -94,6 +101,26 @@ export function resolveSparkTime({
     timeLocal,
     disclosure: `You said ${spokenHour(statedTime)}, so I'm taking that as ${formatTimeLocalLabel(timeLocal)}.`,
   }
+}
+
+/**
+ * The instant a gauge's proposed day and time actually start, in the group's
+ * zone. One implementation, shared by detection (which refuses to open a gauge
+ * whose start has already gone) and promotion (which refuses to create an event
+ * for one). Two copies of this arithmetic would eventually disagree about which
+ * gauges are worth asking about.
+ *
+ * proposedTime is null only for gauges written before spark part two; those fall
+ * to the evening default rather than blocking a group that is ready to go.
+ */
+export function sparkStartInstant(
+  proposedDate: Date,
+  proposedTime: string | null,
+  timeZone: string
+): Date {
+  const day = getLocalParts(proposedDate, timeZone)
+  const [hour, minute] = (proposedTime ?? EVENING_TIME).split(":").map(Number)
+  return zonedWallTimeToUtc(day.year, day.month, day.day, hour, minute, timeZone)
 }
 
 /** "20:00" → "8pm", "08:30" → "8:30am". The group-facing label. */
@@ -309,21 +336,47 @@ export function buildTallyLine(
   return parts.join(" · ")
 }
 
+/** Small numbers read as words in Orbit's voice; anything larger as digits. */
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+
+function spellCount(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n)
+}
+
 /**
  * What Orbit says in the feed the moment a gauge becomes an event.
  *
  * States the time out loud on purpose: the time may be Orbit's own default or
  * its reading of an ambiguous hour, and the group should see it the moment it
  * is fixed rather than discovering it on the card later.
+ *
+ * The count is passed in rather than spelled into the sentence. Normally it is
+ * exactly SPARK_THRESHOLD, but a promotion that failed transiently at the bar
+ * and succeeded on a later yes would otherwise have Orbit announce "Three of
+ * you are in" to four people.
  */
 export function buildSparkAnnouncement(
   activity: string,
   startsAt: Date,
-  timeZone: string
+  timeZone: string,
+  inCount: number,
+  now: Date
 ): string {
   const weekday = formatWeekdayShort(startsAt, timeZone)
   const time = formatTime(startsAt, timeZone)
-  return `Three of you are in, so ${activity} is on for ${weekday} at ${time}. It's up top now.`
+
+  // Same reasoning as buildGaugeMessage: the fallback buffer can land eight
+  // days out, where a bare "Fri" is ambiguous between this Friday and next.
+  const daysAway = Math.round(
+    (startsAt.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
+  )
+  const when =
+    daysAway >= THIS_WEEK_DAYS
+      ? `${weekday}, ${formatMonthDay(startsAt, timeZone)}`
+      : weekday
+
+  const who = `${spellCount(inCount)} of you are in`
+  return `${who.charAt(0).toUpperCase()}${who.slice(1)}, so ${activity} is on for ${when} at ${time}. It's up top now.`
 }
 
 /** The group-local midnight that starts the day `instant` falls in. */
