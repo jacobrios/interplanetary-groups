@@ -20,11 +20,12 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
-import { findSoonestUpcomingEvent } from "@/lib/events/upcoming"
+import { findUpcomingEvents } from "@/lib/events/upcoming-list"
 import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { buildTallyLine, chipLabels } from "@/lib/orbit/spark-copy"
-import EventCard from "./EventCard"
+import EventCarousel from "./EventCarousel"
+import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
 import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
@@ -47,28 +48,31 @@ export default async function GroupPage({ params }: Props) {
 
   const viewer = await getCurrentUser()
 
-  // ── Soonest upcoming event + roster ──────────────────────────────────────
-  // Single event card; multi-card carousel waits for ≥2 events (§11).
-  const upcomingEvent = await findSoonestUpcomingEvent(group.id)
+  // ── Upcoming events + rosters ─────────────────────────────────────────────
+  // Up to three upcoming cards. The carousel comes live here because a sparked
+  // event beside the standing one is exactly the two-or-more condition the
+  // group-home slice deferred it for. Three is a display cap, not a rule: a
+  // fourth upcoming event is possible and simply waits its turn.
+  const upcomingEvents = await findUpcomingEvents(group.id, new Date(), 3)
 
-  let inCount = 0
-  let outCount = 0
-  let pendingCount = 0
-  let viewerEventStatus = null
-
-  if (upcomingEvent) {
-    const rsvps = await prisma.rsvp.findMany({ where: { eventId: upcomingEvent.id } })
-    const allMembers = group.memberships.map((m) => m.user)
-    const { inMembers, outMembers, pendingMembers, viewerStatus } = deriveRoster(
-      allMembers,
-      rsvps,
-      viewer?.id ?? null
-    )
-    inCount = inMembers.length
-    outCount = outMembers.length
-    pendingCount = pendingMembers.length
-    viewerEventStatus = viewerStatus
-  }
+  const allMembers = group.memberships.map((m) => m.user)
+  const cards: EventCardData[] = await Promise.all(
+    upcomingEvents.map(async (event) => {
+      const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id } })
+      const { inMembers, outMembers, pendingMembers, viewerStatus } = deriveRoster(
+        allMembers,
+        rsvps,
+        viewer?.id ?? null
+      )
+      return {
+        event,
+        inCount: inMembers.length,
+        outCount: outMembers.length,
+        pendingCount: pendingMembers.length,
+        viewerStatus,
+      }
+    })
+  )
 
   // ── Message feed ──────────────────────────────────────────────────────────
   const rawMessages = await prisma.message.findMany({
@@ -205,17 +209,13 @@ export default async function GroupPage({ params }: Props) {
         <div style={{ width: 28 }} aria-hidden="true" />
       </header>
 
-      {/* ── Pinned event card ──────────────────────────────────────────── */}
+      {/* ── Pinned event cards ─────────────────────────────────────────── */}
       <div style={{ padding: "0.75rem 1rem 0", flexShrink: 0 }}>
-        {upcomingEvent ? (
-          <EventCard
-            event={upcomingEvent}
+        {cards.length > 0 ? (
+          <EventCarousel
+            events={cards}
             groupId={group.id}
             timeZone={group.timeZone}
-            inCount={inCount}
-            outCount={outCount}
-            pendingCount={pendingCount}
-            viewerStatus={viewerEventStatus}
             viewerHasSession={viewer !== null}
           />
         ) : (

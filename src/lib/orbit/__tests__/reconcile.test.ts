@@ -68,9 +68,11 @@ const SUNDAY_RHYTHM = [
 // A "now" that is always a Sunday morning *before* 08:00, so the next
 // occurrence is later the same day.  We use a far-future Sunday so that:
 //   (a) computeNextOccurrence finds an occurrence strictly after NOW, and
-//   (b) the created Event's startsAt is in the future from the real wall clock,
-//       so findSoonestUpcomingEvent (which uses new Date() internally) correctly
-//       detects it as "upcoming" on the second run of the idempotency test.
+//   (b) the created Event's startsAt is in the future from NOW, so
+//       hasUpcomingScheduledEvent detects it as "upcoming" on the second run of
+//       the idempotency test. (Spark part two: that guard reads the injected
+//       clock, not the real wall clock, so (b) is now about NOW rather than
+//       about today's date.)
 // 2099-06-14 is a Sunday.  "now" = 06:00 UTC → next occurrence = 08:00 UTC same day.
 const NOW = new Date("2099-06-14T06:00:00Z")
 const EXPECTED_STARTS_AT = new Date("2099-06-14T08:00:00Z")
