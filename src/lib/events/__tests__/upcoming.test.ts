@@ -2,11 +2,18 @@
 //
 // Integration tests — hits the real dev database.
 // Tests the findSoonestUpcomingEvent query that backs the home-screen card.
+//
+// Every test injects NOW rather than letting the query read the real clock, so
+// these dates mean the same thing in 2026 and in 2036.
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { findSoonestUpcomingEvent } from "../upcoming"
 
 describe("findSoonestUpcomingEvent", () => {
+  // A fixed reference instant: 24 July 2026. "Soon" is the day after, "far" is
+  // 2030, and the past-event test sits in 2020.
+  const NOW = new Date("2026-07-24T12:00:00Z")
+
   // Track created IDs for cleanup
   let userId: string
   let groupId: string
@@ -37,22 +44,17 @@ describe("findSoonestUpcomingEvent", () => {
     })
     groupId = group.id
 
-    // Both future dates are relative to the real clock, deliberately.
-    //
-    // findSoonestUpcomingEvent is the one date-sensitive function in this
-    // codebase that reads `new Date()` internally rather than taking the time
-    // as an argument, so a test of it cannot control the clock and must express
-    // "in the future" the same way the query does. Hardcoded dates here are a
-    // time bomb: the original "soon" was 2026-07-25, written on 25 June 2026,
-    // and the test went red on 26 July 2026 when that date became the past. It
-    // had been green for a month for no better reason than the calendar.
-    const DAY_MS = 24 * 60 * 60 * 1000
-
+    // Fixed instants, readable at a glance, because the test now controls the
+    // clock it is judged against. The previous version had to express "the
+    // future" relative to Date.now(), since the query read the real clock
+    // itself; before that it hardcoded 2026-07-25, passed for a month on the
+    // strength of the calendar, and turned red on its own. Passing NOW in is
+    // what makes both of those impossible.
     const far = await prisma.event.create({
       data: {
         groupId: group.id,
         title: "[TEST] Far Event",
-        startsAt: new Date(Date.now() + 30 * DAY_MS),
+        startsAt: new Date("2030-01-15T10:00:00Z"),
       },
     })
     eventIds.push(far.id)
@@ -61,13 +63,13 @@ describe("findSoonestUpcomingEvent", () => {
       data: {
         groupId: group.id,
         title: "[TEST] Soon Event",
-        startsAt: new Date(Date.now() + 1 * DAY_MS),
+        startsAt: new Date("2026-07-25T10:00:00Z"),
       },
     })
     eventIds.push(soon.id)
 
     // Act
-    const result = await findSoonestUpcomingEvent(group.id)
+    const result = await findSoonestUpcomingEvent(group.id, NOW)
 
     // Assert: should pick the soonest future event
     expect(result).not.toBeNull()
@@ -84,7 +86,7 @@ describe("findSoonestUpcomingEvent", () => {
       data: { name: "[TEST] Empty Upcoming Group", founderId: emptyUser.id },
     })
     // Clean these up too
-    const result = await findSoonestUpcomingEvent(emptyGroup.id)
+    const result = await findSoonestUpcomingEvent(emptyGroup.id, NOW)
     await prisma.group.delete({ where: { id: emptyGroup.id } }).catch(() => {})
     await prisma.user.delete({ where: { id: emptyUser.id } }).catch(() => {})
 
@@ -107,7 +109,7 @@ describe("findSoonestUpcomingEvent", () => {
       },
     })
 
-    const result = await findSoonestUpcomingEvent(pastGroup.id)
+    const result = await findSoonestUpcomingEvent(pastGroup.id, NOW)
 
     // Cleanup
     await prisma.event.delete({ where: { id: pastEvent.id } }).catch(() => {})
