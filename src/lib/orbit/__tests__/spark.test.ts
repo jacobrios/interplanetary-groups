@@ -13,17 +13,15 @@ vi.mock("../extract", async (importOriginal) => ({
 }))
 
 import { callExtractionModel } from "../extract"
+import { normalizeSpark, detectSparkClaim, SPARK_SCHEMA } from "../spark"
 import {
-  normalizeSpark,
-  detectSparkClaim,
   chooseProposedDate,
   isGaugeLive,
   buildGaugeMessage,
   buildTallyLine,
   chipLabels,
-  SPARK_SCHEMA,
   ACTIVITY_MAX,
-} from "../spark"
+} from "../spark-copy"
 
 // Weekday anchors, verified against Intl before they were written down:
 // 2026-07-20 Mon · 07-22 Wed · 07-23 Thu · 07-24 Fri · 07-31 Fri.
@@ -31,6 +29,12 @@ import {
 // there while it is already Thu in UTC. That gap is what proves the day
 // boundary is read in the group's zone and not the server's.
 const MIDWAY = "Pacific/Midway"
+
+// Part two widened NormalizedSpark with three time fields, so a strict
+// toEqual on a spark now has to state them. Kept as toEqual rather than
+// relaxed to toMatchObject on purpose: strict equality is what catches a field
+// appearing that nobody intended.
+const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null }
 
 describe("normalizeSpark", () => {
   it("treats a no-spark claim as no spark", () => {
@@ -42,19 +46,19 @@ describe("normalizeSpark", () => {
   it("carries a valid spark through with its activity and stated day", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: 5 })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: 5 })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: 5, ...NO_TIME })
   })
 
   it("keeps Sunday, which is day zero", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "brunch", statedDayOfWeek: 0 })
-    ).toEqual({ spark: true, activity: "brunch", statedDayOfWeek: 0 })
+    ).toEqual({ spark: true, activity: "brunch", statedDayOfWeek: 0, ...NO_TIME })
   })
 
   it("carries a spark with no stated day", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: null })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
   })
 
   it("is not a spark when there is no activity to gauge", () => {
@@ -73,7 +77,7 @@ describe("normalizeSpark", () => {
     for (const bad of [7, -1, 9, 1.5, "5", true, null]) {
       expect(
         normalizeSpark({ isSpark: true, activity: "beers", statedDayOfWeek: bad })
-      ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+      ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
     }
   })
 
@@ -86,7 +90,7 @@ describe("normalizeSpark", () => {
   it("trims and caps the activity", () => {
     expect(
       normalizeSpark({ isSpark: true, activity: "  beers  ", statedDayOfWeek: null })
-    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null })
+    ).toEqual({ spark: true, activity: "beers", statedDayOfWeek: null, ...NO_TIME })
 
     const long = normalizeSpark({
       isSpark: true,
@@ -95,6 +99,45 @@ describe("normalizeSpark", () => {
     })
     expect(long.spark).toBe(true)
     if (long.spark) expect(long.activity.length).toBe(ACTIVITY_MAX)
+  })
+})
+
+describe("normalizeSpark, time fields", () => {
+  const base = { isSpark: true, activity: "beers", statedDayOfWeek: 5 }
+
+  it("keeps a valid stated time", () => {
+    const r = normalizeSpark({ ...base, statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening" })
+    expect(r).toEqual({
+      spark: true, activity: "beers", statedDayOfWeek: 5,
+      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening",
+    })
+  })
+
+  it("treats a malformed time as no time at all", () => {
+    // A claim, not a fact: "99:99" and "8pm" are both the model failing the
+    // contract, and the product must degrade to its default rather than
+    // putting an unparseable string anywhere near an event.
+    for (const bad of ["99:99", "8pm", "8", "", null, 20]) {
+      const r = normalizeSpark({ ...base, statedTime: bad, timeAmbiguous: false, partOfDay: null })
+      expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false })
+    }
+  })
+
+  it("cannot report ambiguity when there is no time to be ambiguous about", () => {
+    const r = normalizeSpark({ ...base, statedTime: null, timeAmbiguous: true, partOfDay: null })
+    expect(r).toMatchObject({ statedTime: null, timeAmbiguous: false })
+  })
+
+  it("rejects a part of day it does not recognise", () => {
+    const r = normalizeSpark({ ...base, statedTime: null, timeAmbiguous: false, partOfDay: "afternoon" })
+    expect(r).toMatchObject({ partOfDay: null })
+  })
+
+  it("still normalizes a spark from a model that omitted the new fields", () => {
+    // Defensive: the schema requires them, but normalize is the boundary and
+    // must not throw on a response that skipped one.
+    const r = normalizeSpark(base)
+    expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false, partOfDay: null })
   })
 })
 
@@ -135,32 +178,32 @@ describe("detectSparkClaim", () => {
 
 describe("chooseProposedDate", () => {
   it("takes a stated weekday at its next occurrence", () => {
-    const d = chooseProposedDate(3, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(3, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
     expect(d.toISOString()).toBe("2026-07-22T00:00:00.000Z") // Wed
   })
 
   it("takes a stated day that is today as today, not next week", () => {
     // The two-day buffer is fallback-only. Pushing a stated day out a week
     // would count the person who named it for a day they did not mean.
-    const d = chooseProposedDate(5, "UTC", new Date("2026-07-24T12:00:00Z")) // Fri
+    const d = chooseProposedDate(5, null, "UTC", new Date("2026-07-24T12:00:00Z")) // Fri
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z") // the same Friday
   })
 
   it("falls back to the coming Friday when nobody named a day", () => {
-    const d = chooseProposedDate(null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(null, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
   it("pushes the fallback a week when the coming Friday is under two days out", () => {
-    const thu = chooseProposedDate(null, "UTC", new Date("2026-07-23T12:00:00Z"))
+    const thu = chooseProposedDate(null, null, "UTC", new Date("2026-07-23T12:00:00Z"))
     expect(thu.toISOString()).toBe("2026-07-31T00:00:00.000Z")
 
-    const fri = chooseProposedDate(null, "UTC", new Date("2026-07-24T12:00:00Z"))
+    const fri = chooseProposedDate(null, null, "UTC", new Date("2026-07-24T12:00:00Z"))
     expect(fri.toISOString()).toBe("2026-07-31T00:00:00.000Z")
   })
 
   it("keeps the coming Friday at exactly two days out", () => {
-    const wed = chooseProposedDate(null, "UTC", new Date("2026-07-22T12:00:00Z"))
+    const wed = chooseProposedDate(null, null, "UTC", new Date("2026-07-22T12:00:00Z"))
     expect(wed.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
@@ -169,16 +212,16 @@ describe("chooseProposedDate", () => {
     // buffer pushes a week. In Midway it is still Wednesday, so the coming
     // Friday clears the buffer and stands.
     const now = new Date("2026-07-23T02:00:00Z")
-    expect(chooseProposedDate(null, "UTC", now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, "UTC", now).toISOString()).toBe(
       "2026-07-31T00:00:00.000Z"
     )
-    expect(chooseProposedDate(null, MIDWAY, now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, MIDWAY, now).toISOString()).toBe(
       "2026-07-24T11:00:00.000Z" // local midnight Fri 24 Jul in UTC-11
     )
   })
 
   it("returns group-local midnight for a stated day in a far-offset zone", () => {
-    const d = chooseProposedDate(4, MIDWAY, new Date("2026-07-23T02:00:00Z")) // local Wed
+    const d = chooseProposedDate(4, null, MIDWAY, new Date("2026-07-23T02:00:00Z")) // local Wed
     expect(d.toISOString()).toBe("2026-07-23T11:00:00.000Z") // local midnight Thu 23 Jul
   })
 })
@@ -213,19 +256,25 @@ describe("buildGaugeMessage", () => {
       "beers",
       new Date("2026-07-24T00:00:00Z"), // Fri
       "UTC",
-      new Date("2026-07-20T12:00:00Z") // Mon
+      new Date("2026-07-20T12:00:00Z"), // Mon
+      null
     )
-    expect(msg).toBe("Love it. Anyone in for beers this Friday?")
+    expect(msg).toBe(
+      "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up."
+    )
   })
 
-  it("makes no promise it cannot keep in this half", () => {
+  it("promises to set it up, which it can now do", () => {
+    // Part one pinned this clause OUT because it could not honor it. Part two
+    // creates the event at the third yes, so the promise is now true.
     const msg = buildGaugeMessage(
       "beers",
       new Date("2026-07-24T00:00:00Z"),
       "UTC",
-      new Date("2026-07-20T12:00:00Z")
+      new Date("2026-07-20T12:00:00Z"),
+      null
     )
-    expect(msg).not.toMatch(/three|set it up|makes it happen/i)
+    expect(msg).toContain("If three of you are in, I'll set it up.")
   })
 
   it("names the date outright when the day is more than a week away", () => {
@@ -235,9 +284,12 @@ describe("buildGaugeMessage", () => {
       "beers",
       new Date("2026-07-31T00:00:00Z"),
       "UTC",
-      new Date("2026-07-23T12:00:00Z") // Thu
+      new Date("2026-07-23T12:00:00Z"), // Thu
+      null
     )
-    expect(msg).toBe("Love it. Anyone in for beers on Friday, Jul 31?")
+    expect(msg).toBe(
+      "Love it. Anyone in for beers on Friday, Jul 31? If three of you are in, I'll set it up."
+    )
   })
 
   it("uses no em or en dashes", () => {
@@ -245,7 +297,8 @@ describe("buildGaugeMessage", () => {
       "board games",
       new Date("2026-07-24T00:00:00Z"),
       "UTC",
-      new Date("2026-07-20T12:00:00Z")
+      new Date("2026-07-20T12:00:00Z"),
+      null
     )
     expect(msg).not.toMatch(/[—–]/)
   })
@@ -288,8 +341,9 @@ describe("buildTallyLine", () => {
   })
 
   it("names two people", () => {
+    // Two is also one away from the bar, so part two's countdown rides along.
     expect(buildTallyLine([inVote("u1"), inVote("u2")], names)).toBe(
-      "Jesse & Maya are in so far"
+      "Jesse & Maya are in so far · one more makes it happen"
     )
   })
 
@@ -306,12 +360,18 @@ describe("buildTallyLine", () => {
     ).toBe("Jesse, Maya & 2 others are in so far")
   })
 
-  it("never counts down to the bar, at any count", () => {
-    // The promise and the countdown both land in part two, with the delivery.
-    for (const n of [1, 2, 3, 4, 5]) {
+  it("counts down only at one away from the bar", () => {
+    // Part one pinned the countdown OUT at every count, because nothing
+    // happened when the bar was met. Part two creates the event there, so the
+    // clause is now information rather than an empty tease. Still absent at one
+    // (pressure, not information) and past three (nothing left to count).
+    for (const n of [1, 3, 4, 5]) {
       const votes = ["u1", "u2", "u3", "u4", "u5"].slice(0, n).map(inVote)
-      expect(buildTallyLine(votes, names)).not.toMatch(/more|happen|three/i)
+      expect(buildTallyLine(votes, names)).not.toContain("makes it happen")
     }
+    expect(buildTallyLine([inVote("u1"), inVote("u2")], names)).toContain(
+      "one more makes it happen"
+    )
   })
 
   it("shows people who want a different day, and only when there are any", () => {

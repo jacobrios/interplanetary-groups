@@ -27,7 +27,7 @@ import { useOptimistic, useTransition, useState } from "react"
 import { GaugeAnswer } from "@prisma/client"
 import { gaugeVoteAction } from "@/app/actions/gauge-vote"
 
-/** Structurally matches ChipLabels in lib/orbit/spark.ts, which composes them. */
+/** Structurally matches ChipLabels in lib/orbit/spark-copy.ts, which composes them. */
 export interface FeedGaugeLabels {
   in: string
   out: string

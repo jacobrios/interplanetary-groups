@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/prisma"
 import type { Gauge, GaugeVote, User } from "@prisma/client"
-import { isGaugeLive } from "@/lib/orbit/spark"
+import { isGaugeLive } from "@/lib/orbit/spark-copy"
 
 export type LiveGauge = Gauge & {
   votes: (GaugeVote & { user: User })[]
@@ -21,8 +21,8 @@ export type LiveGauge = Gauge & {
 const WINDOW_MS = 2 * 24 * 60 * 60 * 1000
 
 /**
- * Every gauge in the group whose proposed day has not yet ended in the group's
- * own timezone.
+ * Every gauge in the group that is still asking: its proposed day has not ended
+ * in the group's own timezone, and it has not already produced its event.
  *
  * The database narrows by date; the exact boundary is decided by isGaugeLive,
  * because "has that day passed" is a question about the group's local calendar
@@ -39,6 +39,11 @@ export async function findLiveGauges(groupId: string, now: Date): Promise<LiveGa
     where: {
       groupId,
       proposedDate: { gte: new Date(now.getTime() - WINDOW_MS) },
+      // A gauge that produced its event is finished asking. Its message stays
+      // in the feed as history, exactly like an expired one: no chips, no
+      // tally, no residue. Whether a gauge is closed is derived from the
+      // event's existence and never stored.
+      event: null,
     },
     include: {
       votes: { include: { user: true }, orderBy: { createdAt: "asc" } },

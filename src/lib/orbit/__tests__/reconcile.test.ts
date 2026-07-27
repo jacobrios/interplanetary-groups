@@ -68,9 +68,11 @@ const SUNDAY_RHYTHM = [
 // A "now" that is always a Sunday morning *before* 08:00, so the next
 // occurrence is later the same day.  We use a far-future Sunday so that:
 //   (a) computeNextOccurrence finds an occurrence strictly after NOW, and
-//   (b) the created Event's startsAt is in the future from the real wall clock,
-//       so findSoonestUpcomingEvent (which uses new Date() internally) correctly
-//       detects it as "upcoming" on the second run of the idempotency test.
+//   (b) the created Event's startsAt is in the future from NOW, so
+//       hasUpcomingScheduledEvent detects it as "upcoming" on the second run of
+//       the idempotency test. (Spark part two: that guard reads the injected
+//       clock, not the real wall clock, so (b) is now about NOW rather than
+//       about today's date.)
 // 2099-06-14 is a Sunday.  "now" = 06:00 UTC → next occurrence = 08:00 UTC same day.
 const NOW = new Date("2099-06-14T06:00:00Z")
 const EXPECTED_STARTS_AT = new Date("2099-06-14T08:00:00Z")
@@ -292,15 +294,23 @@ describe("reconcileScheduledEvents", () => {
     expect(venueCount).toBe(0)
   })
 
-  it("group with pre-existing upcoming event is skipped", async () => {
+  it("group with pre-existing upcoming SCHEDULED event is skipped", async () => {
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 
-    // Seed a future event before calling reconcile
+    // Seed a future SCHEDULED event before calling reconcile. Two details this
+    // test had to gain in spark part two, both deliberate:
+    //   - a scheduledKey, because only the schedule's own rows now count as
+    //     evidence the schedule has run (a sparked row must not block it), and
+    //   - a startsAt after NOW rather than 2099-01-01, because the guard now
+    //     reads the injected clock instead of the real wall clock. Under the old
+    //     wall-clock comparison a January 2099 event was "upcoming" while the
+    //     test's own now said June.
     const seeded = await prisma.event.create({
       data: {
         groupId: group.id,
         title: "[TEST] Pre-existing Event",
-        startsAt: new Date("2099-01-01T10:00:00Z"),
+        startsAt: new Date("2099-07-01T10:00:00Z"),
+        scheduledKey: `${group.id}:2099-07-01T10:00:00.000Z`,
       },
     })
     eventIds.push(seeded.id)
@@ -318,5 +328,57 @@ describe("reconcileScheduledEvents", () => {
 
     const messageCount = await prisma.message.count({ where: { groupId: group.id } })
     expect(messageCount).toBe(0)
+  })
+
+  it("still schedules the standing rhythm when a sparked event is upcoming", async () => {
+    // The bug this slice had to fix: the old guard counted any upcoming event,
+    // so a sparked beers night on Friday suppressed Sunday's climb entirely.
+    // Nothing about that failure was visible until someone noticed a missing
+    // card, which is why it gets a test rather than an assertion.
+    const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+    // A sparked event: carries a gaugeId, and sits in the future. The gaugeId is
+    // what the guard keys off, so a fixture without one is not a sparked event.
+    const src = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: userId!, body: "beers?" },
+    })
+    const orbitMsg = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.ORBIT, authorId: null, body: "Anyone in for beers?" },
+    })
+    messageIds.push(src.id, orbitMsg.id)
+    const gauge = await prisma.gauge.create({
+      data: {
+        groupId: group.id,
+        sourceMessageId: src.id,
+        orbitMessageId: orbitMsg.id,
+        activity: "beers",
+        proposedDate: new Date("2099-06-19T00:00:00Z"),
+        proposedTime: "19:00",
+      },
+    })
+    const sparked = await prisma.event.create({
+      data: {
+        groupId: group.id,
+        title: "[TEST] Sparked Beers",
+        startsAt: new Date("2099-06-19T19:00:00Z"),
+        gaugeId: gauge.id,
+      },
+    })
+    eventIds.push(sparked.id)
+
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+
+    expect(results).toHaveLength(1)
+    expect(results[0].status).toBe("created")
+    if (results[0].status === "created") eventIds.push(results[0].eventId)
+
+    const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+    for (const m of messages) messageIds.push(m.id)
+
+    // Exactly one scheduled event, beside the sparked one that did not block it.
+    expect(
+      await prisma.event.count({ where: { groupId: group.id, scheduledKey: { not: null } } })
+    ).toBe(1)
+    expect(await prisma.event.count({ where: { groupId: group.id } })).toBe(2)
   })
 })

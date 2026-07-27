@@ -1,0 +1,386 @@
+// src/lib/orbit/spark-copy.ts
+//
+// Every pure decision and every string the spark flow produces: which day
+// Orbit proposes, whether a gauge is still live, and all of the copy.
+//
+// Split out of spark.ts deliberately (build-notes §11, spark part one debt).
+// spark.ts imports the Anthropic SDK; this file must never import it, so a
+// client component can pull a formatter or a label type from here without
+// dragging the model client into the browser bundle.
+//
+// Structured-extract-then-format: the model supplies fields, code composes
+// every string. Nothing in this file is generated prose.
+
+import type { GaugeAnswer } from "@prisma/client"
+
+import {
+  formatMonthDay,
+  formatTime,
+  formatWeekdayLong,
+  formatWeekdayShort,
+} from "@/lib/events/format"
+import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
+// Type-only, so it erases at compile time and cannot pull the model SDK back in.
+import type { PartOfDay } from "./spark"
+
+/**
+ * The activity is one or two words in the member's own words and lands inside
+ * a short sentence ("Anyone in for beers this Friday?"). Capped well below the
+ * venue limit so a runaway string can never blow out the chat bubble.
+ */
+export const ACTIVITY_MAX = 40
+
+// ── When Orbit proposes ──────────────────────────────────────────────────────
+
+const FRIDAY = 5
+const SATURDAY = 6
+
+/**
+ * Where an unstated time lands. Both numbers are placeholders with no data
+ * behind them (accepted 24 July 2026), kept here beside the day fallback so
+ * the override-learning behavior in build-notes §5 replaces all four at once.
+ */
+export const EVENING_TIME = "19:00"
+export const MORNING_TIME = "09:00"
+
+export interface ResolvedSparkTime {
+  /** Always concrete: the event has to start at some o'clock. */
+  timeLocal: string
+  /**
+   * The sentence Orbit adds to own up to a guess, or null when it did not
+   * guess. Deliberately narrow: it fires only when someone stated an hour
+   * whose half of the day Orbit had to pick. A fully unstated time gets no
+   * line, because there is nothing the group said that could be misread.
+   */
+  disclosure: string | null
+}
+
+/**
+ * The one place a sparked event's start time is decided.
+ *
+ * A stated unambiguous time wins outright. A genuine coin flip keeps the
+ * stated hour and lands in the evening, plus one disclosure sentence: it does
+ * not fall to the default, because the person said 8 and a card reading 7
+ * would contradict them. Nothing stated falls to the part-of-day default.
+ */
+export function resolveSparkTime({
+  statedTime,
+  timeAmbiguous,
+  partOfDay,
+}: {
+  statedTime: string | null
+  timeAmbiguous: boolean
+  partOfDay: PartOfDay | null
+}): ResolvedSparkTime {
+  if (statedTime === null) {
+    return {
+      timeLocal: partOfDay === "morning" ? MORNING_TIME : EVENING_TIME,
+      disclosure: null,
+    }
+  }
+
+  if (!timeAmbiguous) {
+    return { timeLocal: statedTime, disclosure: null }
+  }
+
+  // The model flagged a coin flip but also told us the activity is a morning
+  // one, which settles it. Trust the normalized field over the flag rather than
+  // assuming the model is self-consistent: "hike at 6" with partOfDay morning
+  // must stay 6am, not become a 6pm sunrise hike. Nothing to disclose, because
+  // the activity did the deciding, not Orbit.
+  if (partOfDay === "morning") {
+    return { timeLocal: statedTime, disclosure: null }
+  }
+
+  // A genuine coin flip. Keep their hour, put it in the evening, and say so.
+  const [h, m] = splitTime(statedTime)
+  const eveningHour = h >= 1 && h <= 11 ? h + 12 : h === 0 ? 12 : h
+  const timeLocal = `${pad(eveningHour)}:${pad(m)}`
+
+  return {
+    timeLocal,
+    disclosure: `You said ${spokenHour(statedTime)}, so I'm taking that as ${formatTimeLocalLabel(timeLocal)}.`,
+  }
+}
+
+/**
+ * The instant a gauge's proposed day and time actually start, in the group's
+ * zone. One implementation, shared by detection (which refuses to open a gauge
+ * whose start has already gone) and promotion (which refuses to create an event
+ * for one). Two copies of this arithmetic would eventually disagree about which
+ * gauges are worth asking about.
+ *
+ * proposedTime is null only for gauges written before spark part two; those fall
+ * to the evening default rather than blocking a group that is ready to go.
+ */
+export function sparkStartInstant(
+  proposedDate: Date,
+  proposedTime: string | null,
+  timeZone: string
+): Date {
+  const day = getLocalParts(proposedDate, timeZone)
+  const [hour, minute] = (proposedTime ?? EVENING_TIME).split(":").map(Number)
+  return zonedWallTimeToUtc(day.year, day.month, day.day, hour, minute, timeZone)
+}
+
+/** "20:00" → "8pm", "08:30" → "8:30am". The group-facing label. */
+export function formatTimeLocalLabel(timeLocal: string): string {
+  const [h, m] = splitTime(timeLocal)
+  const suffix = h < 12 ? "am" : "pm"
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}${suffix}` : `${h12}:${pad(m)}${suffix}`
+}
+
+/** "08:30" → "8:30": the number as the member themselves said it, no suffix. */
+function spokenHour(timeLocal: string): string {
+  const [h, m] = splitTime(timeLocal)
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return m === 0 ? `${h12}` : `${h12}:${pad(m)}`
+}
+
+function splitTime(t: string): [number, number] {
+  const [h, m] = t.split(":").map(Number)
+  return [h, m]
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, "0")
+}
+
+/**
+ * How much notice Orbit gives itself when IT picks the day. A gauge needs time
+ * to collect answers, and proposing tomorrow does not give a group that.
+ *
+ * Fallback-only, deliberately. A day someone stated is taken at face value,
+ * including today: pushing it out a week would propose a day they did not mean
+ * and then count them for it.
+ */
+const FALLBACK_BUFFER_DAYS = 2
+
+/** Weekday of a local calendar date, 0 = Sunday, read without touching the server's zone. */
+function weekdayOf(year: number, month: number, day: number): number {
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+}
+
+/**
+ * The day Orbit proposes, as the group-local midnight instant.
+ *
+ * Stated day: its next occurrence, counting today. Nothing stated: the coming
+ * Friday for an evening or unknown idea, the coming Saturday for a morning one,
+ * each pushed a week when it is inside the notice buffer. Friday because casual
+ * social plans default to the end of the week; Saturday because that reasoning
+ * is about evenings and a morning idea should not inherit it.
+ *
+ * These are starting heuristics with no data behind them (Friday accepted
+ * 23 July 2026, Saturday 24 July 2026), and they live in one place beside the
+ * time defaults so all four stay cheap to replace with the override-learning
+ * behavior in build-notes §5.
+ */
+export function chooseProposedDate(
+  statedDayOfWeek: number | null,
+  partOfDay: PartOfDay | null,
+  timeZone: string,
+  now: Date
+): Date {
+  const today = getLocalParts(now, timeZone)
+  const todayDow = weekdayOf(today.year, today.month, today.day)
+
+  let offsetDays: number
+  if (statedDayOfWeek !== null) {
+    offsetDays = (statedDayOfWeek - todayDow + 7) % 7
+  } else {
+    // Friday was chosen on end-of-the-week social logic, which is about
+    // evenings. A morning idea inherits Saturday instead: "breakfast sometime"
+    // proposed for Friday 7pm would be wrong twice over.
+    const fallbackDay = partOfDay === "morning" ? SATURDAY : FRIDAY
+    offsetDays = (fallbackDay - todayDow + 7) % 7
+    if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
+  }
+
+  // Date.UTC absorbs the day overflow, so month and year ends need no special case.
+  return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
+}
+
+/**
+ * A gauge is live until the end of its proposed day in the group's zone. After
+ * that the message stays in the feed as history and the chips are gone: no
+ * pinning, no banner, no residue.
+ */
+export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): boolean {
+  const day = getLocalParts(proposedDate, timeZone)
+  const endOfDay = zonedWallTimeToUtc(day.year, day.month, day.day + 1, 0, 0, timeZone)
+  return now.getTime() < endOfDay.getTime()
+}
+
+// ── What the group reads ─────────────────────────────────────────────────────
+
+/**
+ * One fixed emoji on the yes chip, not one matched to the activity. Nothing in
+ * the product maps an activity to an emoji, and a table that guesses wrong
+ * reads worse than one that never tries.
+ */
+const CHIP_IN_EMOJI = "✋"
+
+/** Beyond this the proposed day is no longer "this <weekday>" and gets its date. */
+const THIS_WEEK_DAYS = 7
+
+export interface GaugeVoteLike {
+  userId: string
+  answer: GaugeAnswer
+}
+
+export interface ChipLabels {
+  in: string
+  out: string
+  notThatDay: string
+}
+
+/** Three people, including an initiator who named the day themselves. */
+export const SPARK_THRESHOLD = 3
+
+/**
+ * Orbit's gauge message, including the promise to set it up.
+ *
+ * Part one withheld that clause because three yeses created nothing then. It is
+ * honored now by promoteGaugeToEvent, in the same tap that produces the third
+ * yes, so the sentence is true when it is said.
+ *
+ * The disclosure clause sits between the question and the promise: it is about
+ * the time Orbit had to guess, so it belongs beside the plan, not after the
+ * commitment.
+ */
+export function buildGaugeMessage(
+  activity: string,
+  proposedDate: Date,
+  timeZone: string,
+  now: Date,
+  disclosure: string | null
+): string {
+  const weekday = formatWeekdayLong(proposedDate, timeZone)
+
+  // The fallback buffer can land eight days out, where "this Friday" would be
+  // wrong. Past a week Orbit says the date outright instead.
+  const daysAway = Math.round(
+    (proposedDate.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
+  )
+  const when =
+    daysAway >= THIS_WEEK_DAYS
+      ? `on ${weekday}, ${formatMonthDay(proposedDate, timeZone)}`
+      : `this ${weekday}`
+
+  const disclosureClause = disclosure ? ` ${disclosure}` : ""
+
+  // The promise part one deliberately withheld. It can be kept now: three
+  // yeses create the event in the same tap that produces the third one.
+  return `Love it. Anyone in for ${activity} ${when}?${disclosureClause} If three of you are in, I'll set it up.`
+}
+
+/** The three chips. Weekday abbreviated on the third per the copy rule. */
+export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
+  return {
+    in: `${CHIP_IN_EMOJI} I'm in`,
+    out: "🙏 Next time",
+    notThatDay: `📅 Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
+  }
+}
+
+/**
+ * The quiet line under Orbit's message, derived from the vote rows every time
+ * and never stored.
+ *
+ * Empty until somebody has actually voted: "nobody is in yet" is noise the
+ * chips already imply. One or two people show by name, more collapses to names
+ * plus a count, and people who want a different day are shown because hiding
+ * them would misrepresent the group to itself.
+ *
+ * Counts down only at one away from the bar. Part one had no countdown at any
+ * count, because nothing happened when the bar was met.
+ */
+export function buildTallyLine(
+  votes: GaugeVoteLike[],
+  names: Map<string, string>
+): string {
+  const inNames = votes
+    .filter((v) => v.answer === "IN")
+    .map((v) => names.get(v.userId))
+    .filter((n): n is string => Boolean(n))
+
+  const differentDay = votes.filter((v) => v.answer === "NOT_THAT_DAY").length
+
+  const parts: string[] = []
+
+  if (inNames.length === 1) {
+    parts.push(`${inNames[0]} is in so far`)
+  } else if (inNames.length === 2) {
+    parts.push(`${inNames[0]} & ${inNames[1]} are in so far`)
+  } else if (inNames.length > 2) {
+    const rest = inNames.length - 2
+    parts.push(
+      `${inNames[0]}, ${inNames[1]} & ${rest} ${rest === 1 ? "other" : "others"} are in so far`
+    )
+  }
+
+  if (differentDay > 0) {
+    parts.push(
+      `${differentDay} ${differentDay === 1 ? "wants" : "want"} a different day`
+    )
+  }
+
+  // One away, and only one away: at zero or one the countdown would be
+  // pressure rather than information, and past the bar there is nothing left
+  // to count down to.
+  if (inNames.length === SPARK_THRESHOLD - 1) {
+    parts.push("one more makes it happen")
+  }
+
+  return parts.join(" · ")
+}
+
+/** Small numbers read as words in Orbit's voice; anything larger as digits. */
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+
+function spellCount(n: number): string {
+  return NUMBER_WORDS[n] ?? String(n)
+}
+
+/**
+ * What Orbit says in the feed the moment a gauge becomes an event.
+ *
+ * States the time out loud on purpose: the time may be Orbit's own default or
+ * its reading of an ambiguous hour, and the group should see it the moment it
+ * is fixed rather than discovering it on the card later.
+ *
+ * The count is passed in rather than spelled into the sentence. Normally it is
+ * exactly SPARK_THRESHOLD, but a promotion that failed transiently at the bar
+ * and succeeded on a later yes would otherwise have Orbit announce "Three of
+ * you are in" to four people.
+ */
+export function buildSparkAnnouncement(
+  activity: string,
+  startsAt: Date,
+  timeZone: string,
+  inCount: number,
+  now: Date
+): string {
+  const weekday = formatWeekdayShort(startsAt, timeZone)
+  const time = formatTime(startsAt, timeZone)
+
+  // Same reasoning as buildGaugeMessage: the fallback buffer can land eight
+  // days out, where a bare "Fri" is ambiguous between this Friday and next.
+  const daysAway = Math.round(
+    (startsAt.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
+  )
+  const when =
+    daysAway >= THIS_WEEK_DAYS
+      ? `${weekday}, ${formatMonthDay(startsAt, timeZone)}`
+      : weekday
+
+  const who = `${spellCount(inCount)} of you are in`
+  return `${who.charAt(0).toUpperCase()}${who.slice(1)}, so ${activity} is on for ${when} at ${time}. It's up top now.`
+}
+
+/** The group-local midnight that starts the day `instant` falls in. */
+function startOfLocalDay(instant: Date, timeZone: string): Date {
+  const p = getLocalParts(instant, timeZone)
+  return zonedWallTimeToUtc(p.year, p.month, p.day, 0, 0, timeZone)
+}

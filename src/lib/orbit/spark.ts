@@ -14,35 +14,29 @@
 //      coverage everywhere here.
 //
 // Model: claude-haiku-4-5, via the shared callExtractionModel.
+//
+// Pure formatters and scheduling helpers live in spark-copy.ts, which has no
+// Anthropic import. Keep it that way: this module must stay server-only.
 
-import type { GaugeAnswer } from "@prisma/client"
-
-import {
-  formatMonthDay,
-  formatWeekdayLong,
-  formatWeekdayShort,
-} from "@/lib/events/format"
 import { callExtractionModel } from "./extract"
-import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
-import { cleanShortText } from "./rhythm"
-
-/**
- * The activity is one or two words in the member's own words and lands inside
- * a short sentence ("Anyone in for beers this Friday?"). Capped well below the
- * venue limit so a runaway string can never blow out the chat bubble.
- */
-export const ACTIVITY_MAX = 40
+import { cleanShortText, TIME_LOCAL_RE } from "./rhythm"
+import { ACTIVITY_MAX } from "./spark-copy"
 
 // Every field required with explicit nulls, matching the extraction doctrine:
 // the model must make each omission explicit rather than silently dropping it.
 export const SPARK_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["isSpark", "activity", "statedDayOfWeek"],
+  required: ["isSpark", "activity", "statedDayOfWeek", "statedTime", "timeAmbiguous", "partOfDay"],
   properties: {
     isSpark: { type: "boolean" },
     activity: { type: ["string", "null"] },
     statedDayOfWeek: { type: ["integer", "null"] },
+    statedTime: { type: ["string", "null"] },
+    timeAmbiguous: { type: "boolean" },
+    partOfDay: {
+      anyOf: [{ type: "string", enum: ["morning", "evening"] }, { type: "null" }],
+    },
   },
 } as const
 
@@ -59,7 +53,10 @@ If you are not sure, answer isSpark false. Missing a real idea costs nothing; in
 Fields:
 - isSpark: true only when the message genuinely proposes the group do something together.
 - activity: one or two words in the member's own words naming the activity ("beers", "climbing", "board games"). Drop filler and location words: "grab a beer at Tony's" is just "beers". Never invent an activity. Null when isSpark is false.
-- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named.`
+- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named.
+- statedTime: 24-hour "HH:MM" only if the message stated a time. Use the activity to read it: "beers at 8" is "20:00", "breakfast at 8" is "08:00". Null when no time was stated.
+- timeAmbiguous: true only when a clock number was given with no am or pm AND the activity does not settle it. "beers at 8" is not ambiguous, because beers do not happen at 8 in the morning. "breakfast at 8" is not ambiguous. "meet at 8" for something that happens at both ends of the day IS ambiguous: set statedTime to your best reading and timeAmbiguous to true. When statedTime is null, timeAmbiguous is false.
+- partOfDay: "morning" for activities that happen in the morning (breakfast, coffee, a sunrise hike), "evening" for activities that happen at night (beers, dinner, drinks, a movie). Null when the activity could genuinely be either, or when you are unsure. This is about the activity itself, not about any time that was stated.`
 
 export interface SparkContext {
   /**
@@ -70,9 +67,24 @@ export interface SparkContext {
   upcomingEvent: string | null
 }
 
+/**
+ * What kind of activity this is, which is what settles an unstated time. About
+ * the activity itself, never about any hour the message named.
+ */
+export type PartOfDay = "morning" | "evening"
+
 export type NormalizedSpark =
   | { spark: false }
-  | { spark: true; activity: string; statedDayOfWeek: number | null }
+  | {
+      spark: true
+      activity: string
+      statedDayOfWeek: number | null
+      /** Validated "HH:mm", or null when none was stated. */
+      statedTime: string | null
+      /** A clock number with no am/pm that the activity does not settle. */
+      timeAmbiguous: boolean
+      partOfDay: PartOfDay | null
+    }
 
 /**
  * One structured-outputs call. Returns raw model output: a claim, not a fact.
@@ -117,179 +129,16 @@ export function normalizeSpark(raw: unknown): NormalizedSpark {
   const statedDayOfWeek =
     typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6 ? d : null
 
-  return { spark: true, activity, statedDayOfWeek }
-}
+  const statedTime =
+    typeof o.statedTime === "string" && TIME_LOCAL_RE.test(o.statedTime) ? o.statedTime : null
 
-// ── Which day Orbit proposes ─────────────────────────────────────────────────
+  // Ambiguity is a property of a time that exists. Without one there is
+  // nothing to be uncertain about, and letting the flag stand alone would
+  // send the disclosure line out with nothing to disclose.
+  const timeAmbiguous = statedTime !== null && o.timeAmbiguous === true
 
-const FRIDAY = 5
+  const partOfDay: PartOfDay | null =
+    o.partOfDay === "morning" || o.partOfDay === "evening" ? o.partOfDay : null
 
-/**
- * How much notice Orbit gives itself when IT picks the day. A gauge needs time
- * to collect answers, and proposing tomorrow does not give a group that.
- *
- * Fallback-only, deliberately. A day someone stated is taken at face value,
- * including today: pushing it out a week would propose a day they did not mean
- * and then count them for it.
- */
-const FALLBACK_BUFFER_DAYS = 2
-
-/** Weekday of a local calendar date, 0 = Sunday, read without touching the server's zone. */
-function weekdayOf(year: number, month: number, day: number): number {
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-}
-
-/**
- * The day Orbit proposes, as the group-local midnight instant.
- *
- * Stated day: its next occurrence, counting today. Nothing stated: the coming
- * Friday, pushed a week when that is inside the notice buffer. Friday because
- * casual social plans default to the end of the week.
- *
- * This is a starting heuristic with no data behind it (accepted 23 July 2026),
- * and it lives in one place so it stays cheap to replace with the
- * override-learning behavior in build-notes §5.
- */
-export function chooseProposedDate(
-  statedDayOfWeek: number | null,
-  timeZone: string,
-  now: Date
-): Date {
-  const today = getLocalParts(now, timeZone)
-  const todayDow = weekdayOf(today.year, today.month, today.day)
-
-  let offsetDays: number
-  if (statedDayOfWeek !== null) {
-    offsetDays = (statedDayOfWeek - todayDow + 7) % 7
-  } else {
-    offsetDays = (FRIDAY - todayDow + 7) % 7
-    if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
-  }
-
-  // Date.UTC absorbs the day overflow, so month and year ends need no special case.
-  return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
-}
-
-/**
- * A gauge is live until the end of its proposed day in the group's zone. After
- * that the message stays in the feed as history and the chips are gone: no
- * pinning, no banner, no residue.
- */
-export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): boolean {
-  const day = getLocalParts(proposedDate, timeZone)
-  const endOfDay = zonedWallTimeToUtc(day.year, day.month, day.day + 1, 0, 0, timeZone)
-  return now.getTime() < endOfDay.getTime()
-}
-
-// ── What the group reads ─────────────────────────────────────────────────────
-//
-// Structured-extract-then-format: the model supplies fields, code composes
-// every string. Nothing below is generated prose.
-
-/**
- * One fixed emoji on the yes chip, not one matched to the activity. Nothing in
- * the product maps an activity to an emoji, and a table that guesses wrong
- * reads worse than one that never tries.
- */
-const CHIP_IN_EMOJI = "✋"
-
-/** Beyond this the proposed day is no longer "this <weekday>" and gets its date. */
-const THIS_WEEK_DAYS = 7
-
-export interface GaugeVoteLike {
-  userId: string
-  answer: GaugeAnswer
-}
-
-export interface ChipLabels {
-  in: string
-  out: string
-  notThatDay: string
-}
-
-/**
- * Orbit's gauge message. Deliberately makes no promise: "if three of you are
- * in, I'll set it up" is a promise this half cannot keep, because three yeses
- * do not create anything until part two. A visible lie in the feed is worse
- * than a smaller sentence.
- */
-export function buildGaugeMessage(
-  activity: string,
-  proposedDate: Date,
-  timeZone: string,
-  now: Date
-): string {
-  const weekday = formatWeekdayLong(proposedDate, timeZone)
-
-  // The fallback buffer can land eight days out, where "this Friday" would be
-  // wrong. Past a week Orbit says the date outright instead.
-  const daysAway = Math.round(
-    (proposedDate.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
-  )
-  const when =
-    daysAway >= THIS_WEEK_DAYS
-      ? `on ${weekday}, ${formatMonthDay(proposedDate, timeZone)}`
-      : `this ${weekday}`
-
-  return `Love it. Anyone in for ${activity} ${when}?`
-}
-
-/** The three chips. Weekday abbreviated on the third per the copy rule. */
-export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
-  return {
-    in: `${CHIP_IN_EMOJI} I'm in`,
-    out: "🙏 Next time",
-    notThatDay: `📅 Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
-  }
-}
-
-/**
- * The quiet line under Orbit's message, derived from the vote rows every time
- * and never stored.
- *
- * Empty until somebody has actually voted: "nobody is in yet" is noise the
- * chips already imply. One or two people show by name, more collapses to names
- * plus a count, and people who want a different day are shown because hiding
- * them would misrepresent the group to itself.
- *
- * No countdown to the bar at any count. That clause lands in part two together
- * with the ability to honor it.
- */
-export function buildTallyLine(
-  votes: GaugeVoteLike[],
-  names: Map<string, string>
-): string {
-  const inNames = votes
-    .filter((v) => v.answer === "IN")
-    .map((v) => names.get(v.userId))
-    .filter((n): n is string => Boolean(n))
-
-  const differentDay = votes.filter((v) => v.answer === "NOT_THAT_DAY").length
-
-  const parts: string[] = []
-
-  if (inNames.length === 1) {
-    parts.push(`${inNames[0]} is in so far`)
-  } else if (inNames.length === 2) {
-    parts.push(`${inNames[0]} & ${inNames[1]} are in so far`)
-  } else if (inNames.length > 2) {
-    const rest = inNames.length - 2
-    parts.push(
-      `${inNames[0]}, ${inNames[1]} & ${rest} ${rest === 1 ? "other" : "others"} are in so far`
-    )
-  }
-
-  if (differentDay > 0) {
-    parts.push(
-      `${differentDay} ${differentDay === 1 ? "wants" : "want"} a different day`
-    )
-  }
-
-  return parts.join(" · ")
-}
-
-/** The group-local midnight that starts the day `instant` falls in. */
-function startOfLocalDay(instant: Date, timeZone: string): Date {
-  const p = getLocalParts(instant, timeZone)
-  return zonedWallTimeToUtc(p.year, p.month, p.day, 0, 0, timeZone)
+  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay }
 }

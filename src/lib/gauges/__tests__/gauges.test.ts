@@ -59,6 +59,8 @@ afterAll(async () => {
     await prisma.message.delete({ where: { id } }).catch(() => {})
   }
   if (groupId) {
+    // Events first: a promoted gauge's event holds a reference to it.
+    await prisma.event.deleteMany({ where: { groupId } }).catch(() => {})
     await prisma.message.deleteMany({ where: { groupId } }).catch(() => {})
     await prisma.membership.deleteMany({ where: { groupId } }).catch(() => {})
     await prisma.group.delete({ where: { id: groupId } }).catch(() => {})
@@ -78,6 +80,7 @@ describe("createGauge", () => {
       sourceMessageId: src,
       activity: "beers",
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: "Love it. Anyone in for beers this Friday?",
     })
 
@@ -93,6 +96,22 @@ describe("createGauge", () => {
     expect(result.gauge.activity).toBe("beers")
   })
 
+  it("stores the time the event will start at", async () => {
+    const src = await sourceMessage("beers Friday at 8pm")
+
+    const result = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "beers",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "20:00",
+      body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+    })
+    if (result.status !== "created") throw new Error("fixture failed")
+
+    expect(result.gauge.proposedTime).toBe("20:00")
+  })
+
   it("skips a second gauge for the same message instead of erroring", async () => {
     const src = await sourceMessage("anyone up for tacos")
 
@@ -101,6 +120,7 @@ describe("createGauge", () => {
       sourceMessageId: src,
       activity: "tacos",
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: "Love it. Anyone in for tacos this Friday?",
     })
     expect(first.status).toBe("created")
@@ -110,6 +130,7 @@ describe("createGauge", () => {
       sourceMessageId: src,
       activity: "tacos",
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: "Love it. Anyone in for tacos this Friday?",
     })
     expect(second).toEqual({ status: "skipped", reason: "already_gauged" })
@@ -137,6 +158,7 @@ describe("createGauge", () => {
         sourceMessageId: "no-such-message-id",
         activity: "beers",
         proposedDate: new Date("2026-07-24T00:00:00Z"),
+        proposedTime: "19:00",
         body: "Love it. Anyone in for beers this Friday?",
       })
     ).rejects.toThrow()
@@ -155,6 +177,7 @@ describe("castVote", () => {
       sourceMessageId: src,
       activity,
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: `Love it. Anyone in for ${activity} this Friday?`,
     })
     if (result.status !== "created") throw new Error("fixture failed")
@@ -219,6 +242,7 @@ describe("findLiveGauges", () => {
           sourceMessageId: m.id,
           activity,
           proposedDate: new Date(proposedDate),
+          proposedTime: "19:00",
           body: `Love it. Anyone in for ${activity}?`,
         })
         if (r.status !== "created") throw new Error("fixture failed")
@@ -242,6 +266,37 @@ describe("findLiveGauges", () => {
       await prisma.group.delete({ where: { id: isolated.id } }).catch(() => {})
     }
   })
+
+  it("drops a gauge once it has produced its event", async () => {
+    // From creation on, the event card is the only place answers live. Two
+    // surfaces collecting the same answer would eventually disagree.
+    await ensureGroup()
+    const src = await sourceMessage("we should play pool")
+    const r = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "pool",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
+      body: "Love it. Anyone in for pool this Friday? If three of you are in, I'll set it up.",
+    })
+    if (r.status !== "created") throw new Error("fixture failed")
+
+    const before = await findLiveGauges(groupId, new Date("2026-07-24T12:00:00Z"))
+    expect(before.map((g) => g.activity)).toContain("pool")
+
+    await prisma.event.create({
+      data: {
+        groupId,
+        title: "Pool",
+        startsAt: new Date("2026-07-24T19:00:00Z"),
+        gaugeId: r.gauge.id,
+      },
+    })
+
+    const after = await findLiveGauges(groupId, new Date("2026-07-24T12:00:00Z"))
+    expect(after.map((g) => g.activity)).not.toContain("pool")
+  })
 })
 
 describe("createGauge and the person who floated the idea", () => {
@@ -255,6 +310,7 @@ describe("createGauge and the person who floated the idea", () => {
       sourceMessageId: src,
       activity: "beers",
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: "Love it. Anyone in for beers this Friday?",
       initiatorUserId: userId,
     })
@@ -275,6 +331,7 @@ describe("createGauge and the person who floated the idea", () => {
       sourceMessageId: src,
       activity: "dinner",
       proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
       body: "Love it. Anyone in for dinner this Friday?",
     })
     if (result.status !== "created") throw new Error("fixture failed")

@@ -7,7 +7,8 @@ import { GaugeAnswer } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { castVote } from "@/lib/gauges/vote"
-import { isGaugeLive } from "@/lib/orbit/spark"
+import { promoteGaugeToEvent } from "@/lib/gauges/promote"
+import { isGaugeLive } from "@/lib/orbit/spark-copy"
 
 export interface GaugeVoteState {
   errors?: {
@@ -68,10 +69,36 @@ export async function gaugeVoteAction(
     return { errors: { general: "That day has passed." } }
   }
 
+  // Already created: the question is settled and the event card owns answers
+  // from here.
+  const existingEvent = await prisma.event.findFirst({
+    where: { gaugeId },
+    select: { id: true },
+  })
+  if (existingEvent) {
+    return { errors: { general: "That one's already set. It's up top." } }
+  }
+
   try {
     await castVote({ supabaseAuthId: user.id, gaugeId, answer })
   } catch {
     return { errors: { general: "Couldn't save that, try again." } }
+  }
+
+  // The third yes is what creates the event, right here in the tap that
+  // produced it: the person who tapped should see it exist when the screen
+  // settles, with no cron in between.
+  //
+  // Best-effort on purpose. A vote that saved is a real answer, and failing
+  // the whole action because promotion errored would throw away something the
+  // member actually said. Logged, because a silently unpromoted gauge sitting
+  // at three yeses is Orbit visibly breaking the promise in its own message.
+  if (answer === GaugeAnswer.IN) {
+    try {
+      await promoteGaugeToEvent(gaugeId, new Date())
+    } catch (err) {
+      console.error("[gauge-vote] promotion failed", err)
+    }
   }
 
   // CRITICAL: revalidatePath must be called outside and after try/catch.
