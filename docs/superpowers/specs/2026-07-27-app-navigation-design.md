@@ -44,6 +44,10 @@ The one cost worth naming, because it is a decision rather than a discovery: eve
 
 A consequence, accepted rather than solved: leaving step 1 after typing a description also loses that text. No confirmation dialog is being added for it.
 
+**The create exit is a text link at the bottom of step 1, not a bar at the top, and it does not use the shared header.** This was settled while reading the code rather than in the session, and it is a change from the first draft of this spec. Three reasons, in order of weight. The create flow already has its own idiom for going backwards: "Edit my description" is a bottom-anchored underlined text link on steps 2 and 3, so a bottom-anchored exit on step 1 is the flow speaking its own established language. Placing it inside `Step1Describe`, which only renders on step 1, makes "step 1 only" structural rather than a conditional somebody can later get wrong. And the top-of-screen position on `/create` is spoken for: the design puts Orbit's avatar and `STEP N OF 3` there, which the onboarding-share-moment slice has to build, so putting a bar there now would be squatting on that slice's decision.
+
+The alternative considered and rejected was rendering the shared bar at the top of `/create`. It cannot be done from the page shell, because the page is server-rendered and the step lives in client state, so it would have forced the wizard to take over the page's heading and column. That restructure would have moved "Start your group" out of the shell as a side effect, which is a visible change to steps 2 and 3 with no navigation value.
+
 **`/` is a session-aware front door, not a static landing and not a bare redirect.** A session with a group is sent straight in. A session without one gets the front door. This is the decision the other four dead ends hang off, which is why it was settled first: it makes the Orbit logo a genuine home button today, and it gives the bad-invite exit, the not-found exit, and the error exit one honest destination that is correct whether or not the visitor has ever used the product.
 
 The rejected alternatives were a static landing everyone sees (a returning member lands on marketing copy and has to find their own way in) and a pure router with no landing (a reviewer opening the deployed URL is dropped into a form with no idea what the product is, and "back to the app" from a 404 would shove them into onboarding).
@@ -56,11 +60,12 @@ Character in the writing is separate from Orbit's presence, and both broken scre
 
 ## The shared pieces
 
-Three small components and a directory to hold them, and that is the whole structural change.
+Four small components and a directory to hold them, and that is the whole structural change.
 
 - **The bar.** Owns the header bar's rules and nothing else, per the decision above.
-- **The child header.** Renders `‹ label` inside that bar, taking a destination and a label. Used by event detail, group info, and create step 1.
+- **The child header.** Renders `‹ label` inside that bar, taking a destination and a label. Used by event detail and group info.
 - **The chevron.** One icon with a direction, replacing the two hand-inlined copies that today differ only in their path data and in which one carries a color.
+- **The dead-end screen.** The centered heading, explanation, and action row shared by the not-found and error boundaries. It exists because those two screens are otherwise near-identical files, and shipping the duplication this slice is built to remove would be a poor joke.
 - **A home for them: `src/components/`.** This directory does not exist yet; every component today sits beside the one screen that first needed it. This slice creates the product's first genuinely shared UI, which is what earns the directory.
 
 Deliberately not moved: build-notes §11 invites relocating `RsvpControls` into a shared directory "when the next refactor opens that area," and this slice technically opens it. It stays where it is. Moving it is not navigation, and it would put unrelated churn in a diff whose whole value is being reviewable as one idea.
@@ -73,7 +78,7 @@ Deliberately not moved: build-notes §11 invites relocating `RsvpControls` into 
 | **`/events/[id]`** | Gains `‹ [Group name]`, pointing at that event's group home. The group relation is already loaded and the group's name is already rendered there as inert text, so this needs no new database query. |
 | **`/groups/[id]/info`** | Header changes from `‹ Back` with a centered name to `‹ [Group name]` left-aligned, matching design 10. A visible change to a screen that already works, made to conform to its own design. |
 | **`/groups/[id]`** | Keeps its own header, now sitting inside the shared bar. The Orbit logo becomes a real link to `/`, finally making it the home button CLAUDE.md already describes. The title chevron to group info is untouched. |
-| **`/create`** | Gains `‹ Back` to `/`, on step 1 only. |
+| **`/create`** | Gains an exit to `/` on step 1 only, as a bottom-anchored text link matching the flow's existing "Edit my description" idiom. Does not use the shared header; see the decision above. |
 | **`/join/[inviteToken]`** | Valid invite: unchanged, stays headerless as designed. Bad token: Orbit's note plus a way out. |
 | **not-found** | New root-level route boundary, catching all three existing `notFound()` calls (unknown group id in two places, unknown event id in one). |
 | **error** | New root-level route boundary, catching any render error. |
