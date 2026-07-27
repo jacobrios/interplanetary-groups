@@ -4,6 +4,10 @@
 // breathing room, the hairline beneath it, that it does not scroll away with
 // the page, and that it grows with whatever is placed inside it.
 //
+// "Does not scroll away" is a sticky position with its own opaque background
+// (the page surface token), not just a visual claim: without the background,
+// scrolling content would show through the bar rather than disappear behind it.
+//
 // It has no title slot, no trailing-action slot, and no opinion about what
 // any screen's header contains. That boundary is the point: the alternative
 // considered was one configurable header that knew every screen, and it is
@@ -27,6 +31,10 @@ export default function PageHeader({
         padding: "0.875rem 1rem",
         borderBottom: "1px solid var(--border-subtle)",
         flexShrink: 0,
+        position: "sticky",
+        top: 0,
+        zIndex: 10,
+        backgroundColor: "var(--surface-page)",
       }}
     >
       {children}
