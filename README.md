@@ -109,13 +109,19 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 
 ## Running it locally
 
+You'll need a Postgres database (this project uses Supabase), a Supabase project for auth, and an Anthropic API key.
+
 ```bash
 npm install
+cp .env.example .env     # then fill in your own values
+npx prisma migrate deploy
 npx prisma generate
 npm run dev
 ```
 
-Requires a `.env` with `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `ANTHROPIC_API_KEY`. The scheduled job additionally needs `CRON_SECRET`.
+**Two database URLs, and they are not interchangeable.** `DATABASE_URL` is the pooled connection the app uses at runtime through the Prisma driver adapter. `DIRECT_URL` is the unpooled one the Prisma CLI uses for migrations, and it's read by `prisma.config.ts` rather than by the schema. Both can point at the same database. Leaving `DIRECT_URL` out is not a quiet degradation: every Prisma CLI command fails to start, including `prisma generate`, which otherwise never touches a database.
+
+`npm test` runs against a real database rather than mocks, so it needs the same `.env` in place with migrations already applied.
 
 ```bash
 npm test        # full suite

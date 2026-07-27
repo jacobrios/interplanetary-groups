@@ -23,7 +23,15 @@ process.stdin.on("end", () => {
     /(^|\/)prisma\/migrations\//, // any already-applied migration file
   ];
 
-  const isProtected = protectedPatterns.some((re) => re.test(path));
+  // .env.example is the one .env-shaped file that holds no secrets: it carries
+  // placeholder values only and is meant to be committed, so agents must be able
+  // to keep it in sync when a new variable is added. Every other .env file, and
+  // every migration, stays protected.
+  const allowedPatterns = [/(^|\/)\.env\.example$/];
+
+  const isProtected =
+    !allowedPatterns.some((re) => re.test(path)) &&
+    protectedPatterns.some((re) => re.test(path));
 
   if (isProtected) {
     console.error(
