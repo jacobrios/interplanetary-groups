@@ -8,6 +8,7 @@
 
 "use client"
 
+import Link from "next/link"
 import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
 import OrbitPause from "./OrbitPause"
@@ -214,6 +215,34 @@ export default function Step1Describe({
           Mention your usual spot too, if you have one.
         </p>
       </form>
+
+      {/* The only exit from onboarding, and it is on step 1 only.
+          Steps 2 and 3 already have "Edit my description" for going
+          backwards inside the flow; a leave-the-flow link there would
+          silently discard everything a founder had entered, which is worse
+          than no exit. Because this lives in Step1Describe, which only
+          renders on step 1, that constraint is structural rather than a
+          conditional somebody can later get wrong.
+
+          Bottom-anchored underlined text, matching this flow's own idiom
+          for backwards controls, rather than a bar at the top: the top of
+          /create is spoken for by Orbit's avatar and "STEP N OF 3", which
+          the onboarding-share-moment slice has to build. */}
+      <Link
+        href="/"
+        style={{
+          display: "block",
+          width: "fit-content",
+          margin: "1rem auto 0",
+          padding: "0.25rem 0.5rem",
+          color: "var(--text-secondary)",
+          fontSize: "var(--type-meta)",
+          lineHeight: "var(--leading-normal)",
+          textDecoration: "underline",
+        }}
+      >
+        Never mind, take me back
+      </Link>
     </div>
   )
 }
