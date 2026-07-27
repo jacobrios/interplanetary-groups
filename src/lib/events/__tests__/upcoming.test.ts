@@ -37,22 +37,31 @@ describe("findSoonestUpcomingEvent", () => {
     })
     groupId = group.id
 
-    // An event far in the future
+    // Both future dates are relative to the real clock, deliberately.
+    //
+    // findSoonestUpcomingEvent is the one date-sensitive function in this
+    // codebase that reads `new Date()` internally rather than taking the time
+    // as an argument, so a test of it cannot control the clock and must express
+    // "in the future" the same way the query does. Hardcoded dates here are a
+    // time bomb: the original "soon" was 2026-07-25, written on 25 June 2026,
+    // and the test went red on 26 July 2026 when that date became the past. It
+    // had been green for a month for no better reason than the calendar.
+    const DAY_MS = 24 * 60 * 60 * 1000
+
     const far = await prisma.event.create({
       data: {
         groupId: group.id,
         title: "[TEST] Far Event",
-        startsAt: new Date("2030-01-15T10:00:00Z"),
+        startsAt: new Date(Date.now() + 30 * DAY_MS),
       },
     })
     eventIds.push(far.id)
 
-    // An event sooner in the future
     const soon = await prisma.event.create({
       data: {
         groupId: group.id,
         title: "[TEST] Soon Event",
-        startsAt: new Date("2026-07-25T10:00:00Z"),
+        startsAt: new Date(Date.now() + 1 * DAY_MS),
       },
     })
     eventIds.push(soon.id)
