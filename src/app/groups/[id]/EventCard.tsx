@@ -9,8 +9,10 @@
 // - The card body is a link to the event detail page.
 // - RSVP controls reuse the existing RsvpControls (compact=true) and
 //   setRsvp write — identical logic, smaller shell.
-// - Teal "I'm in" is the single persistent primary action on this screen;
-//   "Can't make it" is outlined secondary.
+// - Teal "I'm in" is this CARD's single primary action; "Can't make it" is
+//   outlined secondary. Per card, not per screen: the carousel can show two or
+//   three cards at once, each carrying its own teal action, and the rule was
+//   amended to match on 27 July 2026 (build-notes §11, spark part two).
 // - The card stays pinned at the top; condensed-after-RSVP is deliberately
 //   not built (see build-notes §7 open question and §11).
 //
