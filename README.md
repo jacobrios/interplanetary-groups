@@ -115,7 +115,7 @@ npx prisma generate
 npm run dev
 ```
 
-Requires a `.env` with `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `ANTHROPIC_API_KEY`. The scheduled job additionally needs `CRON_SECRET`.
+Requires a `.env` with `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and `ANTHROPIC_API_KEY`. Both database URLs are needed and they are not interchangeable: `DATABASE_URL` is the pooled connection used at runtime, and `DIRECT_URL` is the one the Prisma CLI reads for migrations (see `prisma.config.ts`). They can point at the same database. The scheduled job additionally needs `CRON_SECRET`.
 
 ```bash
 npm test        # full suite
