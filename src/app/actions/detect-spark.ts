@@ -57,7 +57,7 @@ export async function detectSparkAction(messageId: string): Promise<DetectSparkR
     const group = message.group
     const now = new Date()
 
-    const upcoming = await findSoonestUpcomingEvent(group.id)
+    const upcoming = await findSoonestUpcomingEvent(group.id, now)
     const upcomingEvent = upcoming
       ? `${upcoming.title}, ${formatEventDate(upcoming.startsAt, upcoming.endsAt, group.timeZone)}`
       : null

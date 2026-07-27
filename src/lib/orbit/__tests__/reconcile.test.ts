@@ -3,6 +3,26 @@
 // Integration tests for reconcileScheduledEvents — hits the real dev DB.
 // Each test uses a fresh User + Group with a weekly Sunday rhythm in UTC.
 //
+// EVERY call here is scoped with { groupId }. Do not remove that, and do not
+// add an unscoped `reconcileScheduledEvents(NOW)` back.
+//
+// The dev-test database is shared, and an unscoped sweep does not just read it:
+// it CREATES a real event and a real ORBIT announcement in every group that has
+// a rhythm, and this file only cleans up rows in its own fixture group. Those
+// leak permanently. Because NOW here is in 2099, the leaked events are also
+// "upcoming" forever, which then suppresses the real cron for those groups.
+//
+// This cost something concrete: during the spark part two walkthrough the
+// residue put a phantom third card on a QA group's home screen, and it took a
+// database query to establish that it was junk rather than a product bug. A
+// test that quietly corrupts the evidence a later verification depends on is
+// worse than no test (build-notes §11, spark part two follow-up).
+//
+// The one thing scoping gives up is exercising the loop across many groups. That
+// is deliberate: the loop is trivial, the groupId-filter test below covers the
+// scoped path, and the only way to exercise the sweep honestly is a database
+// nobody else is using.
+//
 // Cleanup order (FK constraints):
 //   Message (groupId) → Rsvp (eventId cascade) → Event (groupId) → Membership (groupId) → Group (founderId) → User
 
@@ -114,7 +134,7 @@ describe("reconcileScheduledEvents", () => {
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 
     // Act
-    const results = await reconcileScheduledEvents(NOW)
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
 
     // Only our test group should appear in results (filter by groupId)
     const result = results.find((r) => r.groupId === group.id)
@@ -142,7 +162,7 @@ describe("reconcileScheduledEvents", () => {
     const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
 
     // First run
-    const first = await reconcileScheduledEvents(NOW)
+    const first = await reconcileScheduledEvents(NOW, { groupId: group.id })
     const firstResult = first.find((r) => r.groupId === group.id)
     expect(firstResult?.status).toBe("created")
     if (firstResult?.status === "created") {
@@ -154,7 +174,7 @@ describe("reconcileScheduledEvents", () => {
     for (const m of messagesAfterFirst) messageIds.push(m.id)
 
     // Second run
-    const second = await reconcileScheduledEvents(NOW)
+    const second = await reconcileScheduledEvents(NOW, { groupId: group.id })
     const secondResult = second.find((r) => r.groupId === group.id)
     expect(secondResult?.status).toBe("skipped")
     expect((secondResult as { status: "skipped"; reason: string })?.reason).toBe("upcoming_exists")
@@ -170,7 +190,7 @@ describe("reconcileScheduledEvents", () => {
   it("no-rhythm group is skipped: no Event or Message created", async () => {
     const { group } = await createTestUserAndGroup(null)
 
-    const results = await reconcileScheduledEvents(NOW)
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
 
     const result = results.find((r) => r.groupId === group.id)
     expect(result).toBeDefined()
@@ -315,7 +335,7 @@ describe("reconcileScheduledEvents", () => {
     })
     eventIds.push(seeded.id)
 
-    const results = await reconcileScheduledEvents(NOW)
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
 
     const result = results.find((r) => r.groupId === group.id)
     expect(result).toBeDefined()
