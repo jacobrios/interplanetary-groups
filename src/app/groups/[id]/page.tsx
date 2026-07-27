@@ -29,6 +29,9 @@ import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
 import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
+import Link from "next/link"
+import PageHeader from "@/components/PageHeader"
+import Chevron from "@/components/Chevron"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -132,82 +135,80 @@ export default async function GroupPage({ params }: Props) {
       }}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      {/* Grammar per §7: Orbit logo top-left (home button); group title +
-          chevron opens group info (which carries the invite link).
-          Multi-group navigation is a fast-follow (§8); the logo is
-          presentational this slice. */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0.875rem 1rem",
-          borderBottom: "1px solid var(--border-subtle)",
-          flexShrink: 0,
-        }}
-      >
-        {/* Orbit logo — home button (multi-group fast-follow; presentational now) */}
-        <div
-          aria-label="Orbit"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            backgroundColor: "var(--color-lime)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.6875rem",
-            fontWeight: 700,
-            color: "#0a0a0a",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          O
-        </div>
+      {/* Grammar per §7: Orbit logo top-left is the home button; the group
+          title plus chevron opens group info (which carries the invite
+          link). The logo is a real link as of the navigation slice, now
+          that "/" exists to send it to.
 
-        {/* Group title + chevron → group info */}
-        <a
-          href={`/groups/${group.id}/info`}
+          The three children sit in their own space-between row rather than
+          PageHeader arranging them: PageHeader owns the bar's rules and
+          nothing about content, which is what keeps it from ever growing an
+          opinion about this title chevron.
+
+          Still unbuilt and owned by the visual-polish pass: Orbit's real
+          avatar (a letter-O circle stands in) and the subline reading
+          "N members · group info & invite link" drawn on screens 06 to 08. */}
+      <PageHeader>
+        <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "0.25rem",
-            textDecoration: "none",
-            color: "var(--text-primary)",
+            justifyContent: "space-between",
+            width: "100%",
           }}
         >
-          <span
+          {/* Orbit logo — the home button (multi-group home is a fast-follow) */}
+          <Link
+            href="/"
+            aria-label="Home"
             style={{
-              fontSize: "var(--type-body)",
-              fontWeight: 600,
-              lineHeight: "var(--leading-tight)",
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              backgroundColor: "var(--color-lime)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "0.6875rem",
+              fontWeight: 700,
+              color: "#0a0a0a",
+              letterSpacing: "-0.01em",
+              textDecoration: "none",
+              flexShrink: 0,
             }}
           >
-            {group.name}
-          </span>
-          {/* Chevron — design token per §7 header grammar */}
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden="true"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            <path
-              d="M5 3l4 4-4 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </a>
+            O
+          </Link>
 
-        {/* Right-side spacer to visually balance the logo */}
-        <div style={{ width: 28 }} aria-hidden="true" />
-      </header>
+          {/* Group title + chevron → group info */}
+          <Link
+            href={`/groups/${group.id}/info`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              textDecoration: "none",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "var(--type-body)",
+                fontWeight: 600,
+                lineHeight: "var(--leading-tight)",
+              }}
+            >
+              {group.name}
+            </span>
+            <span style={{ color: "var(--text-secondary)", display: "flex" }}>
+              <Chevron direction="right" />
+            </span>
+          </Link>
+
+          {/* Right-side spacer to visually balance the logo */}
+          <div style={{ width: 28, flexShrink: 0 }} aria-hidden="true" />
+        </div>
+      </PageHeader>
 
       {/* ── Pinned event cards ─────────────────────────────────────────── */}
       <div style={{ padding: "0.75rem 1rem 0", flexShrink: 0 }}>
