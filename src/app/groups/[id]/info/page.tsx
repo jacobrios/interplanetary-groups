@@ -17,6 +17,8 @@ import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import CopyInviteLink from "../CopyInviteLink"
+import PageHeader from "@/components/PageHeader"
+import BackLink from "@/components/BackLink"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -42,58 +44,13 @@ export default async function GroupInfoPage({ params }: Props) {
         fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
-      {/* Back header */}
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "0.875rem 1rem",
-          borderBottom: "1px solid var(--border-subtle)",
-          flexShrink: 0,
-        }}
-      >
-        <a
-          href={`/groups/${group.id}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.375rem",
-            textDecoration: "none",
-            color: "var(--text-secondary)",
-            fontSize: "var(--type-body)",
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M9 11l-4-4 4-4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Back
-        </a>
-        <span
-          style={{
-            flex: 1,
-            textAlign: "center",
-            fontSize: "var(--type-body)",
-            fontWeight: 600,
-            color: "var(--text-primary)",
-          }}
-        >
-          {group.name}
-        </span>
-        {/* Spacer to visually balance the back link */}
-        <div style={{ width: 40 }} aria-hidden="true" />
-      </header>
+      {/* Back to the group home (walkthrough screen 10). The design labels
+          the back link with the group's own name and centers nothing; the
+          previous hand-written header read "Back" with the name centered
+          beside it, which no design called for. */}
+      <PageHeader>
+        <BackLink href={`/groups/${group.id}`} label={group.name} />
+      </PageHeader>
 
       <div
         style={{

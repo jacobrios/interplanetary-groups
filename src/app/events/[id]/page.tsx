@@ -6,6 +6,8 @@ import { deriveRoster } from "@/lib/events/roster"
 import { formatEventDate } from "@/lib/events/format"
 import RsvpControls from "./RsvpControls"
 import RosterAvatar from "./RosterAvatar"
+import PageHeader from "@/components/PageHeader"
+import BackLink from "@/components/BackLink"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -63,26 +65,28 @@ export default async function EventPage({ params }: Props) {
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        padding: "2rem 1.5rem",
         fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
-      <div style={{ width: "100%", maxWidth: "28rem" }}>
-        {/* Group name eyebrow */}
-        <p
-          style={{
-            fontSize: "var(--type-eyebrow)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: "0.375rem",
-          }}
-        >
-          {event.group.name}
-        </p>
+      {/* Back to the group this event belongs to (walkthrough screen 09).
+          A fixed parent link, never history back: arriving here from a
+          shared link and pressing history back leaves the product. The
+          group relation is already loaded for the roster, so this costs
+          no extra query. */}
+      <PageHeader>
+        <BackLink href={`/groups/${event.group.id}`} label={event.group.name} />
+      </PageHeader>
 
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "2rem 1.5rem",
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: "28rem" }}>
         {/* Event title */}
         <h1
           style={{
@@ -162,6 +166,7 @@ export default async function EventPage({ params }: Props) {
             </p>
           )}
         </div>
+      </div>
       </div>
     </main>
   )
