@@ -70,8 +70,16 @@ export default async function JoinPage({ params }: Props) {
                   borderRadius: "50%",
                   backgroundColor: "var(--color-lime)",
                   flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.5rem",
+                  fontWeight: 700,
+                  color: "#0a0a0a",
                 }}
-              />
+              >
+                O
+              </span>
               <span
                 style={{
                   fontSize: "var(--type-eyebrow)",
