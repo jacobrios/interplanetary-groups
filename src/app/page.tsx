@@ -1,65 +1,114 @@
-import Image from "next/image";
+// src/app/page.tsx
+//
+// The front door. Session-aware rather than a static landing or a bare
+// redirect: a visitor who already belongs to a group is sent straight in, and
+// only someone with no group ever sees the copy below.
+//
+// This is the destination the rest of the navigation slice hangs off. The
+// group home's Orbit logo, the not-found screen, and the error screen all
+// point here, and it has to be correct whether or not the visitor has ever
+// used the product before.
+//
+// The several-groups case lives in resolveFrontDoor and is a placeholder for
+// the multi-group home (build-notes §8), not a designed behavior.
+//
+// No header: nothing to navigate back to, and the join screen is headerless
+// for the same reason (walkthrough screen 05).
 
-export default function Home() {
+import Link from "next/link"
+import { redirect } from "next/navigation"
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/lib/auth/current-user"
+import { resolveFrontDoor } from "@/lib/nav/front-door"
+
+export default async function HomePage() {
+  const viewer = await getCurrentUser()
+
+  const memberships = viewer
+    ? await prisma.membership.findMany({
+        where: { userId: viewer.id },
+        select: { groupId: true, joinedAt: true },
+      })
+    : []
+
+  const destination = resolveFrontDoor(memberships)
+
+  // redirect() throws to unwind the render, so it must not sit inside a
+  // try/catch. It does not here; keep it that way.
+  if (destination.kind === "group") {
+    redirect(`/groups/${destination.groupId}`)
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+    <main
+      style={{
+        minHeight: "100dvh",
+        backgroundColor: "var(--surface-page)",
+        color: "var(--text-primary)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem 1.5rem",
+        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "28rem" }}>
+        <p
+          style={{
+            fontSize: "var(--type-eyebrow)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            marginBottom: "0.75rem",
+          }}
+        >
+          Interplanetary Groups
+        </p>
+
+        <h1
+          style={{
+            fontSize: "var(--type-display)",
+            lineHeight: "var(--leading-tight)",
+            fontWeight: 700,
+            marginBottom: "0.75rem",
+          }}
+        >
+          Casual plans shouldn&apos;t need a wedding planner.
+        </h1>
+
+        <p
+          style={{
+            fontSize: "var(--type-body)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            marginBottom: "1.75rem",
+          }}
+        >
+          But the other option is &ldquo;show up if you want,&rdquo; and then
+          nobody does. Orbit picks a day, asks the group, and keeps track of
+          who&apos;s in.
+        </p>
+
+        <Link
+          href="/create"
+          style={{
+            display: "block",
+            width: "100%",
+            padding: "0.75rem 1.5rem",
+            backgroundColor: "var(--color-teal)",
+            color: "#0a0a0a",
+            fontSize: "var(--type-body)",
+            fontWeight: 600,
+            borderRadius: "0.5rem",
+            textAlign: "center",
+            textDecoration: "none",
+          }}
+        >
+          Start your group
+        </Link>
+      </div>
+    </main>
+  )
 }
