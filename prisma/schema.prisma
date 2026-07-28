@@ -10,17 +10,18 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  name           String
-  supabaseAuthId String?         @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  contactMethods ContactMethod[]
-  memberships    Membership[]
-  rsvps          Rsvp[]
-  foundedGroups  Group[]
-  messages       Message[]
-  gaugeVotes     GaugeVote[]
+  id              String            @id @default(cuid())
+  name            String
+  supabaseAuthId  String?           @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  contactMethods  ContactMethod[]
+  memberships     Membership[]
+  rsvps           Rsvp[]
+  foundedGroups   Group[]
+  messages        Message[]
+  gaugeVotes      GaugeVote[]
+  changeProposals ChangeProposal[]
 }
 
 model ContactMethod {
@@ -42,20 +43,21 @@ enum ContactMethodType {
 }
 
 model Group {
-  id                  String       @id @default(cuid())
+  id                  String             @id @default(cuid())
   name                String
   description         String? // founder's onboarding free text; source material for future gap-ask/RAG slices; nothing reads it yet
   founderId           String
-  inviteToken         String       @unique @default(cuid())
+  inviteToken         String             @unique @default(cuid())
   recurringActivities Json?
-  timeZone            String       @default("UTC")
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  founder             User         @relation(fields: [founderId], references: [id])
+  timeZone            String             @default("UTC")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  founder             User               @relation(fields: [founderId], references: [id])
   memberships         Membership[]
   events              Event[]
   messages            Message[]
   gauges              Gauge[]
+  changeProposals     ChangeProposal[]
 }
 
 model Membership {
@@ -77,6 +79,11 @@ model Event {
   startsAt      DateTime
   endsAt        DateTime?
   activityLabel String?
+  /// Where this event's start sat before its last move; null when it has never
+  /// been moved. The data home for "put it back": the model never sees feed
+  /// history, so a textual revert is unresolvable without it. Last move only,
+  /// overwritten each time; the feed itself is the full history.
+  previousStartsAt DateTime?
   /// The gauge that created this event, when it was sparked rather than
   /// scheduled. Unique, so one gauge can only ever produce one event however
   /// many times the third yes is double-tapped. Null means the schedule created
@@ -89,13 +96,20 @@ model Event {
   /// an instant with the standing one (build-notes §11, spark part two).
   /// Write-side only: rows predating this slice have none, so the cron guard
   /// reads gaugeId instead. Do not use this field to mean "is scheduled".
+  /// A time change deliberately leaves this key alone: moving an occurrence
+  /// relocates it, it does not free the slot. After a moved-earlier event
+  /// passes, the cron's attempt to recreate the original slot collides with
+  /// this key (P2002, caught as a skip) and that skip is correct behavior,
+  /// pinned by a reconcile test. Rewriting or clearing the key on a move would
+  /// make the cron recreate and announce the plan the group just moved from.
   scheduledKey  String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  group         Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  gauge         Gauge?    @relation(fields: [gaugeId], references: [id], onDelete: SetNull)
-  venues        Venue[]
-  rsvps         Rsvp[]
+  group            Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  gauge            Gauge?             @relation(fields: [gaugeId], references: [id], onDelete: SetNull)
+  venues           Venue[]
+  rsvps            Rsvp[]
+  changeProposals  ChangeProposal[]
 
   @@index([groupId])
   @@index([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
@@ -165,8 +179,10 @@ model Message {
   group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
-  gaugeAsSource Gauge? @relation("GaugeSource")
-  gaugeAsOrbit  Gauge? @relation("GaugeOrbit")
+  gaugeAsSource   Gauge?         @relation("GaugeSource")
+  gaugeAsOrbit    Gauge?         @relation("GaugeOrbit")
+  proposalAsSource ChangeProposal? @relation("ProposalSource")
+  proposalAsOrbit  ChangeProposal? @relation("ProposalOrbit")
 
   @@index([groupId])
   @@index([authorId])
@@ -249,4 +265,48 @@ enum GaugeAnswer {
   IN
   OUT
   NOT_THAT_DAY // willing, but the proposed day does not work
+}
+
+// ── Change requests: moving event times ──────────────────────────────────────
+
+/**
+ * One round of Orbit asking "did you want the plan moved?". Created when a
+ * message is probably but not clearly a time-change request: Orbit posts its
+ * best concrete reading and the asker confirms or declines with one tap.
+ *
+ * sourceMessageId unique is the whole idempotency story (the createGauge
+ * precedent): a double-fired detection collides on P2002 and is caught as a
+ * skip. orbitMessageId unique is where the chips attach in the feed.
+ *
+ * priorStartsAt is the event's start as it stood when the question was asked,
+ * and is the staleness baseline: chips render only while the event still
+ * starts there, and the confirm re-checks it inside the move transaction, so
+ * a confirm can never move the event from a time the asker was never shown.
+ */
+model ChangeProposal {
+  id               String          @id @default(cuid())
+  groupId          String
+  eventId          String
+  askerUserId      String
+  sourceMessageId  String          @unique
+  orbitMessageId   String          @unique
+  proposedStartsAt DateTime
+  priorStartsAt    DateTime
+  answer           ProposalAnswer?
+  answeredAt       DateTime?
+  createdAt        DateTime        @default(now())
+
+  group         Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  event         Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  asker         User    @relation(fields: [askerUserId], references: [id], onDelete: Cascade)
+  sourceMessage Message @relation("ProposalSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  orbitMessage  Message @relation("ProposalOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([eventId])
+}
+
+enum ProposalAnswer {
+  CONFIRMED
+  DECLINED
 }
