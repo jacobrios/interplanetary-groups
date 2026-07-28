@@ -161,6 +161,8 @@ These are the places where training-data conventions are actively wrong about th
 
 This is the one rule in this file where a mistake is unrecoverable, so it stands on its own. Production and `interplanetary-groups-dev-test` are separate Supabase projects with separate credentials. Never point a production build, migration, or seed script at the dev/test database, and never the reverse. If a task seems to require it, stop and ask.
 
+**How to check which database a checkout points at: `npm run db:which`.** It prints only the Supabase project ref (no URLs, passwords, or keys) and exits nonzero unless all three env sources agree on the dev-test ref, `pxbewardwvoyqqcvogel`. Run it before any migration or seed. Do not read `.env` directly to answer this question; the global sensitive-read guard blocks that on purpose, because the answer sits in the same file as the credentials, and this script is the sanctioned path.
+
 ---
 
 ## Out of scope for MVP (don't build, don't design around)
