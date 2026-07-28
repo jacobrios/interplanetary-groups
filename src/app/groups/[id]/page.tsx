@@ -24,11 +24,14 @@ import { findUpcomingEvents } from "@/lib/events/upcoming-list"
 import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { buildTallyLine, chipLabels } from "@/lib/orbit/spark-copy"
+import { findLiveProposals } from "@/lib/proposals/read"
+import { changeChipLabels } from "@/lib/orbit/change-copy"
 import EventCarousel from "./EventCarousel"
 import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
 import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
+import type { FeedProposal } from "./ProposalChips"
 import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
 import Chevron from "@/components/Chevron"
@@ -112,6 +115,18 @@ export default async function GroupPage({ params }: Props) {
       viewerAnswer: g.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
     }
   })
+
+  // ── Live change questions ────────────────────────────────────────────────
+  // Composed for the asker alone: the question clarifies one person's intent,
+  // so only they get chips. Everyone else sees Orbit's question as history.
+  const liveProposals = viewer ? await findLiveProposals(group.id, new Date()) : []
+  const proposals: FeedProposal[] = liveProposals
+    .filter((p) => p.askerUserId === viewer!.id)
+    .map((p) => ({
+      id: p.id,
+      orbitMessageId: p.orbitMessageId,
+      labels: changeChipLabels(),
+    }))
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
@@ -261,6 +276,7 @@ export default async function GroupPage({ params }: Props) {
           viewerId={viewer?.id ?? null}
           viewerName={viewer?.name ?? null}
           gauges={gauges}
+          proposals={proposals}
         />
       </div>
     </div>

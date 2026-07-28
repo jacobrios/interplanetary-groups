@@ -29,6 +29,7 @@ import { detectIntentAction } from "@/app/actions/detect-intent"
 import { MessageAuthor } from "@prisma/client"
 import MessageFeed, { type FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
+import type { FeedProposal } from "./ProposalChips"
 import ChatInput from "./ChatInput"
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
   viewerId: string | null
   viewerName: string | null
   gauges: FeedGauge[]
+  proposals: FeedProposal[]
 }
 
 export default function GroupHome({
@@ -45,6 +47,7 @@ export default function GroupHome({
   viewerId,
   viewerName,
   gauges,
+  proposals,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -121,7 +124,12 @@ export default function GroupHome({
       }}
     >
       {/* Scrollable feed */}
-      <MessageFeed messages={optimisticMessages} viewerId={viewerId} gauges={gauges} />
+      <MessageFeed
+        messages={optimisticMessages}
+        viewerId={viewerId}
+        gauges={gauges}
+        proposals={proposals}
+      />
 
       {/* Pinned input — only for authenticated members */}
       {canPost && (

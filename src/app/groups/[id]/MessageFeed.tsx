@@ -18,6 +18,7 @@
 import { MessageAuthor } from "@prisma/client"
 import { useRef, useEffect } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
+import ProposalChips, { type FeedProposal } from "./ProposalChips"
 
 export interface FeedMessage {
   id: string
@@ -39,10 +40,17 @@ interface Props {
    * history with no chips: no pinning, no banner, no residue.
    */
   gauges?: FeedGauge[]
+  /**
+   * Live change questions, keyed to the Orbit message each one renders under.
+   * Composed for the asker alone (the page filters by askerUserId), so a
+   * proposal appearing here already means this viewer is the one to answer.
+   */
+  proposals?: FeedProposal[]
 }
 
-export default function MessageFeed({ messages, viewerId, gauges = [] }: Props) {
+export default function MessageFeed({ messages, viewerId, gauges = [], proposals = [] }: Props) {
   const gaugeByMessageId = new Map(gauges.map((g) => [g.orbitMessageId, g]))
+  const proposalByMessageId = new Map(proposals.map((p) => [p.orbitMessageId, p]))
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Scroll to the bottom sentinel on mount (so the feed opens at the most
@@ -96,6 +104,7 @@ export default function MessageFeed({ messages, viewerId, gauges = [] }: Props) 
         const isOrbit = msg.authorType === MessageAuthor.ORBIT
         const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
         const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
+        const proposal = isOrbit ? proposalByMessageId.get(msg.id) : undefined
 
         return (
           <div
@@ -156,6 +165,11 @@ export default function MessageFeed({ messages, viewerId, gauges = [] }: Props) 
                 {/* The three answers, indented under the bubble. Only a viewer
                     with a session can answer, matching the RSVP control. */}
                 {gauge && viewerId !== null && <GaugeChips gauge={gauge} />}
+
+                {/* The asker's one-tap answer to Orbit's change question. The
+                    page only composes a proposal DTO for its asker, so
+                    rendering it here is already asker-only. */}
+                {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
               </div>
             )}
 
