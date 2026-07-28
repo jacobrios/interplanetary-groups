@@ -14,9 +14,7 @@
 import { formatMonthDay, formatTime, formatWeekdayShort } from "@/lib/events/format"
 import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
 import { formatTimeLocalLabel, startOfLocalDay, THIS_WEEK_DAYS } from "./spark-copy"
-
-// Temporary type definition; Task 4 will move this to spark.ts and flip this to a type-only import.
-export type ChangeField = "time" | "day" | "venue" | "other"
+import type { ChangeField } from "./spark"
 
 export interface ResolvedChangeTime {
   timeLocal: string

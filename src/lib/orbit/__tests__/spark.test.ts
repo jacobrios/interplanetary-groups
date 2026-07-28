@@ -13,7 +13,7 @@ vi.mock("../extract", async (importOriginal) => ({
 }))
 
 import { callExtractionModel } from "../extract"
-import { normalizeSpark, detectSparkClaim, SPARK_SCHEMA } from "../spark"
+import { normalizeSpark, detectSparkClaim, SPARK_SCHEMA, normalizeIntent } from "../spark"
 import {
   chooseProposedDate,
   isGaugeLive,
@@ -415,5 +415,90 @@ describe("buildTallyLine", () => {
     expect(buildTallyLine([inVote("u1"), inVote("ghost")], names)).toBe(
       "Jesse is in so far"
     )
+  })
+})
+
+describe("normalizeIntent", () => {
+  const changeClaim = {
+    isSpark: false,
+    activity: null,
+    statedDayOfWeek: null,
+    statedTime: null,
+    timeAmbiguous: false,
+    partOfDay: null,
+    isChangeRequest: true,
+    targetEventNumber: 1,
+    requestedTime: "21:00",
+    requestedTimeAmbiguous: true,
+    requestedFields: ["time"],
+    intentClear: true,
+  }
+
+  it("passes a valid change claim through", () => {
+    const r = normalizeIntent(changeClaim, 2)
+    expect(r).toEqual({
+      kind: "change",
+      change: {
+        targetEventIndex: 0,
+        requestedTime: "21:00",
+        requestedTimeAmbiguous: true,
+        requestedFields: ["time"],
+        intentClear: true,
+      },
+    })
+  })
+
+  it("delegates a spark claim to normalizeSpark", () => {
+    const r = normalizeIntent(
+      { ...changeClaim, isSpark: true, isChangeRequest: false, activity: "beers" },
+      1
+    )
+    expect(r.kind).toBe("spark")
+    if (r.kind === "spark") expect(r.spark.activity).toBe("beers")
+  })
+
+  it("treats a claim of both spark and change as none", () => {
+    expect(normalizeIntent({ ...changeClaim, isSpark: true, activity: "beers" }, 1)).toEqual({
+      kind: "none",
+    })
+  })
+
+  it("bounds-checks the target: out of range degrades to null, not to a wrong event", () => {
+    const r = normalizeIntent({ ...changeClaim, targetEventNumber: 3 }, 2)
+    if (r.kind !== "change") throw new Error("expected change")
+    expect(r.change.targetEventIndex).toBe(null)
+  })
+
+  it("rejects a malformed time and a lone ambiguity flag", () => {
+    const r = normalizeIntent(
+      { ...changeClaim, requestedTime: "9pm", requestedTimeAmbiguous: true },
+      1
+    )
+    if (r.kind !== "change") throw new Error("expected change")
+    expect(r.change.requestedTime).toBe(null)
+    expect(r.change.requestedTimeAmbiguous).toBe(false)
+  })
+
+  it("drops unknown fields and dedupes; an empty field list is not a change request", () => {
+    const r = normalizeIntent(
+      { ...changeClaim, requestedFields: ["time", "time", "weather"] },
+      1
+    )
+    if (r.kind !== "change") throw new Error("expected change")
+    expect(r.change.requestedFields).toEqual(["time"])
+    expect(normalizeIntent({ ...changeClaim, requestedFields: [] }, 1)).toEqual({ kind: "none" })
+    expect(normalizeIntent({ ...changeClaim, requestedFields: "time" }, 1)).toEqual({ kind: "none" })
+  })
+
+  it("anything but explicit true intentClear is unclear", () => {
+    const r = normalizeIntent({ ...changeClaim, intentClear: "yes" }, 1)
+    if (r.kind !== "change") throw new Error("expected change")
+    expect(r.change.intentClear).toBe(false)
+  })
+
+  it("non-objects and plain chatter are none", () => {
+    expect(normalizeIntent(null, 1)).toEqual({ kind: "none" })
+    expect(normalizeIntent([], 1)).toEqual({ kind: "none" })
+    expect(normalizeIntent({ ...changeClaim, isChangeRequest: false }, 1)).toEqual({ kind: "none" })
   })
 })
