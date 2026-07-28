@@ -25,7 +25,7 @@
 
 import { useOptimistic, useTransition, useState } from "react"
 import { sendMessageAction } from "@/app/actions/send-message"
-import { detectSparkAction } from "@/app/actions/detect-spark"
+import { detectIntentAction } from "@/app/actions/detect-intent"
 import { MessageAuthor } from "@prisma/client"
 import MessageFeed, { type FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
@@ -103,7 +103,7 @@ export default function GroupHome({
           // The action is soft on the server; this catch covers the trip
           // itself. Going offline in the beat after sending must leave the
           // message standing, not surface an error boundary.
-          await detectSparkAction(messageId).catch(() => {})
+          await detectIntentAction(messageId).catch(() => {})
         })
       }
     })

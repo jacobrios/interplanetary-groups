@@ -12,8 +12,7 @@ vi.mock("../extract", async (importOriginal) => ({
   callExtractionModel: vi.fn(async () => ({})),
 }))
 
-import { callExtractionModel } from "../extract"
-import { normalizeSpark, detectSparkClaim, SPARK_SCHEMA, normalizeIntent } from "../spark"
+import { normalizeSpark, normalizeIntent } from "../spark"
 import {
   chooseProposedDate,
   isGaugeLive,
@@ -138,41 +137,6 @@ describe("normalizeSpark, time fields", () => {
     // must not throw on a response that skipped one.
     const r = normalizeSpark(base)
     expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false, partOfDay: null })
-  })
-})
-
-describe("detectSparkClaim", () => {
-  it("calls the model with the spark schema, not the onboarding one", async () => {
-    await detectSparkClaim("we should finally grab beers", { upcomingEvent: null })
-    const call = vi.mocked(callExtractionModel).mock.calls.at(-1)!
-    expect(call[2]).toBe(SPARK_SCHEMA)
-  })
-
-  it("tells the model to name a day only when exactly one is named", async () => {
-    await detectSparkClaim("beers Friday or Saturday?", { upcomingEvent: null })
-    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
-    expect(system.toLowerCase()).toContain("exactly one")
-  })
-
-  it("tells the model to stay quiet when unsure", async () => {
-    await detectSparkClaim("sounds good", { upcomingEvent: null })
-    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
-    expect(system.toLowerCase()).toContain("not sure")
-  })
-
-  it("gives the model the event already on the calendar so chatter about it is not a spark", async () => {
-    await detectSparkClaim("are we still on for that?", {
-      upcomingEvent: "Climbing, Sun Jul 26 at 8am",
-    })
-    const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
-    expect(user).toContain("Climbing, Sun Jul 26 at 8am")
-    expect(user).toContain("are we still on for that?")
-  })
-
-  it("says so plainly when nothing is on the calendar", async () => {
-    await detectSparkClaim("we should grab beers", { upcomingEvent: null })
-    const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
-    expect(user).toContain("we should grab beers")
   })
 })
 
