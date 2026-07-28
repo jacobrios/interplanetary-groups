@@ -401,4 +401,47 @@ describe("reconcileScheduledEvents", () => {
     ).toBe(1)
     expect(await prisma.event.count({ where: { groupId: group.id } })).toBe(2)
   })
+
+  describe("a moved occurrence relocates its slot rather than freeing it", () => {
+    it("skips recreating the original slot after a moved-earlier event has passed, then heals the following week", async () => {
+      const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+      // Cron creates Sunday 08:00 with its scheduledKey.
+      const first = await reconcileScheduledEvents(NOW, { groupId: group.id })
+      expect(first[0].status).toBe("created")
+      const event = await prisma.event.findFirst({ where: { groupId: group.id } })
+      if (!event) throw new Error("expected the scheduled event")
+      eventIds.push(event.id)
+
+      // The group moves it a day earlier (Saturday 08:00). Key untouched: a
+      // move relocates the occurrence, it does not free the slot.
+      const movedTo = new Date(EXPECTED_STARTS_AT.getTime() - 24 * 60 * 60 * 1000)
+      await prisma.event.update({
+        where: { id: event.id },
+        data: { startsAt: movedTo, previousStartsAt: event.startsAt },
+      })
+
+      // Saturday has passed, Sunday 08:00 has not. The cron computes the next
+      // occurrence (Sunday 08:00), collides with the stale key, and skips.
+      // That skip is the product behavior: this occurrence already happened,
+      // on its moved time.
+      const betweenNow = new Date(movedTo.getTime() + 2 * 60 * 60 * 1000)
+      const second = await reconcileScheduledEvents(betweenNow, { groupId: group.id })
+      expect(second[0]).toEqual({ groupId: group.id, status: "skipped", reason: "duplicate" })
+
+      // The following week heals itself: a fresh slot, a fresh key.
+      const afterSunday = new Date(EXPECTED_STARTS_AT.getTime() + 60 * 60 * 1000)
+      const third = await reconcileScheduledEvents(afterSunday, { groupId: group.id })
+      expect(third[0].status).toBe("created")
+      const events = await prisma.event.findMany({ where: { groupId: group.id } })
+      for (const e of events) if (!eventIds.includes(e.id)) eventIds.push(e.id)
+      const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+      for (const m of messages) if (!messageIds.includes(m.id)) messageIds.push(m.id)
+      expect(events).toHaveLength(2)
+      const nextWeek = new Date(EXPECTED_STARTS_AT.getTime() + 7 * 24 * 60 * 60 * 1000)
+      expect(events.map((e) => e.startsAt.getTime()).sort()).toEqual(
+        [movedTo.getTime(), nextWeek.getTime()].sort()
+      )
+    })
+  })
 })

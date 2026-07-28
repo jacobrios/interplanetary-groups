@@ -222,7 +222,7 @@ export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): bo
 const CHIP_IN_EMOJI = "✋"
 
 /** Beyond this the proposed day is no longer "this <weekday>" and gets its date. */
-const THIS_WEEK_DAYS = 7
+export const THIS_WEEK_DAYS = 7
 
 export interface GaugeVoteLike {
   userId: string
@@ -380,7 +380,7 @@ export function buildSparkAnnouncement(
 }
 
 /** The group-local midnight that starts the day `instant` falls in. */
-function startOfLocalDay(instant: Date, timeZone: string): Date {
+export function startOfLocalDay(instant: Date, timeZone: string): Date {
   const p = getLocalParts(instant, timeZone)
   return zonedWallTimeToUtc(p.year, p.month, p.day, 0, 0, timeZone)
 }
