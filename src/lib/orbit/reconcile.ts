@@ -116,7 +116,12 @@ export async function reconcileScheduledEvents(
       // Step f: record success
       results.push({ groupId, status: "created", eventId: event.id })
     } catch (err) {
-      // Step g: Prisma unique-constraint violation (the unique scheduledKey)
+      // Step g: Prisma unique-constraint violation (the unique scheduledKey).
+      // Also the deliberate landing spot for a moved occurrence: a time change
+      // leaves the key alone, so after a moved-earlier event passes, the
+      // attempt to recreate its original slot lands here and skips. Relocate,
+      // not free (see the scheduledKey schema comment and the reconcile test
+      // pinning this).
       if ((err as { code?: string }).code === "P2002") {
         results.push({ groupId, status: "skipped", reason: "duplicate" })
         continue
