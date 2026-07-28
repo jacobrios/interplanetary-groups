@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { moveEventTime } from "@/lib/events/move"
-import { buildChangeAnnouncement, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
+import { buildChangeAnnouncement, PAST_TIME_REPLY, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
 import { ProposalAnswer } from "@prisma/client"
 
 export interface ProposalAnswerState {
@@ -76,6 +76,9 @@ export async function proposalAnswerAction(
     } else {
       if (proposal.event.startsAt.getTime() <= now.getTime()) {
         return { errors: { general: "That plan has already started." } }
+      }
+      if (proposal.proposedStartsAt.getTime() <= now.getTime()) {
+        return { errors: { general: PAST_TIME_REPLY } }
       }
       const label =
         proposal.event.activityLabel ?? proposal.event.title.toLowerCase()

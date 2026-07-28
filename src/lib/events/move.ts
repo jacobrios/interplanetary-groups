@@ -61,10 +61,17 @@ export async function moveEventTime({
       return { status: "skipped", reason: "noop" } as const
     }
 
-    await tx.event.update({
-      where: { id: eventId },
+    // The pre-read above is a fast path, not the guard: at READ COMMITTED two
+    // concurrent calls can both pass it and both try to write. The real stale
+    // guard is this conditional write, which only succeeds if startsAt still
+    // matches what was just read; a concurrent mover would have already
+    // changed it, so this one loses the race and reports stale honestly
+    // instead of overwriting the other mover's result.
+    const updated = await tx.event.updateMany({
+      where: { id: eventId, startsAt: expectedStartsAt },
       data: { startsAt: newStartsAt, previousStartsAt: event.startsAt },
     })
+    if (updated.count === 0) return { status: "skipped", reason: "stale" } as const
 
     await tx.rsvp.deleteMany({ where: { eventId } })
     await tx.rsvp.create({

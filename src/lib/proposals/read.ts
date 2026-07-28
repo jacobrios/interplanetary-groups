@@ -22,6 +22,10 @@ export async function findLiveProposals(
       groupId,
       answer: null,
       event: { startsAt: { gt: now } },
+      // A proposal whose proposed time has itself passed is no longer
+      // answerable: confirming it would move the plan into the past, so its
+      // chips stop rendering here rather than depending on the action guard.
+      proposedStartsAt: { gt: now },
     },
     include: { event: true },
     orderBy: { createdAt: "asc" },

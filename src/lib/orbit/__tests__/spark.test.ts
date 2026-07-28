@@ -12,7 +12,8 @@ vi.mock("../extract", async (importOriginal) => ({
   callExtractionModel: vi.fn(async () => ({})),
 }))
 
-import { normalizeSpark, normalizeIntent } from "../spark"
+import { callExtractionModel } from "../extract"
+import { normalizeSpark, normalizeIntent, detectIntentClaim, INTENT_SCHEMA } from "../spark"
 import {
   chooseProposedDate,
   isGaugeLive,
@@ -137,6 +138,46 @@ describe("normalizeSpark, time fields", () => {
     // must not throw on a response that skipped one.
     const r = normalizeSpark(base)
     expect(r).toMatchObject({ spark: true, statedTime: null, timeAmbiguous: false, partOfDay: null })
+  })
+})
+
+describe("detectIntentClaim", () => {
+  it("calls the model with the intent schema", async () => {
+    await detectIntentClaim("we should finally grab beers", { upcomingLines: [] })
+    const call = vi.mocked(callExtractionModel).mock.calls.at(-1)!
+    expect(call[2]).toBe(INTENT_SCHEMA)
+  })
+
+  it("tells the model to name a day only when exactly one is named", async () => {
+    await detectIntentClaim("beers Friday or Saturday?", { upcomingLines: [] })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system.toLowerCase()).toContain("exactly one")
+  })
+
+  it("tells the model to stay quiet when unsure", async () => {
+    await detectIntentClaim("sounds good", { upcomingLines: [] })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system.toLowerCase()).toContain("not sure")
+  })
+
+  it("gives the model the message body", async () => {
+    await detectIntentClaim("are we still on for that?", { upcomingLines: [] })
+    const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(user).toContain("are we still on for that?")
+  })
+
+  it("gives the model the numbered calendar lines when there are any", async () => {
+    await detectIntentClaim("can we do 9 instead?", {
+      upcomingLines: ["1. Climbing, Sun Jul 26 at 8am"],
+    })
+    const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(user).toContain("1. Climbing, Sun Jul 26 at 8am")
+  })
+
+  it("says so plainly when nothing is on the calendar", async () => {
+    await detectIntentClaim("we should grab beers", { upcomingLines: [] })
+    const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(user).toContain("This group has nothing on its calendar right now.")
   })
 })
 

@@ -120,4 +120,16 @@ describe("findLiveProposals", () => {
     const afterStart = new Date("2099-06-14T09:00:00Z")
     expect(await findLiveProposals(groupId!, afterStart)).toHaveLength(0)
   })
+
+  it("a proposal whose proposed time has already passed is not live", async () => {
+    // The event itself is still upcoming (08:00 > 06:00 "now"), but the time
+    // this proposal asked to move to (05:00) is behind "now": confirming it
+    // would move the plan into the past, so it must stop being answerable.
+    await createChangeProposal({
+      ...input(),
+      proposedStartsAt: new Date("2099-06-14T05:00:00Z"),
+    })
+    const now = new Date("2099-06-14T06:00:00Z")
+    expect(await findLiveProposals(groupId!, now)).toHaveLength(0)
+  })
 })
