@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:which": "tsx scripts/db-which.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",
