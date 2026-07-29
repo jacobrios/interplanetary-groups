@@ -36,6 +36,8 @@ Settled and not open, carried forward: the three-person threshold; below-thresho
 
 **Queued from the recognition sweep: the both-true claim.** A message the model reads as both a fresh idea and a request to change an existing plan is discarded whole, so a two-part ask gets nothing back. Its own slice by the owner's call (29 July), because fixing it means deciding which half wins rather than deleting a guard, and the bench cannot see it yet. Open questions in build-notes §11.
 
+**Written as a guardrail, not built: verbal RSVP.** The "act on clear intent" bullet below says "see you Monday" in chat is an RSVP signal to act on. Nothing implements it. The classifier answers two questions about a message (fresh idea, change to a plan) and there is no third about attendance, so a member saying "yep, works for me" leaves the card reading TBD. Correct for today's build, and a candidate slice; found in the 29 July QA (build-notes §11).
+
 **Still missing, and known:** A wrong venue guess still has no path to being fixed; Orbit's correction path covers time only, and venue, day, and rhythm changes each get an honest decline rather than an edit, until each gets its own slice. The multi-card carousel shipped as an interim treatment with no active dot, pending a real design handoff. The group home's designed subline ("8 members · group info & invite link") was never built, and Orbit's avatar is still a letter-"O" placeholder rather than its real face everywhere it appears; both are drawn in the mockups and both belong to the end-of-build visual-polish pass. A session belonging to several groups is sent to its most recent one, a placeholder holding a seat for the multi-group home.
 
 ---
