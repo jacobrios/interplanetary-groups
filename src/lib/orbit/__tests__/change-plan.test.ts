@@ -110,6 +110,22 @@ describe("the rewritten ladder: never silent on a direct ask", () => {
     expect(plan).toEqual({ action: "reply", body: "Happy to move climbing. What time were you thinking?" })
   })
 
+  it("asks which plan when a change request names nothing at all", () => {
+    // The shape normalize now lets through: no target, no time, no field.
+    const plan = planChange(
+      change({ targetEventIndex: null, requestedTime: null, requestedFields: [] }),
+      null,
+      both,
+      "Sam",
+      4,
+      TZ,
+      now
+    )
+    expect(plan.action).toBe("reply")
+    if (plan.action !== "reply") throw new Error("unreachable")
+    expect(plan.body).toContain("Which plan")
+  })
+
   it("same-time request gets the honest one-liner, not silence", () => {
     const plan = planChange(change({ requestedTime: "08:00" }), climbing, both, "Sam", 5, TZ, now)
     expect(plan.action).toBe("reply")

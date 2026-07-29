@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:which": "tsx scripts/db-which.ts"
+    "db:which": "tsx scripts/db-which.ts",
+    "eval:detect": "tsx scripts/eval-detect.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",

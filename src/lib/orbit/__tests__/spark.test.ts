@@ -162,7 +162,7 @@ describe("detectIntentClaim", () => {
     expect(system.toLowerCase()).toContain("exactly one")
   })
 
-  it("tells the model to stay quiet when unsure", async () => {
+  it("tells the model to stay quiet when unsure anything is being asked", async () => {
     await detectIntentClaim("sounds good", {
       upcomingLines: [],
       conversationBlock: "",
@@ -170,6 +170,20 @@ describe("detectIntentClaim", () => {
     })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("not sure")
+  })
+
+  it("tells the model an incomplete ask is still an ask", async () => {
+    // The other half of the split. Unsure whether anyone is asking for
+    // anything stays quiet, above; unsure only what they meant, once they
+    // have plainly asked for a plan to change, must not.
+    await detectIntentClaim("can we move it?", {
+      upcomingLines: ["1. Climbing, Sun, Jul 26 · 8am"],
+      conversationBlock: "Right now it is Sat Jul 25, 9am (group time).",
+      openProposalLines: [],
+    })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system).toContain("an incomplete ask is still an ask")
+    expect(system).not.toContain("Missing something real costs nothing")
   })
 
   it("gives the model the message body", async () => {
@@ -534,15 +548,47 @@ describe("normalizeIntent", () => {
     expect(r.change.requestedTimeAmbiguous).toBe(false)
   })
 
-  it("drops unknown fields and dedupes; an empty field list is not a change request", () => {
+  it("drops unknown fields and dedupes; an unusable field list degrades to empty", () => {
     const r = normalizeIntent(
       { ...changeClaim, requestedFields: ["time", "time", "weather"] },
       1
     )
     if (r.kind !== "change") throw new Error("expected change")
     expect(r.change.requestedFields).toEqual(["time"])
-    expect(normalizeIntent({ ...changeClaim, requestedFields: [] }, 1)).toEqual({ kind: "none" })
-    expect(normalizeIntent({ ...changeClaim, requestedFields: "time" }, 1)).toEqual({ kind: "none" })
+    // Both of these used to be rejected outright as "not a change request".
+    // They now reach the ladder with nothing named, which is the shape the
+    // ladder answers with a question rather than silence.
+    for (const unusable of [[], "time"]) {
+      const degraded = normalizeIntent({ ...changeClaim, requestedFields: unusable }, 1)
+      if (degraded.kind !== "change") throw new Error("expected change")
+      expect(degraded.change.requestedFields).toEqual([])
+    }
+  })
+
+  it("keeps a change request that names nothing to change", () => {
+    // "can we move it?" names no plan, no time, and no field. The reply ladder
+    // answers exactly this shape with a question, so normalize must not
+    // convert it to silence before the ladder ever sees it.
+    const r = normalizeIntent(
+      {
+        ...changeClaim,
+        targetEventNumber: null,
+        requestedTime: null,
+        requestedTimeAmbiguous: false,
+        requestedFields: [],
+      },
+      2
+    )
+    expect(r).toEqual({
+      kind: "change",
+      change: {
+        targetEventIndex: null,
+        requestedTime: null,
+        requestedTimeAmbiguous: false,
+        requestedFields: [],
+        intentClear: true,
+      },
+    })
   })
 
   it("anything but explicit true intentClear is unclear", () => {
