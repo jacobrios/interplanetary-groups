@@ -7,6 +7,14 @@ import {
   changeStartInstant,
   PAST_TIME_REPLY,
   resolveChangeTime,
+  buildGroupProposalQuestion,
+  buildConsensusAnnouncement,
+  proposalChipLabels,
+  buildProposalTallyLine,
+  buildWhichPlanQuestion,
+  buildWhichTimeQuestion,
+  buildAlreadyAtReply,
+  NO_PLANS_REPLY,
 } from "../change-copy"
 
 // Fixtures in UTC so wall time and instant read the same in assertions.
@@ -143,5 +151,71 @@ describe("copy composers", () => {
   it("fixed strings and chip labels", () => {
     expect(PAST_TIME_REPLY).toBe("That time has already passed, so I'm leaving the plan alone.")
     expect(changeChipLabels()).toEqual({ confirm: "Yes, move it", decline: "Leave it" })
+  })
+})
+
+describe("group proposal copy", () => {
+  const TZ = "America/Chicago"
+  const now = new Date("2026-07-26T15:00:00Z")
+  const oldStart = new Date("2026-07-28T13:00:00Z") // Tue 8:00am
+  const newStart = new Date("2026-07-28T14:00:00Z") // Tue 9:00am
+
+  it("the question names the asker, both times, and asks the group", () => {
+    const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now, null)
+    expect(q).toBe("Sam wants climbing this Tue at 9am instead of 8am. Works for you?")
+  })
+
+  it("the disclosure rides the question once", () => {
+    const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now,
+      "You said 9, and since this plan was in the morning I took that as 9am.")
+    expect(q).toContain("Works for you? You said 9,")
+  })
+
+  it("the announcement never assumes a count and owns the seeding out loud", () => {
+    const a = buildConsensusAnnouncement("climbing", newStart, oldStart, TZ, now)
+    expect(a).toBe(
+      "That settles it. Climbing this Tue is moving to 9am, it was 8am. I marked everyone who said yes as in; the rest of you, answer again up top. Want it back at 8am? Say the word."
+    )
+    expect(a).not.toMatch(/three|Three|3/)
+  })
+
+  it("chips are soft on both sides", () => {
+    expect(proposalChipLabels(newStart, oldStart, TZ)).toEqual({
+      yes: "9am works",
+      keep: "Keep 8am",
+    })
+  })
+
+  it("tally: names for yeses, count for keeps, countdown only when told", () => {
+    expect(buildProposalTallyLine([], 0, false)).toBe("")
+    expect(buildProposalTallyLine(["Sam"], 0, false)).toBe("Sam says yes")
+    expect(buildProposalTallyLine(["Sam", "Priya"], 1, false)).toBe(
+      "Sam & Priya say yes · 1 would keep it"
+    )
+    expect(buildProposalTallyLine(["Sam", "Priya"], 0, true)).toBe(
+      "Sam & Priya say yes · one more makes it happen"
+    )
+  })
+
+  it("verify questions are concrete about what they know", () => {
+    expect(buildWhichPlanQuestion(["climbing", "beers"])).toBe(
+      "I can move a time. Which plan do you mean, climbing or beers?"
+    )
+    expect(buildWhichTimeQuestion("beers")).toBe(
+      "Happy to move beers. What time were you thinking?"
+    )
+  })
+
+  it("already-at and no-plans replies", () => {
+    expect(buildAlreadyAtReply("climbing", oldStart, TZ, now)).toBe(
+      "Good news, climbing this Tue is already at 8am."
+    )
+    expect(NO_PLANS_REPLY).toBe("I don't see any plans on the calendar right now.")
+  })
+
+  it("the targetless decline drops the weekday clause", () => {
+    expect(buildCantDoReply(["day"], null, TZ)).toBe(
+      "I can't move it to another day yet. I can change the time if that helps."
+    )
   })
 })

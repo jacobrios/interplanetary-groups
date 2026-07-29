@@ -89,6 +89,11 @@ function whenPhrase(startsAt: Date, timeZone: string, now: Date): string {
     : `this ${weekday}`
 }
 
+/** Capitalize the first letter of a label. */
+function cap(label: string): string {
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
 /**
  * What Orbit says the moment a plan's time moves. Names both times so the feed
  * carries its own history (the original announcement is never edited), owns the
@@ -103,10 +108,9 @@ export function buildChangeAnnouncement(
   now: Date,
   disclosure: string | null
 ): string {
-  const lead = label.charAt(0).toUpperCase() + label.slice(1)
   const oldTime = formatTime(previousStartsAt, timeZone)
   const disclosureClause = disclosure ? ` ${disclosure}` : ""
-  return `Done. ${lead} ${whenPhrase(newStartsAt, timeZone, now)} is moving to ${formatTime(newStartsAt, timeZone)}, it was ${oldTime}.${disclosureClause} Since the time changed, I cleared everyone's RSVPs, so answer again up top. Want it back at ${oldTime}? Say the word.`
+  return `Done. ${cap(label)} ${whenPhrase(newStartsAt, timeZone, now)} is moving to ${formatTime(newStartsAt, timeZone)}, it was ${oldTime}.${disclosureClause} Since the time changed, I cleared everyone's RSVPs, so answer again up top. Want it back at ${oldTime}? Say the word.`
 }
 
 /**
@@ -134,11 +138,13 @@ export function buildChangeQuestion(
  */
 export function buildCantDoReply(
   fields: ChangeField[],
-  eventStartsAt: Date,
+  eventStartsAt: Date | null,
   timeZone: string
 ): string {
   if (fields.includes("day")) {
-    return `I can't move it to another day yet. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
+    return eventStartsAt
+      ? `I can't move it to another day yet. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
+      : `I can't move it to another day yet. I can change the time if that helps.`
   }
   if (fields.includes("venue")) {
     return `I can't change the spot yet, that's coming. I can move the time if that helps.`
@@ -161,3 +167,103 @@ export interface ChangeChipLabels {
 export function changeChipLabels(): ChangeChipLabels {
   return { confirm: "Yes, move it", decline: "Leave it" }
 }
+
+/**
+ * The group proposal question: what the asker wants, both times, and asks the group.
+ * The disclosure rides the question when a bare hour was inherited from the plan's part of day.
+ */
+export function buildGroupProposalQuestion(
+  askerName: string,
+  label: string,
+  proposedStartsAt: Date,
+  priorStartsAt: Date,
+  timeZone: string,
+  now: Date,
+  disclosure: string | null
+): string {
+  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Works for you?`
+  return disclosure ? `${q} ${disclosure}` : q
+}
+
+/**
+ * The consensus announcement: what Orbit is doing, owns the seeding out loud,
+ * and invites a revert. Never assumes a count, since this is the closure on
+ * a time-change proposal, not a status update.
+ */
+export function buildConsensusAnnouncement(
+  label: string,
+  newStartsAt: Date,
+  oldStartsAt: Date,
+  timeZone: string,
+  now: Date
+): string {
+  const oldTime = formatTime(oldStartsAt, timeZone)
+  return `That settles it. ${cap(label)} ${whenPhrase(newStartsAt, timeZone, now)} is moving to ${formatTime(newStartsAt, timeZone)}, it was ${oldTime}. I marked everyone who said yes as in; the rest of you, answer again up top. Want it back at ${oldTime}? Say the word.`
+}
+
+/**
+ * Chip labels for a consensus proposal: soft on both sides, mirroring the change request chips.
+ */
+export function proposalChipLabels(
+  proposedStartsAt: Date,
+  priorStartsAt: Date,
+  timeZone: string
+): { yes: string; keep: string } {
+  return {
+    yes: `${formatTime(proposedStartsAt, timeZone)} works`,
+    keep: `Keep ${formatTime(priorStartsAt, timeZone)}`,
+  }
+}
+
+/**
+ * The tally line for a consensus proposal: names for yeses, count for keeps,
+ * countdown only when one more vote would settle it. Empty until someone votes.
+ */
+export function buildProposalTallyLine(
+  yesNames: string[],
+  keepCount: number,
+  oneMore: boolean
+): string {
+  if (yesNames.length === 0 && keepCount === 0) return ""
+  const parts: string[] = []
+  if (yesNames.length === 1) parts.push(`${yesNames[0]} says yes`)
+  else if (yesNames.length > 1)
+    parts.push(`${yesNames.slice(0, -1).join(", ")} & ${yesNames.at(-1)} say yes`)
+  if (keepCount > 0) parts.push(`${keepCount} would keep it`)
+  if (oneMore) parts.push("one more makes it happen")
+  return parts.join(" · ")
+}
+
+/**
+ * Verify question when a request is ambiguous about which plan.
+ * Concrete-first: names the plans the group has, never an open question.
+ */
+export function buildWhichPlanQuestion(labels: string[]): string {
+  return `I can move a time. Which plan do you mean, ${labels.join(" or ")}?`
+}
+
+/**
+ * Verify question when a request names the plan but the time is ambiguous or missing.
+ * Concrete-first: names the plan, then asks.
+ */
+export function buildWhichTimeQuestion(label: string): string {
+  return `Happy to move ${label}. What time were you thinking?`
+}
+
+/**
+ * Reply when a member asks to change an event's time to what it's already at.
+ * Soft and encouraging, never patronizing.
+ */
+export function buildAlreadyAtReply(
+  label: string,
+  startsAt: Date,
+  timeZone: string,
+  now: Date
+): string {
+  return `Good news, ${label} ${whenPhrase(startsAt, timeZone, now)} is already at ${formatTime(startsAt, timeZone)}.`
+}
+
+/**
+ * Reply when Orbit looks for plans to change and finds none.
+ */
+export const NO_PLANS_REPLY = "I don't see any plans on the calendar right now."

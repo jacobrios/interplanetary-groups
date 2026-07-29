@@ -2,19 +2,21 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { MessageAuthor } from "@prisma/client"
+import { MessageAuthor, ProposalKind } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { findUpcomingEvents } from "@/lib/events/upcoming-list"
-import { formatEventDate } from "@/lib/events/format"
+import { formatEventDate, formatTime } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { createMessage } from "@/lib/messages/create"
 import { moveEventTime } from "@/lib/events/move"
-import { createChangeProposal } from "@/lib/proposals/create"
+import { createChangeProposal, createGroupProposal } from "@/lib/proposals/create"
+import { findLiveProposals } from "@/lib/proposals/read"
 import { detectIntentClaim, normalizeIntent } from "@/lib/orbit/spark"
-import { planChange } from "@/lib/orbit/change-plan"
+import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
+import { buildConversationWindow, WINDOW_MESSAGES, type WindowMessage } from "@/lib/orbit/window"
 import {
   buildGaugeMessage,
   chooseProposedDate,
@@ -51,7 +53,7 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
 
     const message = await prisma.message.findUnique({
       where: { id: messageId },
-      include: { group: true },
+      include: { author: true, group: { include: { memberships: true } } },
     })
 
     // Orbit reads what members say, never its own messages. Detection is also
@@ -73,7 +75,40 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         `${i + 1}. ${e.title}, ${formatEventDate(e.startsAt, e.endsAt, group.timeZone)}`
     )
 
-    const claim = await detectIntentClaim(message.body, { upcomingLines })
+    // The conversational window: the 19 messages before the trigger plus the
+    // trigger itself, oldest first. Fetched separately from the trigger so the
+    // trigger is always the marked last entry even under created-at ties.
+    const prior = await prisma.message.findMany({
+      where: { groupId: group.id, id: { not: message.id }, createdAt: { lte: message.createdAt } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: WINDOW_MESSAGES - 1,
+      include: { author: true },
+    })
+    const toWindowMessage = (m: (typeof prior)[number]): WindowMessage => ({
+      authorName: m.author?.name ?? null,
+      isOrbit: m.authorType === MessageAuthor.ORBIT,
+      body: m.body,
+      createdAt: m.createdAt,
+    })
+    const conversationBlock = buildConversationWindow(
+      [...prior.reverse().map(toWindowMessage), toWindowMessage(message)],
+      group.timeZone,
+      now
+    )
+
+    const liveProposals = await findLiveProposals(group.id, now)
+    const openProposalLines = liveProposals
+      .filter((p) => p.kind === ProposalKind.GROUP)
+      .map((p) => {
+        const label = p.event.activityLabel ?? p.event.title.toLowerCase()
+        return `A question is already out to the group: move ${label} to ${formatTime(p.proposedStartsAt, group.timeZone)} (asked by ${p.asker.name}).`
+      })
+
+    const claim = await detectIntentClaim(message.body, {
+      upcomingLines,
+      conversationBlock,
+      openProposalLines,
+    })
     const intent = normalizeIntent(claim, events.length)
 
     if (intent.kind === "none") return { status: "quiet" }
@@ -129,25 +164,34 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     } else {
       // A change request. The pure planner decides; this action only carries
       // the answer out.
+      const candidates: ChangeTarget[] = events.map((e) => ({
+        id: e.id,
+        label: e.activityLabel ?? e.title.toLowerCase(),
+        startsAt: e.startsAt,
+      }))
       const target =
         intent.change.targetEventIndex !== null
-          ? events[intent.change.targetEventIndex]
+          ? candidates[intent.change.targetEventIndex]
           : null
 
       const plan = planChange(
         intent.change,
-        target
-          ? {
-              id: target.id,
-              label: target.activityLabel ?? target.title.toLowerCase(),
-              startsAt: target.startsAt,
-            }
-          : null,
+        target,
+        candidates,
+        user.name,
+        group.memberships.length,
         group.timeZone,
         now
       )
 
       if (plan.action === "quiet") return { status: "quiet" }
+
+      // A lone candidate is its own answer even when the model declined to
+      // number it (planChange's rung 2 note); the orchestrator resolves the
+      // same way so the row it writes points at the plan the plan actually
+      // targeted. planChange only ever returns move/ask/propose when this is
+      // non-null, so the assertions below on resolvedTarget are safe.
+      const resolvedTarget = target ?? (candidates.length === 1 ? candidates[0] : null)
 
       if (plan.action === "reply") {
         await createMessage({
@@ -160,8 +204,8 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         touchedGroupId = group.id
       } else if (plan.action === "move") {
         const moved = await moveEventTime({
-          eventId: target!.id,
-          expectedStartsAt: target!.startsAt,
+          eventId: resolvedTarget!.id,
+          expectedStartsAt: resolvedTarget!.startsAt,
           newStartsAt: plan.newStartsAt,
           requesterUserId: user.id,
           announcementBody: plan.announcement,
@@ -169,15 +213,28 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         if (moved.status !== "moved") return { status: "quiet" }
         outcome = "changed"
         touchedGroupId = group.id
-        touchedEventId = target!.id
-      } else {
-        const created = await createChangeProposal({
+        touchedEventId = resolvedTarget!.id
+      } else if (plan.action === "propose") {
+        const created = await createGroupProposal({
           groupId: group.id,
-          eventId: target!.id,
+          eventId: resolvedTarget!.id,
           askerUserId: user.id,
           sourceMessageId: message.id,
           proposedStartsAt: plan.proposedStartsAt,
-          priorStartsAt: target!.startsAt,
+          priorStartsAt: resolvedTarget!.startsAt,
+          body: plan.question,
+        })
+        if (created.status !== "created") return { status: "quiet" }
+        outcome = "asked"
+        touchedGroupId = group.id
+      } else {
+        const created = await createChangeProposal({
+          groupId: group.id,
+          eventId: resolvedTarget!.id,
+          askerUserId: user.id,
+          sourceMessageId: message.id,
+          proposedStartsAt: plan.proposedStartsAt,
+          priorStartsAt: resolvedTarget!.startsAt,
           body: plan.question,
         })
         if (created.status !== "created") return { status: "quiet" }

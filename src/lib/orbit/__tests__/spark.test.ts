@@ -143,25 +143,41 @@ describe("normalizeSpark, time fields", () => {
 
 describe("detectIntentClaim", () => {
   it("calls the model with the intent schema", async () => {
-    await detectIntentClaim("we should finally grab beers", { upcomingLines: [] })
+    await detectIntentClaim("we should finally grab beers", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+    })
     const call = vi.mocked(callExtractionModel).mock.calls.at(-1)!
     expect(call[2]).toBe(INTENT_SCHEMA)
   })
 
   it("tells the model to name a day only when exactly one is named", async () => {
-    await detectIntentClaim("beers Friday or Saturday?", { upcomingLines: [] })
+    await detectIntentClaim("beers Friday or Saturday?", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+    })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("exactly one")
   })
 
   it("tells the model to stay quiet when unsure", async () => {
-    await detectIntentClaim("sounds good", { upcomingLines: [] })
+    await detectIntentClaim("sounds good", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+    })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("not sure")
   })
 
   it("gives the model the message body", async () => {
-    await detectIntentClaim("are we still on for that?", { upcomingLines: [] })
+    await detectIntentClaim("are we still on for that?", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+    })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("are we still on for that?")
   })
@@ -169,15 +185,49 @@ describe("detectIntentClaim", () => {
   it("gives the model the numbered calendar lines when there are any", async () => {
     await detectIntentClaim("can we do 9 instead?", {
       upcomingLines: ["1. Climbing, Sun Jul 26 at 8am"],
+      conversationBlock: "",
+      openProposalLines: [],
     })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("1. Climbing, Sun Jul 26 at 8am")
   })
 
   it("says so plainly when nothing is on the calendar", async () => {
-    await detectIntentClaim("we should grab beers", { upcomingLines: [] })
+    await detectIntentClaim("we should grab beers", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+    })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("This group has nothing on its calendar right now.")
+  })
+
+  it("the conversation window rides the user message", async () => {
+    await detectIntentClaim("sorry i meant beers", {
+      upcomingLines: ["1. Climbing, Tue Jul 28"],
+      conversationBlock: "Right now it is Tue Jul 28, 6:12pm (group time).\n\nWINDOW-SENTINEL",
+      openProposalLines: [],
+    })
+    const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(userMsg).toContain("WINDOW-SENTINEL")
+    expect(userMsg.indexOf("On this group's calendar")).toBeLessThan(userMsg.indexOf("WINDOW-SENTINEL"))
+  })
+
+  it("open proposals are named between calendar and conversation", async () => {
+    await detectIntentClaim("actually 10 works better", {
+      upcomingLines: ["1. Beers, Thu Jul 30"],
+      conversationBlock: "x",
+      openProposalLines: ["A question is already out to the group: move beers to 9pm (asked by Sam)."],
+    })
+    const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(userMsg).toContain("already out to the group")
+  })
+
+  it("the system prompt teaches corrections and timestamp judgment", async () => {
+    await detectIntentClaim("hey", { upcomingLines: [], conversationBlock: "", openProposalLines: [] })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system).toContain("correction")
+    expect(system.toLowerCase()).toContain("timestamps")
   })
 })
 

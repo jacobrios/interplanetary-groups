@@ -21,6 +21,7 @@ model User {
   foundedGroups   Group[]
   messages        Message[]
   gaugeVotes      GaugeVote[]
+  proposalVotes   ProposalVote[]
   changeProposals ChangeProposal[]
 }
 
@@ -181,7 +182,7 @@ model Message {
 
   gaugeAsSource   Gauge?         @relation("GaugeSource")
   gaugeAsOrbit    Gauge?         @relation("GaugeOrbit")
-  proposalAsSource ChangeProposal? @relation("ProposalSource")
+  proposalsAsSource ChangeProposal[] @relation("ProposalSource")
   proposalAsOrbit  ChangeProposal? @relation("ProposalOrbit")
 
   @@index([groupId])
@@ -288,13 +289,16 @@ model ChangeProposal {
   groupId          String
   eventId          String
   askerUserId      String
-  sourceMessageId  String          @unique
+  sourceMessageId  String
   orbitMessageId   String          @unique
   proposedStartsAt DateTime
   priorStartsAt    DateTime
   answer           ProposalAnswer?
   answeredAt       DateTime?
   createdAt        DateTime        @default(now())
+  kind             ProposalKind    @default(VERIFY)
+
+  votes ProposalVote[]
 
   group         Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
   event         Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -302,6 +306,7 @@ model ChangeProposal {
   sourceMessage Message @relation("ProposalSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
   orbitMessage  Message @relation("ProposalOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
 
+  @@unique([sourceMessageId, kind])
   @@index([groupId])
   @@index([eventId])
 }
@@ -309,4 +314,40 @@ model ChangeProposal {
 enum ProposalAnswer {
   CONFIRMED
   DECLINED
+  SUPERSEDED
+}
+
+/// VERIFY is part one's asker-only clarifying question. GROUP is part two's
+/// whole-group proposal with votes and the consensus bar.
+enum ProposalKind {
+  VERIFY
+  GROUP
+}
+
+/**
+ * One person's answer on one group time proposal, the GaugeVote shape: a vote
+ * belongs to a specific proposal, never to the idea of changing the time, and
+ * unique (proposalId, userId) means changing your mind updates the row.
+ * YES backs the new time. KEEP backs the current one (and counts on the
+ * incumbent side of the bar; see lib/proposals/consensus.ts).
+ */
+model ProposalVote {
+  id         String             @id @default(cuid())
+  proposalId String
+  userId     String
+  answer     ProposalVoteAnswer
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  proposal ChangeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
+  @@index([proposalId])
+  @@index([userId])
+}
+
+enum ProposalVoteAnswer {
+  YES
+  KEEP
 }

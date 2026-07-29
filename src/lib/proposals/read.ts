@@ -9,9 +9,13 @@
 // impossible to render in the first place.
 
 import { prisma } from "@/lib/prisma"
-import type { ChangeProposal, Event } from "@prisma/client"
+import type { ChangeProposal, Event, ProposalVote, Rsvp, User } from "@prisma/client"
 
-export type LiveProposal = ChangeProposal & { event: Event }
+export type LiveProposal = ChangeProposal & {
+  event: Event & { rsvps: Rsvp[] }
+  votes: (ProposalVote & { user: User })[]
+  asker: User
+}
 
 export async function findLiveProposals(
   groupId: string,
@@ -27,7 +31,11 @@ export async function findLiveProposals(
       // chips stop rendering here rather than depending on the action guard.
       proposedStartsAt: { gt: now },
     },
-    include: { event: true },
+    include: {
+      event: { include: { rsvps: true } },
+      votes: { include: { user: true } },
+      asker: true,
+    },
     orderBy: { createdAt: "asc" },
   })
 

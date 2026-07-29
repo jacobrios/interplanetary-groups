@@ -25,13 +25,15 @@ import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { buildTallyLine, chipLabels } from "@/lib/orbit/spark-copy"
 import { findLiveProposals } from "@/lib/proposals/read"
-import { changeChipLabels } from "@/lib/orbit/change-copy"
+import { changeChipLabels, proposalChipLabels, buildProposalTallyLine } from "@/lib/orbit/change-copy"
+import { oneMoreClearsIt } from "@/lib/proposals/consensus"
 import EventCarousel from "./EventCarousel"
 import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
 import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
+import type { FeedGroupProposal } from "./GroupProposalChips"
 import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
 import Chevron from "@/components/Chevron"
@@ -117,16 +119,47 @@ export default async function GroupPage({ params }: Props) {
   })
 
   // ── Live change questions ────────────────────────────────────────────────
-  // Composed for the asker alone: the question clarifies one person's intent,
-  // so only they get chips. Everyone else sees Orbit's question as history.
-  const liveProposals = viewer ? await findLiveProposals(group.id, new Date()) : []
+  // One fetch feeds both compositions below. VERIFY rows are composed for the
+  // asker alone (part one's rule: the question clarifies one person's intent,
+  // so only they get chips). GROUP rows render for everyone, so this read no
+  // longer needs a viewer to run.
+  const liveProposals = await findLiveProposals(group.id, new Date())
   const proposals: FeedProposal[] = liveProposals
-    .filter((p) => p.askerUserId === viewer!.id)
+    .filter((p) => p.kind === "VERIFY" && p.askerUserId === viewer?.id)
     .map((p) => ({
       id: p.id,
       orbitMessageId: p.orbitMessageId,
       labels: changeChipLabels(),
     }))
+
+  const groupProposals: FeedGroupProposal[] = liveProposals
+    .filter((p) => p.kind === "GROUP")
+    .map((p) => {
+      const memberVotes = p.votes.filter((v) => memberIds.has(v.userId))
+      const yesVoters = memberVotes.filter((v) => v.answer === "YES")
+      const consensusInput = {
+        yesVoterIds: yesVoters.map((v) => v.userId),
+        keepVoterIds: memberVotes.filter((v) => v.answer === "KEEP").map((v) => v.userId),
+        currentInUserIds: p.event.rsvps
+          .filter((r) => r.status === "IN" && memberIds.has(r.userId))
+          .map((r) => r.userId),
+        memberCount: group.memberships.length,
+      }
+      return {
+        id: p.id,
+        orbitMessageId: p.orbitMessageId,
+        labels: proposalChipLabels(p.proposedStartsAt, p.priorStartsAt, group.timeZone),
+        tallyLine: buildProposalTallyLine(
+          yesVoters.map((v) => v.user.name),
+          consensusInput.keepVoterIds.length,
+          oneMoreClearsIt(consensusInput)
+        ),
+        // Unfiltered, the gauge precedent: the viewer's own chip must reflect
+        // what they chose, member or not.
+        viewerAnswer: p.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
+      }
+    })
+  const viewerIsMember = viewer ? memberIds.has(viewer.id) : false
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
@@ -277,6 +310,8 @@ export default async function GroupPage({ params }: Props) {
           viewerName={viewer?.name ?? null}
           gauges={gauges}
           proposals={proposals}
+          groupProposals={groupProposals}
+          viewerIsMember={viewerIsMember}
         />
       </div>
     </div>

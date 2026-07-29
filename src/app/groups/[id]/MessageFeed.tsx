@@ -19,6 +19,7 @@ import { MessageAuthor } from "@prisma/client"
 import { useRef, useEffect } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
+import GroupProposalChips, { GroupProposalTally, type FeedGroupProposal } from "./GroupProposalChips"
 
 export interface FeedMessage {
   id: string
@@ -46,11 +47,29 @@ interface Props {
    * proposal appearing here already means this viewer is the one to answer.
    */
   proposals?: FeedProposal[]
+  /**
+   * Live group consensus proposals, keyed to the Orbit message each one
+   * renders under. Unlike the asker-only proposals above, the tally is feed
+   * history for everyone; only the chips (the vote itself) are member-gated.
+   */
+  groupProposals?: FeedGroupProposal[]
+  /** Whether the viewer is a member of this group, gating the vote chips. */
+  viewerIsMember?: boolean
 }
 
-export default function MessageFeed({ messages, viewerId, gauges = [], proposals = [] }: Props) {
+export default function MessageFeed({
+  messages,
+  viewerId,
+  gauges = [],
+  proposals = [],
+  groupProposals = [],
+  viewerIsMember = false,
+}: Props) {
   const gaugeByMessageId = new Map(gauges.map((g) => [g.orbitMessageId, g]))
   const proposalByMessageId = new Map(proposals.map((p) => [p.orbitMessageId, p]))
+  const groupProposalByMessageId = new Map(
+    groupProposals.map((p) => [p.orbitMessageId, p])
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Scroll to the bottom sentinel on mount (so the feed opens at the most
@@ -105,6 +124,7 @@ export default function MessageFeed({ messages, viewerId, gauges = [], proposals
         const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
         const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
         const proposal = isOrbit ? proposalByMessageId.get(msg.id) : undefined
+        const groupProposal = isOrbit ? groupProposalByMessageId.get(msg.id) : undefined
 
         return (
           <div
@@ -170,6 +190,17 @@ export default function MessageFeed({ messages, viewerId, gauges = [], proposals
                     page only composes a proposal DTO for its asker, so
                     rendering it here is already asker-only. */}
                 {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
+
+                {/* The group consensus question: the tally is feed history
+                    for everyone, but only a member gets a vote (the chips),
+                    so a non-member sees the standing count with no chips
+                    rather than the chips vanishing along with the tally. */}
+                {groupProposal &&
+                  (viewerIsMember ? (
+                    <GroupProposalChips proposal={groupProposal} />
+                  ) : (
+                    <GroupProposalTally line={groupProposal.tallyLine} />
+                  ))}
               </div>
             )}
 

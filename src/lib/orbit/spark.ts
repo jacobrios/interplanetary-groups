@@ -123,6 +123,8 @@ const INTENT_SYSTEM_PROMPT = `You read one message from a group chat and classif
 - CHANGE REQUEST: the message asks for a plan already on the group's calendar to be changed, like "can we do 9 instead?", "let's move it to 6pm", or "put it back at 8".
 - Neither: everything else.
 
+You are shown the recent conversation with timestamps, including Orbit's own messages, plus the current date and time. Use it to resolve short messages: which plan a bare follow-up like "can we do 9 instead?" is about (usually the plan just discussed), what "it" refers to, and a correction like "sorry, I meant beers, not climbing", which is a change request for the plan the person now names, carrying the time from the exchange it corrects. Judge from the timestamps whether an earlier message is still what the group is talking about. The numbered calendar list, not the conversation, is the only source of plan numbers. When a note says a question is already out to the group about moving a plan, a message that simply agrees with it is neither a spark nor a change request; the chips handle agreement.
+
 Be conservative in both directions. These are NOT sparks and NOT change requests:
 - agreement or reactions ("sounds good", "nice", "haha", "same")
 - questions about an existing plan ("what time again?", "where is it?")
@@ -140,8 +142,8 @@ Spark fields (null, false, or empty when isSpark is false):
 - partOfDay: "morning" for activities that happen in the morning (breakfast, coffee, a sunrise hike), "evening" for activities that happen at night (beers, dinner, drinks, a movie). Null when the activity could genuinely be either, or when you are unsure. This is about the activity itself, not about any time that was stated.
 
 Change-request fields (null, false, or empty when isChangeRequest is false):
-- targetEventNumber: the number of the calendar plan the message is about, from the numbered list you were given. Null when you cannot tell which one, or when nothing is on the calendar.
-- requestedTime: 24-hour "HH:MM" best reading of the time they want the plan moved to. Null when they did not ask for a specific clock time.
+- targetEventNumber: the number of the calendar plan the message is about, from the numbered list you were given. Null when you cannot tell which one, or when nothing is on the calendar. Use the conversation to tell which plan a bare follow-up or correction means.
+- requestedTime: 24-hour "HH:MM" best reading of the time they want the plan moved to. Null when they did not ask for a specific clock time. The time may come from an earlier message in the conversation when the new message plainly refers back to it.
 - requestedTimeAmbiguous: true only when a clock number was given with no am or pm and nothing in the message settles it. "Can we do 9 instead?" IS ambiguous: put your best reading in requestedTime and set this true. "Make it 9pm" is not ambiguous.
 - requestedFields: every part of the plan the message asks to change: "time" (a different clock time), "day" (a different calendar day, including "tomorrow" or a named weekday), "venue" (a different place), "other" (anything else). Asking to move a plan to a different day is "day", even when a time is named alongside it.
 - intentClear: true when the message plainly asks for the change ("can we do 9 instead?", "let's make it 6pm", "put it back at 8"). False when you believe they want a change but the message is indirect, or you are unsure which plan or what exactly they want.`
@@ -149,6 +151,10 @@ Change-request fields (null, false, or empty when isChangeRequest is false):
 export interface IntentContext {
   /** One line per upcoming plan, numbered from 1, in the order the group sees them. */
   upcomingLines: string[]
+  /** buildConversationWindow output: now-anchor, timestamped lines, marked trigger. */
+  conversationBlock: string
+  /** One line per live GROUP proposal, empty when none. */
+  openProposalLines: string[]
 }
 
 export interface NormalizedChange {
@@ -179,10 +185,15 @@ export async function detectIntentClaim(
   const calendarBlock = context.upcomingLines.length
     ? `On this group's calendar right now:\n${context.upcomingLines.join("\n")}`
     : `This group has nothing on its calendar right now.`
+  const proposalBlock = context.openProposalLines.length
+    ? `\n\n${context.openProposalLines.join("\n")}`
+    : ""
 
-  const user = `${calendarBlock}
+  const user = `${calendarBlock}${proposalBlock}
 
-The message:
+${context.conversationBlock}
+
+The message to classify:
 ${body}`
 
   return callExtractionModel(INTENT_SYSTEM_PROMPT, user, INTENT_SCHEMA)
