@@ -6,7 +6,9 @@ import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { moveEventTime } from "@/lib/events/move"
-import { buildChangeAnnouncement, PAST_TIME_REPLY, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
+import { buildChangeAnnouncement, buildGroupProposalQuestion, PAST_TIME_REPLY, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
+import { consensusFloor } from "@/lib/proposals/consensus"
+import { createGroupProposal } from "@/lib/proposals/create"
 import { ProposalAnswer } from "@prisma/client"
 
 export interface ProposalAnswerState {
@@ -52,7 +54,7 @@ export async function proposalAnswerAction(
 
   const proposal = await prisma.changeProposal.findUnique({
     where: { id: proposalId },
-    include: { event: true, group: { select: { id: true, timeZone: true } } },
+    include: { event: true, group: true, asker: true },
   })
   if (!proposal) {
     return { errors: { general: "That question is gone. Please refresh and try again." } }
@@ -82,24 +84,45 @@ export async function proposalAnswerAction(
       }
       const label =
         proposal.event.activityLabel ?? proposal.event.title.toLowerCase()
-      const announcement = buildChangeAnnouncement(
-        label,
-        proposal.proposedStartsAt,
-        proposal.priorStartsAt,
-        proposal.group.timeZone,
-        now,
-        null // the question already named the time; nothing left to disclose
-      )
-      const moved = await moveEventTime({
-        eventId: proposal.eventId,
-        expectedStartsAt: proposal.priorStartsAt,
-        newStartsAt: proposal.proposedStartsAt,
-        requesterUserId: user.id,
-        announcementBody: announcement,
-        resolveProposalId: proposal.id,
+      const memberCount = await prisma.membership.count({
+        where: { groupId: proposal.groupId },
       })
-      if (moved.status === "skipped") {
-        errorMsg = moved.reason === "stale" ? STALE_PROPOSAL_ERROR : "Couldn't save that, try again."
+      if (consensusFloor(memberCount) === 1) {
+        // A group of one: part one's immediate move, unchanged.
+        const announcement = buildChangeAnnouncement(
+          label, proposal.proposedStartsAt, proposal.priorStartsAt,
+          proposal.group.timeZone, now, null
+        )
+        const moved = await moveEventTime({
+          eventId: proposal.eventId,
+          expectedStartsAt: proposal.priorStartsAt,
+          newStartsAt: proposal.proposedStartsAt,
+          requesterUserId: user.id,
+          announcementBody: announcement,
+          resolveProposalId: proposal.id,
+        })
+        if (moved.status === "skipped") {
+          errorMsg = moved.reason === "stale" ? STALE_PROPOSAL_ERROR : "Couldn't save that, try again."
+        }
+      } else {
+        // The asker confirmed the reading; the question now goes to the group.
+        const created = await createGroupProposal({
+          groupId: proposal.groupId,
+          eventId: proposal.eventId,
+          askerUserId: proposal.askerUserId,
+          sourceMessageId: proposal.sourceMessageId,
+          proposedStartsAt: proposal.proposedStartsAt,
+          priorStartsAt: proposal.priorStartsAt,
+          body: buildGroupProposalQuestion(
+            proposal.asker.name, label, proposal.proposedStartsAt,
+            proposal.priorStartsAt, proposal.group.timeZone, now,
+            null // the verify already named the time to the asker; the group question names both times itself
+          ),
+          resolveVerifyProposalId: proposal.id,
+        })
+        if (created.status === "skipped") {
+          errorMsg = "That one's already out to the group."
+        }
       }
     }
   } catch {
