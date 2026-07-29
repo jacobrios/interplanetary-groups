@@ -127,12 +127,12 @@ You are shown the recent conversation with timestamps, including Orbit's own mes
 
 Be conservative in both directions. These are NOT sparks and NOT change requests:
 - agreement or reactions ("sounds good", "nice", "haha", "same")
-- questions about an existing plan ("what time again?", "where is it?")
+- questions that only ask for information about an existing plan ("what time again?", "where is it?"). A question that asks for the plan to change ("can we move it?", "any chance we push it later?") IS a change request, even when it names no time and no plan
 - logistics and availability ("running late", "I can't make 8", "see you there")
 - wishes and commentary that do not ask for anything ("9 would've been better")
 - small talk, links, and anything with no activity or plan in it
 
-If you are not sure, answer isSpark false and isChangeRequest false. Missing something real costs nothing; interjecting on ordinary chat is worse. A message cannot be both: if it somehow reads as both, set only the one it mostly is.
+Two different kinds of doubt, and they get opposite answers. If the message is asking for a plan to change, say so even when it does not say which plan or what time: leave those fields null and set isChangeRequest true, because the missing pieces get asked about and an incomplete ask is still an ask. If you are not sure the message is asking for anything at all, answer isSpark false and isChangeRequest false. A message cannot be both: if it somehow reads as both, set only the one it mostly is.
 
 Spark fields (null, false, or empty when isSpark is false):
 - activity: one or two words in the member's own words naming the activity ("beers", "climbing", "board games"). Drop filler and location words: "grab a beer at Tony's" is just "beers". Never invent an activity.

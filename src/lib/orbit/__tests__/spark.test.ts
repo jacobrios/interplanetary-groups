@@ -162,7 +162,7 @@ describe("detectIntentClaim", () => {
     expect(system.toLowerCase()).toContain("exactly one")
   })
 
-  it("tells the model to stay quiet when unsure", async () => {
+  it("tells the model to stay quiet when unsure anything is being asked", async () => {
     await detectIntentClaim("sounds good", {
       upcomingLines: [],
       conversationBlock: "",
@@ -170,6 +170,20 @@ describe("detectIntentClaim", () => {
     })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("not sure")
+  })
+
+  it("tells the model an incomplete ask is still an ask", async () => {
+    // The other half of the split. Unsure whether anyone is asking for
+    // anything stays quiet, above; unsure only what they meant, once they
+    // have plainly asked for a plan to change, must not.
+    await detectIntentClaim("can we move it?", {
+      upcomingLines: ["1. Climbing, Sun, Jul 26 · 8am"],
+      conversationBlock: "Right now it is Sat Jul 25, 9am (group time).",
+      openProposalLines: [],
+    })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system).toContain("an incomplete ask is still an ask")
+    expect(system).not.toContain("Missing something real costs nothing")
   })
 
   it("gives the model the message body", async () => {
