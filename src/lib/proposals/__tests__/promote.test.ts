@@ -193,11 +193,23 @@ describe("promoteProposalMove", () => {
       await vote(proposal.id, fx.memberIds[1], ProposalVoteAnswer.YES)
       await vote(proposal.id, fx.memberIds[2], ProposalVoteAnswer.YES)
 
+      // The lock's presence is a precondition, not a race: resolve `locked`
+      // the instant the external transaction's own update call returns (the
+      // row lock is definitely held by then), and don't call promote until
+      // that signal fires. This guarantees start ordering regardless of how
+      // fast promote's own reads are relative to this update; only the
+      // subsequent block-then-recheck (the external transaction still holds
+      // the lock open below) depends on real timing, and that side favors
+      // the guard: it just needs to still be held when promote's own
+      // conditional write reaches it.
+      let locked!: () => void
+      const lockHeld = new Promise<void>((resolve) => { locked = resolve })
       const externalMove = prisma.$transaction(async (tx) => {
         await tx.event.update({
           where: { id: fx.eventId },
           data: { startsAt: DECOY_START, previousStartsAt: OLD_START },
         })
+        locked()
         // Hold the row locked well past the time this test's promote call
         // needs to reach its own conditional write, so that write blocks on
         // this transaction's lock and re-checks against the committed change
@@ -205,6 +217,7 @@ describe("promoteProposalMove", () => {
         await new Promise((resolve) => setTimeout(resolve, 1500))
       })
 
+      await lockHeld
       const [, r] = await Promise.all([externalMove, promoteProposalMove(proposal.id, NOW)])
       expect(r).toEqual({ status: "skipped", reason: "stale" })
 
