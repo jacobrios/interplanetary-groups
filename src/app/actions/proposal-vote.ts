@@ -100,7 +100,8 @@ export async function proposalVoteAction(
       create: { proposalId: proposal.id, userId: user.id, answer },
       update: { answer },
     })
-  } catch {
+  } catch (err) {
+    console.error("[proposal-vote] vote save failed", err)
     return { errors: { general: "Couldn't save that, try again." } }
   }
 

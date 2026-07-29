@@ -7,7 +7,7 @@
 import { prisma } from "@/lib/prisma"
 import { ProposalKind, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
 import { hasConsensus } from "./consensus"
-import { moveEventCoreInTx } from "@/lib/events/move"
+import { moveEventCoreInTx, ProposalAlreadyResolvedInTx } from "@/lib/events/move"
 import { buildConsensusAnnouncement } from "@/lib/orbit/change-copy"
 
 export type ProposalPromoteResult =
@@ -92,6 +92,12 @@ export async function promoteProposalMove(
   } catch (err) {
     if (err instanceof BelowBarInTx) return { status: "skipped", reason: "below_bar" }
     if (err instanceof StaleInTx) return { status: "skipped", reason: "stale" }
+    // moveEventCoreInTx's own conditional stamp guard: the proposal was
+    // resolved (typically SUPERSEDED by a racing createGroupProposal)
+    // between this function's pre-check and the stamp write inside the
+    // transaction. Same skip reason as StaleInTx; this is move.ts's guard
+    // firing instead of promote's own re-read.
+    if (err instanceof ProposalAlreadyResolvedInTx) return { status: "skipped", reason: "stale" }
     throw err
   }
 }

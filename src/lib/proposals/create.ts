@@ -77,7 +77,15 @@ export interface CreateGroupProposalInput {
 
 export type CreateGroupProposalResult =
   | { status: "created"; proposal: ChangeProposal }
-  | { status: "skipped"; reason: "already_asked" }
+  | { status: "skipped"; reason: "already_asked" | "stale" }
+
+/**
+ * Thrown, never returned, when the event moved underneath a proposal being
+ * opened: the whole transaction (supersedes included) must roll back, not
+ * just skip the create, so a stale confirm can never leave the sweep's
+ * retirements standing over nothing.
+ */
+class StaleEventInTx extends Error {}
 
 export async function createGroupProposal({
   groupId,
@@ -92,6 +100,16 @@ export async function createGroupProposal({
   const now = new Date()
   try {
     const proposal = await prisma.$transaction(async (tx) => {
+      // Defense in depth for the same guard the callers apply against their
+      // own snapshot: re-read the event inside the transaction and refuse to
+      // open a proposal (or run the supersede sweep below) against a plan
+      // that already moved. This is what stops a stale verify-confirm from
+      // posting a group question stating a wrong fact into the feed.
+      const event = await tx.event.findUnique({ where: { id: eventId } })
+      if (!event || event.startsAt.getTime() !== priorStartsAt.getTime()) {
+        throw new StaleEventInTx()
+      }
+
       // Newest wins, per event and per asker: a live GROUP proposal on this
       // event (the conversation moved past its number) and any live proposal
       // of this asker's (a correction retracts the mistake it corrects) are
@@ -136,6 +154,9 @@ export async function createGroupProposal({
     })
     return { status: "created", proposal }
   } catch (err) {
+    if (err instanceof StaleEventInTx) {
+      return { status: "skipped", reason: "stale" }
+    }
     // The compound (sourceMessageId, kind) unique: a double-fired detection
     // collides here and the whole transaction, supersedes included, rolls back.
     if ((err as { code?: string }).code === "P2002") {

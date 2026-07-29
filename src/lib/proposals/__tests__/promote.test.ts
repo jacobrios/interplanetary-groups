@@ -6,7 +6,7 @@
 
 import { describe, it, expect, afterEach } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
+import { MessageAuthor, ProposalAnswer, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
 import { createGroupProposal } from "../create"
 import { promoteProposalMove } from "../promote"
 
@@ -225,6 +225,64 @@ describe("promoteProposalMove", () => {
       expect(event?.startsAt.getTime()).toBe(DECOY_START.getTime()) // the external move's result stands
       const stamped = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
       expect(stamped?.answer).toBeNull() // this promote's transaction rolled back, nothing stamped
+    } finally {
+      await cleanupFixture(fx)
+    }
+  }, 10000)
+
+  it("a supersede landing mid-transaction is not overwritten by CONFIRMED", async () => {
+    // The whole-branch review's Fix 2: promote re-reads votes, memberships,
+    // and RSVPs inside its transaction but, before this fix, never the
+    // proposal row itself, so a supersede (another createGroupProposal
+    // opening a newer proposal on this same event or asker) committed after
+    // promote's outer pre-check but before its own stamp would have its
+    // SUPERSEDED silently overwritten by CONFIRMED, and the event moved to a
+    // retired time. The lock-held-as-precondition pattern from the "stale
+    // baseline" test above, aimed at the changeProposal row instead of the
+    // event row: the external transaction commits SUPERSEDED and holds the
+    // row locked, so promote's own conditional stamp (moveEventCoreInTx's
+    // `updateMany({ where: { answer: null } })`) blocks on it, then
+    // re-evaluates against the committed SUPERSEDED row and finds no match.
+    const fx = await makeFixture(3, [0, 1, 2])
+    try {
+      const proposal = await makeProposal(fx) // asker (0) seeded YES
+      await vote(proposal.id, fx.memberIds[1], ProposalVoteAnswer.YES)
+      await vote(proposal.id, fx.memberIds[2], ProposalVoteAnswer.YES)
+
+      let locked!: () => void
+      const lockHeld = new Promise<void>((resolve) => { locked = resolve })
+      const externalSupersede = prisma.$transaction(async (tx) => {
+        await tx.changeProposal.update({
+          where: { id: proposal.id },
+          data: { answer: ProposalAnswer.SUPERSEDED, answeredAt: NOW },
+        })
+        locked()
+        // Held open well past the time promote's own conditional stamp needs
+        // to reach this row, so that write blocks on this transaction's lock
+        // and re-checks against the committed SUPERSEDED once it releases.
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+      })
+
+      // Only call promote once the external transaction's own update has
+      // returned (the lock is definitely held by then), the same ordering
+      // guarantee the stale-baseline test above relies on. Because that
+      // update has not committed yet, promote's OUTER pre-check (a plain
+      // read, not blocked by the lock) still sees answer: null and proceeds
+      // into its own transaction, which is the exact window this fix closes.
+      await lockHeld
+      const [, r] = await Promise.all([externalSupersede, promoteProposalMove(proposal.id, NOW)])
+      expect(r).toEqual({ status: "skipped", reason: "stale" })
+
+      const stamped = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+      expect(stamped?.answer).toBe("SUPERSEDED") // never overwritten to CONFIRMED
+
+      const event = await prisma.event.findUnique({ where: { id: fx.eventId } })
+      expect(event?.startsAt.getTime()).toBe(OLD_START.getTime()) // the move rolled back too
+      const rsvps = await prisma.rsvp.findMany({ where: { eventId: fx.eventId } })
+      // All 3 members were seeded IN at fixture setup; the transaction's RSVP
+      // reset (delete-then-reseed) rolled back along with the move, so the
+      // original 3 rows still stand rather than being cleared or reseeded.
+      expect(rsvps).toHaveLength(3)
     } finally {
       await cleanupFixture(fx)
     }

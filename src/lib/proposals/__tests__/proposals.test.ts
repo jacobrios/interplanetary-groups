@@ -215,6 +215,47 @@ describe("createGroupProposal", () => {
     expect(old?.answer).toBeNull()
     expect(second.status).toBe("created")
   })
+
+  it("aborts, whole transaction included, when the event moved underneath a stale confirm", async () => {
+    // The verify-confirm handoff race: the asker was shown priorStartsAt, but
+    // the plan actually moved before their confirm reached createGroupProposal
+    // (simulated here by moving the event by hand). Defense in depth for the
+    // guard proposal-answer.ts adds at the action layer: this must never post
+    // a group question stating a wrong fact, no matter what called it.
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { startsAt: new Date("2099-06-14T09:00:00Z") },
+    })
+
+    // A live proposal of the asker's, on another event, stands in for "the
+    // supersede sweep must roll back too": if the transaction only aborted
+    // the create but let the sweep's updateMany stand, this would come back
+    // SUPERSEDED even though nothing new was actually asked.
+    const otherSource = await prisma.message.create({
+      data: { groupId: groupId!, authorType: MessageAuthor.MEMBER, authorId: userId!, body: "beers 9?" },
+    })
+    const askersOtherLive = await createChangeProposal({
+      ...input(),
+      eventId: otherEventId!,
+      priorStartsAt: OTHER_EVENT_START,
+      sourceMessageId: otherSource.id,
+    })
+    if (askersOtherLive.status !== "created") throw new Error("expected created")
+
+    const countBefore = await prisma.changeProposal.count({ where: { groupId: groupId! } })
+    const orbitBefore = await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })
+
+    const result = await createGroupProposal(await baseInput())
+    expect(result).toEqual({ status: "skipped", reason: "stale" })
+
+    expect(await prisma.changeProposal.count({ where: { groupId: groupId! } })).toBe(countBefore)
+    expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(orbitBefore)
+
+    const otherLiveAfter = await prisma.changeProposal.findUnique({
+      where: { id: askersOtherLive.proposal.id },
+    })
+    expect(otherLiveAfter?.answer).toBeNull() // supersede rolled back
+  })
 })
 
 describe("findLiveProposals", () => {

@@ -27,6 +27,15 @@ export type MoveEventResult =
   | { status: "moved" }
   | { status: "skipped"; reason: "no_event" | "stale" | "noop" }
 
+/**
+ * Thrown, never returned, when the resolveProposalId stamp's conditional
+ * write finds the row already answered. A caller with its own open
+ * transaction (promote.ts) needs this to propagate as a throw so its whole
+ * transaction rolls back; moveEventTime catches it at its own boundary and
+ * reports the same "stale" skip its other guards already use.
+ */
+export class ProposalAlreadyResolvedInTx extends Error {}
+
 export interface MoveEventInput {
   eventId: string
   /**
@@ -111,10 +120,19 @@ export async function moveEventCoreInTx(
   })
 
   if (resolveProposalId) {
-    await tx.changeProposal.update({
-      where: { id: resolveProposalId },
+    // Conditional, the same race-proof shape as the event's own stale guard
+    // above: only stamps CONFIRMED if the row is still answer-null. Without
+    // this, a supersede (or any other resolution) committed between this
+    // transaction's pre-checks and this write would be silently overwritten,
+    // since a plain `update` never looks at the row's current state. A miss
+    // here throws rather than returns, because by this point the event has
+    // already moved within this same transaction: only a throw rolls that
+    // back too, which a normal return would not.
+    const stamped = await tx.changeProposal.updateMany({
+      where: { id: resolveProposalId, answer: null },
       data: { answer: ProposalAnswer.CONFIRMED, answeredAt: new Date() },
     })
+    if (stamped.count === 0) throw new ProposalAlreadyResolvedInTx()
   }
 
   return { status: "moved" } as const
@@ -128,14 +146,21 @@ export async function moveEventTime({
   announcementBody,
   resolveProposalId,
 }: MoveEventInput): Promise<MoveEventResult> {
-  return prisma.$transaction((tx) =>
-    moveEventCoreInTx(tx, {
-      eventId,
-      expectedStartsAt,
-      newStartsAt,
-      seedInUserIds: [requesterUserId],
-      announcementBody,
-      resolveProposalId,
-    })
-  )
+  try {
+    return await prisma.$transaction((tx) =>
+      moveEventCoreInTx(tx, {
+        eventId,
+        expectedStartsAt,
+        newStartsAt,
+        seedInUserIds: [requesterUserId],
+        announcementBody,
+        resolveProposalId,
+      })
+    )
+  } catch (err) {
+    if (err instanceof ProposalAlreadyResolvedInTx) {
+      return { status: "skipped", reason: "stale" } as const
+    }
+    throw err
+  }
 }

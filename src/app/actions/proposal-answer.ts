@@ -82,6 +82,14 @@ export async function proposalAnswerAction(
       if (proposal.proposedStartsAt.getTime() <= now.getTime()) {
         return { errors: { general: PAST_TIME_REPLY } }
       }
+      // The stale guard proposal-vote.ts already has: the asker was shown
+      // priorStartsAt, but the plan may have moved since (another mover, or
+      // another proposal already resolving) before this confirm arrived. A
+      // stale confirm must never post a group question, or a solo move,
+      // stating a fact the event no longer holds.
+      if (proposal.priorStartsAt.getTime() !== proposal.event.startsAt.getTime()) {
+        return { errors: { general: STALE_PROPOSAL_ERROR } }
+      }
       const label =
         proposal.event.activityLabel ?? proposal.event.title.toLowerCase()
       const memberCount = await prisma.membership.count({
@@ -121,7 +129,7 @@ export async function proposalAnswerAction(
           resolveVerifyProposalId: proposal.id,
         })
         if (created.status === "skipped") {
-          errorMsg = "That one's already out to the group."
+          errorMsg = created.reason === "stale" ? STALE_PROPOSAL_ERROR : "That one's already out to the group."
         }
       }
     }
