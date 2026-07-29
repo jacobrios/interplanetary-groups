@@ -224,8 +224,14 @@ export function normalizeIntent(raw: unknown, upcomingCount: number): Normalized
         CHANGE_FIELDS.includes(f as string)
       ) as ChangeField[])
     : []
-  // A change request that names nothing to change is not one.
-  if (requestedFields.length === 0) return { kind: "none" }
+  // An empty list is deliberately kept. A bare "can we move it?" names no
+  // field, and the reply ladder answers that shape with a which-plan or
+  // which-time question. Rejecting it here was part one's stay-quiet default
+  // outliving the 28 July rule that a direct ask never gets silence, and it
+  // failed identically on every run rather than only sometimes. Not defaulted
+  // to ["time"]: that would assert a claim the model never made, on the one
+  // boundary whose whole job is to avoid that, and it would be wrong for
+  // someone who meant the venue.
 
   const n = o.targetEventNumber
   const targetEventIndex =
