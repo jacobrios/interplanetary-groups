@@ -29,7 +29,7 @@ function stamp(d: Date, timeZone: string): string {
 
 /**
  * Messages must arrive oldest first with the trigger message last; the trigger
- * line is marked with ">>>" and the system prompt explains the mark.
+ * line is marked with ">>>" at the start.
  */
 export function buildConversationWindow(
   messages: WindowMessage[],
@@ -44,7 +44,7 @@ export function buildConversationWindow(
   return [
     `Right now it is ${stamp(now, timeZone)} (group time).`,
     "",
-    "The conversation, oldest first. The last message, marked with >, is the one to classify:",
+    "The conversation, oldest first. The last message is the one to classify:",
     ...lines,
   ].join("\n")
 }
