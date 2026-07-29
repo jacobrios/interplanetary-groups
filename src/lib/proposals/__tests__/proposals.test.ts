@@ -1,21 +1,40 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer } from "@prisma/client"
-import { createChangeProposal } from "../create"
+import {
+  MessageAuthor,
+  ProposalAnswer,
+  ProposalVoteAnswer,
+} from "@prisma/client"
+import { createChangeProposal, createGroupProposal } from "../create"
 import { findLiveProposals } from "../read"
 
 let userId: string | null = null
+let otherUserId: string | null = null
 let groupId: string | null = null
 let eventId: string | null = null
+let otherEventId: string | null = null
 let sourceMessageId: string | null = null
 
 const EVENT_START = new Date("2099-06-14T08:00:00Z")
+const OTHER_EVENT_START = new Date("2099-06-20T20:00:00Z")
 const PROPOSED = new Date("2099-06-14T18:00:00Z")
 const NOW = new Date("2099-06-10T12:00:00Z")
 
 async function cleanup() {
   if (groupId) {
+    // Votes cascade from ChangeProposal at the DB level, but clean them up
+    // explicitly first: proving the cleanup order deletes everything rather
+    // than trusting the cascade silently, per the task-6 brief.
+    const proposals = await prisma.changeProposal
+      .findMany({ where: { groupId }, select: { id: true } })
+      .catch(() => [] as { id: string }[])
+    if (proposals.length) {
+      await prisma.proposalVote
+        .deleteMany({ where: { proposalId: { in: proposals.map((p) => p.id) } } })
+        .catch(() => {})
+    }
     await prisma.changeProposal.deleteMany({ where: { groupId } }).catch(() => {})
+    await prisma.rsvp.deleteMany({ where: { event: { groupId } } }).catch(() => {})
     await prisma.message.deleteMany({ where: { groupId } }).catch(() => {})
     await prisma.event.deleteMany({ where: { groupId } }).catch(() => {})
     await prisma.membership.deleteMany({ where: { groupId } }).catch(() => {})
@@ -24,6 +43,8 @@ async function cleanup() {
   }
   if (userId) await prisma.user.delete({ where: { id: userId } }).catch(() => {})
   userId = null
+  if (otherUserId) await prisma.user.delete({ where: { id: otherUserId } }).catch(() => {})
+  otherUserId = null
 }
 
 afterEach(async () => {
@@ -37,13 +58,19 @@ beforeEach(async () => {
     data: { name: "[TEST] Asker", supabaseAuthId: `test-prop-${suffix}` },
   })
   userId = user.id
+  const other = await prisma.user.create({
+    data: { name: "[TEST] Other Asker", supabaseAuthId: `test-prop-other-${suffix}` },
+  })
+  otherUserId = other.id
   const group = await prisma.group.create({
     data: {
       name: "[TEST] Proposal Group",
       founderId: user.id,
       timeZone: "UTC",
       recurringActivities: [] as never,
-      memberships: { create: { userId: user.id } },
+      memberships: {
+        create: [{ userId: user.id }, { userId: other.id }],
+      },
     },
   })
   groupId = group.id
@@ -51,6 +78,10 @@ beforeEach(async () => {
     data: { groupId: group.id, title: "Climbing", activityLabel: "climbing", startsAt: EVENT_START },
   })
   eventId = event.id
+  const otherEvent = await prisma.event.create({
+    data: { groupId: group.id, title: "Beers", activityLabel: "beers", startsAt: OTHER_EVENT_START },
+  })
+  otherEventId = otherEvent.id
   const source = await prisma.message.create({
     data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: user.id, body: "9?" },
   })
@@ -66,6 +97,36 @@ function input() {
     proposedStartsAt: PROPOSED,
     priorStartsAt: EVENT_START,
     body: "Sounds like you want climbing this Sun moved to 6pm. Want me to make the change?",
+  }
+}
+
+/**
+ * The createGroupProposal fixture builder. Defaults to the same asker, event,
+ * and source message as `input()`. Each flag swaps in a different fixture so
+ * a test can independently vary the axes the supersede rule cares about
+ * (event, asker) without colliding on the (sourceMessageId, kind) unique,
+ * which is why a differing axis is always paired with otherSourceMessage
+ * unless the test wants the collision.
+ */
+async function baseInput(
+  opts: { otherSourceMessage?: boolean; otherAsker?: boolean; otherEvent?: boolean } = {}
+) {
+  const asker = opts.otherAsker ? otherUserId! : userId!
+  let sourceMsgId = sourceMessageId!
+  if (opts.otherSourceMessage) {
+    const msg = await prisma.message.create({
+      data: { groupId: groupId!, authorType: MessageAuthor.MEMBER, authorId: asker, body: "9?" },
+    })
+    sourceMsgId = msg.id
+  }
+  return {
+    groupId: groupId!,
+    eventId: opts.otherEvent ? otherEventId! : eventId!,
+    askerUserId: asker,
+    sourceMessageId: sourceMsgId,
+    proposedStartsAt: opts.otherEvent ? new Date("2099-06-20T21:00:00Z") : PROPOSED,
+    priorStartsAt: opts.otherEvent ? OTHER_EVENT_START : EVENT_START,
+    body: "Sounds like you want this moved. Sound good to everyone?",
   }
 }
 
@@ -85,6 +146,63 @@ describe("createChangeProposal", () => {
     const second = await createChangeProposal(input())
     expect(second).toEqual({ status: "skipped", reason: "already_asked" })
     expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(1)
+  })
+})
+
+describe("createGroupProposal", () => {
+  it("creates message, GROUP proposal, and the asker's seeded YES in one shape", async () => {
+    const r = await createGroupProposal(await baseInput())
+    expect(r.status).toBe("created")
+    if (r.status !== "created") throw new Error("expected created")
+    const votes = await prisma.proposalVote.findMany({ where: { proposalId: r.proposal.id } })
+    expect(votes).toHaveLength(1)
+    expect(votes[0]).toMatchObject({ userId: userId, answer: "YES" })
+    const orbitMsg = await prisma.message.findUnique({ where: { id: r.proposal.orbitMessageId } })
+    expect(orbitMsg?.authorType).toBe("ORBIT")
+  })
+
+  it("double-fire on the same source message skips (compound key, kind GROUP)", async () => {
+    await createGroupProposal(await baseInput())
+    const second = await createGroupProposal(await baseInput())
+    expect(second).toEqual({ status: "skipped", reason: "already_asked" })
+  })
+
+  it("a VERIFY and a GROUP row can share a source message (the handoff)", async () => {
+    const priorVerify = await createChangeProposal(input())
+    if (priorVerify.status !== "created") throw new Error("expected created")
+    const r = await createGroupProposal({ ...(await baseInput()), resolveVerifyProposalId: priorVerify.proposal.id })
+    expect(r.status).toBe("created")
+    const verify = await prisma.changeProposal.findUnique({ where: { id: priorVerify.proposal.id } })
+    expect(verify?.answer).toBe("CONFIRMED")
+  })
+
+  it("newest wins per event: a live GROUP proposal on the event is stamped SUPERSEDED", async () => {
+    const first = await createGroupProposal(await baseInput())
+    if (first.status !== "created") throw new Error("expected created")
+    const second = await createGroupProposal(await baseInput({ otherSourceMessage: true, otherAsker: true }))
+    const old = await prisma.changeProposal.findUnique({ where: { id: first.proposal.id } })
+    expect(old?.answer).toBe("SUPERSEDED")
+    expect(second.status).toBe("created")
+  })
+
+  it("newest wins per asker: the asker's live proposal on ANOTHER event is superseded too", async () => {
+    const onClimbing = await createGroupProposal(await baseInput())
+    if (onClimbing.status !== "created") throw new Error("expected created")
+    const onBeers = await createGroupProposal(await baseInput({ otherEvent: true, otherSourceMessage: true }))
+    const old = await prisma.changeProposal.findUnique({ where: { id: onClimbing.proposal.id } })
+    expect(old?.answer).toBe("SUPERSEDED")
+    expect(onBeers.status).toBe("created")
+  })
+
+  it("someone else's live proposal on a DIFFERENT event is left alone", async () => {
+    const first = await createGroupProposal(await baseInput())
+    if (first.status !== "created") throw new Error("expected created")
+    const second = await createGroupProposal(
+      await baseInput({ otherAsker: true, otherEvent: true, otherSourceMessage: true })
+    )
+    const old = await prisma.changeProposal.findUnique({ where: { id: first.proposal.id } })
+    expect(old?.answer).toBeNull()
+    expect(second.status).toBe("created")
   })
 })
 
@@ -131,5 +249,28 @@ describe("findLiveProposals", () => {
     })
     const now = new Date("2099-06-14T06:00:00Z")
     expect(await findLiveProposals(groupId!, now)).toHaveLength(0)
+  })
+
+  it("a SUPERSEDED proposal is not live", async () => {
+    const first = await createGroupProposal(await baseInput())
+    if (first.status !== "created") throw new Error("expected created")
+    await createGroupProposal(await baseInput({ otherSourceMessage: true, otherAsker: true }))
+    const live = await findLiveProposals(groupId!, NOW)
+    expect(live.map((p) => p.id)).not.toContain(first.proposal.id)
+  })
+
+  it("returned rows carry votes (with user), asker, and event.rsvps", async () => {
+    const r = await createGroupProposal(await baseInput())
+    if (r.status !== "created") throw new Error("expected created")
+    await prisma.rsvp.create({ data: { eventId: eventId!, userId: userId!, status: "IN" } })
+
+    const live = await findLiveProposals(groupId!, NOW)
+    expect(live).toHaveLength(1)
+    expect(live[0].votes).toHaveLength(1)
+    expect(live[0].votes[0]).toMatchObject({ userId: userId, answer: ProposalVoteAnswer.YES })
+    expect(live[0].votes[0].user).toMatchObject({ id: userId })
+    expect(live[0].asker).toMatchObject({ id: userId })
+    expect(live[0].event.rsvps).toHaveLength(1)
+    expect(live[0].event.rsvps[0]).toMatchObject({ userId: userId, status: "IN" })
   })
 })
