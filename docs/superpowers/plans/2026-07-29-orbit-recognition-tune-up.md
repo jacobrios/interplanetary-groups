@@ -1322,3 +1322,42 @@ Automated verification cannot reach steps 3 and 5: whether an extra Orbit messag
 **Spec coverage:** three holes → Tasks 4 and 5. Sweep → Task 3, with its findings consumed in Tasks 5 and 7. Bench → Tasks 1, 2, 6. Checklist → Task 7. Baseline-before-fix ordering → enforced by the task order and by Task 1 Step 7's stop condition. PR plus QA script → Task 7 Step 7.
 
 **Known imprecision, flagged rather than papered over:** three steps say to match the surrounding file's existing style rather than quoting it exactly (Task 4 Step 6's factory names, Task 5 Step 4's mock-reading form, Task 4 Step 1's existing test). Those files were mapped, not read line by line, and inventing an exact quote for them would be a fabrication. Each of those steps names the file and what to look for.
+
+---
+
+## Baseline (before any fix)
+
+Recorded 29 July 2026, against unchanged code at commit `7427ec4` (the bench itself,
+no behavior touched). 22 cases x 5 runs = 110 model calls.
+
+Note on the count: this plan's prose above says 21 cases; the case blocks it
+specifies literally contain 22 (ten must-recognize, nine must-stay-quiet, three
+ambiguous). The data is the authority, so 22 is what was built and measured.
+
+```
+must-recognize:  26/50 runs,  5/10 cases clean
+must-stay-quiet: 45/45 runs,  9/9  cases clean
+ambiguous:        0/15 runs,  0/3  cases clean  (no bar, watched for drift)
+```
+
+Failing must-recognize cases:
+
+| Case | Score | Failure |
+|---|---|---|
+| `bare-ask-after-move` | 0/5 | expected change, got none |
+| `bare-ask-one-plan` | 0/5 | expected change, got none |
+| `bare-ask-no-plans` | 0/5 | expected change, got none |
+| `reschedule-word` | 1/5 | expected change, got none (x4) |
+| `bare-ask-long-history` | 0/5 | expected change, got none |
+
+Clean must-recognize cases at baseline: `indirect-push-later`, `correction-names-plan`,
+`follow-up-bare-hour`, `put-it-back`, `venue-ask-two-plans` (all 5/5).
+
+Ambiguous cases, recorded for drift only, all leaning to silence at baseline:
+`might-be-late-implies-move` 0/5, `group-grumble` 0/5, `referent-past-the-window` 0/5.
+
+**What the baseline says.** Every bare ask that names no field dies, and it dies on
+every run, which matches the deterministic guard in Task 4 rather than model variance.
+The asks that do name something (a correction, a follow-up hour, a revert with a prior
+time in the window, a venue ask) all survive today. The stay-quiet bucket is perfect,
+so it has the whole 45/45 to lose and nothing to gain.
