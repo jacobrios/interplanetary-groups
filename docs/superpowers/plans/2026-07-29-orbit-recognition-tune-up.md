@@ -1361,3 +1361,45 @@ every run, which matches the deterministic guard in Task 4 rather than model var
 The asks that do name something (a correction, a follow-up hour, a revert with a prior
 time in the window, a venue ask) all survive today. The stay-quiet bucket is perfect,
 so it has the whole 45/45 to lose and nothing to gain.
+
+---
+
+## After (post-fix)
+
+Recorded 29 July 2026, after all three fixes, at commit `97d2b15`. Same 22 cases,
+same 5 runs, same one-hour window as the baseline.
+
+```
+                  BASELINE                   AFTER
+must-recognize:   26/50 runs,  5/10 clean    50/50 runs, 10/10 clean
+must-stay-quiet:  45/45 runs,  9/9  clean    45/45 runs,  9/9  clean
+ambiguous:         0/15 runs,  0/3  clean     5/15 runs,  1/3  clean
+```
+
+**The three questions the plan asked, answered in order.**
+
+1. **Did `bare-ask-after-move` go from failing to 5/5?** Yes. 0/5 to 5/5, and 15/15 on
+   a confirmation run. Every other bare-ask case moved the same way:
+   `bare-ask-one-plan` 0/5 to 5/5, `bare-ask-no-plans` 0/5 to 5/5, `reschedule-word`
+   1/5 to 5/5, `bare-ask-long-history` 0/5 to 5/5.
+2. **Did must-stay-quiet hold?** Yes, at 45/45, unchanged. Not one message moved from
+   silence to a reply. The three sharpest probes were re-run at 15 runs each and each
+   came back 15/15: `reaction-to-orbit-move`, `move-on-topic`, `info-question`.
+3. **Did anything in must-recognize get worse?** No. The five cases clean at baseline
+   are still clean; the five failing ones are now clean.
+
+**Nothing is below its bar.** Both barred buckets are at 100% of runs.
+
+**The ambiguous bucket moved, which is the drift this slice bought.** One of the three
+changed sides: `referent-past-the-window` went 0/5 to 5/5, meaning a bare ask whose
+referent has been trimmed out of the window now gets a which-plan question instead of
+silence. That is the intended direction. The other two, `might-be-late-implies-move`
+("I might be late again, 8 is rough") and `group-grumble` ("nobody really likes 8 do
+they"), still classify as nothing on all five runs. Commentary that stops short of
+asking stayed on the quiet side of the line.
+
+**What these numbers cannot claim.** Twenty-two cases at five runs measures twenty-two
+cases. The confirmation runs at fifteen raise confidence on four of them and nothing
+else. This is a floor that should keep rising, not proof that recognition is correct in
+general. The stay-quiet bucket in particular is a 45-run sample of a behavior that has
+to hold across every message a real group sends.
