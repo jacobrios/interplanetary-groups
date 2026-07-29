@@ -3,14 +3,20 @@
 // The pure decision at the heart of the change-request flow: given a
 // normalized change claim and the plan it targets, what does Orbit do?
 // Deterministic and fully unit-tested; the server action just carries the
-// answer out (move, ask, reply, or nothing).
+// answer out (move, ask, propose, reply, or nothing).
 
 import type { NormalizedChange } from "./spark"
+import { consensusFloor } from "@/lib/proposals/consensus"
 import {
+  buildAlreadyAtReply,
   buildCantDoReply,
   buildChangeAnnouncement,
   buildChangeQuestion,
+  buildGroupProposalQuestion,
+  buildWhichPlanQuestion,
+  buildWhichTimeQuestion,
   changeStartInstant,
+  NO_PLANS_REPLY,
   PAST_TIME_REPLY,
   resolveChangeTime,
 } from "./change-copy"
@@ -27,60 +33,86 @@ export type ChangePlan =
   | { action: "reply"; body: string }
   | { action: "move"; newStartsAt: Date; announcement: string }
   | { action: "ask"; proposedStartsAt: Date; question: string }
+  | { action: "propose"; proposedStartsAt: Date; question: string }
 
 export function planChange(
   change: NormalizedChange,
   target: ChangeTarget | null,
+  candidates: ChangeTarget[],
+  askerName: string,
+  memberCount: number,
   timeZone: string,
   now: Date
 ): ChangePlan {
-  // No confident target and no best guess either: nothing to act on or ask about.
-  if (!target) return { action: "quiet" }
-
-  // Anything beyond the time is out of this slice. An honest decline, but only
-  // for a plainly asked request: "I can't do that yet" aimed at something that
-  // maybe was not a request would be Orbit interjecting on chatter. A compound
-  // request declines whole rather than acting on half of it.
+  // Rung 1: anything beyond the time declines, target or no target, clear or
+  // probable. The decline never needed the target (the owner-QA "it" failure),
+  // and the model's conservative tiebreak is the false-positive guard.
   if (change.requestedFields.some((f) => f !== "time")) {
-    return change.intentClear
-      ? { action: "reply", body: buildCantDoReply(change.requestedFields, target.startsAt, timeZone) }
-      : { action: "quiet" }
+    return {
+      action: "reply",
+      body: buildCantDoReply(change.requestedFields, target?.startsAt ?? null, timeZone),
+    }
   }
 
-  // A time request with no concrete time ("can we do it later?") gives Orbit
-  // nothing concrete to propose. Concrete-first cuts both ways: stay quiet.
-  if (change.requestedTime === null) return { action: "quiet" }
+  // A lone plan is its own answer: the model declining to number the only
+  // candidate is not a real ambiguity.
+  const resolved = target ?? (candidates.length === 1 ? candidates[0] : null)
+
+  // Rung 2: a time request with no resolvable target gets a which-plan
+  // question, or the honest no-plans reply when there is nothing to move.
+  if (!resolved) {
+    if (candidates.length === 0) return { action: "reply", body: NO_PLANS_REPLY }
+    return { action: "reply", body: buildWhichPlanQuestion(candidates.map((c) => c.label)) }
+  }
+
+  // Rung 3: a target but no concrete time asks which time. Part one stayed
+  // quiet here as concrete-first; the amended guardrail overrides that for a
+  // direct ask, and the question is still concrete about everything it knows.
+  if (change.requestedTime === null) {
+    return { action: "reply", body: buildWhichTimeQuestion(resolved.label) }
+  }
 
   const { timeLocal, disclosure } = resolveChangeTime({
     requestedTime: change.requestedTime,
     requestedTimeAmbiguous: change.requestedTimeAmbiguous,
-    eventStartsAt: target.startsAt,
+    eventStartsAt: resolved.startsAt,
     timeZone,
   })
-  const newStartsAt = changeStartInstant(target.startsAt, timeLocal, timeZone)
+  const newStartsAt = changeStartInstant(resolved.startsAt, timeLocal, timeZone)
 
-  // No plans about the past, same principle as promote's start_passed skip.
+  // Rung 4: honest replies for the past and for the time it already has.
   if (newStartsAt.getTime() <= now.getTime()) {
-    return change.intentClear ? { action: "reply", body: PAST_TIME_REPLY } : { action: "quiet" }
+    return { action: "reply", body: PAST_TIME_REPLY }
+  }
+  if (newStartsAt.getTime() === resolved.startsAt.getTime()) {
+    return { action: "reply", body: buildAlreadyAtReply(resolved.label, resolved.startsAt, timeZone, now) }
   }
 
-  // The time it already has: nothing to do. This also makes an accidentally
-  // repeated detection of the same message harmless.
-  if (newStartsAt.getTime() === target.startsAt.getTime()) return { action: "quiet" }
+  // Rung 5: probable but complete verifies with the asker, part one unchanged.
+  if (!change.intentClear) {
+    return {
+      action: "ask",
+      proposedStartsAt: newStartsAt,
+      question: buildChangeQuestion(resolved.label, newStartsAt, timeZone, now),
+    }
+  }
 
-  if (change.intentClear) {
+  // Rung 6: clear and complete. A group of one is part one's immediate move
+  // surviving as the degenerate case; everyone else gets the group proposal.
+  if (consensusFloor(memberCount) === 1) {
     return {
       action: "move",
       newStartsAt,
       announcement: buildChangeAnnouncement(
-        target.label, newStartsAt, target.startsAt, timeZone, now, disclosure
+        resolved.label, newStartsAt, resolved.startsAt, timeZone, now, disclosure
       ),
     }
   }
-
   return {
-    action: "ask",
+    action: "propose",
     proposedStartsAt: newStartsAt,
-    question: buildChangeQuestion(target.label, newStartsAt, timeZone, now),
+    question: buildGroupProposalQuestion(
+      askerName, resolved.label, newStartsAt, resolved.startsAt, timeZone, now, disclosure
+    ),
   }
 }
