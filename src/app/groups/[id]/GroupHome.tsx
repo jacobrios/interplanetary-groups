@@ -30,6 +30,7 @@ import { MessageAuthor } from "@prisma/client"
 import MessageFeed, { type FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
+import type { FeedGroupProposal } from "./GroupProposalChips"
 import ChatInput from "./ChatInput"
 
 interface Props {
@@ -39,6 +40,8 @@ interface Props {
   viewerName: string | null
   gauges: FeedGauge[]
   proposals: FeedProposal[]
+  groupProposals: FeedGroupProposal[]
+  viewerIsMember: boolean
 }
 
 export default function GroupHome({
@@ -48,6 +51,8 @@ export default function GroupHome({
   viewerName,
   gauges,
   proposals,
+  groupProposals,
+  viewerIsMember,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -129,6 +134,8 @@ export default function GroupHome({
         viewerId={viewerId}
         gauges={gauges}
         proposals={proposals}
+        groupProposals={groupProposals}
+        viewerIsMember={viewerIsMember}
       />
 
       {/* Pinned input — only for authenticated members */}
