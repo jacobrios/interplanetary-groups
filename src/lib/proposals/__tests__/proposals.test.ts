@@ -158,13 +158,24 @@ describe("createGroupProposal", () => {
     expect(votes).toHaveLength(1)
     expect(votes[0]).toMatchObject({ userId: userId, answer: "YES" })
     const orbitMsg = await prisma.message.findUnique({ where: { id: r.proposal.orbitMessageId } })
-    expect(orbitMsg?.authorType).toBe("ORBIT")
+    expect(orbitMsg).toMatchObject({ authorType: MessageAuthor.ORBIT, authorId: null })
   })
 
   it("double-fire on the same source message skips (compound key, kind GROUP)", async () => {
-    await createGroupProposal(await baseInput())
+    const first = await createGroupProposal(await baseInput())
+    if (first.status !== "created") throw new Error("expected created")
     const second = await createGroupProposal(await baseInput())
     expect(second).toEqual({ status: "skipped", reason: "already_asked" })
+    // The second call's transaction supersedes the first proposal via
+    // updateMany BEFORE it collides on the compound unique. If the rollback
+    // silently failed, the first proposal would be stuck at SUPERSEDED with
+    // this test none the wiser, so assert the rollback actually happened.
+    const firstAfter = await prisma.changeProposal.findUnique({ where: { id: first.proposal.id } })
+    expect(firstAfter?.answer).toBeNull()
+    // And the failed second call must not have left an orphan Orbit message
+    // behind (the createChangeProposal double-fire test above pins the same
+    // thing for the VERIFY path).
+    expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(1)
   })
 
   it("a VERIFY and a GROUP row can share a source message (the handoff)", async () => {
