@@ -82,7 +82,7 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 **Known gaps, deliberately**
 
 - Orbit reads a correction to an event's **time** and nothing else. A wrong venue, day, or cadence still gets an honest decline in chat and has no path to being fixed there. Those are their own slices.
-- Nothing is membership-gated. This is wider than viewing: posting, RSVPs, and gauge votes are gated on having a session, not on being in the group, so a signed-in non-member can open any group home, read the feed, post to it, and tap "I'm in" while their answer is silently dropped from the count. There is also no way to join a group from inside the product, because the invite link renders only for the founder. Access control is a planned slice, not an oversight, and the silent drop is the part that makes it urgent.
+- Nothing is membership-gated, including posting and RSVPs, so a signed-in non-member can post to any group and their RSVP is silently dropped. Access control is a planned slice, not an oversight.
 - A visual polish pass is pending, and some scaffolding defaults from project creation are still in place.
 
 **Out of scope for the MVP**
