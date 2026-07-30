@@ -138,7 +138,11 @@ export default function GroupHome({
         viewerIsMember={viewerIsMember}
       />
 
-      {/* Pinned input — only for authenticated members */}
+      {/* Pinned input. canPost is "has a session and a name," NOT "is a member":
+          viewerIsMember is computed and passed to the feed above, and is
+          deliberately not consulted here yet. Anyone signed in can post to any
+          group. That is the standing access-control gap, not an oversight in
+          this component, and it gets closed in its own slice. */}
       {canPost && (
         <ChatInput
           groupId={groupId}

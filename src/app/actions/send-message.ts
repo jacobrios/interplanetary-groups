@@ -26,7 +26,15 @@ export interface SendMessageState {
  * - Re-verifies the session via supabase.auth.getUser() — never trusts the client.
  * - Re-resolves the User row via getCurrentUser() so the authorId is always
  *   a real Prisma User id, never a client-passed value.
- * - Does NOT mint an anonymous session (no membership → no right to post).
+ * - Does NOT mint an anonymous session, unlike create-group and join-group.
+ *   Posting is something you do inside a group you already reached, not an
+ *   entry point, so it should not manufacture an identity to let you in.
+ *
+ * What this does NOT do, stated because the line above used to imply it:
+ * there is no membership check here. Having a session and a name is the whole
+ * gate. A signed-in person who never joined this group can post to it. That is
+ * the standing access-control gap recorded in build-notes and the README, and
+ * it belongs to that slice rather than this action.
  *
  * On success, revalidatePath refreshes the group home so the feed reflects
  * the new message on the next server render.

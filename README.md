@@ -72,6 +72,7 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 - RSVPs, with counts derived from rows rather than stored, and a roster grouped into In / Out / Haven't replied
 - Event detail and group info pages
 - The spark: interest gauges from chat, one-tap responses, a live tally, and event creation on the third yes, with the gauge answers carrying through as RSVPs
+- Change requests on time: someone asks to move a plan in chat, Orbit reads it, and the plan moves only once the new time has three yeses and more support than the time it would replace
 - A daily scheduled job that creates the next recurring occurrence before anyone has to think about it
 
 **Next up**
@@ -80,8 +81,8 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 
 **Known gaps, deliberately**
 
-- Orbit cannot yet read a correction, so a wrong time or venue guess has no path to being fixed in chat. That is its own slice.
-- No surface is membership-gated yet. Access control is a planned slice, not an oversight.
+- Orbit reads a correction to an event's **time** and nothing else. A wrong venue, day, or cadence still gets an honest decline in chat and has no path to being fixed there. Those are their own slices.
+- Nothing is membership-gated. This is wider than viewing: posting, RSVPs, and gauge votes are gated on having a session, not on being in the group, so a signed-in non-member can open any group home, read the feed, post to it, and tap "I'm in" while their answer is silently dropped from the count. There is also no way to join a group from inside the product, because the invite link renders only for the founder. Access control is a planned slice, not an oversight, and the silent drop is the part that makes it urgent.
 - A visual polish pass is pending, and some scaffolding defaults from project creation are still in place.
 
 **Out of scope for the MVP**
@@ -103,7 +104,7 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 
 **The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders and calendar exports need anyway. Everything Orbit does lives under `src/lib/orbit/`, one module per job.
 
-**Testing.** 388 tests across 26 files, covering the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, and recurring-event generation. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
+**Testing.** 517 tests across 38 files, covering the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, and recurring-event generation. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
 
 ---
 
