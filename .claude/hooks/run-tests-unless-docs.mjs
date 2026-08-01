@@ -7,8 +7,15 @@
 //
 // Reads the tool call as JSON on stdin (same contract as protect-paths.mjs),
 // checks the target file path, and either exits 0 (docs, skip) or runs
-// `npx vitest run` and propagates its exit code so a failing suite still
-// surfaces as hook feedback.
+// `npx vitest run` and exits 2 when the suite fails, which is what puts the
+// failure in front of the agent that caused it.
+//
+// Exit 2 specifically, not the suite's own exit code. Claude Code only feeds a
+// hook's output back to the agent on exit 2; every other non-zero code is
+// reported to the human and the agent carries on none the wiser. This hook used
+// to propagate vitest's exit 1 and its header used to claim that surfaced as
+// hook feedback, which was false: a broken suite was invisible to the thing that
+// broke it. Corrected 31 July 2026, from b1-coach PR #9.
 
 import { spawnSync } from "node:child_process";
 
@@ -30,5 +37,14 @@ process.stdin.on("end", () => {
   }
 
   const result = spawnSync("npx", ["vitest", "run"], { stdio: "inherit" });
-  process.exit(result.status ?? 1);
+
+  if (result.status !== 0) {
+    console.error(
+      "The test suite failed after this edit. Run the test suite to see which " +
+        "tests broke, and fix them before continuing."
+    );
+    process.exit(2);
+  }
+
+  process.exit(0);
 });
