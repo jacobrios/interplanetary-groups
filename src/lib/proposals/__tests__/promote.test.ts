@@ -30,6 +30,10 @@ const DECOY_START = new Date("2099-06-15T09:00:00Z")
 // spikes by multiples on an ordinary bad network moment, where an in-process
 // test's timing barely moves. It is still short enough that a genuine hang
 // surfaces in half a minute instead of stalling the suite.
+//
+// This call has to stay at module scope. Vitest bakes each test's timeout in
+// when it collects the file, so the same line inside beforeAll or beforeEach
+// would still run, still look right, and quietly do nothing.
 vi.setConfig({ testTimeout: 30_000 })
 
 interface Fixture {
