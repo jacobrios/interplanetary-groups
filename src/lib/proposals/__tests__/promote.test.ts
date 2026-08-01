@@ -4,7 +4,7 @@
 // side, move a plan's time and seed the winners in. Real DB, modeled on
 // src/lib/gauges/__tests__/promote.test.ts.
 
-import { describe, it, expect, afterEach } from "vitest"
+import { describe, it, expect, afterEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, ProposalAnswer, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
 import { createGroupProposal } from "../create"
@@ -16,6 +16,21 @@ const NEW_START = new Date("2099-06-14T18:00:00Z")
 // A third, distinct instant: stands in for "some other route already moved
 // this plan," never the value this test's own proposal asks for.
 const DECOY_START = new Date("2099-06-15T09:00:00Z")
+
+// Every test here drives a dozen-plus sequential Prisma round-trips against the
+// remote dev-test Supabase (users created one at a time, then a group, event,
+// RSVPs, message, proposal, votes, the promote transaction, and a cleanup pass).
+// Measured over three runs, each test lands between 4.2s and 5.4s, so vitest's
+// 5000ms default cut straight through the middle of the spread and each test
+// was close to a coin flip: on unmodified main the file failed 2, 2, 2, 2, and
+// 1 of its 6 tests across five runs, always "Test timed out in 5000ms".
+//
+// 30s is roughly five times the observed worst case. The headroom is sized for
+// a remote round-trip rather than a local one: latency to a hosted database
+// spikes by multiples on an ordinary bad network moment, where an in-process
+// test's timing barely moves. It is still short enough that a genuine hang
+// surfaces in half a minute instead of stalling the suite.
+vi.setConfig({ testTimeout: 30_000 })
 
 interface Fixture {
   groupId: string
@@ -228,7 +243,7 @@ describe("promoteProposalMove", () => {
     } finally {
       await cleanupFixture(fx)
     }
-  }, 10000)
+  })
 
   it("a supersede landing mid-transaction is not overwritten by CONFIRMED", async () => {
     // The whole-branch review's Fix 2: promote re-reads votes, memberships,
@@ -286,7 +301,7 @@ describe("promoteProposalMove", () => {
     } finally {
       await cleanupFixture(fx)
     }
-  }, 10000)
+  })
 
   it("non-member votes do not count toward the bar", async () => {
     // A YES from a user with no membership must not help clear the floor:
