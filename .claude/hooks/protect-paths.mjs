@@ -18,13 +18,16 @@ process.stdin.on("end", () => {
 
   const path = (data && data.tool_input && data.tool_input.file_path) || "";
 
-  // The .env pattern is case-insensitive on purpose. macOS filesystems are
+  // Both patterns are case-insensitive on purpose. macOS filesystems are
   // case-insensitive by default, so .ENV.local and .env.local are the same file
-  // on disk; a case-sensitive pattern waves through a write that clobbers the
-  // real secrets file. Added 31 July 2026, from b1-coach PR #9.
+  // on disk, and so are prisma/Migrations/ and prisma/migrations/; a
+  // case-sensitive pattern waves through a write that clobbers the real secrets
+  // file or an already-applied migration. The .env half was added 31 July 2026
+  // from b1-coach PR #9; the migration half had the identical hole and was
+  // fixed 3 August 2026, found by the review on PR #42.
   const protectedPatterns = [
     /(^|\/)\.env(\.|$)/i, // .env, .env.local, .env.production, etc.
-    /(^|\/)prisma\/migrations\//, // any already-applied migration file
+    /(^|\/)prisma\/migrations\//i, // any already-applied migration file
   ];
 
   // .env.example is the one .env-shaped file that holds no secrets: it carries
