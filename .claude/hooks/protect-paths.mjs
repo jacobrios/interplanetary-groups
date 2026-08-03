@@ -18,16 +18,22 @@ process.stdin.on("end", () => {
 
   const path = (data && data.tool_input && data.tool_input.file_path) || "";
 
+  // The .env pattern is case-insensitive on purpose. macOS filesystems are
+  // case-insensitive by default, so .ENV.local and .env.local are the same file
+  // on disk; a case-sensitive pattern waves through a write that clobbers the
+  // real secrets file. Added 31 July 2026, from b1-coach PR #9.
   const protectedPatterns = [
-    /(^|\/)\.env(\.|$)/, // .env, .env.local, .env.production, etc.
+    /(^|\/)\.env(\.|$)/i, // .env, .env.local, .env.production, etc.
     /(^|\/)prisma\/migrations\//, // any already-applied migration file
   ];
 
   // .env.example is the one .env-shaped file that holds no secrets: it carries
   // placeholder values only and is meant to be committed, so agents must be able
   // to keep it in sync when a new variable is added. Every other .env file, and
-  // every migration, stays protected.
-  const allowedPatterns = [/(^|\/)\.env\.example$/];
+  // every migration, stays protected. Matched case-insensitively too, or
+  // .ENV.EXAMPLE would start getting blocked once the pattern above stopped
+  // caring about case.
+  const allowedPatterns = [/(^|\/)\.env\.example$/i];
 
   const isProtected =
     !allowedPatterns.some((re) => re.test(path)) &&
