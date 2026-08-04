@@ -346,6 +346,96 @@ describe("runGaugeEndgame", () => {
     })
   })
 
+  it("does not bump a gauge already at the three-vote bar (a promotion that never landed)", async () => {
+    // Simulates a promoteGaugeToEvent call that committed the third vote but
+    // rolled back the event: the gauge is live, has no event, but already
+    // holds 3 member IN votes. buildBumpMessage renders broken copy at 3+
+    // names, so this must be caught before the sweep composes a bump body.
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteIn(gauge.id, members[2])
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_at_bar",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("a race between two overlapping sweeps produces exactly one bump, not two", async () => {
+    // The scenario code review flagged: a read-then-branch-then-write re-read
+    // inside the transaction does not close this race (both racers see the
+    // marker as null and both writes succeed, since neither's update is
+    // conditioned on the marker). The fix conditions the update itself on
+    // `bumpMessageId: null`, so the loser's update matches zero rows once the
+    // winner has committed and it rolls its own message back out.
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(gid)
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(EVE_8PM, { groupId: gid }),
+      runGaugeEndgame(EVE_8PM, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "bumped")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "bumped" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_bumped" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).not.toBeNull()
+  })
+
+  it("a race between two overlapping sweeps produces exactly one closure note, not two", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+
+    const before = await orbitMessageCount(gid)
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "closed_with_note")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "closed_with_note" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.closureMessageId).not.toBeNull()
+  })
+
   it("closes with a note when someone was in", async () => {
     const { groupId: gid, members } = await setupGroup(1)
     const gauge = await makeGauge(gid, members[0], {

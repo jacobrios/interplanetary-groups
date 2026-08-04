@@ -25,7 +25,13 @@
 
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, Prisma } from "@prisma/client"
-import { isGaugeLive, buildBumpMessage, buildClosureMessage, BUMP_LOCAL_HOUR } from "./spark-copy"
+import {
+  isGaugeLive,
+  buildBumpMessage,
+  buildClosureMessage,
+  BUMP_LOCAL_HOUR,
+  SPARK_THRESHOLD,
+} from "./spark-copy"
 import { getLocalParts } from "./occurrence"
 import { countIn } from "@/lib/gauges/threshold"
 
@@ -44,6 +50,13 @@ export type EndgameResult =
         | "already_closed_out"
         | "closed_silently"
         | "promoted"
+        // Deliberate extension beyond the brief's original union (code
+        // review, 2026-08-04): a gauge can hold 3+ member-filtered IN votes
+        // with no linked event — a promotion attempt that committed the
+        // votes but rolled back the event creation. That gauge's problem is
+        // a missed promotion, not a missing bump, so it gets its own reason
+        // rather than silently reusing "still_newest" or another guard.
+        | "already_at_bar"
     }
 
 /**
@@ -167,35 +180,63 @@ async function handleBump(gauge: CandidateGauge, timeZone: string, now: Date): P
     return { gaugeId: gauge.id, action: "skipped", reason: "still_newest" }
   }
 
+  // Defensive, not expected in the normal flow: a gauge is promoted the
+  // instant its third member IN vote lands, so a live, non-promoted gauge
+  // should never hold 3+. It can, though, if a promotion attempt committed
+  // the votes but rolled back the event (a transiently failed
+  // promoteGaugeToEvent call) — and buildBumpMessage renders broken copy at
+  // 3+ names, so this has to be caught before composing the body, not after.
+  const memberVotes = memberFilteredVotes(gauge)
+  if (countIn(memberVotes) >= SPARK_THRESHOLD) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_at_bar" }
+  }
+
   const body = buildBumpMessage(gauge.activity, inVoterNames(gauge))
 
-  const bumped = await prisma.$transaction(async (tx) => {
-    // Re-read inside the transaction and re-check the marker rather than
-    // trusting the outer snapshot: two overlapping sweeps (or a retried cron
-    // invocation) racing on the same gauge must produce exactly one bump
-    // message, and the unique bumpMessageId column is what makes the loser
-    // discover it lost before it writes anything.
-    const fresh = await tx.gauge.findUnique({
-      where: { id: gauge.id },
-      select: { bumpMessageId: true },
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Create first, then conditionally attach. The obvious-looking
+      // alternative — re-read bumpMessageId inside the tx, branch in
+      // application code, then write — does NOT close the race: under READ
+      // COMMITTED, two overlapping sweeps can both re-read the marker as
+      // null, both create their own (different) message, and both plain
+      // updates then succeed, because neither's WHERE clause depends on the
+      // marker. The unique constraint on bumpMessageId never fires either,
+      // since the two racers are writing two different message ids into two
+      // different rows' worth of intent — nothing about a unique column stops
+      // two message rows from existing.
+      //
+      // The actual guard is the UPDATE's WHERE clause: `bumpMessageId: null`
+      // is checked against the row's state AT UPDATE TIME (after acquiring
+      // its row lock, once any earlier transaction holding that lock has
+      // committed), not at an earlier read. The loser's updateMany blocks on
+      // the winner's row lock, then reevaluates the WHERE against the
+      // winner's now-committed write, matches zero rows, and throws to roll
+      // its own orphaned message back out.
+      const message = await tx.message.create({
+        data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
+      })
+      const updated = await tx.gauge.updateMany({
+        where: { id: gauge.id, bumpMessageId: null },
+        data: { bumpMessageId: message.id },
+      })
+      if (updated.count === 0) throw new AlreadyBumpedInTx()
     })
-    if (!fresh || fresh.bumpMessageId !== null) return false
-
-    const message = await tx.message.create({
-      data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
-    })
-    await tx.gauge.update({
-      where: { id: gauge.id },
-      data: { bumpMessageId: message.id },
-    })
-    return true
-  })
-
-  if (!bumped) {
-    return { gaugeId: gauge.id, action: "skipped", reason: "already_bumped" }
+  } catch (err) {
+    if (err instanceof AlreadyBumpedInTx) {
+      return { gaugeId: gauge.id, action: "skipped", reason: "already_bumped" }
+    }
+    throw err
   }
+
   return { gaugeId: gauge.id, action: "bumped" }
 }
+
+/** Signals a lost bump race; rolls the transaction back, never escapes this module. */
+class AlreadyBumpedInTx extends Error {}
+
+/** Signals a lost closure race; rolls the transaction back, never escapes this module. */
+class AlreadyClosedInTx extends Error {}
 
 async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {
   const memberVotes = memberFilteredVotes(gauge)
@@ -209,27 +250,29 @@ async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {
 
   const body = buildClosureMessage(gauge.activity)
 
-  const closed = await prisma.$transaction(async (tx) => {
-    // Same re-read-inside-the-transaction guard as the bump path above.
-    const fresh = await tx.gauge.findUnique({
-      where: { id: gauge.id },
-      select: { closureMessageId: true },
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Same create-then-conditionally-attach guard as the bump path above,
+      // and the same reason a read-then-branch-then-write re-read does not
+      // actually close the race: the WHERE clause on the update, not an
+      // earlier read, is what makes the loser's write match zero rows once
+      // the winner has committed.
+      const message = await tx.message.create({
+        data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
+      })
+      const updated = await tx.gauge.updateMany({
+        where: { id: gauge.id, closureMessageId: null },
+        data: { closureMessageId: message.id },
+      })
+      if (updated.count === 0) throw new AlreadyClosedInTx()
     })
-    if (!fresh || fresh.closureMessageId !== null) return false
-
-    const message = await tx.message.create({
-      data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
-    })
-    await tx.gauge.update({
-      where: { id: gauge.id },
-      data: { closureMessageId: message.id },
-    })
-    return true
-  })
-
-  if (!closed) {
-    return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
+  } catch (err) {
+    if (err instanceof AlreadyClosedInTx) {
+      return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
+    }
+    throw err
   }
+
   return { gaugeId: gauge.id, action: "closed_with_note" }
 }
 
@@ -241,9 +284,9 @@ function memberFilteredVotes(gauge: CandidateGauge) {
 
 /**
  * Display names of the IN voters, member-filtered, in the order they voted.
- * Feeds buildBumpMessage directly, which only ever sees a live (below-bar)
- * gauge's votes here — 0 or 1 name at the three-person threshold, never the
- * 3+ that renders broken copy.
+ * Feeds buildBumpMessage directly. Only ever called after the
+ * already_at_bar guard above, so this always resolves to 0-2 names — never
+ * the 3+ that renders broken copy.
  */
 function inVoterNames(gauge: CandidateGauge): string[] {
   const nameById = new Map(gauge.group.memberships.map((m) => [m.userId, m.user.name]))
