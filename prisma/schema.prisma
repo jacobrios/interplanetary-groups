@@ -184,6 +184,7 @@ model Message {
   gaugeAsOrbit    Gauge?         @relation("GaugeOrbit")
   gaugeAsBump    Gauge? @relation("GaugeBump")
   gaugeAsClosure Gauge? @relation("GaugeClosure")
+  gaugeAsRetryAsk Gauge? @relation("GaugeRetryAsk")
   proposalsAsSource ChangeProposal[] @relation("ProposalSource")
   proposalAsOrbit  ChangeProposal? @relation("ProposalOrbit")
 
@@ -220,7 +221,7 @@ enum MessageAuthor {
 model Gauge {
   id              String   @id @default(cuid())
   groupId         String
-  sourceMessageId String   @unique // the MEMBER message that sparked it; also the idempotency key
+  sourceMessageId String?  @unique // the MEMBER message that sparked it (idempotency key); null ONLY for an Orbit-guessed retry gauge, which carries retryGuessOfGaugeId instead
   orbitMessageId  String   @unique // Orbit's gauge message, where the chips render
   activity        String // "beers" — the member's own words, sanitized
   proposedDate    DateTime // group-local midnight of the proposed day
@@ -235,13 +236,26 @@ model Gauge {
   /// Orbit's closure note, posted at close when at least one yes existed.
   /// Null when the gauge closed silently (zero yeses) or is still open.
   closureMessageId String? @unique
+  /// Orbit's close-and-ask message, posted at close for a day-blocked gauge
+  /// whose IN plus NOT_THAT_DAY votes would have cleared the bar. Replaces the
+  /// closure note for this class; the unique pointer is also the
+  /// never-ask-twice guard. (Spec: wrong-day-retry, decision 3.)
+  retryAskMessageId String? @unique
+  /// Set on a retry GUESS gauge only: the original gauge whose failed day this
+  /// gauge re-proposes (same weekday, one week later). Doubles as the
+  /// Orbit-guessed marker (a guess gauge never earns its own ask, spec
+  /// decision 7) and as the one-guess-per-original idempotency key.
+  retryGuessOfGaugeId String? @unique
   createdAt       DateTime @default(now())
 
   group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  sourceMessage Message     @relation("GaugeSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  sourceMessage Message?    @relation("GaugeSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
   orbitMessage  Message     @relation("GaugeOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
   bumpMessage    Message? @relation("GaugeBump", fields: [bumpMessageId], references: [id], onDelete: SetNull)
   closureMessage Message? @relation("GaugeClosure", fields: [closureMessageId], references: [id], onDelete: SetNull)
+  retryAskMessage Message? @relation("GaugeRetryAsk", fields: [retryAskMessageId], references: [id], onDelete: SetNull)
+  retryGuessOf    Gauge?   @relation("GaugeRetryGuess", fields: [retryGuessOfGaugeId], references: [id], onDelete: SetNull)
+  retryGuess      Gauge?   @relation("GaugeRetryGuess")
   votes         GaugeVote[]
   event         Event?
 

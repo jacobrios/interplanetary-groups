@@ -256,7 +256,7 @@ Not decision points, but they are what a future reader will reason from, so they
 
 ### Before first Vercel deploy — prerequisites checklist
 
-Six High-priority items come due at the moment of the first production deploy. Check all six before pushing.
+Seven High-priority items come due at the moment of the first production deploy. Check all seven before pushing.
 
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
@@ -281,6 +281,10 @@ Six High-priority items come due at the moment of the first production deploy. C
 6. **Cron cadence changed daily → hourly for the gauge endgame (`vercel.json`).**
    *Why it blocks deploy:* verify the Vercel plan tier supports hourly cron (Hobby caps at daily). If capped: either upgrade, or keep `vercel.json` daily and point an external scheduler (with the CRON_SECRET bearer header) at `/api/cron/orbit` hourly.
    *Detail:* the bump/close land within the hour of their target moments; that precision is the accepted product behavior.
+
+7. **Apply migration `20260804190626_wrong_day_retry_markers` to the production database** (two nullable Gauge marker columns, plus `Gauge.sourceMessageId` becoming nullable).
+   *Why it blocks deploy:* the wrong-day-retry slice writes and reads `Gauge.retryAskMessageId` and `Gauge.retryGuessOfGaugeId`, and creates guess gauges with no source message; a production database without this migration fails on both.
+   *Detail:* wrong-day-retry slice, Task 2.
 
 ### Data-foundation slice (18 to 19 June 2026)
 
