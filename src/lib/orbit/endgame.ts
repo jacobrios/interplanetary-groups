@@ -29,15 +29,17 @@ import {
   isGaugeLive,
   buildBumpMessage,
   buildClosureMessage,
+  buildRetryAskMessage,
   BUMP_LOCAL_HOUR,
   SPARK_THRESHOLD,
 } from "./spark-copy"
 import { getLocalParts } from "./occurrence"
-import { countIn } from "@/lib/gauges/threshold"
+import { countIn, countNotThatDay, isRetryEligible } from "@/lib/gauges/threshold"
 
 export type EndgameResult =
   | { gaugeId: string; action: "bumped" }
   | { gaugeId: string; action: "closed_with_note" }
+  | { gaugeId: string; action: "asked" } // the day-blocked retry ask replaced the goodbye (Task 6)
   | {
       gaugeId: string
       action: "skipped"
@@ -57,6 +59,10 @@ export type EndgameResult =
         // a missed promotion, not a missing bump, so it gets its own reason
         // rather than silently reusing "still_newest" or another guard.
         | "already_at_bar"
+        // Lost the ask race (Task 6). Interim only: Task 7 replaces the
+        // routing branch that produces this with handleGuess(...), so this
+        // reason stops being reachable once the guess phase lands.
+        | "already_asked"
     }
 
 /**
@@ -124,14 +130,33 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
   if (gauge.event) {
     return { gaugeId: gauge.id, action: "skipped", reason: "promoted" }
   }
-  // Already fully closed: the closure note was posted on a previous sweep.
-  if (gauge.closureMessageId) {
-    return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
-  }
 
   const timeZone = gauge.group.timeZone
   if (isGaugeLive(gauge, timeZone, now)) {
     return handleBump(gauge, timeZone, now)
+  }
+
+  // Closed from here down. A retry guess gauge never earns its own ask or
+  // guess (spec decision 7): ordinary close outcomes only.
+  if (gauge.retryGuessOfGaugeId) {
+    return handleClose(gauge)
+  }
+  if (gauge.retryAskMessageId) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_asked" } // Task 7 replaces this line with handleGuess(...)
+  }
+  // Moved from ahead of the liveness check to here: behavior is identical
+  // for every gauge the old order served (a closure-marked gauge is never
+  // live, and a closed gauge re-entering handleClose with zero yeses stays a
+  // silent no-op), and the new order is what lets an asked gauge keep
+  // flowing to the guess phase instead of being caught by this check first.
+  if (gauge.closureMessageId) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
+  }
+  // Retry eligibility runs BEFORE the closure outcomes (spec decision 2), so
+  // a day-blocked gauge gets the ask instead of the goodbye, and instead of
+  // the zero-yes silence.
+  if (isRetryEligible(memberFilteredVotes(gauge))) {
+    return handleAsk(gauge, timeZone)
   }
   return handleClose(gauge)
 }
@@ -237,6 +262,44 @@ class AlreadyBumpedInTx extends Error {}
 
 /** Signals a lost closure race; rolls the transaction back, never escapes this module. */
 class AlreadyClosedInTx extends Error {}
+
+/** Signals a lost retry-ask race; rolls the transaction back, never escapes this module. */
+class AlreadyAskedInTx extends Error {}
+
+/**
+ * A day-blocked gauge's close: the retry ask replaces the goodbye. wantCount
+ * is IN plus NOT_THAT_DAY, member-filtered, the same tally isRetryEligible
+ * itself checked, so the sentence and the eligibility test can never
+ * disagree about who counted.
+ */
+async function handleAsk(gauge: CandidateGauge, timeZone: string): Promise<EndgameResult> {
+  const memberVotes = memberFilteredVotes(gauge)
+  const wantCount = countIn(memberVotes) + countNotThatDay(memberVotes)
+  const body = buildRetryAskMessage(gauge.activity, gauge.proposedDate, timeZone, wantCount)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Create-then-conditionally-attach, exactly the bump path's guard
+      // above (see its comment for why a read-then-branch-then-write re-read
+      // does not actually close this race).
+      const message = await tx.message.create({
+        data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
+      })
+      const updated = await tx.gauge.updateMany({
+        where: { id: gauge.id, retryAskMessageId: null },
+        data: { retryAskMessageId: message.id },
+      })
+      if (updated.count === 0) throw new AlreadyAskedInTx()
+    })
+  } catch (err) {
+    if (err instanceof AlreadyAskedInTx) {
+      return { gaugeId: gauge.id, action: "skipped", reason: "already_asked" }
+    }
+    throw err
+  }
+
+  return { gaugeId: gauge.id, action: "asked" }
+}
 
 async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {
   const memberVotes = memberFilteredVotes(gauge)

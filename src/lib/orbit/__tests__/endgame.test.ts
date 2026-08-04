@@ -28,7 +28,7 @@ import { describe, it, expect, afterEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, GaugeAnswer } from "@prisma/client"
 import { runGaugeEndgame } from "../endgame"
-import { buildBumpMessage, buildClosureMessage } from "../spark-copy"
+import { buildBumpMessage, buildClosureMessage, buildRetryAskMessage } from "../spark-copy"
 
 // Every test here drives a double-digit count of sequential Prisma round-trips
 // against the remote dev-test Supabase: a handful of users, a group, a gauge
@@ -184,6 +184,10 @@ async function postLaterMessage(gid: string, authorId: string, after: Date) {
 
 async function voteIn(gaugeId: string, userId: string) {
   await prisma.gaugeVote.create({ data: { gaugeId, userId, answer: GaugeAnswer.IN } })
+}
+
+async function voteNotThatDay(gaugeId: string, userId: string) {
+  await prisma.gaugeVote.create({ data: { gaugeId, userId, answer: GaugeAnswer.NOT_THAT_DAY } })
 }
 
 async function orbitMessageCount(gid: string): Promise<number> {
@@ -579,5 +583,181 @@ describe("runGaugeEndgame", () => {
     expect(await orbitMessageCount(otherGid)).toBe(before)
     const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: otherGauge.id } })
     expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("a day-blocked eligible close gets the ask, not the goodbye", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "asked" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.retryAskMessageId).not.toBeNull()
+    expect(refreshed.closureMessageId).toBeNull()
+    const askMsg = await prisma.message.findUniqueOrThrow({ where: { id: refreshed.retryAskMessageId! } })
+    expect(askMsg.body).toBe(buildRetryAskMessage("beers", PROPOSED, "UTC", 3))
+    expect(askMsg.body).toBe("Beers didn't happen for Friday, but three of you want it. What day works better?")
+    expect(askMsg.authorType).toBe(MessageAuthor.ORBIT)
+    expect(askMsg.authorId).toBeNull()
+  })
+
+  it("zero-yes but day-blocked gets the ask, not silence", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteNotThatDay(gauge.id, members[0])
+    await voteNotThatDay(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "asked" })
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.retryAskMessageId).not.toBeNull()
+    expect(refreshed.closureMessageId).toBeNull()
+  })
+
+  it("two in, nobody blocked by the day: ordinary goodbye", async () => {
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "closed_with_note" })
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.retryAskMessageId).toBeNull()
+    expect(refreshed.closureMessageId).not.toBeNull()
+  })
+
+  it("below the bar with a can't-day still gets the ordinary close, with or without an IN", async () => {
+    const { groupId: gid, members } = await setupGroup(2)
+    const withNote = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(withNote.id, members[0])
+    await voteNotThatDay(withNote.id, members[1])
+
+    const silent = await makeGauge(gid, members[0], {
+      activity: "hiking",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteNotThatDay(silent.id, members[1])
+
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === withNote.id)).toEqual({
+      gaugeId: withNote.id,
+      action: "closed_with_note",
+    })
+    expect(results.find((r) => r.gaugeId === silent.id)).toEqual({
+      gaugeId: silent.id,
+      action: "skipped",
+      reason: "closed_silently",
+    })
+
+    const refreshedNote = await prisma.gauge.findUniqueOrThrow({ where: { id: withNote.id } })
+    expect(refreshedNote.retryAskMessageId).toBeNull()
+    const refreshedSilent = await prisma.gauge.findUniqueOrThrow({ where: { id: silent.id } })
+    expect(refreshedSilent.retryAskMessageId).toBeNull()
+    expect(refreshedSilent.closureMessageId).toBeNull()
+  })
+
+  it("counts are member-filtered: a departed NOT_THAT_DAY voter cannot make a gauge eligible", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteNotThatDay(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+    // members[2] leaves the group: their NOT_THAT_DAY vote no longer counts,
+    // so 1 IN + 1 (member-filtered) NOT_THAT_DAY is short of eligibility.
+    await prisma.membership.deleteMany({ where: { groupId: gid, userId: members[2] } })
+
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "closed_with_note" })
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.retryAskMessageId).toBeNull()
+    expect(refreshed.closureMessageId).not.toBeNull()
+  })
+
+  it("the ask never posts twice", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+
+    const first = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(first.find((r) => r.gaugeId === gauge.id)?.action).toBe("asked")
+
+    const before = await orbitMessageCount(gid)
+    const second = await runGaugeEndgame(CLOSE_TIME_2, { groupId: gid })
+    // Interim routing (Step 4 above): Task 7 replaces handleGuess's absence
+    // here with the guess phase and updates this expected reason to
+    // "awaiting_answer". This is the planned intermediate state, not drift.
+    expect(second.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_asked",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+  })
+
+  it("a race between two overlapping sweeps produces exactly one ask, not two", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+
+    const before = await orbitMessageCount(gid)
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "asked")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "asked" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_asked" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.retryAskMessageId).not.toBeNull()
   })
 })
