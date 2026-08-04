@@ -182,6 +182,8 @@ model Message {
 
   gaugeAsSource   Gauge?         @relation("GaugeSource")
   gaugeAsOrbit    Gauge?         @relation("GaugeOrbit")
+  gaugeAsBump    Gauge? @relation("GaugeBump")
+  gaugeAsClosure Gauge? @relation("GaugeClosure")
   proposalsAsSource ChangeProposal[] @relation("ProposalSource")
   proposalAsOrbit  ChangeProposal? @relation("ProposalOrbit")
 
@@ -208,8 +210,9 @@ enum MessageAuthor {
  *
  * proposedDate is the group-local midnight of the day Orbit proposed, stored
  * as one instant via zonedWallTimeToUtc and read back through the group's
- * zone like every other time in the product.  A gauge is live until the end of
- * that local day.
+ * zone like every other time in the product.  A gauge closes two hours before
+ * its proposed start (at the start itself for a gauge born inside that window);
+ * see `gaugeClosesAt` in spark-copy.ts.
  *
  * Nothing about the tally is stored: counts, names, and whether the bar has
  * been reached are all derived from GaugeVote rows, the same rule RSVPs follow.
@@ -226,11 +229,19 @@ model Gauge {
   /// default. Nullable only for gauges written before this slice; a pre-slice
   /// gauge reaching threshold falls back to the evening default.
   proposedTime    String?
+  /// Orbit's one bump message, posted the evening before the proposed day.
+  /// Null until bumped; the unique pointer is also the never-bump-twice guard.
+  bumpMessageId String? @unique
+  /// Orbit's closure note, posted at close when at least one yes existed.
+  /// Null when the gauge closed silently (zero yeses) or is still open.
+  closureMessageId String? @unique
   createdAt       DateTime @default(now())
 
   group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sourceMessage Message     @relation("GaugeSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
   orbitMessage  Message     @relation("GaugeOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
+  bumpMessage    Message? @relation("GaugeBump", fields: [bumpMessageId], references: [id], onDelete: SetNull)
+  closureMessage Message? @relation("GaugeClosure", fields: [closureMessageId], references: [id], onDelete: SetNull)
   votes         GaugeVote[]
   event         Event?
 

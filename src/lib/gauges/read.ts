@@ -51,5 +51,5 @@ export async function findLiveGauges(groupId: string, now: Date): Promise<LiveGa
     orderBy: { createdAt: "asc" },
   })
 
-  return candidates.filter((g) => isGaugeLive(g.proposedDate, group.timeZone, now))
+  return candidates.filter((g) => isGaugeLive(g, group.timeZone, now))
 }

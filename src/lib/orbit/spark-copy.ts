@@ -36,12 +36,18 @@ const FRIDAY = 5
 const SATURDAY = 6
 
 /**
- * Where an unstated time lands. Both numbers are placeholders with no data
- * behind them (accepted 24 July 2026), kept here beside the day fallback so
- * the override-learning behavior in build-notes §5 replaces all four at once.
+ * Where an unstated time lands, and how a gauge's own clock runs: how much
+ * notice it gives before it closes, and the local hour of its evening-before
+ * bump. All four are placeholders with no data behind them (the time
+ * defaults accepted 24 July 2026; the close window and bump hour added for
+ * the gauge endgame), kept together beside the day fallback so the
+ * override-learning behavior in build-notes §5 replaces the whole family at
+ * once.
  */
 export const EVENING_TIME = "19:00"
 export const MORNING_TIME = "09:00"
+export const CLOSE_BEFORE_START_HOURS = 2
+export const BUMP_LOCAL_HOUR = 20 // ~8pm group-local, the evening before
 
 export interface ResolvedSparkTime {
   /** Always concrete: the event has to start at some o'clock. */
@@ -202,14 +208,30 @@ export function chooseProposedDate(
 }
 
 /**
- * A gauge is live until the end of its proposed day in the group's zone. After
- * that the message stays in the feed as history and the chips are gone: no
- * pinning, no banner, no residue.
+ * When the gauge stops taking answers. Two hours before the proposed start,
+ * so a half-committed plan never limps ambiguously into its final hour; a
+ * gauge born inside that window (a same-evening rally) runs to the start
+ * itself instead. CLOSE_BEFORE_START_HOURS and BUMP_LOCAL_HOUR live up top
+ * beside EVENING_TIME and MORNING_TIME, not here, so override learning finds
+ * one cluster of placeholder numbers to replace, not two.
  */
-export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): boolean {
-  const day = getLocalParts(proposedDate, timeZone)
-  const endOfDay = zonedWallTimeToUtc(day.year, day.month, day.day + 1, 0, 0, timeZone)
-  return now.getTime() < endOfDay.getTime()
+export function gaugeClosesAt(
+  proposedDate: Date,
+  proposedTime: string | null,
+  createdAt: Date,
+  timeZone: string
+): Date {
+  const start = sparkStartInstant(proposedDate, proposedTime, timeZone)
+  const normalClose = new Date(start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000)
+  return createdAt.getTime() >= normalClose.getTime() ? start : normalClose
+}
+
+export function isGaugeLive(
+  gauge: { proposedDate: Date; proposedTime: string | null; createdAt: Date },
+  timeZone: string,
+  now: Date
+): boolean {
+  return now.getTime() < gaugeClosesAt(gauge.proposedDate, gauge.proposedTime, gauge.createdAt, timeZone).getTime()
 }
 
 // ── What the group reads ─────────────────────────────────────────────────────
@@ -334,6 +356,29 @@ export function buildTallyLine(
   }
 
   return parts.join(" · ")
+}
+
+const BUMP_COUNTDOWN_WORDS: Record<number, string> = { 2: "two", 3: "three" }
+
+export function buildBumpMessage(activity: string, inNames: string[]): string {
+  if (inNames.length === 0) {
+    return `In case this got buried: anyone in for ${activity} tomorrow?`
+  }
+  const who = inNames.length === 1 ? inNames[0] : `${inNames.slice(0, -1).join(", ")} & ${inNames[inNames.length - 1]}`
+  const verb = inNames.length === 1 ? "is" : "are"
+  const remaining = SPARK_THRESHOLD - inNames.length
+  const countdown = remaining === 1 ? "one more makes it happen" : `${BUMP_COUNTDOWN_WORDS[remaining]} more make it happen`
+  return `Last call on ${activity} tomorrow: ${who} ${verb} in, ${countdown}.`
+}
+
+export function buildClosureMessage(activity: string): string {
+  const cap = activity.charAt(0).toUpperCase() + activity.slice(1)
+  return `${cap} didn't come together this time. Maybe next week.`
+}
+
+export function buildUrgencyClause(proposedTime: string | null): string {
+  const label = formatTimeLocalLabel(proposedTime ?? EVENING_TIME)
+  return ` Heads up, this one's for today at ${label}, so get your yes in quick.`
 }
 
 /** Small numbers read as words in Orbit's voice; anything larger as digits. */

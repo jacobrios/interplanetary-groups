@@ -16,12 +16,18 @@ import { callExtractionModel } from "../extract"
 import { normalizeSpark, normalizeIntent, detectIntentClaim, INTENT_SCHEMA } from "../spark"
 import {
   chooseProposedDate,
+  gaugeClosesAt,
   isGaugeLive,
+  CLOSE_BEFORE_START_HOURS,
   buildGaugeMessage,
   buildTallyLine,
   chipLabels,
+  buildBumpMessage,
+  buildClosureMessage,
+  buildUrgencyClause,
   ACTIVITY_MAX,
 } from "../spark-copy"
+import { zonedWallTimeToUtc } from "../occurrence"
 
 // Weekday anchors, verified against Intl before they were written down:
 // 2026-07-20 Mon · 07-22 Wed · 07-23 Thu · 07-24 Fri · 07-31 Fri.
@@ -295,27 +301,44 @@ describe("chooseProposedDate", () => {
   })
 })
 
-describe("isGaugeLive", () => {
-  const proposed = new Date("2026-07-24T00:00:00.000Z") // local midnight Fri, UTC group
+// Friday 2099-06-12 group-local midnight UTC-stored for an America/Chicago group
+const TZ = "America/Chicago"
+const FRIDAY_MIDNIGHT = zonedWallTimeToUtc(2099, 6, 12, 0, 0, TZ)
+const TUESDAY = zonedWallTimeToUtc(2099, 6, 9, 15, 0, TZ) // an ordinary creation moment
 
-  it("is live before the proposed day", () => {
-    expect(isGaugeLive(proposed, "UTC", new Date("2026-07-23T12:00:00Z"))).toBe(true)
+describe("gaugeClosesAt", () => {
+  it("closes two hours before the proposed start", () => {
+    const closes = gaugeClosesAt(FRIDAY_MIDNIGHT, "19:00", TUESDAY, TZ)
+    expect(closes).toEqual(zonedWallTimeToUtc(2099, 6, 12, 17, 0, TZ))
   })
 
-  it("is live through the last minute of the proposed day", () => {
-    expect(isGaugeLive(proposed, "UTC", new Date("2026-07-24T23:59:00Z"))).toBe(true)
+  it("a gauge born inside the window closes at the start itself", () => {
+    const bornAt6pm = zonedWallTimeToUtc(2099, 6, 12, 18, 0, TZ) // 1h before a 7pm start
+    const closes = gaugeClosesAt(FRIDAY_MIDNIGHT, "19:00", bornAt6pm, TZ)
+    expect(closes).toEqual(zonedWallTimeToUtc(2099, 6, 12, 19, 0, TZ))
   })
 
-  it("is over once the local day has passed", () => {
-    expect(isGaugeLive(proposed, "UTC", new Date("2026-07-25T00:00:00Z"))).toBe(false)
-    expect(isGaugeLive(proposed, "UTC", new Date("2026-07-26T12:00:00Z"))).toBe(false)
+  it("null proposedTime falls back to the evening default", () => {
+    const closes = gaugeClosesAt(FRIDAY_MIDNIGHT, null, TUESDAY, TZ)
+    expect(closes).toEqual(zonedWallTimeToUtc(2099, 6, 12, 17, 0, TZ)) // 19:00 - 2h
   })
+})
 
-  it("ends the day in the group's zone, not the server's", () => {
-    const midwayProposed = new Date("2026-07-24T11:00:00.000Z") // local midnight Fri
-    // Already 25 Jul in UTC, still Fri 24 Jul in Midway.
-    expect(isGaugeLive(midwayProposed, MIDWAY, new Date("2026-07-25T10:59:00Z"))).toBe(true)
-    expect(isGaugeLive(midwayProposed, MIDWAY, new Date("2026-07-25T11:00:00Z"))).toBe(false)
+describe("isGaugeLive (two-hour close)", () => {
+  const g = { proposedDate: FRIDAY_MIDNIGHT, proposedTime: "19:00", createdAt: TUESDAY }
+  it("live the evening before", () => {
+    expect(isGaugeLive(g, TZ, zonedWallTimeToUtc(2099, 6, 11, 20, 0, TZ))).toBe(true)
+  })
+  it("live at one minute before close", () => {
+    expect(isGaugeLive(g, TZ, zonedWallTimeToUtc(2099, 6, 12, 16, 59, TZ))).toBe(true)
+  })
+  it("closed at exactly two hours before start", () => {
+    expect(isGaugeLive(g, TZ, zonedWallTimeToUtc(2099, 6, 12, 17, 0, TZ))).toBe(false)
+  })
+  it("a late-born gauge is live between its creation and its start", () => {
+    const late = { ...g, createdAt: zonedWallTimeToUtc(2099, 6, 12, 18, 0, TZ) }
+    expect(isGaugeLive(late, TZ, zonedWallTimeToUtc(2099, 6, 12, 18, 30, TZ))).toBe(true)
+    expect(isGaugeLive(late, TZ, zonedWallTimeToUtc(2099, 6, 12, 19, 0, TZ))).toBe(false)
   })
 })
 
@@ -483,6 +506,45 @@ describe("buildTallyLine", () => {
   it("skips a voter whose name it does not have rather than printing a blank", () => {
     expect(buildTallyLine([inVote("u1"), inVote("ghost")], names)).toBe(
       "Jesse is in so far"
+    )
+  })
+})
+
+describe("buildBumpMessage", () => {
+  it("last call with names and the countdown when people are in", () => {
+    expect(buildBumpMessage("beers", ["Maya", "Jesse"])).toBe(
+      "Last call on beers tomorrow: Maya & Jesse are in, one more makes it happen."
+    )
+  })
+  it("singular in-count and plural remaining", () => {
+    expect(buildBumpMessage("beers", ["Maya"])).toBe(
+      "Last call on beers tomorrow: Maya is in, two more make it happen."
+    )
+  })
+  it("gentle surfacing when nobody has answered", () => {
+    expect(buildBumpMessage("beers", [])).toBe(
+      "In case this got buried: anyone in for beers tomorrow?"
+    )
+  })
+})
+
+describe("buildClosureMessage", () => {
+  it("soft, final, no dialogue invited", () => {
+    expect(buildClosureMessage("beers")).toBe(
+      "Beers didn't come together this time. Maybe next week."
+    )
+  })
+})
+
+describe("buildUrgencyClause", () => {
+  it("names the time plainly", () => {
+    expect(buildUrgencyClause("19:00")).toBe(
+      " Heads up, this one's for today at 7pm, so get your yes in quick."
+    )
+  })
+  it("falls back to the evening default when no time was resolved", () => {
+    expect(buildUrgencyClause(null)).toBe(
+      " Heads up, this one's for today at 7pm, so get your yes in quick."
     )
   })
 })

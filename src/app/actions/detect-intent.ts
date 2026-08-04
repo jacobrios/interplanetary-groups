@@ -19,7 +19,9 @@ import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
 import { buildConversationWindow, WINDOW_MESSAGES, type WindowMessage } from "@/lib/orbit/window"
 import {
   buildGaugeMessage,
+  buildUrgencyClause,
   chooseProposedDate,
+  CLOSE_BEFORE_START_HOURS,
   resolveSparkTime,
   sparkStartInstant,
 } from "@/lib/orbit/spark-copy"
@@ -144,9 +146,15 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         timeAmbiguous: spark.timeAmbiguous,
         partOfDay: spark.partOfDay,
       })
-      if (sparkStartInstant(proposedDate, timeLocal, group.timeZone) <= now) {
+      const start = sparkStartInstant(proposedDate, timeLocal, group.timeZone)
+      if (start <= now) {
         return { status: "quiet" }
       }
+
+      // A gauge born inside its own close window (a same-evening rally) gets
+      // one extra urgency sentence, since it would otherwise close the moment
+      // it opens.
+      const bornLate = now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
 
       const result = await createGauge({
         groupId: group.id,
@@ -154,7 +162,9 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         activity: spark.activity,
         proposedDate,
         proposedTime: timeLocal,
-        body: buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now, disclosure),
+        body:
+          buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now, disclosure) +
+          (bornLate ? buildUrgencyClause(timeLocal) : ""),
         initiatorUserId: spark.statedDayOfWeek !== null ? user.id : null,
       })
       if (result.status !== "created") return { status: "quiet" }

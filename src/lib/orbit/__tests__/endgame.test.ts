@@ -1,0 +1,583 @@
+// src/lib/orbit/__tests__/endgame.test.ts
+//
+// Integration tests for runGaugeEndgame — hits the real dev DB.
+//
+// EVERY call here is scoped with { groupId }. Do not remove that, and do not
+// add an unscoped `runGaugeEndgame(NOW)` back.
+//
+// The dev-test database is shared, and an unscoped sweep does not just read
+// it: it posts a real Orbit bump or closure message, and writes a real
+// bumpMessageId/closureMessageId, into every open gauge in every group that
+// has one. This file only cleans up rows in its own fixture groups. Those
+// leak permanently, and because every fixture date here is in 2099, the
+// leaked closures and bumps would sit there looking exactly like real Orbit
+// activity to anyone who queries the group later.
+//
+// reconcile.test.ts paid for this lesson once already: a phantom card on a
+// QA group's home screen, traced back to a leaked unscoped sweep, cost a
+// database query to prove it was junk and not a product bug. Do not reproduce
+// that here.
+//
+// Cleanup order (FK constraints):
+//   Event (gaugeId, SetNull on Gauge — delete explicitly, it does not cascade)
+//   → Message (groupId; deleting a Gauge's source/orbit message cascades the
+//     Gauge itself, which cascades its GaugeVote rows)
+//   → Membership (groupId) → Group (founderId) → User
+
+import { describe, it, expect, afterEach, vi } from "vitest"
+import { prisma } from "@/lib/prisma"
+import { MessageAuthor, GaugeAnswer } from "@prisma/client"
+import { runGaugeEndgame } from "../endgame"
+import { buildBumpMessage, buildClosureMessage } from "../spark-copy"
+
+// Every test here drives a double-digit count of sequential Prisma round-trips
+// against the remote dev-test Supabase: a handful of users, a group, a gauge
+// with its source and orbit messages, sometimes a filler message and a vote,
+// one or two sweep calls, verification reads, then a multi-step FK-ordered
+// cleanup. That is comfortably more round-trips per test than
+// proposals/promote.test.ts's dozen-plus, which already measured 4.2s-5.4s
+// per test and found vitest's 5000ms default timeout landing in the middle of
+// that spread — failing 1-2 of 6 tests per run on unmodified main, every
+// failure reading "Test timed out in 5000ms" with nothing actually wrong.
+//
+// 30s is roughly five times a comparable worst case, sized for a remote
+// round-trip (which can spike by multiples on an ordinary bad network moment)
+// rather than a local one. A genuine hang still surfaces in half a minute
+// instead of stalling the suite.
+//
+// This call has to stay at module scope. Vitest bakes each test's timeout in
+// when it collects the file, so the same line inside beforeAll or beforeEach
+// would still run, still look right, and quietly do nothing.
+vi.setConfig({ testTimeout: 30_000 })
+
+// ---------------------------------------------------------------------------
+// Fixture state, reset per test
+// ---------------------------------------------------------------------------
+
+let userIds: string[] = []
+let groupId: string | null = null
+let secondGroupId: string | null = null
+let secondUserIds: string[] = []
+const eventIds: string[] = []
+
+async function cleanup() {
+  for (const id of eventIds) {
+    await prisma.event.delete({ where: { id } }).catch(() => {})
+  }
+  eventIds.length = 0
+
+  for (const gid of [groupId, secondGroupId]) {
+    if (!gid) continue
+    // Deleting a Gauge's source/orbit Message cascades the Gauge row itself
+    // (Gauge.sourceMessage / .orbitMessage are onDelete: Cascade), which in
+    // turn cascades any GaugeVote rows. One deleteMany covers all of it.
+    await prisma.message.deleteMany({ where: { groupId: gid } }).catch(() => {})
+    await prisma.membership.deleteMany({ where: { groupId: gid } }).catch(() => {})
+    await prisma.group.delete({ where: { id: gid } }).catch(() => {})
+  }
+  groupId = null
+  secondGroupId = null
+
+  for (const id of [...userIds, ...secondUserIds]) {
+    await prisma.user.delete({ where: { id } }).catch(() => {})
+  }
+  userIds = []
+  secondUserIds = []
+}
+
+afterEach(async () => {
+  await cleanup()
+  await prisma.$disconnect()
+})
+
+// ---------------------------------------------------------------------------
+// Fixture builders
+// ---------------------------------------------------------------------------
+
+async function setupGroup(memberCount: number, second = false): Promise<{ groupId: string; members: string[] }> {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+  const ids: string[] = []
+  for (let i = 0; i < memberCount; i++) {
+    const u = await prisma.user.create({
+      data: {
+        name: `[TEST] Endgame${second ? " B" : ""} ${i}`,
+        supabaseAuthId: `test-endgame${second ? "-b" : ""}-${i}-${suffix}`,
+      },
+    })
+    ids.push(u.id)
+  }
+  const group = await prisma.group.create({
+    data: {
+      name: `[TEST] Endgame${second ? " B" : ""} Group`,
+      founderId: ids[0],
+      timeZone: "UTC",
+      memberships: { create: ids.map((userId) => ({ userId })) },
+    },
+  })
+  if (second) {
+    secondGroupId = group.id
+    secondUserIds = ids
+  } else {
+    groupId = group.id
+    userIds = ids
+  }
+  return { groupId: group.id, members: ids }
+}
+
+/**
+ * A gauge built directly (not through createGauge), so every timestamp is
+ * explicit and under the test's control: createdAt for the born_today guard,
+ * and the source/orbit message createdAt values for the still_newest guard.
+ * Real defaults (`now()`, the actual 2026 wall clock) would sort *before*
+ * every 2099-dated fixture instant here, which would silently break any
+ * "newest message in the group" comparison — so nothing in this file relies
+ * on a message's default createdAt.
+ */
+async function makeGauge(
+  gid: string,
+  founderId: string,
+  opts: { activity: string; proposedDate: Date; proposedTime?: string | null; createdAt: Date }
+) {
+  const source = await prisma.message.create({
+    data: {
+      groupId: gid,
+      authorType: MessageAuthor.MEMBER,
+      authorId: founderId,
+      body: `we should ${opts.activity}`,
+      createdAt: opts.createdAt,
+    },
+  })
+  const orbitMsg = await prisma.message.create({
+    data: {
+      groupId: gid,
+      authorType: MessageAuthor.ORBIT,
+      authorId: null,
+      body: `Anyone in for ${opts.activity}?`,
+      createdAt: new Date(opts.createdAt.getTime() + 1000),
+    },
+  })
+  const gauge = await prisma.gauge.create({
+    data: {
+      groupId: gid,
+      sourceMessageId: source.id,
+      orbitMessageId: orbitMsg.id,
+      activity: opts.activity,
+      proposedDate: opts.proposedDate,
+      proposedTime: opts.proposedTime === undefined ? "19:00" : opts.proposedTime,
+      createdAt: opts.createdAt,
+    },
+  })
+  return gauge
+}
+
+async function postLaterMessage(gid: string, authorId: string, after: Date) {
+  return prisma.message.create({
+    data: {
+      groupId: gid,
+      authorType: MessageAuthor.MEMBER,
+      authorId,
+      body: "anyone around?",
+      createdAt: new Date(after.getTime() + 60_000),
+    },
+  })
+}
+
+async function voteIn(gaugeId: string, userId: string) {
+  await prisma.gaugeVote.create({ data: { gaugeId, userId, answer: GaugeAnswer.IN } })
+}
+
+async function orbitMessageCount(gid: string): Promise<number> {
+  return prisma.message.count({ where: { groupId: gid, authorType: MessageAuthor.ORBIT } })
+}
+
+// ---------------------------------------------------------------------------
+// Fixture instants
+//
+// PROPOSED is Friday 2099-06-12, group-local midnight, in a UTC-timezone
+// group — so every "local" claim below reads directly off the UTC clock.
+// ---------------------------------------------------------------------------
+
+const PROPOSED = new Date("2099-06-12T00:00:00Z")
+const CREATED_2D_BEFORE = new Date("2099-06-10T09:00:00Z") // Wednesday
+const CREATED_SAME_DAY_AS_EVE = new Date("2099-06-11T09:00:00Z") // Thursday the 11th is the eve
+const EVE_8PM = new Date("2099-06-11T20:00:00Z") // the eve, exactly at BUMP_LOCAL_HOUR
+const EVE_9PM = new Date("2099-06-11T21:00:00Z")
+const EVE_3PM = new Date("2099-06-11T15:00:00Z") // the eve, before BUMP_LOCAL_HOUR
+const DAY_OF_8PM = new Date("2099-06-12T20:00:00Z") // the proposed day itself, not its eve
+const CLOSE_TIME = new Date("2099-06-12T17:01:00Z") // 1 minute past a 19:00 gauge's close (start - 2h)
+const CLOSE_TIME_2 = new Date("2099-06-12T17:02:00Z")
+const STILL_OPEN_NOW = new Date("2099-06-10T10:00:00Z") // two full days before the proposed day
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("runGaugeEndgame", () => {
+  it("bumps a below-bar gauge on the eve, with chips-ready message and marker set", async () => {
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    // Break the still_newest guard: a member message after the gauge's own
+    // orbit message, but still well before the eve sweep.
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "bumped" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).not.toBeNull()
+    const bumpMsg = await prisma.message.findUniqueOrThrow({ where: { id: refreshed.bumpMessageId! } })
+    expect(bumpMsg.body).toBe(buildBumpMessage("beers", ["[TEST] Endgame 0"]))
+    expect(bumpMsg.authorType).toBe(MessageAuthor.ORBIT)
+    expect(bumpMsg.authorId).toBeNull()
+  })
+
+  it("never bumps twice", async () => {
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const first = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(first.find((r) => r.gaugeId === gauge.id)?.action).toBe("bumped")
+
+    const before = await orbitMessageCount(gid)
+    const second = await runGaugeEndgame(EVE_9PM, { groupId: gid })
+    expect(second.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_bumped",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+  })
+
+  it("does not bump a gauge created that same local day", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_SAME_DAY_AS_EVE,
+    })
+
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "born_today",
+    })
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("does not bump when the gauge is still the newest message", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    // No message posted after the gauge's own orbit message: it stays newest.
+
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "still_newest",
+    })
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("does not bump outside the eve evening", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    // A late proposedTime (11pm, closing at 9pm) so the gauge is still live
+    // at "day-of, 8pm" — otherwise that instant falls after the default
+    // 19:00 gauge's own close (17:00) and the test would exercise the close
+    // branch instead of the bump branch's not_the_eve guard.
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      proposedTime: "23:00",
+      createdAt: CREATED_2D_BEFORE,
+    })
+
+    const tooEarly = await runGaugeEndgame(EVE_3PM, { groupId: gid })
+    expect(tooEarly.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "not_the_eve",
+    })
+
+    const dayOf = await runGaugeEndgame(DAY_OF_8PM, { groupId: gid })
+    expect(dayOf.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "not_the_eve",
+    })
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("still open two days out: nothing to do yet", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: new Date(STILL_OPEN_NOW.getTime() - 24 * 60 * 60 * 1000),
+    })
+
+    const results = await runGaugeEndgame(STILL_OPEN_NOW, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "still_open",
+    })
+  })
+
+  it("does not bump a gauge already at the three-vote bar (a promotion that never landed)", async () => {
+    // Simulates a promoteGaugeToEvent call that committed the third vote but
+    // rolled back the event: the gauge is live, has no event, but already
+    // holds 3 member IN votes. buildBumpMessage renders broken copy at 3+
+    // names, so this must be caught before the sweep composes a bump body.
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteIn(gauge.id, members[2])
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_at_bar",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
+  it("a race between two overlapping sweeps produces exactly one bump, not two", async () => {
+    // The scenario code review flagged: a read-then-branch-then-write re-read
+    // inside the transaction does not close this race (both racers see the
+    // marker as null and both writes succeed, since neither's update is
+    // conditioned on the marker). The fix conditions the update itself on
+    // `bumpMessageId: null`, so the loser's update matches zero rows once the
+    // winner has committed and it rolls its own message back out.
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(gid)
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(EVE_8PM, { groupId: gid }),
+      runGaugeEndgame(EVE_8PM, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "bumped")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "bumped" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_bumped" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).not.toBeNull()
+  })
+
+  it("a race between two overlapping sweeps produces exactly one closure note, not two", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+
+    const before = await orbitMessageCount(gid)
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+      runGaugeEndgame(CLOSE_TIME, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "closed_with_note")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "closed_with_note" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.closureMessageId).not.toBeNull()
+  })
+
+  it("closes with a note when someone was in", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(gauge.id, members[0])
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "closed_with_note" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.closureMessageId).not.toBeNull()
+    const closureMsg = await prisma.message.findUniqueOrThrow({ where: { id: refreshed.closureMessageId! } })
+    expect(closureMsg.body).toBe(buildClosureMessage("beers"))
+
+    const afterFirstClose = await orbitMessageCount(gid)
+    const second = await runGaugeEndgame(CLOSE_TIME_2, { groupId: gid })
+    expect(second.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_closed_out",
+    })
+    expect(await orbitMessageCount(gid)).toBe(afterFirstClose)
+  })
+
+  it("closes silently at zero yeses", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    // No votes at all.
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "closed_silently",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.closureMessageId).toBeNull()
+  })
+
+  it("zero-vote close after an unanswered bump: the bump is the only new message", async () => {
+    const { groupId: gid, members } = await setupGroup(2)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await postLaterMessage(gid, members[1], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+    // No votes at all, before or after the bump.
+
+    const baseline = await orbitMessageCount(gid)
+
+    const bumpResults = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(bumpResults.find((r) => r.gaugeId === gauge.id)?.action).toBe("bumped")
+
+    const closeResults = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(closeResults.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "closed_silently",
+    })
+
+    // Exactly one new ORBIT message across both sweeps: the bump. The close
+    // sweep, finding zero yeses even after the bump, wrote nothing.
+    expect(await orbitMessageCount(gid)).toBe(baseline + 1)
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).not.toBeNull()
+    expect(refreshed.closureMessageId).toBeNull()
+  })
+
+  it("a promoted gauge is left alone", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    const event = await prisma.event.create({
+      data: {
+        groupId: gid,
+        title: "[TEST] Promoted Beers",
+        startsAt: new Date("2099-06-12T19:00:00Z"),
+        gaugeId: gauge.id,
+      },
+    })
+    eventIds.push(event.id)
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "promoted",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+    expect(refreshed.closureMessageId).toBeNull()
+  })
+
+  it("scoping: only touches the given group", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const { groupId: otherGid, members: otherMembers } = await setupGroup(1, true)
+
+    // A gauge in the SCOPED group: not eligible for anything at this instant
+    // (still two days out), just present so the scoped sweep has something to
+    // process.
+    await makeGauge(gid, members[0], {
+      activity: "chess",
+      proposedDate: new Date(PROPOSED.getTime() + 2 * 24 * 60 * 60 * 1000),
+      createdAt: STILL_OPEN_NOW,
+    })
+
+    // A gauge in the OTHER group, fully eligible to bump right now.
+    const otherGauge = await makeGauge(otherGid, otherMembers[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    await voteIn(otherGauge.id, otherMembers[0])
+    await postLaterMessage(otherGid, otherMembers[0], new Date(CREATED_2D_BEFORE.getTime() + 3600_000))
+
+    const before = await orbitMessageCount(otherGid)
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+
+    // No result at all for the other group's gauge — the scoped query never
+    // fetched it.
+    expect(results.find((r) => r.gaugeId === otherGauge.id)).toBeUndefined()
+    expect(await orbitMessageCount(otherGid)).toBe(before)
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: otherGauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+})
