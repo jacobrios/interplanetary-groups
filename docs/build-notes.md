@@ -256,7 +256,7 @@ Not decision points, but they are what a future reader will reason from, so they
 
 ### Before first Vercel deploy — prerequisites checklist
 
-Five High-priority items come due at the moment of the first production deploy. Check all five before pushing.
+Six High-priority items come due at the moment of the first production deploy. Check all six before pushing.
 
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
