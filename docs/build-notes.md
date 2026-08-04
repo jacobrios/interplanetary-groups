@@ -234,6 +234,7 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | endgame.ts, closed_with_note | A goodbye when at least one person had committed. Speaks. | Correct |
 | endgame.ts, closed_silently | Zero-yes gauges still die without residue. | Correct |
 | detect-intent.ts, urgency clause on a late-born gauge | Speaks with the clock named. | Correct |
+| `endgame.ts`, already_at_bar guard | A gauge already holding three member yeses with no event is a missed promotion, not a missing bump; bumping it would render broken copy and nag a group that already decided. Stays quiet. | Correct |
 
 ### Everything else that ends in silence
 
