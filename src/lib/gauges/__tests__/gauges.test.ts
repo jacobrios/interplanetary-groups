@@ -9,7 +9,7 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor } from "@prisma/client"
-import { createGauge } from "../create"
+import { createGauge, createRetryGuessGauge } from "../create"
 import { castVote } from "../vote"
 import { findLiveGauges } from "../read"
 
@@ -337,5 +337,88 @@ describe("createGauge and the person who floated the idea", () => {
     if (result.status !== "created") throw new Error("fixture failed")
 
     expect(await prisma.gaugeVote.count({ where: { gaugeId: result.gauge.id } })).toBe(0)
+  })
+})
+
+describe("createRetryGuessGauge", () => {
+  const GUESS_DATE = new Date("2026-07-31T00:00:00Z") // one week after the original's Friday
+
+  it("creates an Orbit message and a gauge with no source message, no seed vote, and the origin link", async () => {
+    // fixture: an ordinary gauge (the original), then:
+    const src = await sourceMessage("we should grab beers")
+    const originalResult = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "beers",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "20:00",
+      body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+    })
+    if (originalResult.status !== "created") throw new Error("fixture failed")
+    const original = originalResult.gauge
+
+    const res = await createRetryGuessGauge({
+      groupId,
+      originGaugeId: original.id,
+      activity: "beers",
+      proposedDate: GUESS_DATE,
+      proposedTime: "20:00",
+      body: "No takers on a new day yet, so how about beers next Friday?",
+    })
+    expect(res.status).toBe("created")
+    if (res.status !== "created") return
+    expect(res.gauge.sourceMessageId).toBeNull()
+    expect(res.gauge.retryGuessOfGaugeId).toBe(original.id)
+    expect(res.gauge.proposedTime).toBe("20:00")
+    const votes = await prisma.gaugeVote.count({ where: { gaugeId: res.gauge.id } })
+    expect(votes).toBe(0) // Orbit named the day, and Orbit is never a vote
+    const msg = await prisma.message.findUnique({ where: { id: res.gauge.orbitMessageId } })
+    expect(msg?.authorType).toBe(MessageAuthor.ORBIT)
+    expect(msg?.authorId).toBeNull()
+  })
+
+  it("a second guess for the same original skips as already_guessed and writes no message", async () => {
+    const src = await sourceMessage("we should grab tacos")
+    const originalResult = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "tacos",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
+      body: "Love it. Anyone in for tacos this Friday? If three of you are in, I'll set it up.",
+    })
+    if (originalResult.status !== "created") throw new Error("fixture failed")
+    const original = originalResult.gauge
+
+    const orbitBefore = await prisma.message.count({
+      where: { groupId, authorType: MessageAuthor.ORBIT },
+    })
+
+    // call twice with the same originGaugeId; second call:
+    const first = await createRetryGuessGauge({
+      groupId,
+      originGaugeId: original.id,
+      activity: "tacos",
+      proposedDate: GUESS_DATE,
+      proposedTime: "19:00",
+      body: "No takers on a new day yet, so how about tacos next Friday?",
+    })
+    expect(first.status).toBe("created")
+
+    const second = await createRetryGuessGauge({
+      groupId,
+      originGaugeId: original.id,
+      activity: "tacos",
+      proposedDate: GUESS_DATE,
+      proposedTime: "19:00",
+      body: "No takers on a new day yet, so how about tacos next Friday?",
+    })
+    expect(second).toEqual({ status: "skipped", reason: "already_guessed" })
+
+    // and the group's Orbit message count grew by exactly one across both calls
+    const orbitAfter = await prisma.message.count({
+      where: { groupId, authorType: MessageAuthor.ORBIT },
+    })
+    expect(orbitAfter).toBe(orbitBefore + 1)
   })
 })
