@@ -22,6 +22,9 @@ import {
   buildGaugeMessage,
   buildTallyLine,
   chipLabels,
+  buildBumpMessage,
+  buildClosureMessage,
+  buildUrgencyClause,
   ACTIVITY_MAX,
 } from "../spark-copy"
 import { zonedWallTimeToUtc } from "../occurrence"
@@ -503,6 +506,45 @@ describe("buildTallyLine", () => {
   it("skips a voter whose name it does not have rather than printing a blank", () => {
     expect(buildTallyLine([inVote("u1"), inVote("ghost")], names)).toBe(
       "Jesse is in so far"
+    )
+  })
+})
+
+describe("buildBumpMessage", () => {
+  it("last call with names and the countdown when people are in", () => {
+    expect(buildBumpMessage("beers", ["Maya", "Jesse"])).toBe(
+      "Last call on beers tomorrow: Maya & Jesse are in, one more makes it happen."
+    )
+  })
+  it("singular in-count and plural remaining", () => {
+    expect(buildBumpMessage("beers", ["Maya"])).toBe(
+      "Last call on beers tomorrow: Maya is in, two more make it happen."
+    )
+  })
+  it("gentle surfacing when nobody has answered", () => {
+    expect(buildBumpMessage("beers", [])).toBe(
+      "In case this got buried: anyone in for beers tomorrow?"
+    )
+  })
+})
+
+describe("buildClosureMessage", () => {
+  it("soft, final, no dialogue invited", () => {
+    expect(buildClosureMessage("beers")).toBe(
+      "Beers didn't come together this time. Maybe next week."
+    )
+  })
+})
+
+describe("buildUrgencyClause", () => {
+  it("names the time plainly", () => {
+    expect(buildUrgencyClause("19:00")).toBe(
+      " Heads up, this one's for today at 7pm, so get your yes in quick."
+    )
+  })
+  it("falls back to the evening default when no time was resolved", () => {
+    expect(buildUrgencyClause(null)).toBe(
+      " Heads up, this one's for today at 7pm, so get your yes in quick."
     )
   })
 })

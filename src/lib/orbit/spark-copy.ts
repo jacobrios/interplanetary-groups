@@ -358,6 +358,29 @@ export function buildTallyLine(
   return parts.join(" · ")
 }
 
+const BUMP_COUNTDOWN_WORDS: Record<number, string> = { 2: "two", 3: "three" }
+
+export function buildBumpMessage(activity: string, inNames: string[]): string {
+  if (inNames.length === 0) {
+    return `In case this got buried: anyone in for ${activity} tomorrow?`
+  }
+  const who = inNames.length === 1 ? inNames[0] : `${inNames.slice(0, -1).join(", ")} & ${inNames[inNames.length - 1]}`
+  const verb = inNames.length === 1 ? "is" : "are"
+  const remaining = SPARK_THRESHOLD - inNames.length
+  const countdown = remaining === 1 ? "one more makes it happen" : `${BUMP_COUNTDOWN_WORDS[remaining]} more make it happen`
+  return `Last call on ${activity} tomorrow: ${who} ${verb} in, ${countdown}.`
+}
+
+export function buildClosureMessage(activity: string): string {
+  const cap = activity.charAt(0).toUpperCase() + activity.slice(1)
+  return `${cap} didn't come together this time. Maybe next week.`
+}
+
+export function buildUrgencyClause(proposedTime: string | null): string {
+  const label = formatTimeLocalLabel(proposedTime ?? EVENING_TIME)
+  return ` Heads up, this one's for today at ${label}, so get your yes in quick.`
+}
+
 /** Small numbers read as words in Orbit's voice; anything larger as digits. */
 const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
