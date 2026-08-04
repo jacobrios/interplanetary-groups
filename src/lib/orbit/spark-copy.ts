@@ -201,15 +201,33 @@ export function chooseProposedDate(
   return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
 }
 
+export const CLOSE_BEFORE_START_HOURS = 2
+export const BUMP_LOCAL_HOUR = 20 // ~8pm group-local, the evening before
+
 /**
- * A gauge is live until the end of its proposed day in the group's zone. After
- * that the message stays in the feed as history and the chips are gone: no
- * pinning, no banner, no residue.
+ * When the gauge stops taking answers. Two hours before the proposed start,
+ * so a half-committed plan never limps ambiguously into its final hour; a
+ * gauge born inside that window (a same-evening rally) runs to the start
+ * itself instead. Both numbers are placeholders with no data behind them,
+ * kept beside EVENING_TIME so override learning replaces the family at once.
  */
-export function isGaugeLive(proposedDate: Date, timeZone: string, now: Date): boolean {
-  const day = getLocalParts(proposedDate, timeZone)
-  const endOfDay = zonedWallTimeToUtc(day.year, day.month, day.day + 1, 0, 0, timeZone)
-  return now.getTime() < endOfDay.getTime()
+export function gaugeClosesAt(
+  proposedDate: Date,
+  proposedTime: string | null,
+  createdAt: Date,
+  timeZone: string
+): Date {
+  const start = sparkStartInstant(proposedDate, proposedTime, timeZone)
+  const normalClose = new Date(start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000)
+  return createdAt.getTime() >= normalClose.getTime() ? start : normalClose
+}
+
+export function isGaugeLive(
+  gauge: { proposedDate: Date; proposedTime: string | null; createdAt: Date },
+  timeZone: string,
+  now: Date
+): boolean {
+  return now.getTime() < gaugeClosesAt(gauge.proposedDate, gauge.proposedTime, gauge.createdAt, timeZone).getTime()
 }
 
 // ── What the group reads ─────────────────────────────────────────────────────

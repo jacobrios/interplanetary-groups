@@ -64,8 +64,8 @@ export async function gaugeVoteAction(
     return { errors: { general: "That question is gone. Please refresh and try again." } }
   }
 
-  // Once the proposed day has passed the message is history, not a question.
-  if (!isGaugeLive(gauge.proposedDate, gauge.group.timeZone, new Date())) {
+  // Once the gauge has closed the message is history, not a question.
+  if (!isGaugeLive(gauge, gauge.group.timeZone, new Date())) {
     return { errors: { general: "That day has passed." } }
   }
 

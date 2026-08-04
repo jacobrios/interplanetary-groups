@@ -55,9 +55,8 @@ export async function promoteGaugeToEvent(
   const zone = gauge.group.timeZone
   const startsAt = sparkStartInstant(gauge.proposedDate, gauge.proposedTime, zone)
 
-  // A gauge stays live until the end of its day, so the third yes can arrive
-  // after the proposed start. A card and an announcement for something that
-  // already began is noise about the past; the gauge just expires.
+  // A live gauge always closes before its start now, but the guard stays:
+  // the endgame sweep and clock skew can still present a past start.
   if (startsAt.getTime() <= now.getTime()) {
     return { status: "skipped", reason: "start_passed" }
   }
