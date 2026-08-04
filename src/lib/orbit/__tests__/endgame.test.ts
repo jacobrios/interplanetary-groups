@@ -24,31 +24,11 @@
 //     Gauge itself, which cascades its GaugeVote rows)
 //   → Membership (groupId) → Group (founderId) → User
 
-import { describe, it, expect, afterEach, vi } from "vitest"
+import { describe, it, expect, afterEach } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, GaugeAnswer } from "@prisma/client"
 import { runGaugeEndgame } from "../endgame"
 import { buildBumpMessage, buildClosureMessage, buildRetryAskMessage } from "../spark-copy"
-
-// Every test here drives a double-digit count of sequential Prisma round-trips
-// against the remote dev-test Supabase: a handful of users, a group, a gauge
-// with its source and orbit messages, sometimes a filler message and a vote,
-// one or two sweep calls, verification reads, then a multi-step FK-ordered
-// cleanup. That is comfortably more round-trips per test than
-// proposals/promote.test.ts's dozen-plus, which already measured 4.2s-5.4s
-// per test and found vitest's 5000ms default timeout landing in the middle of
-// that spread — failing 1-2 of 6 tests per run on unmodified main, every
-// failure reading "Test timed out in 5000ms" with nothing actually wrong.
-//
-// 30s is roughly five times a comparable worst case, sized for a remote
-// round-trip (which can spike by multiples on an ordinary bad network moment)
-// rather than a local one. A genuine hang still surfaces in half a minute
-// instead of stalling the suite.
-//
-// This call has to stay at module scope. Vitest bakes each test's timeout in
-// when it collects the file, so the same line inside beforeAll or beforeEach
-// would still run, still look right, and quietly do nothing.
-vi.setConfig({ testTimeout: 30_000 })
 
 // ---------------------------------------------------------------------------
 // Fixture state, reset per test
