@@ -224,6 +224,17 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `detect-intent.ts`, the activity is already on the calendar | Same. | Correct |
 | `detect-intent.ts`, the proposed start is already past | The gauge's own copy promises to set the thing up, and it cannot. | Correct |
 
+### The endgame path (added 4 Aug 2026)
+
+| Where | What it does | Leans |
+|---|---|---|
+| endgame.ts, bump fires on the eve | The one bump, chattier-posture act one. Speaks. | Correct |
+| endgame.ts, born_today guard | No bump for an idea the group has not had time to miss. | Correct |
+| endgame.ts, still_newest guard | No bump when nothing has buried the gauge. | Correct |
+| endgame.ts, closed_with_note | A goodbye when at least one person had committed. Speaks. | Correct |
+| endgame.ts, closed_silently | Zero-yes gauges still die without residue. | Correct |
+| detect-intent.ts, urgency clause on a late-born gauge | Speaks with the clock named. | Correct |
+
 ### Everything else that ends in silence
 
 | Where | What it does | Leans |
