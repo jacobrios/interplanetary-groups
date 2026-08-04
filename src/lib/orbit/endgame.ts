@@ -347,13 +347,18 @@ async function handleGuess(gauge: CandidateGauge, timeZone: string, now: Date): 
 
   // "Answered" is activity-exact and deliberately literal-minded: a pivot to a
   // different activity does not cancel the guess, because the people who voted
-  // voted for THIS activity (spec decision 6; recorded as a watch-item).
+  // voted for THIS activity (spec decision 6; recorded as a watch-item). An
+  // Orbit guess is not the group answering, so guess gauges are excluded here
+  // too: otherwise one guess gauge could suppress a second, unrelated guess
+  // for the same activity, and a concurrent sweep could see its own sibling
+  // guess and report "answered" instead of "already_guessed".
   const answered = await prisma.gauge.findFirst({
     where: {
       groupId: gauge.groupId,
       id: { not: gauge.id },
       activity: { equals: gauge.activity, mode: "insensitive" },
       createdAt: { gt: askCreatedAt },
+      retryGuessOfGaugeId: null,
     },
     select: { id: true },
   })

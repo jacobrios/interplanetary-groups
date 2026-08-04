@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from "vitest"
 import { GaugeAnswer } from "@prisma/client"
-import { countIn, countNotThatDay, hasReachedThreshold, isRetryEligible, SPARK_THRESHOLD } from "../threshold"
+import { countIn, hasReachedThreshold, isRetryEligible, SPARK_THRESHOLD } from "../threshold"
 
 const v = (answer: GaugeAnswer) => ({ answer })
 
