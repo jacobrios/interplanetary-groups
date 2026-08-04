@@ -199,7 +199,7 @@ async function orbitMessageCount(gid: string): Promise<number> {
 
 const PROPOSED = new Date("2099-06-12T00:00:00Z")
 const CREATED_2D_BEFORE = new Date("2099-06-10T09:00:00Z") // Wednesday
-const CREATED_SAME_DAY_AS_EVE = new Date("2099-06-11T09:00:00Z") // Thursday... no, Wed the 11th is the eve
+const CREATED_SAME_DAY_AS_EVE = new Date("2099-06-11T09:00:00Z") // Thursday the 11th is the eve
 const EVE_8PM = new Date("2099-06-11T20:00:00Z") // the eve, exactly at BUMP_LOCAL_HOUR
 const EVE_9PM = new Date("2099-06-11T21:00:00Z")
 const EVE_3PM = new Date("2099-06-11T15:00:00Z") // the eve, before BUMP_LOCAL_HOUR

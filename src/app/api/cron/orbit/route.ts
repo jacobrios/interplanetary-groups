@@ -50,7 +50,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const endgame = await runGaugeEndgame(new Date())
     return Response.json({ ok: true, results, endgame })
   } catch (err) {
-    console.error("[orbit-cron] reconcileScheduledEvents failed:", err)
+    console.error("[orbit-cron] sweep failed:", err)
     return new Response("Internal Server Error", { status: 500 })
   }
 }

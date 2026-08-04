@@ -91,8 +91,9 @@ export default async function GroupPage({ params }: Props) {
 
   // ── Live gauges ───────────────────────────────────────────────────────────
   // Everything the group reads about a gauge is composed here, deterministically,
-  // from the vote rows: nothing about a tally is stored. A gauge whose day has
-  // passed is simply absent, so its message renders as plain history.
+  // from the vote rows: nothing about a tally is stored. A gauge past its close
+  // (two hours before the proposed start) is simply absent, so its message
+  // renders as plain history.
   const liveGauges = await findLiveGauges(group.id, new Date())
 
   // Names are shown only for members, the same way deriveRoster only ever

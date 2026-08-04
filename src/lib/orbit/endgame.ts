@@ -6,7 +6,7 @@
 // that lets an idea that stalled below three yeses die politely instead of
 // lingering as a stale card forever.
 //
-// Called unscoped by the daily cron sweep in production, exactly like
+// Called unscoped by the hourly cron sweep in production, exactly like
 // reconcile.ts's reconcileScheduledEvents — every group, every open gauge —
 // and that is correct there. In a TEST, unscoped means posting a real Orbit
 // bump or closure message into every open gauge, in every group, in the

@@ -64,9 +64,10 @@ export async function gaugeVoteAction(
     return { errors: { general: "That question is gone. Please refresh and try again." } }
   }
 
-  // Once the gauge has closed the message is history, not a question.
+  // Once the gauge has closed (two hours before the proposed start, usually
+  // mid-afternoon of that same day) the message is history, not a question.
   if (!isGaugeLive(gauge, gauge.group.timeZone, new Date())) {
-    return { errors: { general: "That day has passed." } }
+    return { errors: { general: "This one's closed now." } }
   }
 
   // Already created: the question is settled and the event card owns answers
