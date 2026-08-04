@@ -101,12 +101,15 @@ export default async function GroupPage({ params }: Props) {
   // feed should belong to that group.
   const memberIds = new Set(group.memberships.map((m) => m.userId))
 
-  const gauges: FeedGauge[] = liveGauges.map((g) => {
+  // A bumped gauge gets a second FeedGauge entry sharing its id but pointing
+  // at the bump message, so the same chips and tally render under both: one
+  // vote, two places to answer it from. A gauge with no bump produces one
+  // entry, same as before.
+  const gauges: FeedGauge[] = liveGauges.flatMap((g) => {
     const memberVotes = g.votes.filter((v) => memberIds.has(v.userId))
 
-    return {
+    const base = {
       id: g.id,
-      orbitMessageId: g.orbitMessageId,
       tallyLine: buildTallyLine(
         memberVotes,
         new Map(memberVotes.map((v) => [v.userId, v.user.name]))
@@ -116,6 +119,11 @@ export default async function GroupPage({ params }: Props) {
       // they actually chose, member or not.
       viewerAnswer: g.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
     }
+
+    return [
+      { ...base, orbitMessageId: g.orbitMessageId },
+      ...(g.bumpMessageId ? [{ ...base, orbitMessageId: g.bumpMessageId }] : []),
+    ]
   })
 
   // ── Live change questions ────────────────────────────────────────────────
