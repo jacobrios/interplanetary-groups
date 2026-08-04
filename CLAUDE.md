@@ -81,7 +81,7 @@ Orbit is an agent: tools (what it can do) + context (what it knows) + guardrails
 - **Orbit is never a User or Membership row.** It speaks in the feed through a `MessageAuthor.ORBIT` enum with a null author, never a person record. This is why Orbit can never appear in a roster, a member list, or an RSVP tally. (build-notes §11, group-home-chat.)
 - **Venue never gates anything.** Not the completeness gate, not the gap-ask, not group or event creation. A missing or invalid venue always degrades to nothing; it never blocks a founder or stops a group from scheduling. (build-notes §11, venue-capture.)
 - **Transparency on changes.** When Orbit changes group details at someone's request, announce it in the feed with an easy revert. Rhythm-altering changes get gauged with the group first.
-- **One bump, then let it die.** A stalled-but-viable idea earns at most one resurfacing. No pinning, no banners.
+- **One bump, then let it die. (Amended 4 Aug 2026, wrong-day-retry slice.)** A stalled-but-viable idea earns at most one resurfacing. No pinning, no banners. One carve-out: a day-blocked idea that would have cleared the bar (in-votes plus can't-that-day votes reaching three) additionally gets one ask at its close and one same-weekday-next-week guess the evening after, then dies; that is its whole allowance. "A gauge whose day has passed is dead" is NOT bent by this: every revival is a genuinely new gauge. (Spec: docs/superpowers/specs/2026-08-04-wrong-day-retry-design.md.)
 - **Venue/context suggestions key off the group's actual history,** never generic geography.
 
 ---
