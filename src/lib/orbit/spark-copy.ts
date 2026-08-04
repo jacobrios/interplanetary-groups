@@ -36,12 +36,18 @@ const FRIDAY = 5
 const SATURDAY = 6
 
 /**
- * Where an unstated time lands. Both numbers are placeholders with no data
- * behind them (accepted 24 July 2026), kept here beside the day fallback so
- * the override-learning behavior in build-notes §5 replaces all four at once.
+ * Where an unstated time lands, and how a gauge's own clock runs: how much
+ * notice it gives before it closes, and the local hour of its evening-before
+ * bump. All four are placeholders with no data behind them (the time
+ * defaults accepted 24 July 2026; the close window and bump hour added for
+ * the gauge endgame), kept together beside the day fallback so the
+ * override-learning behavior in build-notes §5 replaces the whole family at
+ * once.
  */
 export const EVENING_TIME = "19:00"
 export const MORNING_TIME = "09:00"
+export const CLOSE_BEFORE_START_HOURS = 2
+export const BUMP_LOCAL_HOUR = 20 // ~8pm group-local, the evening before
 
 export interface ResolvedSparkTime {
   /** Always concrete: the event has to start at some o'clock. */
@@ -201,15 +207,13 @@ export function chooseProposedDate(
   return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
 }
 
-export const CLOSE_BEFORE_START_HOURS = 2
-export const BUMP_LOCAL_HOUR = 20 // ~8pm group-local, the evening before
-
 /**
  * When the gauge stops taking answers. Two hours before the proposed start,
  * so a half-committed plan never limps ambiguously into its final hour; a
  * gauge born inside that window (a same-evening rally) runs to the start
- * itself instead. Both numbers are placeholders with no data behind them,
- * kept beside EVENING_TIME so override learning replaces the family at once.
+ * itself instead. CLOSE_BEFORE_START_HOURS and BUMP_LOCAL_HOUR live up top
+ * beside EVENING_TIME and MORNING_TIME, not here, so override learning finds
+ * one cluster of placeholder numbers to replace, not two.
  */
 export function gaugeClosesAt(
   proposedDate: Date,
