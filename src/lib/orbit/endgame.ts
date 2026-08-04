@@ -59,9 +59,13 @@ export type EndgameResult =
         // a missed promotion, not a missing bump, so it gets its own reason
         // rather than silently reusing "still_newest" or another guard.
         | "already_at_bar"
-        // Lost the ask race (Task 6). Interim only: Task 7 replaces the
-        // routing branch that produces this with handleGuess(...), so this
-        // reason stops being reachable once the guess phase lands.
+        // Lost the ask race (Task 6). Interim only in one respect: Task 7
+        // replaces the routing branch above that returns this directly
+        // (`if (gauge.retryAskMessageId) return ... "already_asked"`) with
+        // handleGuess(...), so that path stops producing it. handleAsk's own
+        // catch block below keeps producing it on a lost race regardless —
+        // the concurrent-ask test in Task 6 asserts exactly that — so this
+        // union member is not going away, only one of its two sources is.
         | "already_asked"
     }
 
@@ -145,10 +149,18 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
     return { gaugeId: gauge.id, action: "skipped", reason: "already_asked" } // Task 7 replaces this line with handleGuess(...)
   }
   // Moved from ahead of the liveness check to here: behavior is identical
-  // for every gauge the old order served (a closure-marked gauge is never
-  // live, and a closed gauge re-entering handleClose with zero yeses stays a
-  // silent no-op), and the new order is what lets an asked gauge keep
-  // flowing to the guess phase instead of being caught by this check first.
+  // for every gauge the old order served. A closure-marked gauge is never
+  // live, so it always reached this point either way. And re-entering
+  // handleClose on an already-closed gauge is a no-op regardless of vote
+  // count: at zero yeses it stays the existing silent no-op (no marker was
+  // ever written, so there is nothing to re-check); at one or more yeses it
+  // re-runs handleClose's transaction, whose conditional update
+  // (`closureMessageId: null`) matches zero rows against the already-set
+  // marker, so it throws AlreadyClosedInTx and rolls the new message back
+  // out with no committed effect — this check catches that gauge first in
+  // both orderings, so it never actually reaches that transaction to prove
+  // it. The new order is what lets an asked gauge keep flowing to the guess
+  // phase instead of being caught by this check first.
   if (gauge.closureMessageId) {
     return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
   }
