@@ -30,16 +30,21 @@ import {
   buildBumpMessage,
   buildClosureMessage,
   buildRetryAskMessage,
+  buildRetryGuessMessage,
+  chooseRetryGuessDate,
   BUMP_LOCAL_HOUR,
+  EVENING_TIME,
   SPARK_THRESHOLD,
 } from "./spark-copy"
 import { getLocalParts } from "./occurrence"
 import { countIn, countNotThatDay, isRetryEligible } from "@/lib/gauges/threshold"
+import { createRetryGuessGauge } from "@/lib/gauges/create"
 
 export type EndgameResult =
   | { gaugeId: string; action: "bumped" }
   | { gaugeId: string; action: "closed_with_note" }
   | { gaugeId: string; action: "asked" } // the day-blocked retry ask replaced the goodbye (Task 6)
+  | { gaugeId: string; action: "guessed" } // the one retry guess, posted the evening after the ask (Task 7)
   | {
       gaugeId: string
       action: "skipped"
@@ -59,14 +64,20 @@ export type EndgameResult =
         // a missed promotion, not a missing bump, so it gets its own reason
         // rather than silently reusing "still_newest" or another guard.
         | "already_at_bar"
-        // Lost the ask race (Task 6). Interim only in one respect: Task 7
-        // replaces the routing branch above that returns this directly
-        // (`if (gauge.retryAskMessageId) return ... "already_asked"`) with
-        // handleGuess(...), so that path stops producing it. handleAsk's own
-        // catch block below keeps producing it on a lost race regardless —
-        // the concurrent-ask test in Task 6 asserts exactly that — so this
-        // union member is not going away, only one of its two sources is.
+        // Lost the ask race (Task 6). No longer produced by the routing
+        // branch below (Task 7 replaced that direct return with
+        // handleGuess(...)), but handleAsk's own catch block still produces
+        // it on a lost race — the concurrent-ask test asserts exactly that —
+        // so this union member stays, with one of its two former sources gone.
         | "already_asked"
+        // Asked, but not yet the guess moment (Task 7): still the failed day,
+        // or the evening after but before BUMP_LOCAL_HOUR.
+        | "awaiting_answer"
+        // A same-activity gauge opened after the ask (Task 7): the group
+        // moved on to a fresh proposal on their own, so the guess is moot.
+        | "answered"
+        // The one guess already exists for this original gauge (Task 7).
+        | "already_guessed"
     }
 
 /**
@@ -82,6 +93,7 @@ const gaugeInclude = {
   votes: true,
   event: { select: { id: true } },
   group: { include: { memberships: { include: { user: true } } } },
+  retryAskMessage: { select: { createdAt: true } },
 } satisfies Prisma.GaugeInclude
 
 type CandidateGauge = Prisma.GaugeGetPayload<{ include: typeof gaugeInclude }>
@@ -146,7 +158,7 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
     return handleClose(gauge)
   }
   if (gauge.retryAskMessageId) {
-    return { gaugeId: gauge.id, action: "skipped", reason: "already_asked" } // Task 7 replaces this line with handleGuess(...)
+    return handleGuess(gauge, timeZone, now)
   }
   // Moved from ahead of the liveness check to here: behavior is identical
   // for every gauge the old order served. A closure-marked gauge is never
@@ -311,6 +323,64 @@ async function handleAsk(gauge: CandidateGauge, timeZone: string): Promise<Endga
   }
 
   return { gaugeId: gauge.id, action: "asked" }
+}
+
+/**
+ * The one guess: fires the evening after the ask, on the failed gauge's own
+ * clock. Anchored to the FAILED DAY, not the ask's send time (see the
+ * dayDiff comment below), and cancelled the instant the group moves on to a
+ * fresh same-activity proposal on their own.
+ */
+async function handleGuess(gauge: CandidateGauge, timeZone: string, now: Date): Promise<EndgameResult> {
+  const existing = await prisma.gauge.findUnique({
+    where: { retryGuessOfGaugeId: gauge.id },
+    select: { id: true },
+  })
+  if (existing) return { gaugeId: gauge.id, action: "skipped", reason: "already_guessed" }
+
+  // A broken retryAskMessage pointer degrades to waiting rather than
+  // throwing: this path is only reached once retryAskMessageId is set, so
+  // askCreatedAt should always be present, but a missing include or a
+  // corrupted row should never crash the sweep over one gauge.
+  const askCreatedAt = gauge.retryAskMessage?.createdAt
+  if (!askCreatedAt) return { gaugeId: gauge.id, action: "skipped", reason: "awaiting_answer" }
+
+  // "Answered" is activity-exact and deliberately literal-minded: a pivot to a
+  // different activity does not cancel the guess, because the people who voted
+  // voted for THIS activity (spec decision 6; recorded as a watch-item).
+  const answered = await prisma.gauge.findFirst({
+    where: {
+      groupId: gauge.groupId,
+      id: { not: gauge.id },
+      activity: { equals: gauge.activity, mode: "insensitive" },
+      createdAt: { gt: askCreatedAt },
+    },
+    select: { id: true },
+  })
+  if (answered) return { gaugeId: gauge.id, action: "skipped", reason: "answered" }
+
+  // The guess evening is anchored to the FAILED DAY, not the ask's send time:
+  // the ask lands on the failed day whenever the sweep is healthy, and
+  // anchoring here means a delayed ask can never push the guess past the
+  // candidate window into silent death. Under a long outage the ask-to-guess
+  // gap compresses; accepted, and the window ages the gauge out regardless.
+  const nowParts = getLocalParts(now, timeZone)
+  const dayDiff = localDayNumber(nowParts) - localDayNumber(getLocalParts(gauge.proposedDate, timeZone))
+  if (dayDiff < 1 || (dayDiff === 1 && nowParts.hour < BUMP_LOCAL_HOUR)) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "awaiting_answer" }
+  }
+
+  const guessDate = chooseRetryGuessDate(gauge.proposedDate, timeZone)
+  const res = await createRetryGuessGauge({
+    groupId: gauge.groupId,
+    originGaugeId: gauge.id,
+    activity: gauge.activity,
+    proposedDate: guessDate,
+    proposedTime: gauge.proposedTime ?? EVENING_TIME,
+    body: buildRetryGuessMessage(gauge.activity, guessDate, timeZone),
+  })
+  if (res.status === "skipped") return { gaugeId: gauge.id, action: "skipped", reason: "already_guessed" }
+  return { gaugeId: gauge.id, action: "guessed" }
 }
 
 async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {

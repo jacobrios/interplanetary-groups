@@ -29,6 +29,7 @@ import { prisma } from "@/lib/prisma"
 import { MessageAuthor, GaugeAnswer } from "@prisma/client"
 import { runGaugeEndgame } from "../endgame"
 import { buildBumpMessage, buildClosureMessage, buildRetryAskMessage } from "../spark-copy"
+import { zonedWallTimeToUtc } from "../occurrence"
 
 // ---------------------------------------------------------------------------
 // Fixture state, reset per test
@@ -74,7 +75,11 @@ afterEach(async () => {
 // Fixture builders
 // ---------------------------------------------------------------------------
 
-async function setupGroup(memberCount: number, second = false): Promise<{ groupId: string; members: string[] }> {
+async function setupGroup(
+  memberCount: number,
+  second = false,
+  timeZone = "UTC"
+): Promise<{ groupId: string; members: string[] }> {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
   const ids: string[] = []
   for (let i = 0; i < memberCount; i++) {
@@ -90,7 +95,7 @@ async function setupGroup(memberCount: number, second = false): Promise<{ groupI
     data: {
       name: `[TEST] Endgame${second ? " B" : ""} Group`,
       founderId: ids[0],
-      timeZone: "UTC",
+      timeZone,
       memberships: { create: ids.map((userId) => ({ userId })) },
     },
   })
@@ -174,6 +179,37 @@ async function orbitMessageCount(gid: string): Promise<number> {
   return prisma.message.count({ where: { groupId: gid, authorType: MessageAuthor.ORBIT } })
 }
 
+/**
+ * Stages an asked gauge: 3 members, 2 IN + 1 NOT_THAT_DAY (day-blocked but
+ * would have cleared the bar), swept once at CLOSE_TIME so it gets the ask
+ * instead of the goodbye. Every wrong-day-retry guess scenario below starts
+ * from this same asked state (PROPOSED = Fri 2099-06-12, UTC group).
+ */
+async function stageAskedGauge(gid: string, members: string[]) {
+  const gauge = await makeGauge(gid, members[0], {
+    activity: "beers",
+    proposedDate: PROPOSED,
+    createdAt: CREATED_2D_BEFORE,
+  })
+  await voteIn(gauge.id, members[0])
+  await voteIn(gauge.id, members[1])
+  await voteNotThatDay(gauge.id, members[2])
+
+  const asked = await runGaugeEndgame(CLOSE_TIME, { groupId: gid })
+  expect(asked.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "asked" })
+
+  return gauge
+}
+
+/** The createdAt of an asked gauge's retry-ask message, for staging "answered" fixtures after it. */
+async function retryAskCreatedAt(gaugeId: string): Promise<Date> {
+  const g = await prisma.gauge.findUniqueOrThrow({
+    where: { id: gaugeId },
+    include: { retryAskMessage: true },
+  })
+  return g.retryAskMessage!.createdAt
+}
+
 // ---------------------------------------------------------------------------
 // Fixture instants
 //
@@ -191,6 +227,11 @@ const DAY_OF_8PM = new Date("2099-06-12T20:00:00Z") // the proposed day itself, 
 const CLOSE_TIME = new Date("2099-06-12T17:01:00Z") // 1 minute past a 19:00 gauge's close (start - 2h)
 const CLOSE_TIME_2 = new Date("2099-06-12T17:02:00Z")
 const STILL_OPEN_NOW = new Date("2099-06-10T10:00:00Z") // two full days before the proposed day
+
+// The wrong-day retry: PROPOSED failed (Friday), the ask lands the same day,
+// and the one guess fires the evening after — Saturday 2099-06-13, 8pm.
+const NEXT_EVE_8PM = new Date("2099-06-13T20:00:00Z") // the evening after the failed day, at BUMP_LOCAL_HOUR
+const NEXT_EVE_3PM = new Date("2099-06-13T15:00:00Z") // same evening, before BUMP_LOCAL_HOUR
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -701,13 +742,14 @@ describe("runGaugeEndgame", () => {
 
     const before = await orbitMessageCount(gid)
     const second = await runGaugeEndgame(CLOSE_TIME_2, { groupId: gid })
-    // Interim routing (Step 4 above): Task 7 replaces handleGuess's absence
-    // here with the guess phase and updates this expected reason to
-    // "awaiting_answer". This is the planned intermediate state, not drift.
+    // CLOSE_TIME_2 is still the failed day itself: the asked gauge now routes
+    // into the guess phase (Task 7), which reports "awaiting_answer" until
+    // the evening after. "already_asked" remains reachable only from
+    // handleAsk's own lost-race catch (the concurrent-ask test below).
     expect(second.find((r) => r.gaugeId === gauge.id)).toEqual({
       gaugeId: gauge.id,
       action: "skipped",
-      reason: "already_asked",
+      reason: "awaiting_answer",
     })
     expect(await orbitMessageCount(gid)).toBe(before)
   })
@@ -739,5 +781,218 @@ describe("runGaugeEndgame", () => {
 
     const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
     expect(refreshed.retryAskMessageId).not.toBeNull()
+  })
+
+  // -------------------------------------------------------------------------
+  // The sweep learns to guess, once (Task 7)
+  // -------------------------------------------------------------------------
+
+  it("the guess fires the next evening, with a new gauge row and its own Orbit message", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "guessed" })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const guessGauge = await prisma.gauge.findFirstOrThrow({ where: { retryGuessOfGaugeId: gauge.id } })
+    expect(guessGauge.retryGuessOfGaugeId).toBe(gauge.id)
+    expect(guessGauge.sourceMessageId).toBeNull()
+    expect(guessGauge.proposedDate.toISOString()).toBe("2099-06-19T00:00:00.000Z") // same weekday, one week later
+    expect(guessGauge.proposedTime).toBe(gauge.proposedTime) // copied from the original, never re-derived
+
+    const voteCount = await prisma.gaugeVote.count({ where: { gaugeId: guessGauge.id } })
+    expect(voteCount).toBe(0)
+
+    const guessMsg = await prisma.message.findUniqueOrThrow({ where: { id: guessGauge.orbitMessageId } })
+    expect(guessMsg.body).toBe("No takers on a new day yet, so how about beers next Friday?")
+    expect(guessMsg.authorType).toBe(MessageAuthor.ORBIT)
+    expect(guessMsg.authorId).toBeNull()
+  })
+
+  it("does not guess before the evening after, or while still the failed day", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const tooEarly = await runGaugeEndgame(NEXT_EVE_3PM, { groupId: gid })
+    expect(tooEarly.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "awaiting_answer",
+    })
+
+    const stillFailedDay = await runGaugeEndgame(CLOSE_TIME_2, { groupId: gid })
+    expect(stillFailedDay.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "awaiting_answer",
+    })
+
+    const guessExists = await prisma.gauge.findFirst({ where: { retryGuessOfGaugeId: gauge.id } })
+    expect(guessExists).toBeNull()
+  })
+
+  it("a member answer for the same activity cancels the guess", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+    const askCreatedAt = await retryAskCreatedAt(gauge.id)
+
+    // A same-activity gauge opened after the ask.
+    await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: new Date(PROPOSED.getTime() + 14 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(askCreatedAt.getTime() + 60_000),
+    })
+
+    const results = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "answered",
+    })
+
+    const guessExists = await prisma.gauge.findFirst({ where: { retryGuessOfGaugeId: gauge.id } })
+    expect(guessExists).toBeNull()
+  })
+
+  it("a different activity opened after the ask does not cancel the guess (spec decision 6)", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+    const askCreatedAt = await retryAskCreatedAt(gauge.id)
+
+    await makeGauge(gid, members[0], {
+      activity: "bowling",
+      proposedDate: new Date(PROPOSED.getTime() + 14 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(askCreatedAt.getTime() + 60_000),
+    })
+
+    const results = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "guessed" })
+  })
+
+  it("never guesses twice", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const first = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(first.find((r) => r.gaugeId === gauge.id)?.action).toBe("guessed")
+
+    const before = await orbitMessageCount(gid)
+    const second = await runGaugeEndgame(new Date(NEXT_EVE_8PM.getTime() + 60 * 60 * 1000), { groupId: gid })
+    expect(second.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "already_guessed",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const guesses = await prisma.gauge.findMany({ where: { retryGuessOfGaugeId: gauge.id } })
+    expect(guesses).toHaveLength(1)
+  })
+
+  it("a race between two overlapping sweeps produces exactly one guess, not two", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const [a, b] = await Promise.all([
+      runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid }),
+      runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid }),
+    ])
+    const resultA = a.find((r) => r.gaugeId === gauge.id)
+    const resultB = b.find((r) => r.gaugeId === gauge.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "guessed")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    // Either the pre-check or the lost P2002 race can produce the loser's
+    // reason; both read as "already_guessed", so only the reason is asserted.
+    expect(winner).toEqual({ gaugeId: gauge.id, action: "guessed" })
+    expect(loser).toEqual({ gaugeId: gauge.id, action: "skipped", reason: "already_guessed" })
+
+    const guesses = await prisma.gauge.findMany({ where: { retryGuessOfGaugeId: gauge.id } })
+    expect(guesses).toHaveLength(1)
+  })
+
+  it("the guess gauge lives the ordinary life and never earns its own ask, with a note when someone was in", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const guessResults = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(guessResults.find((r) => r.gaugeId === gauge.id)?.action).toBe("guessed")
+
+    const guessGauge = await prisma.gauge.findFirstOrThrow({ where: { retryGuessOfGaugeId: gauge.id } })
+    // Would-have-cleared shape: 2 IN + 1 NOT_THAT_DAY. A retry guess gauge
+    // never earns its own ask (spec decision 7) — this proves it gets the
+    // ordinary close instead, even though the same vote shape on an ordinary
+    // gauge would trigger handleAsk.
+    await voteIn(guessGauge.id, members[0])
+    await voteIn(guessGauge.id, members[1])
+    await voteNotThatDay(guessGauge.id, members[2])
+
+    const before = await orbitMessageCount(gid)
+    // 1 minute past the guess gauge's own close: proposedDate 2099-06-19,
+    // proposedTime copied as "19:00", close = start - 2h = 17:00.
+    const results = await runGaugeEndgame(new Date("2099-06-19T17:01:00Z"), { groupId: gid })
+    expect(results.find((r) => r.gaugeId === guessGauge.id)).toEqual({
+      gaugeId: guessGauge.id,
+      action: "closed_with_note",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before + 1)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: guessGauge.id } })
+    expect(refreshed.retryAskMessageId).toBeNull()
+    expect(refreshed.closureMessageId).not.toBeNull()
+  })
+
+  it("a zero-vote guess gauge closes silently, never earns its own ask", async () => {
+    const { groupId: gid, members } = await setupGroup(3)
+    const gauge = await stageAskedGauge(gid, members)
+
+    const guessResults = await runGaugeEndgame(NEXT_EVE_8PM, { groupId: gid })
+    expect(guessResults.find((r) => r.gaugeId === gauge.id)?.action).toBe("guessed")
+
+    const guessGauge = await prisma.gauge.findFirstOrThrow({ where: { retryGuessOfGaugeId: gauge.id } })
+    // No votes at all on the guess gauge.
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(new Date("2099-06-19T17:01:00Z"), { groupId: gid })
+    expect(results.find((r) => r.gaugeId === guessGauge.id)).toEqual({
+      gaugeId: guessGauge.id,
+      action: "skipped",
+      reason: "closed_silently",
+    })
+    expect(await orbitMessageCount(gid)).toBe(before)
+
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: guessGauge.id } })
+    expect(refreshed.retryAskMessageId).toBeNull()
+    expect(refreshed.closureMessageId).toBeNull()
+  })
+
+  it("computes the guess evening and guess date correctly in a non-UTC group (America/Chicago)", async () => {
+    const { groupId: gid, members } = await setupGroup(3, true, "America/Chicago")
+
+    const chicagoProposed = zonedWallTimeToUtc(2099, 6, 12, 0, 0, "America/Chicago") // Friday, Chicago-local midnight
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: chicagoProposed,
+      createdAt: new Date(chicagoProposed.getTime() - 2 * 24 * 60 * 60 * 1000),
+    })
+    await voteIn(gauge.id, members[0])
+    await voteIn(gauge.id, members[1])
+    await voteNotThatDay(gauge.id, members[2])
+
+    // 1 minute past the gauge's close (19:00 Chicago start minus 2h = 17:00 Chicago).
+    const chicagoCloseTime = zonedWallTimeToUtc(2099, 6, 12, 17, 1, "America/Chicago")
+    const asked = await runGaugeEndgame(chicagoCloseTime, { groupId: gid })
+    expect(asked.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "asked" })
+
+    // The evening after, Chicago-local 8pm on the Saturday.
+    const chicagoNextEve8pm = zonedWallTimeToUtc(2099, 6, 13, 20, 0, "America/Chicago")
+    const results = await runGaugeEndgame(chicagoNextEve8pm, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({ gaugeId: gauge.id, action: "guessed" })
+
+    const guessGauge = await prisma.gauge.findFirstOrThrow({ where: { retryGuessOfGaugeId: gauge.id } })
+    const expectedGuessDate = zonedWallTimeToUtc(2099, 6, 19, 0, 0, "America/Chicago") // same weekday, one week later, Chicago midnight
+    expect(guessGauge.proposedDate.toISOString()).toBe(expectedGuessDate.toISOString())
   })
 })
