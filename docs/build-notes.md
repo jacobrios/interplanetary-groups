@@ -266,6 +266,12 @@ Five High-priority items come due at the moment of the first production deploy. 
    *Why it blocks deploy:* the confirm action writes `Group.description`; a production database without the column fails every group creation.
    *Detail:* Migrations to date have been applied to the dev-test project only (two-databases rule).
 
+- Cron cadence changed daily → hourly for the gauge endgame (vercel.json). Verify the
+  Vercel plan tier supports hourly cron (Hobby caps at daily). If capped: either
+  upgrade, or keep vercel.json daily and point an external scheduler (with the
+  CRON_SECRET bearer header) at /api/cron/orbit hourly. The bump/close land within
+  the hour of their target moments; that precision is the accepted product behavior.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
