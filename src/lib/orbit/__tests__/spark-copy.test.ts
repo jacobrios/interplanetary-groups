@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest"
 import {
   buildGaugeMessage,
+  buildOpenAskLine,
   buildRetryAskMessage,
   buildRetryGuessMessage,
   buildSparkAnnouncement,
@@ -9,6 +10,8 @@ import {
   chooseProposedDate,
   chooseRetryGuessDate,
   formatTimeLocalLabel,
+  planAnswerGauge,
+  resolveAnswerTime,
   resolveSparkTime,
   sparkStartInstant,
 } from "../spark-copy"
@@ -264,5 +267,144 @@ describe("buildRetryGuessMessage", () => {
     expect(buildRetryGuessMessage("beers", guess, "UTC")).toBe(
       "No takers on a new day yet, so how about beers next Friday?"
     )
+  })
+})
+
+describe("buildOpenAskLine", () => {
+  it("names the activity and the failed weekday", () => {
+    const failedProposedDate = new Date("2026-07-24T00:00:00Z") // Fri, UTC midnight
+    expect(buildOpenAskLine("beers", failedProposedDate, "UTC")).toBe(
+      "Orbit asked the group what day works better for beers, since Friday didn't work, and is waiting on an answer."
+    )
+  })
+
+  it("reads the weekday in the group's zone, not the server's", () => {
+    // 2026-07-23T02:00Z is already Thu in UTC but still Wed in Pacific/Midway.
+    const failedProposedDate = new Date("2026-07-23T02:00:00Z")
+    expect(buildOpenAskLine("climbing", failedProposedDate, "Pacific/Midway")).toBe(
+      "Orbit asked the group what day works better for climbing, since Wednesday didn't work, and is waiting on an answer."
+    )
+  })
+
+  it("uses no em or en dashes", () => {
+    const failedProposedDate = new Date("2026-07-24T00:00:00Z")
+    expect(buildOpenAskLine("beers", failedProposedDate, "UTC")).not.toMatch(/[—–]/)
+  })
+})
+
+describe("resolveAnswerTime", () => {
+  it("no stated time carries the original's", () => {
+    expect(resolveAnswerTime({ answerTime: null, answerTimeAmbiguous: false, carriedTime: "20:00" })).toBe(
+      "20:00"
+    )
+  })
+
+  it("a stated unambiguous time wins", () => {
+    expect(resolveAnswerTime({ answerTime: "21:00", answerTimeAmbiguous: false, carriedTime: "20:00" })).toBe(
+      "21:00"
+    )
+  })
+
+  it("a bare number lands in the original's half of day: evening original", () => {
+    // "Saturday at 9?" against a 20:00 plan is 21:00, decided by the group's
+    // own stored time, so no disclosure exists anywhere in this path.
+    expect(resolveAnswerTime({ answerTime: "09:00", answerTimeAmbiguous: true, carriedTime: "20:00" })).toBe(
+      "21:00"
+    )
+  })
+
+  it("a bare number against a morning original stays morning", () => {
+    expect(resolveAnswerTime({ answerTime: "09:00", answerTimeAmbiguous: true, carriedTime: "08:00" })).toBe(
+      "09:00"
+    )
+  })
+
+  it("no original time falls to the evening default", () => {
+    expect(resolveAnswerTime({ answerTime: null, answerTimeAmbiguous: false, carriedTime: null })).toBe(
+      "19:00"
+    )
+  })
+})
+
+describe("planAnswerGauge", () => {
+  // ask fixture: proposedDate Fri 2026-07-24, proposedTime "20:00", tz UTC.
+  const ask = { proposedDate: new Date("2026-07-24T00:00:00Z"), proposedTime: "20:00" }
+  const TZ = "UTC"
+
+  it("a named day takes its next occurrence with the time carried", () => {
+    const now = new Date("2026-07-25T09:00:00Z") // Sat
+    const result = planAnswerGauge(
+      { dayOfWeek: 6, time: null, timeAmbiguous: false },
+      ask,
+      TZ,
+      now
+    )
+    expect(result).not.toBeNull()
+    expect(result?.proposedDate.toISOString()).toBe("2026-07-25T00:00:00.000Z")
+    expect(result?.timeLocal).toBe("20:00")
+    expect(result?.seedNamer).toBe(true)
+  })
+
+  it("no named day falls to the same weekday next week, nobody seeded", () => {
+    const now = new Date("2026-07-25T09:00:00Z") // Sat
+    const result = planAnswerGauge(
+      { dayOfWeek: null, time: null, timeAmbiguous: false },
+      ask,
+      TZ,
+      now
+    )
+    expect(result).not.toBeNull()
+    expect(result?.proposedDate.toISOString()).toBe("2026-07-31T00:00:00.000Z")
+    expect(result?.seedNamer).toBe(false)
+  })
+
+  it("a stated time wins over the carried one", () => {
+    const now = new Date("2026-07-25T09:00:00Z") // Sat
+    const result = planAnswerGauge(
+      { dayOfWeek: 6, time: "21:00", timeAmbiguous: false },
+      ask,
+      TZ,
+      now
+    )
+    expect(result?.timeLocal).toBe("21:00")
+  })
+
+  it("refuses a start already past", () => {
+    const now = new Date("2026-07-25T21:00:00Z") // Sat, after 20:00 start
+    const result = planAnswerGauge(
+      { dayOfWeek: 6, time: null, timeAmbiguous: false },
+      ask,
+      TZ,
+      now
+    )
+    expect(result).toBeNull()
+  })
+
+  it("flags a same-evening answer as born late", () => {
+    const now = new Date("2026-07-25T19:00:00Z") // Sat, within the 2-hour close window
+    const result = planAnswerGauge(
+      { dayOfWeek: 6, time: null, timeAmbiguous: false },
+      ask,
+      TZ,
+      now
+    )
+    expect(result).not.toBeNull()
+    expect(result?.bornLate).toBe(true)
+  })
+
+  it("computes the fallback across a month boundary in a non-UTC zone", () => {
+    const failedProposedDate = zonedWallTimeToUtc(2099, 1, 28, 0, 0, "America/Chicago")
+    const chicagoAsk = { proposedDate: failedProposedDate, proposedTime: "20:00" }
+    const now = new Date("2099-01-01T00:00:00Z")
+    const result = planAnswerGauge(
+      { dayOfWeek: null, time: null, timeAmbiguous: false },
+      chicagoAsk,
+      "America/Chicago",
+      now
+    )
+    expect(result).not.toBeNull()
+    // Fri 2099-01-28 + 7 days = Fri 2099-02-04, still CST (UTC-6) in February.
+    expect(result?.proposedDate.toISOString()).toBe("2099-02-04T06:00:00.000Z")
+    expect(result?.timeLocal).toBe("20:00")
   })
 })
