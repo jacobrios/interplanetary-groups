@@ -76,11 +76,16 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
     upcomingLines,
     conversationBlock,
     openProposalLines,
+    openAskLine: null,
   })
-  const intent = normalizeIntent(claim, plans.length)
+  const intent = normalizeIntent(claim, plans.length, false)
 
   if (intent.kind === "none") return { kind: "none" }
   if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
+  // The answer arm is wired up in a later task (hasOpenAsk is hardcoded false
+  // above, so this branch cannot fire yet); minimal stopgap to keep the
+  // compiler narrowing intent.kind to "change" below.
+  if (intent.kind === "answer") return { kind: "none" }
 
   const candidates: ChangeTarget[] = plans.map((p) => ({
     id: p.title,

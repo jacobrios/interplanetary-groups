@@ -110,8 +110,9 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       upcomingLines,
       conversationBlock,
       openProposalLines,
+      openAskLine: null,
     })
-    const intent = normalizeIntent(claim, events.length)
+    const intent = normalizeIntent(claim, events.length, false)
 
     if (intent.kind === "none") return { status: "quiet" }
 
@@ -171,6 +172,11 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
 
       outcome = "gauged"
       touchedGroupId = group.id
+    } else if (intent.kind === "answer") {
+      // The answer arm is wired up in a later task (hasOpenAsk is hardcoded
+      // false above, so this branch cannot fire yet); minimal stopgap to keep
+      // the compiler narrowing intent.kind to "change" below.
+      return { status: "quiet" }
     } else {
       // A change request. The pure planner decides; this action only carries
       // the answer out.

@@ -1,10 +1,12 @@
 // src/lib/orbit/spark.ts
 //
-// Orbit reads one member message and decides which of three things it is:
+// Orbit reads one member message and decides which of four things it is:
 // a fresh idea worth gauging (spark), a request to change a plan already on
-// the calendar (change), or neither. One structured-outputs call classifies
-// both at once (detectIntentClaim / normalizeIntent, below); normalizeSpark
-// remains the spark arm's normalizer, called through normalizeIntent.
+// the calendar (change), an answer to Orbit's own open day-ask (answer, live
+// only inside the window between that ask going out and it being resolved),
+// or neither. One structured-outputs call classifies all of it at once
+// (detectIntentClaim / normalizeIntent, below); normalizeSpark remains the
+// spark arm's normalizer, called through normalizeIntent.
 //
 // This is the first time Orbit reacts to something a person said, which makes
 // it the highest-risk thing Orbit does. Two rules shape the whole module:
@@ -96,6 +98,7 @@ export const INTENT_SCHEMA = {
     "isSpark", "activity", "statedDayOfWeek", "statedTime", "timeAmbiguous", "partOfDay",
     "isChangeRequest", "targetEventNumber", "requestedTime", "requestedTimeAmbiguous",
     "requestedFields", "intentClear",
+    "isAskAnswer", "answerDayOfWeek", "answerTime", "answerTimeAmbiguous",
   ],
   properties: {
     isSpark: { type: "boolean" },
@@ -115,15 +118,20 @@ export const INTENT_SCHEMA = {
       items: { type: "string", enum: ["time", "day", "venue", "other"] },
     },
     intentClear: { type: "boolean" },
+    isAskAnswer: { type: "boolean" },
+    answerDayOfWeek: { type: ["integer", "null"] },
+    answerTime: { type: ["string", "null"] },
+    answerTimeAmbiguous: { type: "boolean" },
   },
 } as const
 
 const INTENT_SYSTEM_PROMPT = `You read one message from a group chat and classify it. At most one of these is true:
 - SPARK: the message floats a fresh idea for the group to do something together, like "we should finally grab beers" or "anyone want to climb Saturday?".
 - CHANGE REQUEST: the message asks for a plan already on the group's calendar to be changed, like "can we do 9 instead?", "let's move it to 6pm", or "put it back at 8".
+- ANSWER: possible only when a note below says Orbit is waiting on an answer about what day works better. The message answers that question with a day or a rough time frame, like "Saturday?", "saturday works for me", or "next week?".
 - Neither: everything else.
 
-You are shown the recent conversation with timestamps, including Orbit's own messages, plus the current date and time. Use it to resolve short messages: which plan a bare follow-up like "can we do 9 instead?" is about (usually the plan just discussed), what "it" refers to, and a correction like "sorry, I meant beers, not climbing", which is a change request for the plan the person now names, carrying the time from the exchange it corrects. Judge from the timestamps whether an earlier message is still what the group is talking about. The numbered calendar list, not the conversation, is the only source of plan numbers. When a note says a question is already out to the group about moving a plan, a message that simply agrees with it is neither a spark nor a change request; the chips handle agreement.
+You are shown the recent conversation with timestamps, including Orbit's own messages, plus the current date and time. Use it to resolve short messages: which plan a bare follow-up like "can we do 9 instead?" is about (usually the plan just discussed), what "it" refers to, and a correction like "sorry, I meant beers, not climbing", which is a change request for the plan the person now names, carrying the time from the exchange it corrects. Judge from the timestamps whether an earlier message is still what the group is talking about. The numbered calendar list, not the conversation, is the only source of plan numbers. When a note says a question is already out to the group about moving a plan, a message that simply agrees with it is neither a spark nor a change request; the chips handle agreement. When a note says Orbit is waiting on an answer about what day works better for an activity, a short reply naming a day or a time frame is almost always that answer: classify it as ANSWER even though it names a weekday, not as a change request and not as a spark. A message about the past ("saturday was fun") answers nothing.
 
 Be conservative in both directions. These are NOT sparks and NOT change requests:
 - agreement or reactions ("sounds good", "nice", "haha", "same")
@@ -132,7 +140,7 @@ Be conservative in both directions. These are NOT sparks and NOT change requests
 - wishes and commentary that do not ask for anything ("9 would've been better")
 - small talk, links, and anything with no activity or plan in it
 
-Two different kinds of doubt, and they get opposite answers. If the message is asking for a plan to change, say so even when it does not say which plan or what time: leave those fields null and set isChangeRequest true, because the missing pieces get asked about and an incomplete ask is still an ask. If you are not sure the message is asking for anything at all, answer isSpark false and isChangeRequest false. A message cannot be both: if it somehow reads as both, set only the one it mostly is.
+Two different kinds of doubt, and they get opposite answers. If the message is asking for a plan to change, say so even when it does not say which plan or what time: leave those fields null and set isChangeRequest true, because the missing pieces get asked about and an incomplete ask is still an ask. If you are not sure the message is asking for anything at all, answer isSpark false and isChangeRequest false. A message cannot be both: if it somehow reads as both, set only the one it mostly is. While Orbit is waiting on a day answer, prefer ANSWER over CHANGE REQUEST for a short reply that names a day.
 
 Spark fields (null, false, or empty when isSpark is false):
 - activity: one or two words in the member's own words naming the activity ("beers", "climbing", "board games"). Drop filler and location words: "grab a beer at Tony's" is just "beers". Never invent an activity.
@@ -146,7 +154,13 @@ Change-request fields (null, false, or empty when isChangeRequest is false):
 - requestedTime: 24-hour "HH:MM" best reading of the time they want the plan moved to. Null when they did not ask for a specific clock time. The time may come from an earlier message in the conversation when the new message plainly refers back to it.
 - requestedTimeAmbiguous: true only when a clock number was given with no am or pm and nothing in the message settles it. "Can we do 9 instead?" IS ambiguous: put your best reading in requestedTime and set this true. "Make it 9pm" is not ambiguous.
 - requestedFields: every part of the plan the message asks to change: "time" (a different clock time), "day" (a different calendar day, including "tomorrow" or a named weekday), "venue" (a different place), "other" (anything else). Asking to move a plan to a different day is "day", even when a time is named alongside it.
-- intentClear: true when the message plainly asks for the change ("can we do 9 instead?", "let's make it 6pm", "put it back at 8"). False when you believe they want a change but the message is indirect, or you are unsure which plan or what exactly they want.`
+- intentClear: true when the message plainly asks for the change ("can we do 9 instead?", "let's make it 6pm", "put it back at 8"). False when you believe they want a change but the message is indirect, or you are unsure which plan or what exactly they want.
+
+Answer fields (false or null whenever isAskAnswer is false, and always when no note says Orbit is waiting on an answer):
+- isAskAnswer: true only when a note says Orbit is waiting on an answer AND this message answers it.
+- answerDayOfWeek: 0 for Sunday through 6 for Saturday, ONLY when the answer names exactly one specific weekday. "next week?" and "any day works" name none, so null. Null whenever you are not certain a single weekday was named.
+- answerTime: 24-hour "HH:MM" only if the answer states a time ("Saturday at 9?" is "09:00" with the ambiguity flag). Null when no time was stated.
+- answerTimeAmbiguous: true only when a clock number was given with no am or pm. When answerTime is null, false.`
 
 export interface IntentContext {
   /** One line per upcoming plan, numbered from 1, in the order the group sees them. */
@@ -155,6 +169,8 @@ export interface IntentContext {
   conversationBlock: string
   /** One line per live GROUP proposal, empty when none. */
   openProposalLines: string[]
+  /** buildOpenAskLine output when an unanswered day-ask is open, else null. */
+  openAskLine: string | null
 }
 
 export interface NormalizedChange {
@@ -169,10 +185,18 @@ export interface NormalizedChange {
   intentClear: boolean
 }
 
+export interface NormalizedAnswer {
+  dayOfWeek: number | null
+  /** Validated "HH:mm", or null when none was stated. */
+  time: string | null
+  timeAmbiguous: boolean
+}
+
 export type NormalizedIntent =
   | { kind: "none" }
   | { kind: "spark"; spark: Extract<NormalizedSpark, { spark: true }> }
   | { kind: "change"; change: NormalizedChange }
+  | { kind: "answer"; answer: NormalizedAnswer }
 
 /**
  * One structured-outputs call. Returns raw model output: a claim, not a fact.
@@ -188,8 +212,9 @@ export async function detectIntentClaim(
   const proposalBlock = context.openProposalLines.length
     ? `\n\n${context.openProposalLines.join("\n")}`
     : ""
+  const askBlock = context.openAskLine ? `\n\n${context.openAskLine}` : ""
 
-  const user = `${calendarBlock}${proposalBlock}
+  const user = `${calendarBlock}${proposalBlock}${askBlock}
 
 ${context.conversationBlock}
 
@@ -206,9 +231,28 @@ const CHANGE_FIELDS: readonly string[] = ["time", "day", "venue", "other"]
  * normalizeSpark: degrade, never throw, and degrade toward silence. A claim of
  * both intents at once is incoherent and acted on as neither.
  */
-export function normalizeIntent(raw: unknown, upcomingCount: number): NormalizedIntent {
+export function normalizeIntent(
+  raw: unknown,
+  upcomingCount: number,
+  hasOpenAsk: boolean
+): NormalizedIntent {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return { kind: "none" }
   const o = raw as Record<string, unknown>
+
+  // The answer arm outranks the other two, and exists only inside its window:
+  // hasOpenAsk is deterministic code's own confirmation (decision 3), so a
+  // claimed answer with no open ask is ignored entirely, and inside the window
+  // the answer reading beats a change reading (decision 4) because Orbit's own
+  // question is the loudest context on screen.
+  if (hasOpenAsk && o.isAskAnswer === true) {
+    const d = o.answerDayOfWeek
+    const dayOfWeek =
+      typeof d === "number" && Number.isInteger(d) && d >= 0 && d <= 6 ? d : null
+    const time =
+      typeof o.answerTime === "string" && TIME_LOCAL_RE.test(o.answerTime) ? o.answerTime : null
+    const timeAmbiguous = time !== null && o.answerTimeAmbiguous === true
+    return { kind: "answer", answer: { dayOfWeek, time, timeAmbiguous } }
+  }
 
   if (o.isSpark === true && o.isChangeRequest === true) return { kind: "none" }
 
