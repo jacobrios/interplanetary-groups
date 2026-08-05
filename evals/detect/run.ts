@@ -31,7 +31,7 @@ export interface CaseResult {
 /** What actually happened on one run, flattened for comparison and printing. */
 type Outcome =
   | { kind: "none" }
-  | { kind: "spark" }
+  | { kind: "spark"; statedDayOfWeek: number | null }
   | { kind: "change"; action: string; text: string }
 
 function describe(o: Outcome): string {
@@ -80,7 +80,7 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
   const intent = normalizeIntent(claim, plans.length)
 
   if (intent.kind === "none") return { kind: "none" }
-  if (intent.kind === "spark") return { kind: "spark" }
+  if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
 
   const candidates: ChangeTarget[] = plans.map((p) => ({
     id: p.title,
@@ -113,6 +113,14 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
 function grade(c: EvalCase, o: Outcome): string | null {
   const e = c.expected
   if (e.kind !== o.kind) return `expected ${e.kind}, got ${describe(o)}`
+  if (
+    e.kind === "spark" &&
+    o.kind === "spark" &&
+    e.statedDayOfWeek !== undefined &&
+    e.statedDayOfWeek !== o.statedDayOfWeek
+  ) {
+    return `expected spark on day ${e.statedDayOfWeek}, got ${o.statedDayOfWeek}`
+  }
   if (e.kind !== "change" || o.kind !== "change") return null
   if (e.action && e.action !== o.action) {
     return `expected change / ${e.action}, got ${describe(o)}`

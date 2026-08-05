@@ -17,7 +17,7 @@ export type Bucket = "must-recognize" | "must-stay-quiet" | "ambiguous"
  */
 export type Expected =
   | { kind: "none" }
-  | { kind: "spark" }
+  | { kind: "spark"; statedDayOfWeek?: number | null }
   | {
       kind: "change"
       action?: "reply" | "ask" | "propose" | "move"
@@ -392,5 +392,95 @@ export const CASES: EvalCase[] = [
     trigger: { author: "Sam", body: "can we move it?" },
     memberCount: 4,
     expected: { kind: "change" },
+  },
+  {
+    id: "retry-answer-bare-day",
+    bucket: "must-recognize",
+    description:
+      "The wrong-day retry's whole bet: after Orbit's close-and-ask, a bare day name is an answer, and the conversational window is what resolves it to the activity. If this reads as none, the ask is a question Orbit ignores the answer to.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 26 - 1,
+      },
+      {
+        author: "Orbit",
+        body: "Beers didn't happen for Friday, but three of you want it. What day works better?",
+        minutesAgo: 60 * 3,
+      },
+    ],
+    trigger: { author: "Jesse", body: "Saturday?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: 6 },
+  },
+  {
+    id: "retry-answer-day-works",
+    bucket: "must-recognize",
+    description: "Same seam, fuller sentence. 'saturday works for me' after the ask is a day answer, not chatter.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 26 - 1,
+      },
+      {
+        author: "Orbit",
+        body: "Beers didn't happen for Friday, but three of you want it. What day works better?",
+        minutesAgo: 60 * 3,
+      },
+    ],
+    trigger: { author: "Maya", body: "saturday works for me" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: 6 },
+  },
+  {
+    id: "retry-answer-next-week",
+    bucket: "ambiguous",
+    description:
+      "'next week?' after the ask names no single day. The exactly-one-day rule says a spark with no stated day (fallback picks), not a silent guess at which day they meant. No bar; watched for drift.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 26 - 1,
+      },
+      {
+        author: "Orbit",
+        body: "Beers didn't happen for Friday, but three of you want it. What day works better?",
+        minutesAgo: 60 * 3,
+      },
+    ],
+    trigger: { author: "Sam", body: "next week?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: null },
+  },
+  {
+    id: "retry-answer-nostalgia",
+    bucket: "must-stay-quiet",
+    description: "A look-alike: 'saturday was fun' right after the ask is about the past, not an answer. Recognition must not hear a day name and call it a proposal.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 26 - 1,
+      },
+      {
+        author: "Orbit",
+        body: "Beers didn't happen for Friday, but three of you want it. What day works better?",
+        minutesAgo: 60 * 3,
+      },
+    ],
+    trigger: { author: "Jesse", body: "saturday was fun" },
+    memberCount: 4,
+    expected: { kind: "none" },
   },
 ]

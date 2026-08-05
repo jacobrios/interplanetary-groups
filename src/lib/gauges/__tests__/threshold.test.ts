@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from "vitest"
 import { GaugeAnswer } from "@prisma/client"
-import { countIn, hasReachedThreshold, SPARK_THRESHOLD } from "../threshold"
+import { countIn, hasReachedThreshold, isRetryEligible, SPARK_THRESHOLD } from "../threshold"
 
 const v = (answer: GaugeAnswer) => ({ answer })
 
@@ -41,5 +41,26 @@ describe("hasReachedThreshold", () => {
   it("agrees with the exported number", () => {
     expect(hasReachedThreshold(Array(SPARK_THRESHOLD).fill(v("IN")))).toBe(true)
     expect(hasReachedThreshold(Array(SPARK_THRESHOLD - 1).fill(v("IN")))).toBe(false)
+  })
+})
+
+describe("isRetryEligible", () => {
+  it("2 IN + 1 NOT_THAT_DAY reaches the bar: eligible", () => {
+    expect(isRetryEligible([v("IN"), v("IN"), v("NOT_THAT_DAY")])).toBe(true)
+  })
+  it("0 IN + 3 NOT_THAT_DAY is the strongest case, not the weakest: eligible", () => {
+    expect(isRetryEligible([v("NOT_THAT_DAY"), v("NOT_THAT_DAY"), v("NOT_THAT_DAY")])).toBe(true)
+  })
+  it("2 IN + 0 NOT_THAT_DAY: not eligible (a can't-day vote is required)", () => {
+    expect(isRetryEligible([v("IN"), v("IN")])).toBe(false)
+  })
+  it("1 IN + 1 NOT_THAT_DAY: below the bar, not eligible", () => {
+    expect(isRetryEligible([v("IN"), v("NOT_THAT_DAY")])).toBe(false)
+  })
+  it("OUT never counts toward the bar", () => {
+    expect(isRetryEligible([v("IN"), v("OUT"), v("OUT"), v("NOT_THAT_DAY")])).toBe(false)
+  })
+  it("3 IN would have promoted; retry is only for closed-short gauges", () => {
+    expect(isRetryEligible([v("IN"), v("IN"), v("IN"), v("NOT_THAT_DAY")])).toBe(false)
   })
 })

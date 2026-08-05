@@ -6,8 +6,9 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { GaugeAnswer, MessageAuthor } from "@prisma/client"
-import { createGauge } from "../create"
+import { createGauge, createRetryGuessGauge } from "../create"
 import { promoteGaugeToEvent } from "../promote"
+import { sparkStartInstant } from "@/lib/orbit/spark-copy"
 
 const AUTH = [0, 1, 2, 3].map((n) => `test-promote-${n}-${Date.now()}`)
 const userIds: string[] = []
@@ -271,5 +272,56 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
     // Venue never gates anything: a miss is an event without a penciled-in
     // spot, never a failure to create.
     expect(event!.venues).toEqual([])
+  })
+})
+
+describe("promoteGaugeToEvent, retry guess time carry", () => {
+  const GUESS_DATE = new Date("2026-07-31T00:00:00Z") // a Friday, 9 days after NOW
+
+  it("carries the original idea's time through a retry guess into promotion", async () => {
+    // fixture: an original-style gauge, then Orbit's retry guess on it
+    const src = await prisma.message.create({
+      data: {
+        groupId,
+        authorType: MessageAuthor.MEMBER,
+        authorId: userIds[0],
+        body: "we should grab beers",
+      },
+    })
+    const original = await createGauge({
+      groupId,
+      sourceMessageId: src.id,
+      activity: "beers",
+      proposedDate: FRIDAY,
+      proposedTime: "20:00",
+      body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+    })
+    if (original.status !== "created") throw new Error("fixture failed")
+
+    const guess = await createRetryGuessGauge({
+      groupId,
+      originGaugeId: original.gauge.id,
+      activity: "beers",
+      proposedDate: GUESS_DATE,
+      proposedTime: "20:00",
+      body: "No takers on a new day yet, so how about beers next Friday?",
+    })
+    if (guess.status !== "created") throw new Error("fixture failed")
+    const guessGauge = guess.gauge
+
+    // add three IN votes via the file's existing vote helper
+    for (const userId of userIds.slice(0, 3)) {
+      await prisma.gaugeVote.create({
+        data: { gaugeId: guessGauge.id, userId, answer: GaugeAnswer.IN },
+      })
+    }
+
+    const result = await promoteGaugeToEvent(guessGauge.id, NOW)
+    expect(result.status).toBe("created")
+    if (result.status !== "created") return
+    const event = await prisma.event.findUnique({ where: { id: result.eventId } })
+    // sparkStartInstant(proposedDate, "20:00", zone): the original idea's 8pm
+    // survived the retry without promote.ts changing at all.
+    expect(event?.startsAt).toEqual(sparkStartInstant(GUESS_DATE, "20:00", "UTC"))
   })
 })

@@ -102,3 +102,77 @@ export async function createGauge({
     throw err
   }
 }
+
+export interface CreateRetryGuessInput {
+  groupId: string
+  /** The original gauge whose failed day this guess re-proposes. Also the idempotency key. */
+  originGaugeId: string
+  activity: string
+  /** Group-local midnight, from chooseRetryGuessDate. */
+  proposedDate: Date
+  /** Copied verbatim from the original gauge (stored state is carried, not re-derived). */
+  proposedTime: string
+  /** Orbit's composed guess message body. Copy lives in orbit/spark-copy.ts, not here. */
+  body: string
+}
+
+export type CreateRetryGuessResult =
+  | { status: "created"; gauge: Gauge }
+  | { status: "skipped"; reason: "already_guessed" }
+
+/**
+ * Creates Orbit's own retry guess gauge: no source message (Orbit named the
+ * day, nobody else did), no seeded vote (Orbit is never a vote), and a link
+ * back to the original gauge whose day did not work.
+ *
+ * The unique constraint on retryGuessOfGaugeId is the whole idempotency
+ * story, the same P2002 pattern createGauge uses for sourceMessageId: a
+ * double-fired retry sweep hits it and comes back as a skip, keeping the
+ * one-guess-per-original rule true by construction rather than by caller
+ * discipline.
+ */
+export async function createRetryGuessGauge({
+  groupId,
+  originGaugeId,
+  activity,
+  proposedDate,
+  proposedTime,
+  body,
+}: CreateRetryGuessInput): Promise<CreateRetryGuessResult> {
+  try {
+    const gauge = await prisma.$transaction(async (tx) => {
+      const orbitMessage = await tx.message.create({
+        data: {
+          groupId,
+          authorType: MessageAuthor.ORBIT,
+          authorId: null,
+          body,
+        },
+      })
+
+      const created = await tx.gauge.create({
+        data: {
+          groupId,
+          sourceMessageId: null,
+          retryGuessOfGaugeId: originGaugeId,
+          orbitMessageId: orbitMessage.id,
+          activity,
+          proposedDate,
+          proposedTime,
+        },
+      })
+
+      // No vote seeding here, unlike createGauge's initiatorUserId branch:
+      // Orbit named the day, and Orbit is never a vote.
+
+      return created
+    })
+
+    return { status: "created", gauge }
+  } catch (err) {
+    if ((err as { code?: string }).code === "P2002") {
+      return { status: "skipped", reason: "already_guessed" }
+    }
+    throw err
+  }
+}

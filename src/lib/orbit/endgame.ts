@@ -29,15 +29,22 @@ import {
   isGaugeLive,
   buildBumpMessage,
   buildClosureMessage,
+  buildRetryAskMessage,
+  buildRetryGuessMessage,
+  chooseRetryGuessDate,
   BUMP_LOCAL_HOUR,
+  EVENING_TIME,
   SPARK_THRESHOLD,
 } from "./spark-copy"
 import { getLocalParts } from "./occurrence"
-import { countIn } from "@/lib/gauges/threshold"
+import { countIn, countNotThatDay, isRetryEligible } from "@/lib/gauges/threshold"
+import { createRetryGuessGauge } from "@/lib/gauges/create"
 
 export type EndgameResult =
   | { gaugeId: string; action: "bumped" }
   | { gaugeId: string; action: "closed_with_note" }
+  | { gaugeId: string; action: "asked" } // the day-blocked retry ask replaced the goodbye (Task 6)
+  | { gaugeId: string; action: "guessed" } // the one retry guess, posted the evening after the ask (Task 7)
   | {
       gaugeId: string
       action: "skipped"
@@ -57,6 +64,20 @@ export type EndgameResult =
         // a missed promotion, not a missing bump, so it gets its own reason
         // rather than silently reusing "still_newest" or another guard.
         | "already_at_bar"
+        // Lost the ask race (Task 6). No longer produced by the routing
+        // branch below (Task 7 replaced that direct return with
+        // handleGuess(...)), but handleAsk's own catch block still produces
+        // it on a lost race — the concurrent-ask test asserts exactly that —
+        // so this union member stays, with one of its two former sources gone.
+        | "already_asked"
+        // Asked, but not yet the guess moment (Task 7): still the failed day,
+        // or the evening after but before BUMP_LOCAL_HOUR.
+        | "awaiting_answer"
+        // A same-activity gauge opened after the ask (Task 7): the group
+        // moved on to a fresh proposal on their own, so the guess is moot.
+        | "answered"
+        // The one guess already exists for this original gauge (Task 7).
+        | "already_guessed"
     }
 
 /**
@@ -72,6 +93,7 @@ const gaugeInclude = {
   votes: true,
   event: { select: { id: true } },
   group: { include: { memberships: { include: { user: true } } } },
+  retryAskMessage: { select: { createdAt: true } },
 } satisfies Prisma.GaugeInclude
 
 type CandidateGauge = Prisma.GaugeGetPayload<{ include: typeof gaugeInclude }>
@@ -124,14 +146,41 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
   if (gauge.event) {
     return { gaugeId: gauge.id, action: "skipped", reason: "promoted" }
   }
-  // Already fully closed: the closure note was posted on a previous sweep.
-  if (gauge.closureMessageId) {
-    return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
-  }
 
   const timeZone = gauge.group.timeZone
   if (isGaugeLive(gauge, timeZone, now)) {
     return handleBump(gauge, timeZone, now)
+  }
+
+  // Closed from here down. A retry guess gauge never earns its own ask or
+  // guess (spec decision 7): ordinary close outcomes only.
+  if (gauge.retryGuessOfGaugeId) {
+    return handleClose(gauge)
+  }
+  if (gauge.retryAskMessageId) {
+    return handleGuess(gauge, timeZone, now)
+  }
+  // Moved from ahead of the liveness check to here: behavior is identical
+  // for every gauge the old order served. A closure-marked gauge is never
+  // live, so it always reached this point either way. And re-entering
+  // handleClose on an already-closed gauge is a no-op regardless of vote
+  // count: at zero yeses it stays the existing silent no-op (no marker was
+  // ever written, so there is nothing to re-check); at one or more yeses it
+  // re-runs handleClose's transaction, whose conditional update
+  // (`closureMessageId: null`) matches zero rows against the already-set
+  // marker, so it throws AlreadyClosedInTx and rolls the new message back
+  // out with no committed effect — this check catches that gauge first in
+  // both orderings, so it never actually reaches that transaction to prove
+  // it. The new order is what lets an asked gauge keep flowing to the guess
+  // phase instead of being caught by this check first.
+  if (gauge.closureMessageId) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
+  }
+  // Retry eligibility runs BEFORE the closure outcomes (spec decision 2), so
+  // a day-blocked gauge gets the ask instead of the goodbye, and instead of
+  // the zero-yes silence.
+  if (isRetryEligible(memberFilteredVotes(gauge))) {
+    return handleAsk(gauge, timeZone)
   }
   return handleClose(gauge)
 }
@@ -237,6 +286,107 @@ class AlreadyBumpedInTx extends Error {}
 
 /** Signals a lost closure race; rolls the transaction back, never escapes this module. */
 class AlreadyClosedInTx extends Error {}
+
+/** Signals a lost retry-ask race; rolls the transaction back, never escapes this module. */
+class AlreadyAskedInTx extends Error {}
+
+/**
+ * A day-blocked gauge's close: the retry ask replaces the goodbye. wantCount
+ * is IN plus NOT_THAT_DAY, member-filtered, the same tally isRetryEligible
+ * itself checked, so the sentence and the eligibility test can never
+ * disagree about who counted.
+ */
+async function handleAsk(gauge: CandidateGauge, timeZone: string): Promise<EndgameResult> {
+  const memberVotes = memberFilteredVotes(gauge)
+  const wantCount = countIn(memberVotes) + countNotThatDay(memberVotes)
+  const body = buildRetryAskMessage(gauge.activity, gauge.proposedDate, timeZone, wantCount)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Create-then-conditionally-attach, exactly the bump path's guard
+      // above (see its comment for why a read-then-branch-then-write re-read
+      // does not actually close this race).
+      const message = await tx.message.create({
+        data: { groupId: gauge.groupId, authorType: MessageAuthor.ORBIT, authorId: null, body },
+      })
+      const updated = await tx.gauge.updateMany({
+        where: { id: gauge.id, retryAskMessageId: null },
+        data: { retryAskMessageId: message.id },
+      })
+      if (updated.count === 0) throw new AlreadyAskedInTx()
+    })
+  } catch (err) {
+    if (err instanceof AlreadyAskedInTx) {
+      return { gaugeId: gauge.id, action: "skipped", reason: "already_asked" }
+    }
+    throw err
+  }
+
+  return { gaugeId: gauge.id, action: "asked" }
+}
+
+/**
+ * The one guess: fires the evening after the ask, on the failed gauge's own
+ * clock. Anchored to the FAILED DAY, not the ask's send time (see the
+ * dayDiff comment below), and cancelled the instant the group moves on to a
+ * fresh same-activity proposal on their own.
+ */
+async function handleGuess(gauge: CandidateGauge, timeZone: string, now: Date): Promise<EndgameResult> {
+  const existing = await prisma.gauge.findUnique({
+    where: { retryGuessOfGaugeId: gauge.id },
+    select: { id: true },
+  })
+  if (existing) return { gaugeId: gauge.id, action: "skipped", reason: "already_guessed" }
+
+  // A broken retryAskMessage pointer degrades to waiting rather than
+  // throwing: this path is only reached once retryAskMessageId is set, so
+  // askCreatedAt should always be present, but a missing include or a
+  // corrupted row should never crash the sweep over one gauge.
+  const askCreatedAt = gauge.retryAskMessage?.createdAt
+  if (!askCreatedAt) return { gaugeId: gauge.id, action: "skipped", reason: "awaiting_answer" }
+
+  // "Answered" is activity-exact and deliberately literal-minded: a pivot to a
+  // different activity does not cancel the guess, because the people who voted
+  // voted for THIS activity (spec decision 6; recorded as a watch-item). An
+  // Orbit guess is not the group answering, so guess gauges are excluded here
+  // too: otherwise one guess gauge could suppress a second, unrelated guess
+  // for the same activity, and a concurrent sweep could see its own sibling
+  // guess and report "answered" instead of "already_guessed".
+  const answered = await prisma.gauge.findFirst({
+    where: {
+      groupId: gauge.groupId,
+      id: { not: gauge.id },
+      activity: { equals: gauge.activity, mode: "insensitive" },
+      createdAt: { gt: askCreatedAt },
+      retryGuessOfGaugeId: null,
+    },
+    select: { id: true },
+  })
+  if (answered) return { gaugeId: gauge.id, action: "skipped", reason: "answered" }
+
+  // The guess evening is anchored to the FAILED DAY, not the ask's send time:
+  // the ask lands on the failed day whenever the sweep is healthy, and
+  // anchoring here means a delayed ask can never push the guess past the
+  // candidate window into silent death. Under a long outage the ask-to-guess
+  // gap compresses; accepted, and the window ages the gauge out regardless.
+  const nowParts = getLocalParts(now, timeZone)
+  const dayDiff = localDayNumber(nowParts) - localDayNumber(getLocalParts(gauge.proposedDate, timeZone))
+  if (dayDiff < 1 || (dayDiff === 1 && nowParts.hour < BUMP_LOCAL_HOUR)) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "awaiting_answer" }
+  }
+
+  const guessDate = chooseRetryGuessDate(gauge.proposedDate, timeZone)
+  const res = await createRetryGuessGauge({
+    groupId: gauge.groupId,
+    originGaugeId: gauge.id,
+    activity: gauge.activity,
+    proposedDate: guessDate,
+    proposedTime: gauge.proposedTime ?? EVENING_TIME,
+    body: buildRetryGuessMessage(gauge.activity, guessDate, timeZone),
+  })
+  if (res.status === "skipped") return { gaugeId: gauge.id, action: "skipped", reason: "already_guessed" }
+  return { gaugeId: gauge.id, action: "guessed" }
+}
 
 async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {
   const memberVotes = memberFilteredVotes(gauge)

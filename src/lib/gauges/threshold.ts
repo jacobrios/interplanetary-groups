@@ -25,3 +25,22 @@ export function countIn(votes: { answer: GaugeAnswer }[]): number {
 export function hasReachedThreshold(votes: { answer: GaugeAnswer }[]): boolean {
   return countIn(votes) >= SPARK_THRESHOLD
 }
+
+/** How many current answers are "yes, but not that day". */
+export function countNotThatDay(votes: { answer: GaugeAnswer }[]): number {
+  return votes.filter((v) => v.answer === "NOT_THAT_DAY").length
+}
+
+/**
+ * Would this gauge have cleared the bar if the day had worked? True when IN
+ * plus NOT_THAT_DAY together reach SPARK_THRESHOLD, at least one of them is a
+ * NOT_THAT_DAY (otherwise the day was never the blocker), and the gauge is
+ * genuinely short (3 IN would have promoted instead). Callers pass
+ * member-filtered votes, same as every other count.
+ * (Spec: wrong-day-retry, decisions 1 and 2.)
+ */
+export function isRetryEligible(votes: { answer: GaugeAnswer }[]): boolean {
+  const inCount = countIn(votes)
+  const cantDay = countNotThatDay(votes)
+  return inCount < SPARK_THRESHOLD && cantDay >= 1 && inCount + cantDay >= SPARK_THRESHOLD
+}

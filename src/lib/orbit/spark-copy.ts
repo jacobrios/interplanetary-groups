@@ -38,11 +38,11 @@ const SATURDAY = 6
 /**
  * Where an unstated time lands, and how a gauge's own clock runs: how much
  * notice it gives before it closes, and the local hour of its evening-before
- * bump. All four are placeholders with no data behind them (the time
+ * bump. All five are placeholders with no data behind them (the time
  * defaults accepted 24 July 2026; the close window and bump hour added for
- * the gauge endgame), kept together beside the day fallback so the
- * override-learning behavior in build-notes §5 replaces the whole family at
- * once.
+ * the gauge endgame; the retry guess day added for the wrong-day retry),
+ * kept together beside the day fallback so the override-learning behavior in
+ * build-notes §5 replaces the whole family at once.
  */
 export const EVENING_TIME = "19:00"
 export const MORNING_TIME = "09:00"
@@ -205,6 +205,38 @@ export function chooseProposedDate(
 
   // Date.UTC absorbs the day overflow, so month and year ends need no special case.
   return zonedWallTimeToUtc(today.year, today.month, today.day + offsetDays, 0, 0, timeZone)
+}
+
+/**
+ * The retry guess: the same weekday one week after the failed day. The least
+ * presumptuous guess with zero signal about which day works: it keeps the one
+ * preference the group actually expressed (a Friday-shaped plan), and "can't
+ * Fri" usually means this Friday, not Fridays. A placeholder like the rest of
+ * this family; override-learning (build-notes §5) replaces them as one
+ * decision. (Spec: wrong-day-retry, decision 5.)
+ */
+export function chooseRetryGuessDate(failedProposedDate: Date, timeZone: string): Date {
+  const p = getLocalParts(failedProposedDate, timeZone)
+  // Date.UTC absorbs the day overflow, so month and year ends need no special case.
+  return zonedWallTimeToUtc(p.year, p.month, p.day + 7, 0, 0, timeZone)
+}
+
+/** The close-and-ask for a day-blocked gauge. Replaces the closure note. */
+export function buildRetryAskMessage(
+  activity: string,
+  failedProposedDate: Date,
+  timeZone: string,
+  wantCount: number
+): string {
+  const cap = activity.charAt(0).toUpperCase() + activity.slice(1)
+  const weekday = formatWeekdayLong(failedProposedDate, timeZone)
+  return `${cap} didn't happen for ${weekday}, but ${spellCount(wantCount)} of you want it. What day works better?`
+}
+
+/** The one guess, posted as a real gauge's message the evening after the ask. */
+export function buildRetryGuessMessage(activity: string, guessDate: Date, timeZone: string): string {
+  const weekday = formatWeekdayLong(guessDate, timeZone)
+  return `No takers on a new day yet, so how about ${activity} next ${weekday}?`
 }
 
 /**

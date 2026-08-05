@@ -2,13 +2,17 @@
 import { describe, it, expect } from "vitest"
 import {
   buildGaugeMessage,
+  buildRetryAskMessage,
+  buildRetryGuessMessage,
   buildSparkAnnouncement,
   buildTallyLine,
   chooseProposedDate,
+  chooseRetryGuessDate,
   formatTimeLocalLabel,
   resolveSparkTime,
   sparkStartInstant,
 } from "../spark-copy"
+import { zonedWallTimeToUtc } from "../occurrence"
 
 describe("resolveSparkTime", () => {
   it("takes a clear stated time at face value, and says nothing", () => {
@@ -228,5 +232,37 @@ describe("sparkStartInstant", () => {
     const day = new Date("2026-07-24T11:00:00Z")
     expect(sparkStartInstant(day, "19:00", "Pacific/Midway").toISOString())
       .toBe("2026-07-25T06:00:00.000Z")
+  })
+})
+
+describe("chooseRetryGuessDate", () => {
+  it("same weekday one week later, group-local midnight", () => {
+    // Fri 2099-06-12 local midnight in Chicago -> Fri 2099-06-19 local midnight
+    const failed = zonedWallTimeToUtc(2099, 6, 12, 0, 0, "America/Chicago")
+    const guess = chooseRetryGuessDate(failed, "America/Chicago")
+    expect(guess).toEqual(zonedWallTimeToUtc(2099, 6, 19, 0, 0, "America/Chicago"))
+  })
+  it("crosses a month boundary without a special case", () => {
+    const failed = zonedWallTimeToUtc(2099, 1, 28, 0, 0, "America/Chicago")
+    const guess = chooseRetryGuessDate(failed, "America/Chicago")
+    expect(guess).toEqual(zonedWallTimeToUtc(2099, 2, 4, 0, 0, "America/Chicago"))
+  })
+})
+
+describe("buildRetryAskMessage", () => {
+  it("closes and asks in one breath, activity capitalized, count spelled", () => {
+    const failed = zonedWallTimeToUtc(2099, 6, 12, 0, 0, "UTC") // a Friday
+    expect(buildRetryAskMessage("beers", failed, "UTC", 3)).toBe(
+      "Beers didn't happen for Friday, but three of you want it. What day works better?"
+    )
+  })
+})
+
+describe("buildRetryGuessMessage", () => {
+  it("names the next same weekday, no em dashes, ends open for chips", () => {
+    const guess = zonedWallTimeToUtc(2099, 6, 19, 0, 0, "UTC") // a Friday
+    expect(buildRetryGuessMessage("beers", guess, "UTC")).toBe(
+      "No takers on a new day yet, so how about beers next Friday?"
+    )
   })
 })
