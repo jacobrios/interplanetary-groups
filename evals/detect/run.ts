@@ -7,7 +7,9 @@
 
 import { formatEventDate, formatTime } from "../../src/lib/events/format"
 import { planChange, type ChangeTarget } from "../../src/lib/orbit/change-plan"
+import { getLocalParts } from "../../src/lib/orbit/occurrence"
 import { detectIntentClaim, normalizeIntent } from "../../src/lib/orbit/spark"
+import { buildOpenAskLine, startOfLocalDay } from "../../src/lib/orbit/spark-copy"
 import {
   buildConversationWindow,
   WINDOW_MESSAGES,
@@ -32,10 +34,23 @@ export interface CaseResult {
 type Outcome =
   | { kind: "none" }
   | { kind: "spark"; statedDayOfWeek: number | null }
+  | { kind: "answer"; dayOfWeek: number | null }
   | { kind: "change"; action: string; text: string }
 
 function describe(o: Outcome): string {
   return o.kind === "change" ? `change / ${o.action}: ${o.text}` : o.kind
+}
+
+/** The most recent group-local midnight strictly before now that falls on `dow`. */
+function mostRecentPastOccurrence(dow: number, now: Date): Date {
+  const today = startOfLocalDay(now, TIME_ZONE)
+  for (let back = 1; back <= 7; back++) {
+    const local = startOfLocalDay(new Date(today.getTime() - back * 86_400_000), TIME_ZONE)
+    const p = getLocalParts(local, TIME_ZONE)
+    const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay()
+    if (weekday === dow) return local
+  }
+  return today
 }
 
 async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
@@ -72,20 +87,21 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
       ]
     : []
 
+  const openAskLine = c.openAsk
+    ? buildOpenAskLine(c.openAsk.activity, mostRecentPastOccurrence(c.openAsk.failedDayOfWeek, now), TIME_ZONE)
+    : null
+
   const claim = await detectIntentClaim(c.trigger.body, {
     upcomingLines,
     conversationBlock,
     openProposalLines,
-    openAskLine: null,
+    openAskLine,
   })
-  const intent = normalizeIntent(claim, plans.length, false)
+  const intent = normalizeIntent(claim, plans.length, c.openAsk !== undefined)
 
   if (intent.kind === "none") return { kind: "none" }
   if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
-  // The answer arm is wired up in a later task (hasOpenAsk is hardcoded false
-  // above, so this branch cannot fire yet); minimal stopgap to keep the
-  // compiler narrowing intent.kind to "change" below.
-  if (intent.kind === "answer") return { kind: "none" }
+  if (intent.kind === "answer") return { kind: "answer", dayOfWeek: intent.answer.dayOfWeek }
 
   const candidates: ChangeTarget[] = plans.map((p) => ({
     id: p.title,
@@ -125,6 +141,9 @@ function grade(c: EvalCase, o: Outcome): string | null {
     e.statedDayOfWeek !== o.statedDayOfWeek
   ) {
     return `expected spark on day ${e.statedDayOfWeek}, got ${o.statedDayOfWeek}`
+  }
+  if (e.kind === "answer" && o.kind === "answer" && e.dayOfWeek !== undefined && e.dayOfWeek !== o.dayOfWeek) {
+    return `expected answer naming day ${e.dayOfWeek}, got ${o.dayOfWeek}`
   }
   if (e.kind !== "change" || o.kind !== "change") return null
   if (e.action && e.action !== o.action) {
