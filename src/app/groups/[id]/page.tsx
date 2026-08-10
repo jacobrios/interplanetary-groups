@@ -37,6 +37,8 @@ import type { FeedGroupProposal } from "./GroupProposalChips"
 import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
 import Chevron from "@/components/Chevron"
+import { derivePending } from "@/lib/pending/derive"
+import { PendingStrip } from "./PendingStrip"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -170,6 +172,20 @@ export default async function GroupPage({ params }: Props) {
     })
   const viewerIsMember = viewer ? memberIds.has(viewer.id) : false
 
+  // ── Pending surface ──────────────────────────────────────────────────────
+  // A second window onto liveGauges/liveProposals, not a second query: pure
+  // derivation of this viewer's own waiting-on-you and standing-yes sets.
+  const pending = viewer
+    ? derivePending({
+        liveGauges,
+        liveProposals,
+        viewerId: viewer.id,
+        memberIds,
+        memberCount: group.memberships.length,
+        timeZone: group.timeZone,
+      })
+    : null
+
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
     authorType: msg.authorType,
@@ -298,6 +314,8 @@ export default async function GroupPage({ params }: Props) {
           </div>
         )}
       </div>
+
+      {pending ? <PendingStrip pending={pending} /> : null}
 
       {/* ── Chat feed + pinned input (client island) ───────────────────── */}
       {/* The chat section fills remaining viewport height.  The feed is its
