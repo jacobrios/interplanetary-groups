@@ -322,12 +322,14 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
         onClick={() =>
           setOpen((wasOpen) => {
             const next = !wasOpen
-            // README interactions: "on collapse after caught-up, unmount the
-            // strip entirely if no standing yes remains." Clearing caughtUp
-            // here (rather than adding a second flag) is enough: with
-            // effectiveWaiting and standingYes both empty, the top-of-render
-            // gate below returns null on the next render.
-            if (!next && caughtUp && standingYes.length === 0) {
+            // README interactions + finding 2 (fix wave 3): the caught-up note
+            // is a one-time goodbye, not a label. On EVERY collapse it clears,
+            // regardless of whether a standing yes remains: with no standing
+            // yes, effectiveWaiting and standingYes are both empty and the
+            // top-of-render gate below returns null (strip gone); with a
+            // standing yes held, the strip falls back to showing just the yes
+            // count instead of replaying "All caught up" indefinitely.
+            if (!next && caughtUp) {
               setCaughtUp(false)
             }
             return next
@@ -337,7 +339,6 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
           display: "flex",
           alignItems: "center",
           gap: "10px",
-          width: "100%",
           margin: "0 1rem",
           padding: "11px 2px",
           borderTop: "1px solid var(--border-subtle)",
@@ -372,11 +373,17 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
                 <span style={{ whiteSpace: "nowrap" }}>
                   <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{effectiveWaiting.length}</span>{" "}
                   waiting on you
+                  {/* Finding 3 (fix wave 3): the dot binds to the END of the
+                      item it follows (CLAUDE.md's separator-dot rule and the
+                      handoff's .seg:not(:last-child)::after both put it here),
+                      so a wrapped line never starts with a dot. It lives in
+                      this segment's own span, not the next segment's, and only
+                      when a next segment exists. */}
+                  {standingYes.length > 0 && <span>{" ·"}</span>}
                 </span>
               )}
               {standingYes.length > 0 && (
                 <span style={{ whiteSpace: "nowrap" }}>
-                  {effectiveWaiting.length > 0 && <span>{"· "}</span>}
                   <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{standingYes.length}</span>{" "}
                   you&apos;re in on
                 </span>

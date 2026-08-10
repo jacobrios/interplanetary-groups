@@ -14,19 +14,19 @@
 //     YES vote
 //   - one open gauge with NO votes yet ("yoga recovery session", Sunday
 //     morning): the standing-yes candidate. It stays empty until the viewer
-//     exists to answer it — see SECOND MODE below.
+//     exists to answer it; see SECOND MODE below.
 //
 // THE VIEWER PROBLEM, and why this script has a second mode: the pending
 // strip is inherently viewer-personal (a "you're in on" row needs a real vote
 // from a real session), and there is no way from a script to forge a real
-// Supabase session — signInAnonymously mints a UUID Supabase controls, and
+// Supabase session: signInAnonymously mints a UUID Supabase controls, and
 // this project has no service-role key and no dev-login backdoor (both
 // deliberately absent; see CLAUDE.md "Two databases, never crossed" and the
 // stack-realities section on Supabase being auth-only). So the viewer cannot
 // be pre-seeded as a fourth fake member the way the other three are.
 //
 // The fix: the browser tester becomes the viewer by actually joining through
-// the invite link (a real anonymous session, a real 4th membership — "four
+// the invite link (a real anonymous session, a real 4th membership; "four
 // members" in the brief is 3 seeded + this real join). Once joined, this
 // script's second mode attaches their standing-yes vote to the gauge staged
 // above, using whichever membership joined last:
@@ -70,7 +70,7 @@ const STANDING_ACTIVITY = "yoga recovery session"
 /**
  * Second mode: attaches the just-joined viewer's IN vote to the standing-yes
  * gauge. Reads the group's memberships ordered by joinedAt and takes the
- * last one — the 4th member, who exists only because a real browser joined
+ * last one, the 4th member, who exists only because a real browser joined
  * through the invite link since the main run.
  */
 async function seedViewer(groupId: string) {
@@ -231,7 +231,7 @@ async function main() {
           event: { id: event.id, title: event.title, startsAt: event.startsAt },
           waitingGauge: { id: boulder.gauge.id, activity: "bouldering at the new east side gym", inVoter: theo.name },
           waitingProposal: { id: proposal.proposal.id, asker: ava.name, priorStartsAt: eventStart, proposedStartsAt: proposalStart },
-          standingYesGauge: { id: standing.gauge.id, activity: STANDING_ACTIVITY, note: "no votes yet — see next" },
+          standingYesGauge: { id: standing.gauge.id, activity: STANDING_ACTIVITY, note: "no votes yet (see next)" },
         },
         next: [
           "Join through inviteUrl as a new member. That real session is the viewer and becomes the 4th member.",

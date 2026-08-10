@@ -32,8 +32,11 @@ const PROPOSAL_ITEM: PendingProposalItem = {
   chips: { id: "p1", orbitMessageId: "om2", labels: { yes: "9am works", keep: "Keep 8am" },
     tallyLine: "", viewerAnswer: null },
 }
+// tallyLine deliberately distinct from GAUGE_ITEM's own ("Maya is in"), so a
+// test asserting it renders after tapping Change can't accidentally pass
+// against the still-open waiting row's own tally instead (finding 5).
 const YES_ITEM: PendingGaugeItem = { ...GAUGE_ITEM, key: "g2", title: "friday beers",
-  whenLine: "Fri 7pm", chips: { ...GAUGE_ITEM.chips, id: "g2", viewerAnswer: "IN" } }
+  whenLine: "Fri 7pm", chips: { ...GAUGE_ITEM.chips, id: "g2", viewerAnswer: "IN", tallyLine: "Priya is in" } }
 
 function data(over: Partial<PendingData> = {}): PendingData {
   return { waiting: [GAUGE_ITEM, PROPOSAL_ITEM], standingYes: [YES_ITEM], ...over }
@@ -86,6 +89,9 @@ describe("PendingStrip", () => {
     expect(screen.getByText("You're in on")).toBeDefined()
     expect(screen.getByText("friday beers")).toBeDefined()
     expect(screen.queryByText("✓ ✋ I'm in")).toBeNull()
+    // Finding 5: the standing-yes row's own tally is not shown until Change
+    // reveals its chips (mirrors the chips themselves being hidden until then).
+    expect(screen.queryByText("Priya is in")).toBeNull()
     fireEvent.click(screen.getByText("Change"))
     // NOTE (task 6): the brief's regex /I'm in/ matches two elements once the
     // panel is open with this fixture (the still-waiting GAUGE_ITEM's own
@@ -94,6 +100,10 @@ describe("PendingStrip", () => {
     // narrowed to the selected chip's exact text, which is what "revealed and
     // flippable" actually means here; the assertion's intent is unchanged.
     expect(screen.getByText("✓ ✋ I'm in")).toBeDefined()
+    // Finding 5: GaugeTally now renders alongside the revealed chips here too,
+    // matching the waiting row (fix-round-2). Distinct text from GAUGE_ITEM's
+    // own tally proves it's *this* row's tally, not the still-open one above.
+    expect(screen.getByText("Priya is in")).toBeDefined()
   })
 
   it("a decline on the last waiting row shows the caught-up note verbatim", async () => {
@@ -114,5 +124,21 @@ describe("PendingStrip", () => {
     fireEvent.click(screen.getByText("✋ I'm in"))
     await waitFor(() => expect(gaugeVoteMock).toHaveBeenCalled())
     expect(screen.queryByText("All caught up")).toBeNull()
+  })
+
+  it("collapsing after the caught-up note, with a standing yes held, shows the yes count instead of lingering on the goodbye", async () => {
+    // Finding 2: the spec's rule is "on collapse the strip is gone unless
+    // yeses remain, in which case it carries just the yes count" — the
+    // caught-up note is a one-time goodbye, not a label that should survive
+    // a collapse/expand cycle when the viewer still holds a standing yes.
+    render(<PendingStrip pending={data({ waiting: [GAUGE_ITEM] })} />)
+    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByText("🙏 Next time"))
+    await waitFor(() => expect(screen.getByText("All caught up")).toBeDefined())
+
+    fireEvent.click(screen.getByRole("button", { expanded: true }))
+
+    expect(screen.queryByText("All caught up")).toBeNull()
+    expect(screen.getByText("you're in on")).toBeDefined()
   })
 })
