@@ -23,6 +23,7 @@ model User {
   gaugeVotes      GaugeVote[]
   proposalVotes   ProposalVote[]
   changeProposals ChangeProposal[]
+  suggestedGauges Gauge[]           @relation("GaugeSuggestedBy")
 }
 
 model ContactMethod {
@@ -185,6 +186,7 @@ model Message {
   gaugeAsBump    Gauge? @relation("GaugeBump")
   gaugeAsClosure Gauge? @relation("GaugeClosure")
   gaugeAsRetryAsk Gauge? @relation("GaugeRetryAsk")
+  gaugeSuggestion Gauge? @relation("GaugeSuggestion")
   proposalsAsSource ChangeProposal[] @relation("ProposalSource")
   proposalAsOrbit  ChangeProposal? @relation("ProposalOrbit")
 
@@ -246,6 +248,21 @@ model Gauge {
   /// Orbit-guessed marker (a guess gauge never earns its own ask, spec
   /// decision 7) and as the one-guess-per-original idempotency key.
   retryGuessOfGaugeId String? @unique
+  /// A member's mid-gauge "Sunday works better": the named weekday (0 = Sunday
+  /// through 6 = Saturday), latest comment wins, the whole group of four fields
+  /// overwritten together. Read at a day-blocked close to revive on this day
+  /// instead of posting the ask. (Spec: day-comment, decisions 4 and 7.)
+  suggestedDayOfWeek Int?
+  /// Optional group-local "HH:mm" stated in the comment, resolved at comment
+  /// time (a bare clock number reads into the gauge's own half of day). Null
+  /// when the comment named only a day; the revival then carries proposedTime.
+  suggestedTime String?
+  /// Who named the day; seeded IN on the revival (they named the day).
+  suggestedByUserId String?
+  /// The naming message. Becomes the revival's sourceMessageId, which makes
+  /// the revival a full-rights member gauge and is the cannot-revive-twice
+  /// guard (the existing unique constraint on sourceMessageId).
+  suggestedMessageId String? @unique
   createdAt       DateTime @default(now())
 
   group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
@@ -256,6 +273,8 @@ model Gauge {
   retryAskMessage Message? @relation("GaugeRetryAsk", fields: [retryAskMessageId], references: [id], onDelete: SetNull)
   retryGuessOf    Gauge?   @relation("GaugeRetryGuess", fields: [retryGuessOfGaugeId], references: [id], onDelete: SetNull)
   retryGuess      Gauge?   @relation("GaugeRetryGuess")
+  suggestedBy      User?    @relation("GaugeSuggestedBy", fields: [suggestedByUserId], references: [id], onDelete: SetNull)
+  suggestedMessage Message? @relation("GaugeSuggestion", fields: [suggestedMessageId], references: [id], onDelete: SetNull)
   votes         GaugeVote[]
   event         Event?
 
