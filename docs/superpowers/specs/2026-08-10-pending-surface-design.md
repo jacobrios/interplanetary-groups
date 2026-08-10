@@ -56,3 +56,15 @@ No model calls anywhere in this slice: deterministic reads and existing vote act
 ## Open questions for the owner
 
 None at spec time; the design-prompt round trip to Claude Design may surface visual questions, which come back here as dated postscripts.
+
+---
+
+## Postscript, 10 August 2026: the design handoff arrived, and three drifts were settled
+
+The handoff (committed at `docs/design/pending-surface-handoff/`) came back high-fidelity and largely faithful to this spec: strip posture, panel overlay behavior, row order, hierarchy, chip reuse (byte-identical spec, labels matching shipped code exactly), voice rules, and the no-hue status treatment all check out against the record. Claude Design's project context predates many shipped decisions, so the describe-back gate ran as a diff against the record. Three drifts surfaced; all three were decided by the owner the same day:
+
+1. **"You're in on" holds pending things only; the spec wins over the design's state model.** The design annotated standing yeses as events the member has RSVP'd to that haven't happened yet (its example row carries a venue, which only an event can have). Decided: an idea leaves the surface the moment it promotes; created events live on the card carousel, which already shows the viewer's RSVP. The design's standing-yes row is the visual treatment for a still-open yes, nothing more.
+2. **No venue on rows this slice.** The design's idea row shows a place ("Mesa Rock"), but no gauge stores a venue; one attaches only at promotion. Showing a would-be-inherited venue early could promise a venue the event never gets. Decided: idea and standing-yes rows show day and time only; the design's own wrapping rules make the dropped segment safe. Venue display returns if and when it earns a data home.
+3. **The region builds on the repo's existing tokens, mapped by role, not the handoff's exact values.** The handoff's palette is the original walkthrough palette; the repo runs placeholder values with the pixel pass deferred (registered in build-notes' feel-pass register). Decided: map design roles onto existing tokens (their base surface to our card surface, their hairline to our subtle border, and so on) so the region matches the app it ships into; the handoff's palette and fonts (Hanken Grotesk, Inter) are registered as input to the end-of-build polish pass, where the whole app moves together.
+
+Also noted at the gate, not adopted, already on the polish-pass register: the mockups still draw the never-built header subline and Orbit's real-face avatar. And one README prose nit with no build impact: it describes the "Yes, can't <day>" chip as handing the item back to Orbit to float an alternative, which overstates the shipped behavior; that chip records a vote, and Orbit's retry runs only at close, only if the would-have-cleared bar is met.
