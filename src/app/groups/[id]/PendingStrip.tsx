@@ -339,6 +339,12 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
           display: "flex",
           alignItems: "center",
           gap: "10px",
+          // A <button> keeps shrink-to-fit intrinsic sizing even under
+          // display:flex (unlike a <div>), so margin alone left it
+          // content-width; width:100% (the first attempt) then overflowed
+          // past the margin instead. calc() against the margin is what
+          // actually yields the full-width row inset 16px each side.
+          width: "calc(100% - 2rem)",
           margin: "0 1rem",
           padding: "11px 2px",
           borderTop: "1px solid var(--border-subtle)",

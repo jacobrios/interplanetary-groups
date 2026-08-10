@@ -2,6 +2,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 
+// NOTE (fix wave 4): every getByRole("button", ...) query below passes
+// `hidden: true`. This is a jsdom-only workaround, not a change in what's
+// being tested. The strip button's width (PendingStrip.tsx) is
+// `calc(100% - 2rem)`, required for correct full-width-inset-16px rendering
+// in a real browser (a <button> keeps shrink-to-fit sizing even under
+// display:flex, so plain "100%" plus the 1rem margin overflows, and no width
+// at all shrinks to content). jsdom's own CSS engine throws
+// ("object null is not iterable") inside getComputedStyle for ANY two-operand
+// calc() (confirmed directly against jsdom 30.0.0, independent of unit or
+// operator, independent of inline vs. stylesheet style), and
+// testing-library's default getByRole walks computed styles to filter out
+// inaccessible elements. `hidden: true` skips that walk entirely, which is
+// safe here specifically because this button is never actually hidden or
+// aria-hidden in any test in this file; the same elements match either way,
+// only the crashing accessibility check is skipped.
+
 // NOTE (task 6): mocks explicitly typed via vi.fn's generic (not the brief's
 // bare `vi.fn(async () => ({}))`) so `tsc --noEmit` accepts the spread call
 // below; behavior is identical, this only widens the inferred mock signature.
@@ -55,18 +71,18 @@ describe("PendingStrip", () => {
     // Dot-separated per the brief's literal example ("2 waiting on you ·
     // 1 you're in on") and pending-surface.css's
     // .pd-striptxt .seg:not(:last-child)::after rule.
-    expect(screen.getByRole("button", { expanded: false }).textContent).toContain("·")
+    expect(screen.getByRole("button", { expanded: false, hidden: true }).textContent).toContain("·")
     cleanup()
     render(<PendingStrip pending={data({ standingYes: [] })} />)
     expect(screen.queryByText("you're in on")).toBeNull()
     // Single segment: no trailing (or leading) dot.
-    expect(screen.getByRole("button", { expanded: false }).textContent).not.toContain("·")
+    expect(screen.getByRole("button", { expanded: false, hidden: true }).textContent).not.toContain("·")
   })
 
   it("panel is closed until the strip is tapped, then rows render with their chips", () => {
     render(<PendingStrip pending={data()} />)
     expect(screen.queryByText("New idea · from Maya")).toBeNull()
-    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByRole("button", { expanded: false, hidden: true }))
     expect(screen.getByText("New idea · from Maya")).toBeDefined()
     expect(screen.getByText("bouldering at the new east side gym")).toBeDefined()
     expect(screen.getByText("✋ I'm in")).toBeDefined()
@@ -85,7 +101,7 @@ describe("PendingStrip", () => {
 
   it("standing-yes row steps down and reveals chips on Change", () => {
     render(<PendingStrip pending={data()} />)
-    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByRole("button", { expanded: false, hidden: true }))
     expect(screen.getByText("You're in on")).toBeDefined()
     expect(screen.getByText("friday beers")).toBeDefined()
     expect(screen.queryByText("✓ ✋ I'm in")).toBeNull()
@@ -108,7 +124,7 @@ describe("PendingStrip", () => {
 
   it("a decline on the last waiting row shows the caught-up note verbatim", async () => {
     render(<PendingStrip pending={data({ waiting: [GAUGE_ITEM] })} />)
-    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByRole("button", { expanded: false, hidden: true }))
     fireEvent.click(screen.getByText("🙏 Next time"))
     await waitFor(() =>
       expect(screen.getByText(
@@ -120,7 +136,7 @@ describe("PendingStrip", () => {
 
   it("a yes on the last waiting row does not trigger the caught-up note", async () => {
     render(<PendingStrip pending={data({ waiting: [GAUGE_ITEM] })} />)
-    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByRole("button", { expanded: false, hidden: true }))
     fireEvent.click(screen.getByText("✋ I'm in"))
     await waitFor(() => expect(gaugeVoteMock).toHaveBeenCalled())
     expect(screen.queryByText("All caught up")).toBeNull()
@@ -132,11 +148,11 @@ describe("PendingStrip", () => {
     // caught-up note is a one-time goodbye, not a label that should survive
     // a collapse/expand cycle when the viewer still holds a standing yes.
     render(<PendingStrip pending={data({ waiting: [GAUGE_ITEM] })} />)
-    fireEvent.click(screen.getByRole("button", { expanded: false }))
+    fireEvent.click(screen.getByRole("button", { expanded: false, hidden: true }))
     fireEvent.click(screen.getByText("🙏 Next time"))
     await waitFor(() => expect(screen.getByText("All caught up")).toBeDefined())
 
-    fireEvent.click(screen.getByRole("button", { expanded: true }))
+    fireEvent.click(screen.getByRole("button", { expanded: true, hidden: true }))
 
     expect(screen.queryByText("All caught up")).toBeNull()
     expect(screen.getByText("you're in on")).toBeDefined()
