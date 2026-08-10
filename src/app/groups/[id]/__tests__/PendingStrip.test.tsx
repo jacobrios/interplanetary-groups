@@ -49,9 +49,15 @@ describe("PendingStrip", () => {
     render(<PendingStrip pending={data()} />)
     expect(screen.getByText("waiting on you")).toBeDefined()
     expect(screen.getByText("you're in on")).toBeDefined()
+    // Dot-separated per the brief's literal example ("2 waiting on you ·
+    // 1 you're in on") and pending-surface.css's
+    // .pd-striptxt .seg:not(:last-child)::after rule.
+    expect(screen.getByRole("button", { expanded: false }).textContent).toContain("·")
     cleanup()
     render(<PendingStrip pending={data({ standingYes: [] })} />)
     expect(screen.queryByText("you're in on")).toBeNull()
+    // Single segment: no trailing (or leading) dot.
+    expect(screen.getByRole("button", { expanded: false }).textContent).not.toContain("·")
   })
 
   it("panel is closed until the strip is tapped, then rows render with their chips", () => {

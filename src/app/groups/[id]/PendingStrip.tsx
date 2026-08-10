@@ -360,6 +360,7 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
               )}
               {standingYes.length > 0 && (
                 <span style={{ whiteSpace: "nowrap" }}>
+                  {effectiveWaiting.length > 0 && <span>{"· "}</span>}
                   <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{standingYes.length}</span>{" "}
                   you&apos;re in on
                 </span>
