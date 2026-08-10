@@ -32,9 +32,10 @@ export interface FeedGroupProposal {
 
 interface Props {
   proposal: FeedGroupProposal
+  onAnswered?: (answer: ProposalVoteAnswer) => void
 }
 
-export default function GroupProposalChips({ proposal }: Props) {
+export default function GroupProposalChips({ proposal, onAnswered }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(proposal.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -47,6 +48,8 @@ export default function GroupProposalChips({ proposal }: Props) {
       const result = await proposalVoteAction({}, formData)
       if (result?.errors?.general) {
         setErrorMsg(result.errors.general)
+      } else {
+        onAnswered?.(next)
       }
     })
   }

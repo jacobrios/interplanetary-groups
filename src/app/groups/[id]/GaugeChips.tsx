@@ -46,9 +46,10 @@ export interface FeedGauge {
 
 interface Props {
   gauge: FeedGauge
+  onAnswered?: (answer: GaugeAnswer) => void
 }
 
-export default function GaugeChips({ gauge }: Props) {
+export default function GaugeChips({ gauge, onAnswered }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(gauge.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -61,6 +62,8 @@ export default function GaugeChips({ gauge }: Props) {
       const result = await gaugeVoteAction({}, formData)
       if (result?.errors?.general) {
         setErrorMsg(result.errors.general)
+      } else {
+        onAnswered?.(next)
       }
     })
   }

@@ -55,4 +55,24 @@ describe("GroupProposalChips", () => {
     render(<GroupProposalChips proposal={{ ...PROPOSAL, tallyLine: "" }} />)
     expect(screen.queryByText("Sam says yes")).toBeNull()
   })
+
+  it("reports the answer upward after a successful vote", async () => {
+    const onAnswered = vi.fn()
+    render(<GroupProposalChips proposal={PROPOSAL} onAnswered={onAnswered} />)
+    fireEvent.click(screen.getByRole("button", { name: "9am works" }))
+    await waitFor(() => expect(onAnswered).toHaveBeenCalledWith("YES"))
+  })
+
+  it("does not report upward when the action returns an error", async () => {
+    const onAnswered = vi.fn()
+    voteMock.mockResolvedValueOnce({
+      errors: { general: "The plan already changed, take a look up top." },
+    })
+    render(<GroupProposalChips proposal={PROPOSAL} onAnswered={onAnswered} />)
+    fireEvent.click(screen.getByRole("button", { name: "9am works" }))
+    await waitFor(() =>
+      expect(screen.getByText("The plan already changed, take a look up top.")).toBeDefined()
+    )
+    expect(onAnswered).not.toHaveBeenCalled()
+  })
 })
