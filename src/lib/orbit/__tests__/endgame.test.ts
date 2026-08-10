@@ -1013,6 +1013,7 @@ describe("runGaugeEndgame", () => {
 // ---------------------------------------------------------------------------
 
 const SUNDAY = 0
+const SATURDAY = 6
 const SAT_PROPOSED = zonedWallTimeToUtc(2099, 8, 15, 0, 0, "UTC") // Saturday
 const SAT_CREATED = zonedWallTimeToUtc(2099, 8, 13, 9, 0, "UTC") // Thursday, two days before
 const SUN_REVIVAL = zonedWallTimeToUtc(2099, 8, 16, 0, 0, "UTC") // the Sunday after
@@ -1098,14 +1099,14 @@ async function attachSuggestion(
   gid: string,
   gaugeId: string,
   namerUserId: string,
-  opts: { dayOfWeek: number; time?: string | null; at: Date }
+  opts: { dayOfWeek: number; time?: string | null; at: Date; body?: string }
 ) {
   const namingMessage = await prisma.message.create({
     data: {
       groupId: gid,
       authorType: MessageAuthor.MEMBER,
       authorId: namerUserId,
-      body: "Sunday works better",
+      body: opts.body ?? "Sunday works better",
       createdAt: opts.at,
     },
   })
@@ -1280,5 +1281,51 @@ describe("suggested-day revival", () => {
     // No gauge was opened for the day that had already gone.
     const revival = await prisma.gauge.findUnique({ where: { sourceMessageId: namingMessage.id } })
     expect(revival).toBeNull()
+  })
+
+  it("a guess gauge whose named day already slipped past closes, and never picks up an ask marker", async () => {
+    // The other half of the slipped-past fallback. The ordinary gauge above
+    // keeps the ask; one of Orbit's own guess gauges gets the plain close,
+    // because the human's whole contribution on that path was a specific day,
+    // and once that day is gone there is no member-named revival left for
+    // Orbit to carry. The ask marker is the assertion that matters: it is what
+    // would later hand this gauge a guess of a guess.
+    const { groupId: gid, members } = await setupGroup(3)
+    const guessGauge = await stageGuessGauge(gid, members, "beers")
+
+    // Day-blocked and would-have-cleared, so the retry bar is met and the
+    // revival is genuinely the branch under test.
+    await voteIn(guessGauge.id, members[0])
+    await voteIn(guessGauge.id, members[1])
+    await voteNotThatDay(guessGauge.id, members[2])
+
+    // Saturday named on a Friday guess gauge, so the revival would have been
+    // 2099-06-20 at the carried 19:00: one day after the failed day, which
+    // keeps the failed day inside the sweep's candidate window at a `now` that
+    // is already past the revival's own start.
+    const namingMessage = await attachSuggestion(gid, guessGauge.id, members[2], {
+      dayOfWeek: SATURDAY,
+      at: zonedWallTimeToUtc(2099, 6, 15, 12, 0, "UTC"),
+      body: "Saturday works better",
+    })
+
+    // 1 minute past the would-be revival's 19:00 Saturday start.
+    const results = await runGaugeEndgame(zonedWallTimeToUtc(2099, 6, 20, 19, 1, "UTC"), { groupId: gid })
+    expect(results.find((r) => r.gaugeId === guessGauge.id)).toEqual({
+      gaugeId: guessGauge.id,
+      action: "closed_with_note",
+    })
+
+    const after = await prisma.gauge.findUniqueOrThrow({ where: { id: guessGauge.id } })
+    // The whole point: no ask marker, so no later sweep can route this gauge
+    // into the guess phase and give Orbit a second move it never earned.
+    expect(after.retryAskMessageId).toBeNull()
+    expect(after.closureMessageId).not.toBeNull()
+    const closureMsg = await prisma.message.findUniqueOrThrow({ where: { id: after.closureMessageId! } })
+    expect(closureMsg.body).toBe(buildClosureMessage("beers"))
+
+    // Nothing was revived, and no guess of a guess exists.
+    expect(await prisma.gauge.findUnique({ where: { sourceMessageId: namingMessage.id } })).toBeNull()
+    expect(await prisma.gauge.findFirst({ where: { retryGuessOfGaugeId: guessGauge.id } })).toBeNull()
   })
 })

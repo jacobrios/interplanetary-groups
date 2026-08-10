@@ -448,9 +448,20 @@ async function handleRevive(
   const timeLocal = gauge.suggestedTime ?? gauge.proposedTime ?? EVENING_TIME
   const start = sparkStartInstant(revivalDate, timeLocal, timeZone)
   // A sweep delayed past the named day must not open a gauge for a start
-  // already gone; the ask is still an honest fallback there.
+  // already gone. What it falls back to depends on whose move it was, the same
+  // loop cap that granted the revival in the first place. A member's whole
+  // contribution here is one specific day: on an ordinary gauge the generic ask
+  // is still honest, because Orbit had an ask coming to it anyway. On one of
+  // Orbit's own guess gauges it is not, because once that day has passed there
+  // is no member-named revival left to carry full rights, and the ask would buy
+  // Orbit two further moves (the ask, then a same-weekday-next-week guess) off
+  // one human comment it could not honor. So this is not a special case bolted
+  // on: a suggestion that can no longer be honored leaves a guess gauge exactly
+  // where it stands with no suggestion at all, which is the plain terminal
+  // close (wrong-day-retry decision 7, a guess gauge never earns its own ask or
+  // guess; and anti-clutter, one fewer Orbit message on a dying idea).
   if (start.getTime() <= now.getTime()) {
-    return handleAsk(gauge, timeZone)
+    return gauge.retryGuessOfGaugeId ? handleClose(gauge) : handleAsk(gauge, timeZone)
   }
   const bornLate =
     now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
