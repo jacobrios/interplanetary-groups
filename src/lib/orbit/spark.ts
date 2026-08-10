@@ -1,12 +1,14 @@
 // src/lib/orbit/spark.ts
 //
-// Orbit reads one member message and decides which of four things it is:
+// Orbit reads one member message and decides which of five things it is:
 // a fresh idea worth gauging (spark), a request to change a plan already on
 // the calendar (change), an answer to Orbit's own open day-ask (answer, live
 // only inside the window between that ask going out and it being resolved),
-// or neither. One structured-outputs call classifies all of it at once
-// (detectIntentClaim / normalizeIntent, below); normalizeSpark remains the
-// spark arm's normalizer, called through normalizeIntent.
+// a day comment naming a better day for an activity Orbit is currently
+// gauging (dayComment, live only inside the window a gauge for that activity
+// is actually up), or neither. One structured-outputs call classifies all of
+// it at once (detectIntentClaim / normalizeIntent, below); normalizeSpark
+// remains the spark arm's normalizer, called through normalizeIntent.
 //
 // This is the first time Orbit reacts to something a person said, which makes
 // it the highest-risk thing Orbit does. Two rules shape the whole module:
