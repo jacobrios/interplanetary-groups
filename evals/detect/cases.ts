@@ -556,8 +556,8 @@ export const CASES: EvalCase[] = [
     id: "daycomment-as-change",
     bucket: "must-recognize",
     description:
-      "The wrong-reply pin. Phrased exactly like a change request, but a gauge is not a calendar plan: before this slice it drew 'I can't move it to another day yet' about a plan that does not exist.",
-    calendar: [],
+      "The wrong-reply pin, made realistic: phrased exactly like a change request, with a real plan on the calendar (climbing) for the model to wrongly target, while a separate live gauge (beers) is what the message is actually about. A group with a live gauge usually also has something on the calendar, and the numbered list is the only source of plan numbers, so this is the path that produces a decline about a plan the member never mentioned, rather than a case that can only prove the classifier stays quiet when there is nothing to misfire onto.",
+    calendar: [{ title: "Climbing", label: "climbing", minutesFromNow: 60 * 40 }],
     history: [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
