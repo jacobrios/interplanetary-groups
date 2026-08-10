@@ -123,6 +123,9 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
   if (intent.kind === "none") return { kind: "none" }
   if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
   if (intent.kind === "answer") return { kind: "answer", dayOfWeek: intent.answer.dayOfWeek }
+  if (intent.kind === "dayComment") {
+    return { kind: "dayComment", dayOfWeek: intent.dayComment.dayOfWeek }
+  }
 
   const candidates: ChangeTarget[] = plans.map((p) => ({
     id: p.title,
