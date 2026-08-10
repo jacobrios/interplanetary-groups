@@ -171,6 +171,8 @@ export interface IntentContext {
   openProposalLines: string[]
   /** buildOpenAskLine output when an unanswered day-ask is open, else null. */
   openAskLine: string | null
+  /** One buildLiveGaugeLine per live gauge, empty or absent when none. */
+  liveGaugeLines?: string[]
 }
 
 export interface NormalizedChange {
@@ -213,8 +215,11 @@ export async function detectIntentClaim(
     ? `\n\n${context.openProposalLines.join("\n")}`
     : ""
   const askBlock = context.openAskLine ? `\n\n${context.openAskLine}` : ""
+  const gaugeBlock = context.liveGaugeLines?.length
+    ? `\n\n${context.liveGaugeLines.join("\n")}`
+    : ""
 
-  const user = `${calendarBlock}${proposalBlock}${askBlock}
+  const user = `${calendarBlock}${proposalBlock}${askBlock}${gaugeBlock}
 
 ${context.conversationBlock}
 
@@ -234,7 +239,8 @@ const CHANGE_FIELDS: readonly string[] = ["time", "day", "venue", "other"]
 export function normalizeIntent(
   raw: unknown,
   upcomingCount: number,
-  hasOpenAsk: boolean
+  hasOpenAsk: boolean,
+  hasLiveGauge = false
 ): NormalizedIntent {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return { kind: "none" }
   const o = raw as Record<string, unknown>

@@ -9,7 +9,12 @@ import { formatEventDate, formatTime } from "../../src/lib/events/format"
 import { planChange, type ChangeTarget } from "../../src/lib/orbit/change-plan"
 import { getLocalParts } from "../../src/lib/orbit/occurrence"
 import { detectIntentClaim, normalizeIntent } from "../../src/lib/orbit/spark"
-import { buildOpenAskLine, startOfLocalDay } from "../../src/lib/orbit/spark-copy"
+import {
+  buildLiveGaugeLine,
+  buildOpenAskLine,
+  chooseProposedDate,
+  startOfLocalDay,
+} from "../../src/lib/orbit/spark-copy"
 import {
   buildConversationWindow,
   WINDOW_MESSAGES,
@@ -36,9 +41,12 @@ type Outcome =
   | { kind: "spark"; statedDayOfWeek: number | null }
   | { kind: "answer"; dayOfWeek: number | null }
   | { kind: "change"; action: string; text: string }
+  | { kind: "dayComment"; dayOfWeek: number | null }
 
 function describe(o: Outcome): string {
-  return o.kind === "change" ? `change / ${o.action}: ${o.text}` : o.kind
+  if (o.kind === "change") return `change / ${o.action}: ${o.text}`
+  if (o.kind === "dayComment") return `dayComment / day ${o.dayOfWeek}`
+  return o.kind
 }
 
 /** The most recent group-local midnight strictly before now that falls on `dow`. */
@@ -91,13 +99,26 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
     ? buildOpenAskLine(c.openAsk.activity, mostRecentPastOccurrence(c.openAsk.failedDayOfWeek, now), TIME_ZONE)
     : null
 
+  // The next occurrence of the fixture's weekday from the shared now-anchor,
+  // exactly what a real live gauge's own proposedDate would read as.
+  const liveGaugeLines = c.liveGauge
+    ? [
+        buildLiveGaugeLine(
+          c.liveGauge.activity,
+          chooseProposedDate(c.liveGauge.proposedDayOfWeek, null, TIME_ZONE, now),
+          TIME_ZONE
+        ),
+      ]
+    : []
+
   const claim = await detectIntentClaim(c.trigger.body, {
     upcomingLines,
     conversationBlock,
     openProposalLines,
     openAskLine,
+    liveGaugeLines,
   })
-  const intent = normalizeIntent(claim, plans.length, c.openAsk !== undefined)
+  const intent = normalizeIntent(claim, plans.length, c.openAsk !== undefined, c.liveGauge !== undefined)
 
   if (intent.kind === "none") return { kind: "none" }
   if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
@@ -133,23 +154,47 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
 
 function grade(c: EvalCase, o: Outcome): string | null {
   const e = c.expected
-  if (e.kind !== o.kind) return `expected ${e.kind}, got ${describe(o)}`
+
+  // Deterministic mapping first, ahead of anything the not-yet-written
+  // planner (Task 6) would do: a day comment naming the gauge's own day
+  // carries no new information, so it grades as the member-visible outcome
+  // "none", mirroring production's same-day discard. Written now so the
+  // runner does not have to be revisited once normalizeIntent gains the
+  // dayComment kind in Task 5.
+  const sameDayDiscard =
+    o.kind === "dayComment" && o.dayOfWeek === (c.liveGauge?.proposedDayOfWeek ?? null)
+  const graded: Outcome = sameDayDiscard ? { kind: "none" } : o
+
+  if (e.kind !== graded.kind) return `expected ${e.kind}, got ${describe(o)}`
   if (
     e.kind === "spark" &&
-    o.kind === "spark" &&
+    graded.kind === "spark" &&
     e.statedDayOfWeek !== undefined &&
-    e.statedDayOfWeek !== o.statedDayOfWeek
+    e.statedDayOfWeek !== graded.statedDayOfWeek
   ) {
-    return `expected spark on day ${e.statedDayOfWeek}, got ${o.statedDayOfWeek}`
+    return `expected spark on day ${e.statedDayOfWeek}, got ${graded.statedDayOfWeek}`
   }
-  if (e.kind === "answer" && o.kind === "answer" && e.dayOfWeek !== undefined && e.dayOfWeek !== o.dayOfWeek) {
-    return `expected answer naming day ${e.dayOfWeek}, got ${o.dayOfWeek}`
+  if (
+    e.kind === "answer" &&
+    graded.kind === "answer" &&
+    e.dayOfWeek !== undefined &&
+    e.dayOfWeek !== graded.dayOfWeek
+  ) {
+    return `expected answer naming day ${e.dayOfWeek}, got ${graded.dayOfWeek}`
   }
-  if (e.kind !== "change" || o.kind !== "change") return null
-  if (e.action && e.action !== o.action) {
+  if (
+    e.kind === "dayComment" &&
+    graded.kind === "dayComment" &&
+    e.dayOfWeek !== undefined &&
+    e.dayOfWeek !== graded.dayOfWeek
+  ) {
+    return `expected dayComment naming day ${e.dayOfWeek}, got ${graded.dayOfWeek}`
+  }
+  if (e.kind !== "change" || graded.kind !== "change") return null
+  if (e.action && e.action !== graded.action) {
     return `expected change / ${e.action}, got ${describe(o)}`
   }
-  if (e.replyContains && !o.text.includes(e.replyContains)) {
+  if (e.replyContains && !graded.text.includes(e.replyContains)) {
     return `expected reply containing "${e.replyContains}", got ${describe(o)}`
   }
   return null

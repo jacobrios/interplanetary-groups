@@ -25,6 +25,7 @@ export type Expected =
       /** Substring of the reply, question, or announcement Orbit produced. */
       replyContains?: string
     }
+  | { kind: "dayComment"; dayOfWeek?: number | null }
 
 export interface CalendarPlan {
   title: string
@@ -57,6 +58,8 @@ export interface EvalCase {
   liveProposal?: { planIndex: number; proposedMinutesFromNow: number; asker: string }
   /** An unanswered retry ask, when one is open. Mirrors findOpenRetryAsk's output. */
   openAsk?: { activity: string; failedDayOfWeek: number }
+  /** A live gauge, when one is up. The runner derives the proposed date. */
+  liveGauge?: { activity: string; proposedDayOfWeek: number }
   memberCount: number
   expected: Expected
 }
@@ -489,6 +492,131 @@ export const CASES: EvalCase[] = [
     ],
     trigger: { author: "Jesse", body: "saturday was fun" },
     openAsk: { activity: "beers", failedDayOfWeek: 5 },
+    memberCount: 4,
+    expected: { kind: "none" },
+  },
+  {
+    id: "daycomment-day-better",
+    bucket: "must-recognize",
+    description:
+      "The day-comment slice's core case: a bare better-day next to a live gauge. Today this dies as a wish or misreads as a change request.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Jesse", body: "Sunday works better" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
+    memberCount: 4,
+    expected: { kind: "dayComment", dayOfWeek: 0 },
+  },
+  {
+    id: "daycomment-cant-that-day",
+    bucket: "must-recognize",
+    description:
+      "The fuller sentence: a can't-plus-alternative is one day comment, not an availability note and not a change request.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Maya", body: "can't do saturday, what about sunday?" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
+    memberCount: 4,
+    expected: { kind: "dayComment", dayOfWeek: 0 },
+  },
+  {
+    id: "daycomment-with-time",
+    bucket: "must-recognize",
+    description:
+      "A day comment carrying a stated time. The day is the classification's job; the time rides along into the suggestion.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Jesse", body: "sunday at 6 works better for me" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
+    memberCount: 4,
+    expected: { kind: "dayComment", dayOfWeek: 0 },
+  },
+  {
+    id: "daycomment-as-change",
+    bucket: "must-recognize",
+    description:
+      "The wrong-reply pin. Phrased exactly like a change request, but a gauge is not a calendar plan: before this slice it drew 'I can't move it to another day yet' about a plan that does not exist.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Sam", body: "can we do sunday instead?" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
+    memberCount: 4,
+    expected: { kind: "dayComment", dayOfWeek: 0 },
+  },
+  {
+    id: "daycomment-no-gauge",
+    bucket: "must-stay-quiet",
+    description:
+      "The same words with nothing being gauged are a wish, exactly as before this slice. The reading only exists when deterministic code says the situation does.",
+    calendar: [],
+    history: [{ author: "Jo", body: "quiet week", minutesAgo: 90 }],
+    trigger: { author: "Jesse", body: "Sunday works better" },
+    memberCount: 4,
+    expected: { kind: "none" },
+  },
+  {
+    id: "daycomment-nostalgia",
+    bucket: "must-stay-quiet",
+    description:
+      "The look-alike: a day name beside a live gauge that is about the past. Recognition must not hear weekday plus gauge and call it a day comment.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Maya", body: "last sunday was so fun" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
+    memberCount: 4,
+    expected: { kind: "none" },
+  },
+  {
+    id: "daycomment-same-day",
+    bucket: "must-stay-quiet",
+    description:
+      "Naming the gauged day itself is verbal attendance, which stays the written-but-unbuilt guardrail (spec decision 10). The member sees nothing.",
+    calendar: [],
+    history: [
+      { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
+      {
+        author: "Orbit",
+        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        minutesAgo: 60 * 20 - 1,
+      },
+    ],
+    trigger: { author: "Jesse", body: "saturday works for me" },
+    liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
     memberCount: 4,
     expected: { kind: "none" },
   },
