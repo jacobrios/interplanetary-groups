@@ -233,7 +233,7 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
 
       outcome = "gauged"
       touchedGroupId = group.id
-    } else {
+    } else if (intent.kind === "change") {
       // A change request. The pure planner decides; this action only carries
       // the answer out.
       const candidates: ChangeTarget[] = events.map((e) => ({
@@ -313,6 +313,13 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         outcome = "asked"
         touchedGroupId = group.id
       }
+    } else {
+      // An interim guard, not a behavior decision. Production calls
+      // normalizeIntent with hasLiveGauge false until the day-comment branch
+      // lands, so a dayComment intent cannot reach here yet; when the branch
+      // does land it takes this slot. Quiet is the correct degrade for this
+      // file regardless, since every failure path here is soft by design.
+      return { status: "quiet" }
     }
   } catch (err) {
     // Soft by design: the member's message stands, and nothing is said.
