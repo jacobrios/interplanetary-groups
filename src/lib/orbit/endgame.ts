@@ -31,20 +31,26 @@ import {
   buildClosureMessage,
   buildRetryAskMessage,
   buildRetryGuessMessage,
+  buildSuggestedRetryMessage,
+  buildUrgencyClause,
   chooseRetryGuessDate,
+  chooseSuggestedRetryDate,
+  sparkStartInstant,
   BUMP_LOCAL_HOUR,
+  CLOSE_BEFORE_START_HOURS,
   EVENING_TIME,
   SPARK_THRESHOLD,
 } from "./spark-copy"
 import { getLocalParts } from "./occurrence"
 import { countIn, countNotThatDay, isRetryEligible } from "@/lib/gauges/threshold"
-import { createRetryGuessGauge } from "@/lib/gauges/create"
+import { createGauge, createRetryGuessGauge } from "@/lib/gauges/create"
 
 export type EndgameResult =
   | { gaugeId: string; action: "bumped" }
   | { gaugeId: string; action: "closed_with_note" }
   | { gaugeId: string; action: "asked" } // the day-blocked retry ask replaced the goodbye (Task 6)
   | { gaugeId: string; action: "guessed" } // the one retry guess, posted the evening after the ask (Task 7)
+  | { gaugeId: string; action: "revived" } // the member-suggested revival replaced the ask (day-comment slice)
   | {
       gaugeId: string
       action: "skipped"
@@ -78,6 +84,9 @@ export type EndgameResult =
         | "answered"
         // The one guess already exists for this original gauge (Task 7).
         | "already_guessed"
+        // The suggested revival already exists for this naming message
+        // (day-comment slice): the sourceMessageId unique constraint fired.
+        | "already_revived"
     }
 
 /**
@@ -152,11 +161,7 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
     return handleBump(gauge, timeZone, now)
   }
 
-  // Closed from here down. A retry guess gauge never earns its own ask or
-  // guess (spec decision 7): ordinary close outcomes only.
-  if (gauge.retryGuessOfGaugeId) {
-    return handleClose(gauge)
-  }
+  // Closed from here down.
   if (gauge.retryAskMessageId) {
     return handleGuess(gauge, timeZone, now)
   }
@@ -176,10 +181,22 @@ async function handleOne(gauge: CandidateGauge, now: Date): Promise<EndgameResul
   if (gauge.closureMessageId) {
     return { gaugeId: gauge.id, action: "skipped", reason: "already_closed_out" }
   }
-  // Retry eligibility runs BEFORE the closure outcomes (spec decision 2), so
-  // a day-blocked gauge gets the ask instead of the goodbye, and instead of
-  // the zero-yes silence.
+  // Retry eligibility runs BEFORE the closure outcomes (wrong-day-retry
+  // decision 2), so a day-blocked gauge gets a second chance instead of the
+  // goodbye, and instead of the zero-yes silence. Which second chance depends
+  // on whether a member already named a better day mid-gauge (day-comment
+  // slice, decision 4): a remembered day means revive now, on ANY gauge kind
+  // including Orbit's own guess, because a member naming a day mid-gauge is
+  // the human resetting the clock (day-comment decision 6). No remembered day
+  // keeps the old flow: the ask for an ordinary gauge, the plain close for a
+  // guess gauge, which never earns its own ask or guess (wrong-day-retry
+  // decision 7). The guess check moved here from the top of the closed
+  // section, which is what lets a guess gauge with a suggestion reach the
+  // revival; a guess gauge never carries retryAskMessageId, so nothing else
+  // about its routing changed.
   if (isRetryEligible(memberFilteredVotes(gauge))) {
+    if (hasSuggestion(gauge)) return handleRevive(gauge, timeZone, now)
+    if (gauge.retryGuessOfGaugeId) return handleClose(gauge)
     return handleAsk(gauge, timeZone)
   }
   return handleClose(gauge)
@@ -386,6 +403,73 @@ async function handleGuess(gauge: CandidateGauge, timeZone: string, now: Date): 
   })
   if (res.status === "skipped") return { gaugeId: gauge.id, action: "skipped", reason: "already_guessed" }
   return { gaugeId: gauge.id, action: "guessed" }
+}
+
+/**
+ * All four suggestion fields present. A partially nulled row (the namer's
+ * account or the naming message deleted, both SetNull relations) reads as no
+ * suggestion at all, degrading to the ask rather than reviving on a day with
+ * nobody attached to it.
+ */
+function hasSuggestion(gauge: CandidateGauge): gauge is CandidateGauge & {
+  suggestedDayOfWeek: number
+  suggestedByUserId: string
+  suggestedMessageId: string
+} {
+  return (
+    gauge.suggestedDayOfWeek !== null &&
+    gauge.suggestedByUserId !== null &&
+    gauge.suggestedMessageId !== null
+  )
+}
+
+/**
+ * A day-blocked close where a member already named a better day mid-gauge:
+ * the revival replaces the ask (day-comment slice, decision 4). Orbit does not
+ * ask a question a member already answered.
+ *
+ * It is a full-rights member gauge anchored to the naming message, so
+ * createGauge's existing sourceMessageId unique constraint is the
+ * cannot-revive-twice guard rather than a new mechanism, and the namer is
+ * seeded IN because they named the day (decision 5). The time is the one the
+ * comment stated if it stated one, otherwise the original gauge's own stored
+ * time, carried and never re-derived.
+ */
+async function handleRevive(
+  gauge: CandidateGauge & {
+    suggestedDayOfWeek: number
+    suggestedByUserId: string
+    suggestedMessageId: string
+  },
+  timeZone: string,
+  now: Date
+): Promise<EndgameResult> {
+  const revivalDate = chooseSuggestedRetryDate(gauge.proposedDate, gauge.suggestedDayOfWeek, timeZone)
+  const timeLocal = gauge.suggestedTime ?? gauge.proposedTime ?? EVENING_TIME
+  const start = sparkStartInstant(revivalDate, timeLocal, timeZone)
+  // A sweep delayed past the named day must not open a gauge for a start
+  // already gone; the ask is still an honest fallback there.
+  if (start.getTime() <= now.getTime()) {
+    return handleAsk(gauge, timeZone)
+  }
+  const bornLate =
+    now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
+
+  const res = await createGauge({
+    groupId: gauge.groupId,
+    sourceMessageId: gauge.suggestedMessageId,
+    activity: gauge.activity,
+    proposedDate: revivalDate,
+    proposedTime: timeLocal,
+    body:
+      buildSuggestedRetryMessage(gauge.activity, gauge.proposedDate, revivalDate, timeZone) +
+      (bornLate ? buildUrgencyClause(timeLocal) : ""),
+    initiatorUserId: gauge.suggestedByUserId,
+  })
+  if (res.status !== "created") {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_revived" }
+  }
+  return { gaugeId: gauge.id, action: "revived" }
 }
 
 async function handleClose(gauge: CandidateGauge): Promise<EndgameResult> {
