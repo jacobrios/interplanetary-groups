@@ -17,9 +17,12 @@ import { createChangeProposal, createGroupProposal } from "@/lib/proposals/creat
 import { findLiveProposals } from "@/lib/proposals/read"
 import { detectIntentClaim, normalizeIntent } from "@/lib/orbit/spark"
 import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
+import { planDayComment } from "@/lib/orbit/day-comment-plan"
+import { recordDayComment } from "@/lib/gauges/day-comment"
 import { buildConversationWindow, WINDOW_MESSAGES, type WindowMessage } from "@/lib/orbit/window"
 import {
   buildGaugeMessage,
+  buildLiveGaugeLine,
   buildOpenAskLine,
   buildUrgencyClause,
   chooseProposedDate,
@@ -118,13 +121,23 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       ? buildOpenAskLine(openAsk.activity, openAsk.proposedDate, group.timeZone)
       : null
 
+    // Live gauges, fetched before the model call for the same reason the
+    // open ask is: the model is told about a gauge only when deterministic
+    // code says one exists, and the day-comment reading is refused unless
+    // the same check passed (spec decision 8).
+    const liveGauges = await findLiveGauges(group.id, now)
+    const liveGaugeLines = liveGauges.map((g) =>
+      buildLiveGaugeLine(g.activity, g.proposedDate, group.timeZone)
+    )
+
     const claim = await detectIntentClaim(message.body, {
       upcomingLines,
       conversationBlock,
       openProposalLines,
       openAskLine,
+      liveGaugeLines,
     })
-    const intent = normalizeIntent(claim, events.length, openAsk !== null)
+    const intent = normalizeIntent(claim, events.length, openAsk !== null, liveGauges.length > 0)
 
     if (intent.kind === "none") return { status: "quiet" }
 
@@ -136,8 +149,7 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       // Same two guards as the spark branch: never a second gauge for an
       // activity the group is already being asked about or already has booked.
       const activityKey = openAsk.activity.toLowerCase()
-      const live = await findLiveGauges(group.id, now)
-      if (live.some((g) => g.activity.toLowerCase() === activityKey)) {
+      if (liveGauges.some((g) => g.activity.toLowerCase() === activityKey)) {
         return { status: "quiet" }
       }
       const alreadyOnCalendar = await prisma.event.findFirst({
@@ -177,14 +189,50 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
 
       outcome = "gauged"
       touchedGroupId = group.id
+    } else if (intent.kind === "dayComment") {
+      // The pure planner decides; this action only carries the answer out
+      // (the change branch's shape). liveGauges was fetched before the model
+      // call, so the coupling guard inside planDayComment is real.
+      const plan = planDayComment(
+        intent.dayComment,
+        liveGauges.map((g) => ({
+          id: g.id,
+          activity: g.activity,
+          proposedDate: g.proposedDate,
+          proposedTime: g.proposedTime,
+          viewerAnswer: g.votes.find((v) => v.userId === user.id)?.answer ?? null,
+        })),
+        group.timeZone
+      )
+      if (plan.action === "quiet") return { status: "quiet" }
+      if (plan.action === "which") {
+        await createMessage({
+          groupId: group.id,
+          authorType: MessageAuthor.ORBIT,
+          authorId: null,
+          body: plan.question,
+        })
+      } else {
+        await recordDayComment({
+          groupId: group.id,
+          gaugeId: plan.gaugeId,
+          userId: user.id,
+          messageId: message.id,
+          dayOfWeek: plan.dayOfWeek,
+          suggestedTime: plan.suggestedTime,
+          keepIn: plan.keepIn,
+          replyBody: plan.reply,
+        })
+      }
+      outcome = "replied"
+      touchedGroupId = group.id
     } else if (intent.kind === "spark") {
       const spark = intent.spark
 
       // Never open a second gauge for something the group is already being
       // asked about, or already has on the calendar (spark slice, unchanged).
       const activityKey = spark.activity.toLowerCase()
-      const live = await findLiveGauges(group.id, now)
-      if (live.some((g) => g.activity.toLowerCase() === activityKey)) {
+      if (liveGauges.some((g) => g.activity.toLowerCase() === activityKey)) {
         return { status: "quiet" }
       }
       const alreadyOnCalendar = await prisma.event.findFirst({
@@ -313,13 +361,6 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         outcome = "asked"
         touchedGroupId = group.id
       }
-    } else {
-      // An interim guard, not a behavior decision. Production calls
-      // normalizeIntent with hasLiveGauge false until the day-comment branch
-      // lands, so a dayComment intent cannot reach here yet; when the branch
-      // does land it takes this slot. Quiet is the correct degrade for this
-      // file regardless, since every failure path here is soft by design.
-      return { status: "quiet" }
     }
   } catch (err) {
     // Soft by design: the member's message stands, and nothing is said.
