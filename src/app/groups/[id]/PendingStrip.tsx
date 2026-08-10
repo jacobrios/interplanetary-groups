@@ -19,7 +19,7 @@
 import { useState } from "react"
 import type { GaugeAnswer, ProposalVoteAnswer } from "@prisma/client"
 import type { PendingData, PendingItem } from "@/lib/pending/derive"
-import GaugeChips from "@/app/groups/[id]/GaugeChips"
+import GaugeChips, { GaugeTally } from "@/app/groups/[id]/GaugeChips"
 import GroupProposalChips from "@/app/groups/[id]/GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
 
@@ -169,7 +169,20 @@ function WaitingRow({
       )}
 
       {item.kind === "gauge" ? (
-        <GaugeChips gauge={item.chips} onAnswered={(a: GaugeAnswer) => onAnswered(item, a)} />
+        <>
+          <GaugeChips gauge={item.chips} onAnswered={(a: GaugeAnswer) => onAnswered(item, a)} />
+          {/* Spec gap fix: GaugeChips renders no tally of its own (in the feed
+              MessageFeed puts GaugeTally inside Orbit's bubble instead), so
+              the panel row wires it in directly, below the chips. The
+              handoff's README draws the tally above the chips for both row
+              types, but GroupProposalChips already renders its own tally
+              below its chips (chips-reuse-verbatim keeps that placement), so
+              matching that here keeps the two row types consistent inside
+              this panel, which wins over matching the mockup's ordering for
+              gauge rows only. Recorded deviation, same spirit as the
+              tally-grammar deviation already in the plan. */}
+          <GaugeTally line={item.chips.tallyLine} />
+        </>
       ) : (
         <GroupProposalChips proposal={item.chips} onAnswered={(a: ProposalVoteAnswer) => onAnswered(item, a)} />
       )}
@@ -245,7 +258,10 @@ function StandingYesRow({
       </div>
       {open &&
         (item.kind === "gauge" ? (
-          <GaugeChips gauge={item.chips} />
+          <>
+            <GaugeChips gauge={item.chips} />
+            <GaugeTally line={item.chips.tallyLine} />
+          </>
         ) : (
           <GroupProposalChips proposal={item.chips} />
         ))}

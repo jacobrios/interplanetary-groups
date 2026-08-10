@@ -69,6 +69,15 @@ describe("PendingStrip", () => {
     expect(screen.getByText("✋ I'm in")).toBeDefined()
     expect(screen.getByText("Mon 8am")).toBeDefined()
     expect(screen.getByText("9am works")).toBeDefined()
+    // Spec-gap fix: a waiting gauge row shows the live tally too. GaugeChips
+    // itself renders no tally (in the feed it's MessageFeed that puts
+    // GaugeTally inside Orbit's bubble), so the panel row must render it
+    // separately. GAUGE_ITEM.chips.tallyLine is "Maya is in". The empty-line
+    // case (PROPOSAL_ITEM's own tally is "", rendered by GroupProposalChips
+    // internally) is already guaranteed to render nothing extra by
+    // GaugeTally's/GroupProposalTally's own `if (!line) return null` guard,
+    // unchanged by this fix, so it isn't re-asserted here.
+    expect(screen.getByText("Maya is in")).toBeDefined()
   })
 
   it("standing-yes row steps down and reveals chips on Change", () => {
