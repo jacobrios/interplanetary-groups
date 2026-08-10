@@ -153,6 +153,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: [],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const call = vi.mocked(callExtractionModel).mock.calls.at(-1)!
     expect(call[2]).toBe(INTENT_SCHEMA)
@@ -163,6 +164,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: [],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("exactly one")
@@ -173,6 +175,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: [],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system.toLowerCase()).toContain("not sure")
@@ -186,6 +189,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: ["1. Climbing, Sun, Jul 26 · 8am"],
       conversationBlock: "Right now it is Sat Jul 25, 9am (group time).",
       openProposalLines: [],
+      openAskLine: null,
     })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system).toContain("an incomplete ask is still an ask")
@@ -197,6 +201,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: [],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("are we still on for that?")
@@ -207,6 +212,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: ["1. Climbing, Sun Jul 26 at 8am"],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("1. Climbing, Sun Jul 26 at 8am")
@@ -217,6 +223,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: [],
       conversationBlock: "",
       openProposalLines: [],
+      openAskLine: null,
     })
     const user = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(user).toContain("This group has nothing on its calendar right now.")
@@ -227,6 +234,7 @@ describe("detectIntentClaim", () => {
       upcomingLines: ["1. Climbing, Tue Jul 28"],
       conversationBlock: "Right now it is Tue Jul 28, 6:12pm (group time).\n\nWINDOW-SENTINEL",
       openProposalLines: [],
+      openAskLine: null,
     })
     const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(userMsg).toContain("WINDOW-SENTINEL")
@@ -238,16 +246,50 @@ describe("detectIntentClaim", () => {
       upcomingLines: ["1. Beers, Thu Jul 30"],
       conversationBlock: "x",
       openProposalLines: ["A question is already out to the group: move beers to 9pm (asked by Sam)."],
+      openAskLine: null,
     })
     const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
     expect(userMsg).toContain("already out to the group")
   })
 
   it("the system prompt teaches corrections and timestamp judgment", async () => {
-    await detectIntentClaim("hey", { upcomingLines: [], conversationBlock: "", openProposalLines: [] })
+    await detectIntentClaim("hey", {
+      upcomingLines: [],
+      conversationBlock: "",
+      openProposalLines: [],
+      openAskLine: null,
+    })
     const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
     expect(system).toContain("correction")
     expect(system.toLowerCase()).toContain("timestamps")
+  })
+
+  it("teaches the answer class and its precedence", async () => {
+    await detectIntentClaim("Saturday?", { upcomingLines: [], conversationBlock: "", openProposalLines: [], openAskLine: null })
+    const system = vi.mocked(callExtractionModel).mock.calls.at(-1)![0]
+    expect(system).toContain("ANSWER")
+    expect(system.toLowerCase()).toContain("waiting on an answer")
+    expect(system).toContain("prefer ANSWER over CHANGE REQUEST")
+  })
+
+  it("the open-ask line rides the user message when an ask is open", async () => {
+    await detectIntentClaim("Saturday?", {
+      upcomingLines: [], conversationBlock: "x", openProposalLines: [],
+      openAskLine: "Orbit asked the group what day works better for beers, since Friday didn't work, and is waiting on an answer.",
+    })
+    const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(userMsg).toContain("waiting on an answer")
+  })
+
+  it("no open ask, no line", async () => {
+    await detectIntentClaim("Saturday?", { upcomingLines: [], conversationBlock: "x", openProposalLines: [], openAskLine: null })
+    const userMsg = vi.mocked(callExtractionModel).mock.calls.at(-1)![1]
+    expect(userMsg).not.toContain("waiting on an answer")
+  })
+
+  it("the schema carries the four answer fields", () => {
+    expect(INTENT_SCHEMA.required).toContain("isAskAnswer")
+    expect(INTENT_SCHEMA.properties.answerDayOfWeek).toBeDefined()
   })
 })
 
@@ -566,7 +608,7 @@ describe("normalizeIntent", () => {
   }
 
   it("passes a valid change claim through", () => {
-    const r = normalizeIntent(changeClaim, 2)
+    const r = normalizeIntent(changeClaim, 2, false)
     expect(r).toEqual({
       kind: "change",
       change: {
@@ -582,20 +624,21 @@ describe("normalizeIntent", () => {
   it("delegates a spark claim to normalizeSpark", () => {
     const r = normalizeIntent(
       { ...changeClaim, isSpark: true, isChangeRequest: false, activity: "beers" },
-      1
+      1,
+      false
     )
     expect(r.kind).toBe("spark")
     if (r.kind === "spark") expect(r.spark.activity).toBe("beers")
   })
 
   it("treats a claim of both spark and change as none", () => {
-    expect(normalizeIntent({ ...changeClaim, isSpark: true, activity: "beers" }, 1)).toEqual({
+    expect(normalizeIntent({ ...changeClaim, isSpark: true, activity: "beers" }, 1, false)).toEqual({
       kind: "none",
     })
   })
 
   it("bounds-checks the target: out of range degrades to null, not to a wrong event", () => {
-    const r = normalizeIntent({ ...changeClaim, targetEventNumber: 3 }, 2)
+    const r = normalizeIntent({ ...changeClaim, targetEventNumber: 3 }, 2, false)
     if (r.kind !== "change") throw new Error("expected change")
     expect(r.change.targetEventIndex).toBe(null)
   })
@@ -603,7 +646,8 @@ describe("normalizeIntent", () => {
   it("rejects a malformed time and a lone ambiguity flag", () => {
     const r = normalizeIntent(
       { ...changeClaim, requestedTime: "9pm", requestedTimeAmbiguous: true },
-      1
+      1,
+      false
     )
     if (r.kind !== "change") throw new Error("expected change")
     expect(r.change.requestedTime).toBe(null)
@@ -613,7 +657,8 @@ describe("normalizeIntent", () => {
   it("drops unknown fields and dedupes; an unusable field list degrades to empty", () => {
     const r = normalizeIntent(
       { ...changeClaim, requestedFields: ["time", "time", "weather"] },
-      1
+      1,
+      false
     )
     if (r.kind !== "change") throw new Error("expected change")
     expect(r.change.requestedFields).toEqual(["time"])
@@ -621,7 +666,7 @@ describe("normalizeIntent", () => {
     // They now reach the ladder with nothing named, which is the shape the
     // ladder answers with a question rather than silence.
     for (const unusable of [[], "time"]) {
-      const degraded = normalizeIntent({ ...changeClaim, requestedFields: unusable }, 1)
+      const degraded = normalizeIntent({ ...changeClaim, requestedFields: unusable }, 1, false)
       if (degraded.kind !== "change") throw new Error("expected change")
       expect(degraded.change.requestedFields).toEqual([])
     }
@@ -639,7 +684,8 @@ describe("normalizeIntent", () => {
         requestedTimeAmbiguous: false,
         requestedFields: [],
       },
-      2
+      2,
+      false
     )
     expect(r).toEqual({
       kind: "change",
@@ -654,14 +700,67 @@ describe("normalizeIntent", () => {
   })
 
   it("anything but explicit true intentClear is unclear", () => {
-    const r = normalizeIntent({ ...changeClaim, intentClear: "yes" }, 1)
+    const r = normalizeIntent({ ...changeClaim, intentClear: "yes" }, 1, false)
     if (r.kind !== "change") throw new Error("expected change")
     expect(r.change.intentClear).toBe(false)
   })
 
   it("non-objects and plain chatter are none", () => {
-    expect(normalizeIntent(null, 1)).toEqual({ kind: "none" })
-    expect(normalizeIntent([], 1)).toEqual({ kind: "none" })
-    expect(normalizeIntent({ ...changeClaim, isChangeRequest: false }, 1)).toEqual({ kind: "none" })
+    expect(normalizeIntent(null, 1, false)).toEqual({ kind: "none" })
+    expect(normalizeIntent([], 1, false)).toEqual({ kind: "none" })
+    expect(normalizeIntent({ ...changeClaim, isChangeRequest: false }, 1, false)).toEqual({ kind: "none" })
+  })
+})
+
+describe("normalizeIntent, answer arm", () => {
+  const answerClaim = {
+    isAskAnswer: true, answerDayOfWeek: 6, answerTime: null, answerTimeAmbiguous: false,
+    isSpark: false, activity: null, statedDayOfWeek: null, statedTime: null,
+    timeAmbiguous: false, partOfDay: null,
+    isChangeRequest: false, targetEventNumber: null, requestedTime: null,
+    requestedTimeAmbiguous: false, requestedFields: [], intentClear: false,
+  }
+
+  it("carries an answer through inside an open window", () => {
+    expect(normalizeIntent(answerClaim, 0, true)).toEqual({
+      kind: "answer", answer: { dayOfWeek: 6, time: null, timeAmbiguous: false },
+    })
+  })
+
+  it("ignores the claim entirely when no ask is open (decision 3)", () => {
+    // Same claim, hasOpenAsk false: falls through to the existing arms → none.
+    expect(normalizeIntent(answerClaim, 0, false)).toEqual({ kind: "none" })
+  })
+
+  it("the answer arm outranks a change claim inside the window (decision 4)", () => {
+    expect(
+      normalizeIntent({ ...answerClaim, isChangeRequest: true, requestedFields: ["day"] }, 0, true).kind
+    ).toBe("answer")
+  })
+
+  it("the answer arm outranks even an incoherent both-true claim inside the window", () => {
+    expect(
+      normalizeIntent({ ...answerClaim, isSpark: true, isChangeRequest: true }, 0, true).kind
+    ).toBe("answer")
+  })
+
+  it("degrades a bad day to no named day rather than rejecting the answer", () => {
+    expect(normalizeIntent({ ...answerClaim, answerDayOfWeek: 9 }, 0, true)).toEqual({
+      kind: "answer", answer: { dayOfWeek: null, time: null, timeAmbiguous: false },
+    })
+  })
+
+  it("validates the time and ties ambiguity to a time that exists", () => {
+    expect(
+      normalizeIntent({ ...answerClaim, answerTime: "21:00", answerTimeAmbiguous: true }, 0, true)
+    ).toEqual({ kind: "answer", answer: { dayOfWeek: 6, time: "21:00", timeAmbiguous: true } })
+    expect(
+      normalizeIntent({ ...answerClaim, answerTime: "9ish", answerTimeAmbiguous: true }, 0, true)
+    ).toEqual({ kind: "answer", answer: { dayOfWeek: 6, time: null, timeAmbiguous: false } })
+  })
+
+  it("still normalizes when a model omits the new fields entirely", () => {
+    const { isAskAnswer, answerDayOfWeek, answerTime, answerTimeAmbiguous, ...old } = answerClaim
+    expect(normalizeIntent(old, 0, true)).toEqual({ kind: "none" })
   })
 })

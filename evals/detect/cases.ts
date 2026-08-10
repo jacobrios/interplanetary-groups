@@ -18,6 +18,7 @@ export type Bucket = "must-recognize" | "must-stay-quiet" | "ambiguous"
 export type Expected =
   | { kind: "none" }
   | { kind: "spark"; statedDayOfWeek?: number | null }
+  | { kind: "answer"; dayOfWeek?: number | null }
   | {
       kind: "change"
       action?: "reply" | "ask" | "propose" | "move"
@@ -54,6 +55,8 @@ export interface EvalCase {
   trigger: { author: string; body: string }
   /** A live group proposal, when one is open. */
   liveProposal?: { planIndex: number; proposedMinutesFromNow: number; asker: string }
+  /** An unanswered retry ask, when one is open. Mirrors findOpenRetryAsk's output. */
+  openAsk?: { activity: string; failedDayOfWeek: number }
   memberCount: number
   expected: Expected
 }
@@ -397,7 +400,7 @@ export const CASES: EvalCase[] = [
     id: "retry-answer-bare-day",
     bucket: "must-recognize",
     description:
-      "The wrong-day retry's whole bet: after Orbit's close-and-ask, a bare day name is an answer, and the conversational window is what resolves it to the activity. If this reads as none, the ask is a question Orbit ignores the answer to.",
+      "The wrong-day retry's whole bet: after Orbit's close-and-ask, a bare day name is an answer. The open-ask note is what makes it hearable; before it, this read as a plan change or nothing on every run.",
     calendar: [],
     history: [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
@@ -413,13 +416,15 @@ export const CASES: EvalCase[] = [
       },
     ],
     trigger: { author: "Jesse", body: "Saturday?" },
+    openAsk: { activity: "beers", failedDayOfWeek: 5 },
     memberCount: 4,
-    expected: { kind: "spark", statedDayOfWeek: 6 },
+    expected: { kind: "answer", dayOfWeek: 6 },
   },
   {
     id: "retry-answer-day-works",
     bucket: "must-recognize",
-    description: "Same seam, fuller sentence. 'saturday works for me' after the ask is a day answer, not chatter.",
+    description:
+      "Same seam, fuller sentence. 'saturday works for me' after the ask is a day answer, not chatter and not a change request.",
     calendar: [],
     history: [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
@@ -435,14 +440,15 @@ export const CASES: EvalCase[] = [
       },
     ],
     trigger: { author: "Maya", body: "saturday works for me" },
+    openAsk: { activity: "beers", failedDayOfWeek: 5 },
     memberCount: 4,
-    expected: { kind: "spark", statedDayOfWeek: 6 },
+    expected: { kind: "answer", dayOfWeek: 6 },
   },
   {
     id: "retry-answer-next-week",
     bucket: "ambiguous",
     description:
-      "'next week?' after the ask names no single day. The exactly-one-day rule says a spark with no stated day (fallback picks), not a silent guess at which day they meant. No bar; watched for drift.",
+      "An answer that names no single day is still an answer. Orbit picks the day (same weekday next week, decision 6); recognition's only job is answer-ness and that no single day was named.",
     calendar: [],
     history: [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
@@ -458,13 +464,15 @@ export const CASES: EvalCase[] = [
       },
     ],
     trigger: { author: "Sam", body: "next week?" },
+    openAsk: { activity: "beers", failedDayOfWeek: 5 },
     memberCount: 4,
-    expected: { kind: "spark", statedDayOfWeek: null },
+    expected: { kind: "answer", dayOfWeek: null },
   },
   {
     id: "retry-answer-nostalgia",
     bucket: "must-stay-quiet",
-    description: "A look-alike: 'saturday was fun' right after the ask is about the past, not an answer. Recognition must not hear a day name and call it a proposal.",
+    description:
+      "The look-alike, now harder: the open-ask note is present and the message still is not an answer. 'saturday was fun' is about the past; recognition must not hear a day name plus an open ask and call it an answer.",
     calendar: [],
     history: [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
@@ -480,6 +488,7 @@ export const CASES: EvalCase[] = [
       },
     ],
     trigger: { author: "Jesse", body: "saturday was fun" },
+    openAsk: { activity: "beers", failedDayOfWeek: 5 },
     memberCount: 4,
     expected: { kind: "none" },
   },

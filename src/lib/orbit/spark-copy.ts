@@ -239,6 +239,82 @@ export function buildRetryGuessMessage(activity: string, guessDate: Date, timeZo
   return `No takers on a new day yet, so how about ${activity} next ${weekday}?`
 }
 
+/** Model-facing context, not member-facing copy: the fact the recognizer needs. */
+export function buildOpenAskLine(activity: string, failedProposedDate: Date, timeZone: string): string {
+  const weekday = formatWeekdayLong(failedProposedDate, timeZone)
+  return `Orbit asked the group what day works better for ${activity}, since ${weekday} didn't work, and is waiting on an answer.`
+}
+
+/**
+ * The time a day-answer gauge starts at, once the day itself is settled.
+ *
+ * A stated unambiguous time wins outright. An unstated time carries the
+ * failed gauge's own stored time forward, because "what day works better"
+ * asked about the day only, not the hour. A bare clock number reads into the
+ * half of day the group's own original time already picked, the same
+ * reasoning as resolveSparkTime's morning-partOfDay case, so nothing is
+ * disclosed on this path: the group's own prior answer did the deciding, not
+ * a fresh Orbit guess.
+ */
+export function resolveAnswerTime({
+  answerTime,
+  answerTimeAmbiguous,
+  carriedTime,
+}: {
+  answerTime: string | null
+  answerTimeAmbiguous: boolean
+  carriedTime: string | null
+}): string {
+  const carried = carriedTime ?? EVENING_TIME
+  if (answerTime === null) return carried
+  if (!answerTimeAmbiguous) return answerTime
+  const [h, m] = splitTime(answerTime)
+  const carriedHour = splitTime(carried)[0]
+  if (carriedHour >= 12 && h >= 1 && h <= 11) return `${pad(h + 12)}:${pad(m)}`
+  return answerTime
+}
+
+export interface PlannedAnswerGauge {
+  proposedDate: Date
+  timeLocal: string
+  /** True only when the member named exactly one day (the existing seeding rule). */
+  seedNamer: boolean
+  /** Born inside its own close window; caller appends the urgency clause. */
+  bornLate: boolean
+}
+
+/**
+ * Turns a recognized day answer, plus the failed ask's stored facts, into a
+ * new gauge's shape. A named day is taken at face value via the ordinary
+ * chooseProposedDate path (so seeding follows the same rule a fresh spark
+ * uses); no day falls to the same-weekday-next-week guess, seeding nobody,
+ * since that is Orbit's own move and Orbit is never a vote.
+ *
+ * Returns null when the resolved start has already passed: an answer that
+ * names a day already gone or a hour already gone must not open a gauge for
+ * a plan the group could never attend.
+ */
+export function planAnswerGauge(
+  answer: { dayOfWeek: number | null; time: string | null; timeAmbiguous: boolean },
+  ask: { proposedDate: Date; proposedTime: string | null },
+  timeZone: string,
+  now: Date
+): PlannedAnswerGauge | null {
+  const proposedDate =
+    answer.dayOfWeek !== null
+      ? chooseProposedDate(answer.dayOfWeek, null, timeZone, now)
+      : chooseRetryGuessDate(ask.proposedDate, timeZone)
+  const timeLocal = resolveAnswerTime({
+    answerTime: answer.time,
+    answerTimeAmbiguous: answer.timeAmbiguous,
+    carriedTime: ask.proposedTime,
+  })
+  const start = sparkStartInstant(proposedDate, timeLocal, timeZone)
+  if (start <= now) return null
+  const bornLate = now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
+  return { proposedDate, timeLocal, seedNamer: answer.dayOfWeek !== null, bornLate }
+}
+
 /**
  * When the gauge stops taking answers. Two hours before the proposed start,
  * so a half-committed plan never limps ambiguously into its final hour; a

@@ -10,6 +10,7 @@ import { findUpcomingEvents } from "@/lib/events/upcoming-list"
 import { formatEventDate, formatTime } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
+import { findOpenRetryAsk } from "@/lib/gauges/open-ask"
 import { createMessage } from "@/lib/messages/create"
 import { moveEventTime } from "@/lib/events/move"
 import { createChangeProposal, createGroupProposal } from "@/lib/proposals/create"
@@ -19,9 +20,11 @@ import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
 import { buildConversationWindow, WINDOW_MESSAGES, type WindowMessage } from "@/lib/orbit/window"
 import {
   buildGaugeMessage,
+  buildOpenAskLine,
   buildUrgencyClause,
   chooseProposedDate,
   CLOSE_BEFORE_START_HOURS,
+  planAnswerGauge,
   resolveSparkTime,
   sparkStartInstant,
 } from "@/lib/orbit/spark-copy"
@@ -32,10 +35,11 @@ export type DetectIntentResult = {
 
 /**
  * Server action: read one member message and act on what it is. A fresh idea
- * opens a gauge (unchanged from the spark slice); a clear time-change request
- * moves the plan; a probable one gets Orbit's question with one-tap chips; a
- * clearly understood request this slice cannot act on gets an honest reply;
- * everything else stays silent.
+ * opens a gauge (unchanged from the spark slice); a member's reply to an open
+ * day question opens a revival gauge; a clear time-change request moves the
+ * plan; a probable one gets Orbit's question with one-tap chips; a clearly
+ * understood request this slice cannot act on gets an honest reply; everything
+ * else stays silent.
  *
  * Called by the group home AFTER the send has settled, in its own transition.
  * The chat input is never waiting on this.
@@ -106,16 +110,74 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         return `A question is already out to the group: move ${label} to ${formatTime(p.proposedStartsAt, group.timeZone)} (asked by ${p.asker.name}).`
       })
 
+    // The open day-ask, derived before the model is called: the model is told
+    // about it only when deterministic code says it exists, and normalizeIntent
+    // refuses an answer claim unless the same check passed (decision 3).
+    const openAsk = await findOpenRetryAsk(group.id, now)
+    const openAskLine = openAsk
+      ? buildOpenAskLine(openAsk.activity, openAsk.proposedDate, group.timeZone)
+      : null
+
     const claim = await detectIntentClaim(message.body, {
       upcomingLines,
       conversationBlock,
       openProposalLines,
+      openAskLine,
     })
-    const intent = normalizeIntent(claim, events.length)
+    const intent = normalizeIntent(claim, events.length, openAsk !== null)
 
     if (intent.kind === "none") return { status: "quiet" }
 
-    if (intent.kind === "spark") {
+    if (intent.kind === "answer") {
+      // normalizeIntent only returns "answer" when openAsk was non-null; the
+      // guard keeps that coupling honest rather than trusting it at a distance.
+      if (!openAsk) return { status: "quiet" }
+
+      // Same two guards as the spark branch: never a second gauge for an
+      // activity the group is already being asked about or already has booked.
+      const activityKey = openAsk.activity.toLowerCase()
+      const live = await findLiveGauges(group.id, now)
+      if (live.some((g) => g.activity.toLowerCase() === activityKey)) {
+        return { status: "quiet" }
+      }
+      const alreadyOnCalendar = await prisma.event.findFirst({
+        where: {
+          groupId: group.id,
+          startsAt: { gte: now },
+          activityLabel: { equals: openAsk.activity, mode: "insensitive" },
+        },
+        select: { id: true },
+      })
+      if (alreadyOnCalendar) return { status: "quiet" }
+
+      const planned = planAnswerGauge(
+        intent.answer,
+        { proposedDate: openAsk.proposedDate, proposedTime: openAsk.proposedTime },
+        group.timeZone,
+        now
+      )
+      if (!planned) return { status: "quiet" }
+
+      // Everything stored, nothing re-derived: the activity is the failed
+      // gauge's own, the time is carried (a stated one won inside the
+      // planner), and the disclosure slot is null because no coin flip
+      // exists on this path.
+      const result = await createGauge({
+        groupId: group.id,
+        sourceMessageId: message.id,
+        activity: openAsk.activity,
+        proposedDate: planned.proposedDate,
+        proposedTime: planned.timeLocal,
+        body:
+          buildGaugeMessage(openAsk.activity, planned.proposedDate, group.timeZone, now, null) +
+          (planned.bornLate ? buildUrgencyClause(planned.timeLocal) : ""),
+        initiatorUserId: planned.seedNamer ? user.id : null,
+      })
+      if (result.status !== "created") return { status: "quiet" }
+
+      outcome = "gauged"
+      touchedGroupId = group.id
+    } else if (intent.kind === "spark") {
       const spark = intent.spark
 
       // Never open a second gauge for something the group is already being
