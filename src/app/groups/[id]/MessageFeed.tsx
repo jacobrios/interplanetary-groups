@@ -20,6 +20,7 @@ import { useRef, useEffect } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
 import GroupProposalChips, { GroupProposalTally, type FeedGroupProposal } from "./GroupProposalChips"
+import { OrbitBubble } from "@/components/OrbitBubble"
 
 export interface FeedMessage {
   id: string
@@ -140,47 +141,20 @@ export default function MessageFeed({
             {/* Orbit: lime avatar + muted fill, no name label */}
             {isOrbit && (
               <div style={{ width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
-                  <div
-                    aria-label="Orbit"
+                <OrbitBubble>
+                  <p
                     style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: "50%",
-                      backgroundColor: "var(--color-lime)",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "0.6875rem",
-                      fontWeight: 700,
-                      color: "#0a0a0a",
+                      fontSize: "var(--type-body)",
+                      lineHeight: "var(--leading-normal)",
+                      color: "var(--text-primary)",
+                      margin: 0,
                     }}
                   >
-                    O
-                  </div>
-                  <div
-                    style={{
-                      backgroundColor: "var(--surface-orbit)",
-                      borderRadius: "4px 16px 16px 16px",
-                      padding: "0.5rem 0.75rem",
-                      maxWidth: "80%",
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontSize: "var(--type-body)",
-                        lineHeight: "var(--leading-normal)",
-                        color: "var(--text-primary)",
-                        margin: 0,
-                      }}
-                    >
-                      {msg.body}
-                    </p>
-                    {/* Where things stand, inside the bubble under Orbit's words. */}
-                    {gauge && <GaugeTally line={gauge.tallyLine} />}
-                  </div>
-                </div>
+                    {msg.body}
+                  </p>
+                  {/* Where things stand, inside the bubble under Orbit's words. */}
+                  {gauge && <GaugeTally line={gauge.tallyLine} />}
+                </OrbitBubble>
 
                 {/* The three answers, indented under the bubble. Only a viewer
                     with a session can answer, matching the RSVP control. */}
