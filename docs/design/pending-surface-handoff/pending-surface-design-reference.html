@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pending Surface · Interplanetary Groups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="walkthrough.css" />
+<link rel="stylesheet" href="pending-surface.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.bd-num, .bd-ttl { color: #101114; }
+.bd-cap { color: #23242a; }
+.bd-frame { height: 844px; border: 1px solid #3a3d49; }
+.board { gap: 56px 40px; }
+.sec-head { max-width: 76ch; margin: 74px 0 0; }
+.sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -.015em; color: #111214; margin: 0; }
+.sec-head p { font-size: 14px; line-height: 1.6; color: #23242a; margin: 10px 0 0; text-wrap: pretty; }
+.iso-list { display: flex; flex-direction: column; gap: 30px; margin-top: 30px; }
+.iso { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.iso-frame { width: 390px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 14px; overflow: hidden; }
+.iso-notes { flex: 1 1 320px; min-width: 300px; max-width: 46ch; padding-top: 2px; }
+.iso-notes h3 { font-family: var(--display); font-weight: 800; font-size: 17px; color: #101114; margin: 0 0 7px; }
+.iso-notes p { font-size: 13.5px; line-height: 1.62; color: #23242a; margin: 0 0 8px; text-wrap: pretty; }
+.iso-notes ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.6; color: #23242a; }
+.iso-notes li { margin: 3px 0; }
+.iso-notes code { font-family: var(--mono, 'JetBrains Mono', monospace); font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.rules { margin-top: 60px; max-width: 78ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 0 0 10px; letter-spacing: -.01em; }
+.rules ul { margin: 0; padding-left: 18px; }
+.rules li { margin: 5px 0; }
+.rules b { color: #0d0e11; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+  <p class="board-eyebrow">Interplanetary Groups · new region</p>
+  <h1 class="board-title">Pending surface</h1>
+  <p class="board-sub">A collapsible strip between the pinned event card and the chat feed. It holds the group decisions still waiting on this member's answer, and lets them answer in place. The pinned card keeps the confirmed next plan; the strip carries the maybes, and stays visually junior to it.</p>
+
+  <div class="board">
+    <!-- 01 · collapsed -->
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">01</span><span class="bd-ttl">Collapsed strip</span></div>
+      <div class="bd-frame" data-screen-label="01">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg class="chevr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned" style="padding-bottom:2px">
+              <div class="gh-rail">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pd-host">
+              <div class="pd-strip">
+                <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+                <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+                <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+              <div class="gh-self"><div class="smsg">see you all there</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">One quiet line, hairline-ruled rather than carded, so the raised event card above stays the senior object. The counts are the only bright text. It never animates for attention, and it is absent entirely when there is nothing waiting and no standing yes.</p>
+    </div>
+
+    <!-- 02 · expanded -->
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">02</span><span class="bd-ttl">Expanded panel</span></div>
+      <div class="bd-frame" data-screen-label="02">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned" style="padding-bottom:2px">
+              <div class="gh-rail">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pd-host">
+              <div class="pd-strip open">
+                <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+                <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+                <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+              <div class="pd-panel">
+                <div class="pd-row">
+                  <div class="pd-kind"><span class="seg">New idea</span><span class="seg">from Maya</span></div>
+                  <div class="pd-title">Bouldering at the new east side gym</div>
+                  <div class="pd-when"><span class="seg">Sat 10am</span><span class="seg">Mesa Rock</span></div>
+                  <div class="pd-tally"><span class="seg">3 in</span><span class="seg">1 next time</span><span class="seg wait">4 waiting</span></div>
+                  <div class="gh-qr">
+                    <div class="gh-qrchip">🧗 I'm in</div>
+                    <div class="gh-qrchip quiet">🙏 Next time</div>
+                    <div class="gh-qrchip quiet">📅 Yes, can't Sat</div>
+                  </div>
+                </div>
+                <div class="pd-row">
+                  <div class="pd-kind"><span class="seg">Time change</span><span class="seg">from Sam</span></div>
+                  <div class="pd-title">Monday morning climb</div>
+                  <div class="pd-shift">
+                    <span class="lbl">Now</span><span class="old">Mon 8am</span>
+                    <svg class="arw" viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" /></svg>
+                    <span class="lbl">New</span><span class="new">Mon 9am</span>
+                  </div>
+                  <div class="pd-tally"><span class="seg">3 for 9am</span><span class="seg">2 for 8am</span><span class="seg wait">3 waiting</span></div>
+                  <div class="gh-qr">
+                    <div class="gh-qrchip">🔄 Switch to 9</div>
+                    <div class="gh-qrchip quiet">🕗 Keep 8</div>
+                  </div>
+                </div>
+                <div class="pd-grouplbl">You're in on</div>
+                <div class="pd-row quiet">
+                  <div class="pd-title">Friday beers</div>
+                  <div class="pd-when"><span class="seg">Fri 7pm</span><span class="seg">Pinthouse Pizza</span></div>
+                  <div class="pd-answerrow">
+                    <span class="pd-answer"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-11" /></svg>You're in</span>
+                    <span class="pd-change">Change</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-feed pd-behind">
+              <div class="gh-day">Today</div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The panel drops over the feed, which is dimmed but never resized. The strip stays put as the panel header with its chevron flipped, so the thing that opened it is the one obvious way to close it. Waiting items lead, soonest first; the standing yes sits under its own label, dimmer and smaller.</p>
+    </div>
+
+    <!-- 03 · caught up -->
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">03</span><span class="bd-ttl">Answered the last one</span></div>
+      <div class="bd-frame" data-screen-label="03">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned" style="padding-bottom:2px">
+              <div class="gh-rail">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pd-host">
+              <div class="pd-strip open">
+                <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+                <span class="pd-striptxt"><span class="seg">All caught up</span></span>
+                <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+              <div class="pd-panel">
+                <div class="pd-caught">
+                  <div class="gh-msgrow">
+                    <div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div>
+                    <div class="gh-msg">Next time it is. That was the last thing waiting on you, so you're all set. I'll say something when the group floats a new idea.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-feed pd-behind">
+              <div class="gh-day">Today</div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The member taps "Next time" on their last waiting item. The rows clear and Orbit says one short thing in its usual bubble. This member holds no standing yes, so once they collapse, the strip is gone (04).</p>
+    </div>
+
+    <!-- 04 · no strip -->
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">04</span><span class="bd-ttl">Nothing pending</span></div>
+      <div class="bd-frame" data-screen-label="04">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned" style="padding-bottom:4px">
+              <div class="gh-rail">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+              <div class="gh-self"><div class="smsg">see you all there</div></div>
+              <div class="gh-msgrow tail"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Nice. That's the whole crew sorted for Monday.</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">No waiting items and no standing yes, so the region is not rendered at all. The card sits directly on the feed, exactly as it did before this region existed.</p>
+    </div>
+  </div>
+
+  <div class="sec-head">
+    <h2>The four pieces, isolated</h2>
+    <p>Rendered at panel width from the same CSS the screens use, so nothing here is a one-off.</p>
+  </div>
+
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="pd-row">
+          <div class="pd-kind"><span class="seg">New idea</span><span class="seg">from Maya</span></div>
+          <div class="pd-title">Bouldering at the new east side gym</div>
+          <div class="pd-when"><span class="seg">Sat 10am</span><span class="seg">Mesa Rock</span></div>
+          <div class="pd-tally"><span class="seg">3 in</span><span class="seg">1 next time</span><span class="seg wait">4 waiting</span></div>
+          <div class="gh-qr">
+            <div class="gh-qrchip">🧗 I'm in</div>
+            <div class="gh-qrchip quiet">🙏 Next time</div>
+            <div class="gh-qrchip quiet">📅 Yes, can't Sat</div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Idea row</h3>
+        <p>The activity stays in the member's own words, never rewritten by Orbit. Kind and proposer sit above it at eyebrow size; day and time use three-letter weekdays.</p>
+        <ul>
+          <li>Tally reads <code>in · next time · waiting</code>, with the waiting count dimmer because it is not an answer.</li>
+          <li>Chips are the existing spec verbatim: <code>.gh-qr</code> / <code>.gh-qrchip</code>, one full-strength chip, the rest <code>.quiet</code>.</li>
+          <li>Row is flat on <code>--surface-base</code>, separated by hairlines. No card, no shadow: the pinned event card is the only raised object in this stack.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="pd-row">
+          <div class="pd-kind"><span class="seg">Time change</span><span class="seg">from Sam</span></div>
+          <div class="pd-title">Monday morning climb</div>
+          <div class="pd-shift">
+            <span class="lbl">Now</span><span class="old">Mon 8am</span>
+            <svg class="arw" viewBox="0 0 24 24"><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" /></svg>
+            <span class="lbl">New</span><span class="new">Mon 9am</span>
+          </div>
+          <div class="pd-tally"><span class="seg">3 for 9am</span><span class="seg">2 for 8am</span><span class="seg wait">3 waiting</span></div>
+          <div class="gh-qr">
+            <div class="gh-qrchip">🔄 Switch to 9</div>
+            <div class="gh-qrchip quiet">🕗 Keep 8</div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Time-change row</h3>
+        <p>Which plan first, then the swap. Old and new are told apart by the <b>Now</b> / <b>New</b> labels plus brightness and a strikethrough, so it survives greyscale and colorblindness alike.</p>
+        <ul>
+          <li>The shift line wraps as a unit; on narrow text sizes it stacks under the arrow rather than clipping.</li>
+          <li>Keep-or-switch chips use the same treatment: switching is the full-strength chip, keeping is quiet.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="pd-grouplbl" style="border-top:none;padding-top:14px">You're in on</div>
+        <div class="pd-row quiet">
+          <div class="pd-title">Friday beers</div>
+          <div class="pd-when"><span class="seg">Fri 7pm</span><span class="seg">Pinthouse Pizza</span></div>
+          <div class="pd-answerrow">
+            <span class="pd-answer"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-11" /></svg>You're in</span>
+            <span class="pd-change">Change</span>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Standing-yes row</h3>
+        <p>A memory aid, not a call to action. Everything steps down one level: title at metadata size in secondary, details at label size in faint, no chips on screen.</p>
+        <ul>
+          <li>The answer is shown as a check plus the words <b>You're in</b>: icon and label together, never colour alone.</li>
+          <li>The whole row is tappable and reveals the same chips; <b>Change</b> is the visible affordance, underlined in hairline rather than teal.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="pd-caught">
+          <div class="gh-msgrow">
+            <div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div>
+            <div class="gh-msg">Next time it is. That was the last thing waiting on you, so you're all set. I'll say something when the group floats a new idea.</div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Caught-up note</h3>
+        <p>Orbit acknowledges the decline without arguing with it, then confirms there is nothing else. Plain words, no em-dashes, no exclamation.</p>
+        <ul>
+          <li>Reuses the chat bubble (<code>.gh-msgrow</code> / <code>.gh-msg</code>) so the voice reads as the same Orbit from the feed.</li>
+          <li>It is the panel's whole content in this state. On collapse the strip unmounts if no standing yes remains.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="rules">
+    <h2>Rules this region follows</h2>
+    <ul>
+      <li><b>Hierarchy.</b> The pinned card is raised, bordered and shadowed and owns the only teal action on the screen. The strip and panel are flat surfaces with hairline rules, so the confirmed plan always outranks the maybes.</li>
+      <li><b>Teal.</b> One primary per element. Nothing in this region takes teal, because the chips are neutral outlines by spec and the region's job is answering, not committing.</li>
+      <li><b>Lime.</b> Appears only as Orbit's mark on the avatar. Never a button, never a status.</li>
+      <li><b>Status without hue.</b> Counts, brightness steps, check icon and words carry every state. No red or green anywhere.</li>
+      <li><b>Type.</b> Locked scale only, floor at 13px eyebrow: <code>--type-body</code> titles, <code>--type-meta</code> details, <code>--type-label</code> tallies and chips, <code>--type-eyebrow</code> kind and group labels.</li>
+      <li><b>Growth.</b> Rows are flex columns, chips wrap, tally and metadata wrap with trailing dots so a wrapped line never starts on a separator. Nothing is height-capped; the panel grows and scrolls internally past the composer.</li>
+      <li><b>Quiet by default.</b> No badge, no pulse, no colour shift on new items. The count changing is the whole notification.</li>
+    </ul>
+  </div>
+</div>
+<script src="orbit-mark.js"></script>
+<script>document.querySelectorAll('[data-orbit]').forEach(function (el) { el.innerHTML = window.OrbitMark.svg(72); });</script>
+</body>
+</html>

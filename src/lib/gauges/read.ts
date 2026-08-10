@@ -5,11 +5,12 @@
 // back off the vote rows here.
 
 import { prisma } from "@/lib/prisma"
-import type { Gauge, GaugeVote, User } from "@prisma/client"
+import type { Gauge, GaugeVote, Message, User } from "@prisma/client"
 import { isGaugeLive } from "@/lib/orbit/spark-copy"
 
 export type LiveGauge = Gauge & {
   votes: (GaugeVote & { user: User })[]
+  sourceMessage: (Message & { author: User | null }) | null
 }
 
 /**
@@ -47,6 +48,7 @@ export async function findLiveGauges(groupId: string, now: Date): Promise<LiveGa
     },
     include: {
       votes: { include: { user: true }, orderBy: { createdAt: "asc" } },
+      sourceMessage: { include: { author: true } },
     },
     orderBy: { createdAt: "asc" },
   })

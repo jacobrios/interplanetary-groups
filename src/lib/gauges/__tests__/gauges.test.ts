@@ -297,6 +297,61 @@ describe("findLiveGauges", () => {
     const after = await findLiveGauges(groupId, new Date("2026-07-24T12:00:00Z"))
     expect(after.map((g) => g.activity)).not.toContain("pool")
   })
+
+  it("includes the source message author so the surface can say who floated it", async () => {
+    await ensureGroup()
+    const m = await prisma.message.create({
+      data: {
+        groupId,
+        authorType: MessageAuthor.MEMBER,
+        authorId: userId2,
+        body: "we should grab beers",
+      },
+    })
+    messageIds.push(m.id)
+
+    const result = await createGauge({
+      groupId,
+      sourceMessageId: m.id,
+      activity: "beers-from-maya",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
+      body: "Love it. Anyone in for beers this Friday?",
+    })
+    if (result.status !== "created") throw new Error("fixture failed")
+
+    const gauges = await findLiveGauges(groupId, new Date("2026-07-24T12:00:00Z"))
+    const gauge = gauges.find((g) => g.id === result.gauge.id)
+    expect(gauge?.sourceMessage?.author?.name).toBe("[TEST] Gauge Maya")
+  })
+
+  it("returns a null source message for an Orbit guess gauge", async () => {
+    await ensureGroup()
+    const src = await sourceMessage("we should grab pizza")
+    const originalResult = await createGauge({
+      groupId,
+      sourceMessageId: src,
+      activity: "pizza-retry-null-source",
+      proposedDate: new Date("2026-07-24T00:00:00Z"),
+      proposedTime: "19:00",
+      body: "Love it. Anyone in for pizza this Friday? If three of you are in, I'll set it up.",
+    })
+    if (originalResult.status !== "created") throw new Error("fixture failed")
+
+    const guessResult = await createRetryGuessGauge({
+      groupId,
+      originGaugeId: originalResult.gauge.id,
+      activity: "pizza-retry-null-source",
+      proposedDate: new Date("2026-07-31T00:00:00Z"),
+      proposedTime: "19:00",
+      body: "No takers on a new day yet, so how about pizza next Friday?",
+    })
+    if (guessResult.status !== "created") throw new Error("fixture failed")
+
+    const gauges = await findLiveGauges(groupId, new Date("2026-07-31T12:00:00Z"))
+    const guessGauge = gauges.find((g) => g.id === guessResult.gauge.id)
+    expect(guessGauge?.sourceMessage).toBeNull()
+  })
 })
 
 describe("createGauge and the person who floated the idea", () => {
