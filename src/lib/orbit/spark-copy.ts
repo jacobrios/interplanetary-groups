@@ -221,6 +221,91 @@ export function chooseRetryGuessDate(failedProposedDate: Date, timeZone: string)
   return zonedWallTimeToUtc(p.year, p.month, p.day + 7, 0, 0, timeZone)
 }
 
+/** Weekday of a stored instant read through the group's zone, 0 = Sunday. */
+export function localWeekday(date: Date, timeZone: string): number {
+  const p = getLocalParts(date, timeZone)
+  return weekdayOf(p.year, p.month, p.day)
+}
+
+const WEEKDAY_LONG_NAMES = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+]
+
+/** A weekday name from the stored 0-6 integer, for days that have no date yet. */
+export function weekdayLongName(dayOfWeek: number): string {
+  return WEEKDAY_LONG_NAMES[dayOfWeek]
+}
+
+/**
+ * The member-suggested retry: the first named weekday strictly after the
+ * failed day, so "Sunday" said about a Saturday gauge lands the very next
+ * day. Strictly after (`|| 7`) documents the rule even though a same-weekday
+ * suggestion is discarded upstream (spec decision 10).
+ */
+export function chooseSuggestedRetryDate(
+  failedProposedDate: Date,
+  suggestedDayOfWeek: number,
+  timeZone: string
+): Date {
+  const p = getLocalParts(failedProposedDate, timeZone)
+  const failedDow = weekdayOf(p.year, p.month, p.day)
+  const offset = (suggestedDayOfWeek - failedDow + 7) % 7 || 7
+  // Date.UTC absorbs the day overflow, so month and year ends need no special case.
+  return zonedWallTimeToUtc(p.year, p.month, p.day + offset, 0, 0, timeZone)
+}
+
+/**
+ * Orbit's one reply to a recorded day comment. Announces the inference
+ * (transparency: a vote was recorded without a tap) and never promises a
+ * revival, only that the day is noted, because whether one happens depends
+ * on a bar the comment cannot see. The already-in variant exists so the
+ * reply never misstates someone's attendance (spec decision 2).
+ */
+export function buildDayCommentReply(
+  failedProposedDate: Date,
+  suggestedDayOfWeek: number,
+  alreadyIn: boolean,
+  timeZone: string
+): string {
+  const failed = formatWeekdayLong(failedProposedDate, timeZone)
+  const suggested = weekdayLongName(suggestedDayOfWeek)
+  return alreadyIn
+    ? `You're still in for ${failed}, and ${suggested}'s noted if it doesn't come together.`
+    : `Got it, ${failed} doesn't work for you. ${suggested}'s noted in case this one doesn't come together.`
+}
+
+/**
+ * Two ideas gauging at once and the comment did not say which: ask, never
+ * guess and never stay silent (spec decision 9; the which-plan question's
+ * shape).
+ */
+export function buildWhichGaugeQuestion(activities: string[]): string {
+  const list =
+    activities.length === 2
+      ? `${activities[0]} or ${activities[1]}`
+      : `${activities.slice(0, -1).join(", ")}, or ${activities[activities.length - 1]}`
+  return `Which one do you mean, ${list}? Name it with the day again and I've got it.`
+}
+
+/** The member-suggested revival's gauge message. Replaces the retry ask. */
+export function buildSuggestedRetryMessage(
+  activity: string,
+  failedProposedDate: Date,
+  revivalDate: Date,
+  timeZone: string
+): string {
+  const cap = activity.charAt(0).toUpperCase() + activity.slice(1)
+  const failed = formatWeekdayLong(failedProposedDate, timeZone)
+  const revival = formatWeekdayLong(revivalDate, timeZone)
+  return `${cap} didn't happen for ${failed}, but ${revival} came up as a better day. Anyone in for ${activity} this ${revival}? If three of you are in, I'll set it up.`
+}
+
+/** Model-facing context, not member-facing copy: the fact the recognizer needs. */
+export function buildLiveGaugeLine(activity: string, proposedDate: Date, timeZone: string): string {
+  const weekday = formatWeekdayLong(proposedDate, timeZone)
+  return `Orbit is currently gauging interest in ${activity} for this ${weekday}; the group answers with the chips under that message.`
+}
+
 /** The close-and-ask for a day-blocked gauge. Replaces the closure note. */
 export function buildRetryAskMessage(
   activity: string,
