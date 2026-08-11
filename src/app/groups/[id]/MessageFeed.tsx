@@ -11,6 +11,7 @@
 // - Other member: name label (no avatar), outlined low-fill bubble.
 // - Viewer (self): right-aligned, --surface-self (strongest neutral, not teal,
 //   not lime).
+// - System ("Jesse joined"): centered quiet line, no bubble, no avatar.
 // - No bubble tails anywhere in the feed (only the onboarding Step 1 bubble
 //   gets a tail — see §7 "one onboarding bubble-tail exception").
 // - Chat body stays at --type-body (17px), never shrunk (§7 firm rule).
@@ -121,6 +122,27 @@ export default function MessageFeed({
       }}
     >
       {messages.map((msg) => {
+        // System announcements ("Jesse joined"): the room noticing, not anyone
+        // speaking. Centered quiet line — no bubble, no avatar, no name label
+        // (§7: bubbles are for dialogue, and nobody replies to a join).
+        if (msg.authorType === MessageAuthor.SYSTEM) {
+          return (
+            <p
+              key={msg.id}
+              style={{
+                width: "100%",
+                textAlign: "center",
+                fontSize: "var(--type-meta)",
+                lineHeight: "var(--leading-normal)",
+                color: "var(--text-secondary)",
+                margin: 0,
+              }}
+            >
+              {msg.body}
+            </p>
+          )
+        }
+
         const isOrbit = msg.authorType === MessageAuthor.ORBIT
         const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
         const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
