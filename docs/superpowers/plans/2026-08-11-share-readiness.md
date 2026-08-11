@@ -576,18 +576,56 @@ with the matching import.
 
 ---
 
-### Task 7: The members-only wall component
+### Task 7: The shared Orbit-note screen, and the members-only wall
 
 **Files:**
+- Create: `src/components/OrbitNoteScreen.tsx`
 - Create: `src/components/MembersOnlyWall.tsx`
+- Modify: `src/app/join/[inviteToken]/page.tsx` (its bad-token branch renders the shared screen)
 - Test: `src/components/__tests__/MembersOnlyWall.test.tsx`
+- Test: `src/components/__tests__/OrbitNoteScreen.test.tsx`
+
+**Owner ruling (11 Aug 2026, pre-flight):** extract a shared component rather
+than copying the bad-invite screen's markup. The owner's standing preference is
+a clean extraction over duplicate-and-flag. The bad-invite screen is a file the
+plan otherwise never names; that touch is deliberate and must be disclosed in
+the PR body.
 
 **Interfaces:**
-- Produces: `export default function MembersOnlyWall(): JSX.Element` — no props. Later tasks render `<MembersOnlyWall />` from server components.
+- Produces:
+  - `OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: { eyebrow: string; note: string; linkHref: string; linkLabel: string }): JSX.Element` — the full-page shell plus the labeled Orbit note card plus one quiet onward text link. Server-compatible (no `"use client"`).
+  - `MembersOnlyWall(): JSX.Element` — no props; renders `OrbitNoteScreen` with the wall's approved copy. Later tasks render `<MembersOnlyWall />`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
 ```tsx
+// src/components/__tests__/OrbitNoteScreen.test.tsx
+// @vitest-environment jsdom
+import { describe, it, expect } from "vitest"
+import { render, screen } from "@testing-library/react"
+import OrbitNoteScreen from "../OrbitNoteScreen"
+
+describe("OrbitNoteScreen", () => {
+  it("renders the eyebrow, the labeled note, and the onward link", () => {
+    render(
+      <OrbitNoteScreen
+        eyebrow="Invite only"
+        note="Ask someone in the group for the link."
+        linkHref="/create"
+        linkLabel="Start your own group"
+      />
+    )
+    expect(screen.getByText("Invite only")).toBeTruthy()
+    expect(screen.getByText("A note from Orbit")).toBeTruthy()
+    expect(screen.getByText("Ask someone in the group for the link.")).toBeTruthy()
+    const link = screen.getByRole("link", { name: "Start your own group" })
+    expect(link.getAttribute("href")).toBe("/create")
+  })
+})
+```
+
+```tsx
+// src/components/__tests__/MembersOnlyWall.test.tsx
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
@@ -608,12 +646,32 @@ describe("MembersOnlyWall", () => {
 })
 ```
 
-- [ ] **Step 2: Run it, watch it fail** (component does not exist).
+- [ ] **Step 2: Run both, watch them fail** (neither component exists).
 
-- [ ] **Step 3: Implement** — copy the bad-invite-token screen's structure from `src/app/join/[inviteToken]/page.tsx` (the `!group` branch) exactly: same `<main>` shell, same eyebrow/note-card/link markup and inline styles. Differences only:
-  - Eyebrow text: `Invite only` (instead of `Invite link`).
-  - Note body: `This group is invite-only. If you know someone in it, ask them for the invite link, it&apos;ll bring you right in.`
-  - Header comment:
+- [ ] **Step 3: Implement `OrbitNoteScreen.tsx`** — move the markup and inline
+styles verbatim out of the `!group` branch of
+`src/app/join/[inviteToken]/page.tsx`: the `<main>` shell (minHeight
+`100dvh`, `--surface-page`, centered column, `2rem 1.5rem` padding, the Geist
+font stack), the `28rem` max-width column, the uppercase eyebrow paragraph,
+the note card (`--surface-card`, `--border-subtle`, `0.75rem` radius,
+`1.25rem` padding), the lime "O" avatar dot with the `A NOTE FROM ORBIT`
+label, the body paragraph, and the bottom underlined text link. The four
+props above are the only things that vary. Header comment:
+
+```tsx
+// src/components/OrbitNoteScreen.tsx
+//
+// A whole screen whose entire content is one labeled note from Orbit plus one
+// quiet way onward. Two screens need exactly this: a bad invite token, and the
+// members-only wall. A labeled note, never a bubble (CLAUDE.md): there is
+// nothing on these screens to reply to.
+//
+// This component owns the shell and the note treatment and nothing about which
+// screen is using it, the same boundary PageHeader draws: no opinion about the
+// copy, so neither caller's wording can leak into the other's.
+```
+
+- [ ] **Step 4: Implement `MembersOnlyWall.tsx`**
 
 ```tsx
 // src/components/MembersOnlyWall.tsx
@@ -623,18 +681,46 @@ describe("MembersOnlyWall", () => {
 // count, no confirmation beyond the screen itself that the URL is real. The
 // "ask for the invite link" line is also the honest way back in for a member
 // who lost their session, until email sign-in exists (post-MVP email arc).
-//
-// A labeled note, not a bubble (CLAUDE.md): there is nothing here to reply to.
-// Same treatment and structure as the bad-invite-token screen, deliberately
-// not extracted into a shared piece with it: two screens is coincidence, and
-// their copy already differs.
+
+import OrbitNoteScreen from "./OrbitNoteScreen"
+
+export default function MembersOnlyWall() {
+  return (
+    <OrbitNoteScreen
+      eyebrow="Invite only"
+      note="This group is invite-only. If you know someone in it, ask them for the invite link, it'll bring you right in."
+      linkHref="/create"
+      linkLabel="Start your own group"
+    />
+  )
+}
 ```
 
-  The whole component is a server-compatible plain function (no `"use client"`; `Link` from `next/link` works in both).
+Use a typographic apostrophe or `&apos;`-equivalent consistent with the repo's
+existing JSX copy so the rendered string matches the test exactly.
 
-- [ ] **Step 4: Run the test, expect PASS. Commit:** "Build the wall a stranger meets instead of a group"
+- [ ] **Step 5: Rewrite the bad-token branch** in
+`src/app/join/[inviteToken]/page.tsx` to render the shared screen, preserving
+its current copy exactly:
 
----
+```tsx
+  if (!group) {
+    return (
+      <OrbitNoteScreen
+        eyebrow="Invite link"
+        note="This invite link isn't working. Ask whoever sent it to share it again and I'll get you into the group."
+        linkHref="/create"
+        linkLabel="Start your own group"
+      />
+    )
+  }
+```
+
+Keep the explanatory comments that justify the note-not-bubble choice and the
+non-teal link, moving them onto this call or into `OrbitNoteScreen`, whichever
+reads better; do not lose the reasoning.
+
+- [ ] **Step 6: Run both test files plus any existing join-screen test, `npx tsc --noEmit`, full suite. Commit:** "Extract the Orbit-note screen, and build the wall a stranger meets"
 
 ### Task 8: The three group screens go members-only
 
