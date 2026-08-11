@@ -145,17 +145,20 @@ Demo-critical (the portfolio piece is not complete without these):
   - Leave group (warm, destructive-styled, never buried; §4).
 
   ~~The `/groups/[id]/info` stub grows in place.~~ **Landed with the group-info slice (10-11 Aug 2026; strikethrough added 11 Aug during the joining-arc record pass, the landing slice missed it).** What shipped: the identity block, the WHO list, every rhythm with its venue, the real invite link with a share button for members and the founder, and the founder's Manage-members and Reset-link powers, plus Leave group for members. Reasoning, decisions, and walkthrough evidence in the §11 group-info entry.
-- **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font). What makes the demo look finished rather than scaffolded.
+- **Share-readiness hardening (added 11 Aug 2026, triage round two; one slice, after .ics, before polish).** Two parts, both protecting the first shared link, which goes to an investor expected to pressure-test with a real group; that fact is what moved the write-gating half up from the launch bucket. (a) Membership-gate the write actions (posting, RSVPs, gauge and proposal votes): today a signed-in non-member holding a group URL can post into the feed and tap "I'm in," with the tap silently dropped from the count, the silent-drop failure this project treats as the worst kind, and it would land in front of exactly the audience the link exists to impress. Viewing stays ungated by design; a non-member gets an honest read-only state with a path in, not buttons that lie. (b) A graceful out-of-credit state: onboarding's extraction failure and Orbit's detection failure learn to tell the service being unavailable apart from not understanding the message, and say plainly, in Orbit's voice, that the prototype ran out of model credits and is being topped up; the owner wants the reason stated explicitly rather than politely vague, exact copy settled at build time. Built regardless of any provider-side low-balance notification, as the fail-safe against quiet embarrassment.
+- **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font). What makes the demo look finished rather than scaffolded. *Shaped 11 Aug 2026 (triage round two): three slices, not one. The strip-versus-carousel placement call comes first, because the record already warns against polishing the strip before that decision; then foundations plus the group home (dark default, Geist, avatar, subline, bubbles and chips), the screen that locks the feel; then the onboarding wizard; then the remaining screens plus the real-phone Safari pass. One narrow Claude Design round covers only the screens with no handoff: the front door, the carousel chrome, and the pending treatment if the carousel option wins.*
 
 Launch, not demo (real requirements for a launched product, invisible in a walkthrough, deferred on purpose):
 
-- **Email-capture ask after the first RSVP** (§3). A genuine §3 requirement before real users: it is how a member gets reminders and gets back in from another device. Invisible in a demo, because a walkthrough never clears its own session or waits a day for a reminder. Needs a live RSVP surface with Orbit present to attach to, so it rides with Orbit's live posting (spark) whenever it is built.
-- **Access-control / membership gating.** No surface is membership-gated today (group home, event detail, group info all viewable by any session). **Not required for the portfolio demo; required before any real person uses the product.** CLAUDE.md points at this slice as the home for that standing gap. Labeled explicitly because leaving it unlabeled is how it stays ambiguous forever.
+- **Email-capture ask after the first RSVP** (§3). A genuine §3 requirement before real users: it is how a member gets reminders and gets back in from another device. Invisible in a demo, because a walkthrough never clears its own session or waits a day for a reminder. Needs a live RSVP surface with Orbit present to attach to, so it rides with Orbit's live posting (spark) whenever it is built. *Amended 11 Aug 2026 (triage round two): spark landed without it; it now rides the post-MVP email arc (fast-follow list below) instead of standing alone, because capturing emails before anything sends them collects a promise with nothing behind it.*
+- **Access-control / membership gating.** No surface is membership-gated today (group home, event detail, group info all viewable by any session). **Not required for the portfolio demo; required before any real person uses the product.** CLAUDE.md points at this slice as the home for that standing gap. Labeled explicitly because leaving it unlabeled is how it stays ambiguous forever. *Amended 11 Aug 2026 (triage round two): the write-gating half moved into the MVP push (the share-readiness hardening slice in the demo-critical list above), because the first shared link goes straight to an investor's real-group pressure test, which is real use arriving at MVP time. Viewing gates and anything beyond the honest non-member state stay here.*
 - **Group-naming nudge** (§5): a day or two in, Orbit prompts the group to pick a fun name together, the first demonstration of Orbit driving engagement beyond logistics. Launch, not demo, on the trigger: it fires a day or two after group creation, so a walkthrough cannot show it without contrivance, which is exactly what puts it in this bucket rather than demo-critical.
-- **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature, and only relevant once the thing is actually being put in front of someone.
+- **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature, and only relevant once the thing is actually being put in front of someone. *(Correction, 11 Aug 2026: the checklist has grown to ten items; the five named here were the count when this line was drafted, left per the append-only rule. The §11 checklist itself is the source of truth.)*
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
+- **The email arc, first post-MVP work (decided 11 Aug 2026, triage round two).** Email capture after the first RSVP, then an email digest that brings people back to the app: the web app's substitute for native notifications, with SMS priced out for an MVP and web push already registered below. The digest's shape is an anti-clutter product question that earns its own brainstorm, and a sending service is a new external seam, which is exactly what kept it out of the MVP push. An iOS app was considered for the same need and declined for now as a much larger lift.
+- **Orbit-miss observability, and a user feedback affordance (queued 11 Aug 2026, triage round two).** A periodic digest to the owner of detection failures and quiet outcomes (today they fail toward silence and nobody would know), and a place in the product for users to leave feedback. Both declined for now while everyone with access knows the owner personally; queued so they are not lost when that stops being true. The interim answer, accepted knowingly: people who know the owner complain out of band, plus an occasional skim of the server logs once the investor group is live.
 - Multi-group home screen (backend ready day one; Orbit logo already positioned as home button).
 - Multi-venue event UI (data model ready day one).
 - Logistics card and per-person roster details on the event page (the travel case; purely additive). Full travel support likely also wants nested events (container weekend, child events with independent RSVPs), enabled later by a nullable parent reference; semantics already locked in §2.
@@ -350,12 +353,15 @@ Seven High-priority items come due at the moment of the first production deploy.
 9. **Put a spending ceiling on pre-auth model calls before the product is reachable at a public URL.**
    *Why it blocks deploy:* every model call in the product (onboarding extraction, the gap-ask merge, chat intent detection) is reachable by an anonymous session with no sign-in, because no surface is membership-gated and identity is anonymous-first by design. A deployed URL with no ceiling is an open door to unbounded API spend that no user account limits. The ceiling can be a provider-side spend limit, an app-side cap, or both; which one is a decision for the deploy moment, not for this line.
    *Detail:* elevated from debt to checklist item at the pre-MVP triage pass, 10 Aug 2026 (triage entry, below in §11).
+   *Amended 11 Aug 2026 (triage round two): satisfied for MVP by the provider-side hard cap already in place (prepaid credit with auto-reload off), confirmed at the deploy moment rather than built; no rate-limiting code. The cap converts cost risk into downtime risk, accepted for a portfolio piece, and the hardening slice's graceful out-of-credit screen is the face of that downtime.*
 
 *Correction, 10 Aug 2026 (pre-MVP triage pass): nine items now. Same reading as above: check all of them.*
 
 10. **Apply migration `20260811150701_add_system_message_author` to the production database** (adds `SYSTEM` to the `MessageAuthor` enum, nothing else changes shape).
     *Why it blocks deploy:* the join announcement (joining-arc slice) writes a `MessageAuthor.SYSTEM` message inside the join transaction. A production database without this migration fails every first join, and it fails inside a transaction that also writes the membership row, so the person would not even get into the group.
     *Detail:* joining-arc slice, Task 2. Applied to dev-test only, per the two-databases rule.
+
+*Correction, 11 Aug 2026 (triage round two): ten items now. Same reading as above: check all of them.*
 
 *Correction, 11 Aug 2026 (joining-arc slice): ten items now. Same reading as above: check all of them.*
 
@@ -562,6 +568,10 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made.
 
+- **The add-to-calendar pill has no leading calendar glyph (recorded 11 August 2026, from the .ics-slice review).** The design source's `.ed-cal` rules in `docs/design/walkthrough-screens` (and screen 09) draw a small calendar icon left of the "Add to calendar" label inside the teal pill, with 9px of gap between icon and text; what shipped is label-only. Polish-pass candidate: add the 16px glyph and the gap, matching `.ed-cal`.
+
+- **The add-to-calendar pill has no hover or focus treatment (recorded 11 August 2026, from the .ics-slice review).** Checked against the codebase rather than assumed: no teal action anywhere has a genuine `:hover` state today; the nearest existing idiom is `RsvpControls`' `--color-teal-hover` token, used for its pending (in-flight write) color rather than mouse hover. The pill is a plain anchor with neither. Polish-pass candidate: settle one real hover/focus idiom for teal pills generally, then apply it here and to its siblings together.
+
 ### Orbit scheduled event auto-creation (26 June 2026)
 
 Orbit now creates recurring events on a schedule rather than having them faked by a seed fixture. This is the first real event-creation path in the codebase and the first "Orbit acts autonomously" slice. Deliberately model-free: the rhythm arrives already structured (onboarding is deferred), so Orbit does only date math plus deterministic copy.
@@ -610,7 +620,7 @@ A deliberate control experiment, not a build slice. The app was cloned into an i
 
 **Tech debt resolved by this experiment.** The experiment's Supabase project has been renamed `interplanetary-groups-dev-test` and promoted to the project's real dev/test database. This closes the "single shared database, no separate dev/test environment" debt logged in the data-foundation slice and referenced again in the Orbit scheduled-event slice. Credentials for it are kept strictly separate from production and a production build is never pointed at it.
 
-**Next phase intent: test bigger slices deliberately.** The goal of all of the above is faster-but-earned, not slower-forever. The gates are what make it safe to size slices up. Worth running as its own deliberate experiment on the real app once onboarding lands: a few related features in one slice, with the look-at-the-screen and show-me-it-works gates fully intact, and a comparison against the single-feature slice cadence.
+**Next phase intent: test bigger slices deliberately.** The goal of all of the above is faster-but-earned, not slower-forever. The gates are what make it safe to size slices up. Worth running as its own deliberate experiment on the real app once onboarding lands: a few related features in one slice, with the look-at-the-screen and show-me-it-works gates fully intact, and a comparison against the single-feature slice cadence. *Closed, 11 Aug 2026 (triage round two): overtaken by events. The slices from spark part two onward already run at this size with the gates intact, so the experiment happened without being scheduled; closed so no future session dusts it off.*
 
 **Annotation (23 July 2026, added during the spark interest-gauge slice).** The experiment's two spark decisions were checked against the real design and the recorded rules, and neither survived. It built two chips with copy it invented; the design sheet has three, with different labels and different roles, including a "yes, but not that day" answer the experiment had no concept of. And it gave the person who floated an idea an automatic yes, which was a misreading of the never-ask-twice rule: that rule is about carrying a yes already given through to the created event, not about inventing one. The corrected rule is that they are counted only when they named the proposed day themselves. Recorded here as an annotation rather than a rewrite; the log stays a historical record of what was actually decided at the time.
 
@@ -1606,3 +1616,216 @@ underlying need is real and is queued post-MVP as "founder can fix group
 details after creation," whose natural home is the info page or Orbit's chat
 once change requests widen, not the wizard. Recorded so "why is there no back
 on step 3" never resurfaces as a mystery.
+
+### The .ics add-to-calendar button (started 11 Aug 2026)
+
+Slice started from main at 3d40d75. Suite baseline before any code: 59
+files, 736 tests, all green. Spec:
+docs/superpowers/specs/2026-08-11-ics-calendar-button-design.md. The rest
+of this entry is written at slice close.
+
+**Cross-check discrepancy, recorded rather than absorbed.** The joining-arc
+entry above states its finishing number as "59 files, 735 tests." The fresh
+count taken here, on the merged `3d40d75` itself, is 59 files, 736 tests,
+one test higher. The likely explanation, found by reading the commit
+history rather than assumed: the joining-arc entry's suite line was written
+at commit `4725db3` (735 tests), but the branch that actually merged as
+`3d40d75` includes a later commit, `60ac249` ("Fix eve-bump SYSTEM-row leak
+and mid-create back navigation"), whose commit message says the fix is
+"Covered by a new failing-first test in endgame.test.ts", one new test
+never folded back into the §11 entry's recorded number. This baseline (59
+files, 736 tests) is the real, current, all-green count as of this slice's
+start and is what later slices should cross-check against; the joining-arc
+entry's "735" is now a known-stale number, left as-is above per the
+append-only rule rather than rewritten.
+
+**Why this button is the product's reminder.** §6 settled long ago that the
+MVP has no web push, so the one-way calendar snapshot is the whole of how
+Interplanetary Groups says "Orbit remembers for you" outside the app. The
+event-detail slice drew the button and deliberately did not wire it, on the
+reasoning that a dead button is worse than none; this slice is that deferral
+coming back as a real export. It is item 3 of the 10 Aug 2026 pre-MVP triage
+order, which is not re-derived here.
+
+**What shipped, as a member experiences it.** On an event's detail screen,
+below the details card and above the roster, there is now a full-width teal
+"Add to calendar" pill. Tapping it on a phone opens the phone's own
+add-to-calendar flow; clicking it on a desktop downloads a calendar file.
+The entry carries the plan's title, its day and time, the meeting spot, and
+a line pointing back at the event page for details and RSVPs. The pill is
+label-only; the design source's small leading calendar glyph (`.ed-cal` in
+the prior handoffs' `walkthrough.css`) was not built and is registered in
+the feel-pass register above for the polish pass to pick up, rather than
+silently dropped. Nothing about
+the member is in the file: no names, no emails.
+
+**The decisions as settled with the owner in this slice's brainstorm, and why.**
+- **Event detail only, not the home card.** The home event card stays the
+  gist, with its two-button footer; adding a plan to a calendar is a
+  completeness action, so it lives on the completeness screen. This
+  supersedes a type-rules line in CLAUDE.md that had imagined the button as
+  a compact in-card control; that line was amended in this slice rather than
+  left to contradict what shipped.
+- **Teal, in a region of its own.** The two design handoff files disagreed
+  with each other: one called this the event screen's single teal primary,
+  the other grouped it with the outlined secondaries. The primary treatment
+  won, because the product's only reminder mechanism should not read as an
+  afterthought. This is legal under the per-element teal rule as amended on
+  27 July, since the pill is its own region and the details card keeps its
+  own teal "I'm in."
+- **One hour when an event has no stored end.** A stored end time always
+  wins; only an event that never got one falls back. The owner chose one
+  hour over the agent's two-hour recommendation, on the grounds that one
+  hour is the calendar convention people already expect to see blocked.
+- **Composed fresh at tap time, on the server.** The button is a plain link
+  to an endpoint that builds the file per request from the stored plan, so a
+  member who taps after the group voted to move the time gets the moved
+  time, with nothing cached in between. Building the file in the browser was
+  rejected because phone browsers handle that unreliably and phones are
+  where this product lives; per-vendor "Add to Google Calendar" links were
+  rejected because the record already chose one calendar snapshot rather
+  than a row of branded buttons.
+- **A personal calendar showing the member's own local time is correct, not
+  drift.** Recorded explicitly so a future reader does not "fix" it. The
+  everything-renders-in-group-time rule governs the app's shared surfaces,
+  where one stored string has to serve every viewer at once. A calendar
+  entry is not a shared surface: it is the member's own device telling them
+  when to show up, for one absolute moment, wherever they happen to be.
+- **The stored venue address gets its first surface anywhere in the
+  product**, appended after the venue's short label, because a calendar
+  location's whole job is letting the phone offer directions. It is still
+  rendered nowhere else in the app.
+- **Visible to every viewer**, session or not, member or not, matching the
+  standing ungated state rather than inventing a gate for one endpoint.
+
+**A decision made during the build that the spec did not anticipate.** The
+calendar file originally announced itself as a published invitation but
+carried no revision marker, which meant a strict calendar app could look at
+a re-download and decide it was not newer than what it already had, leaving
+a member staring at a stale time. Since the whole promise of the stable
+entry identity is that a re-tap after a change *replaces* the old entry
+instead of duplicating it, the announcement was dropped and each file is now
+stamped with the event's own last-changed time, so the second copy carries
+everything a calendar app needs to recognize it as a newer version of the
+same plan rather than a separate one. That pair, a steady identity plus a
+freshness marker, is what most calendar apps go on when they decide to
+replace instead of duplicate. What this slice can honestly claim stops
+there: the file is correct, and no specific Apple, Google, or Outlook
+behavior was verified, because none of it can be exercised from this
+machine. Recorded as a decision with its reasoning, not as a bug fix,
+because it is the mechanism the re-tap promise rests on.
+
+**Declined, each naming its home.**
+- **A calendar button on the home event card:** declined by the placement
+  decision above.
+- **Built-in reminder alarms inside the entry:** declined. The member's own
+  calendar defaults govern when their phone buzzes; overriding them would be
+  our clutter in their pocket, which is the opposite of the anti-clutter
+  north star.
+- **Recurring-series export:** declined. Each stored event is one
+  occurrence, and the series lives in Orbit's rhythm; exporting a series
+  belongs to the post-MVP subscribable feed (§8).
+- **Membership gating of the endpoint:** the access-control slice.
+- **Friendly per-vendor links:** settled above.
+
+**Debt opened or left standing.**
+- **A saved entry goes stale if the group later moves the plan.** The feed
+  announcement is the correction channel and a re-tap replaces the entry.
+  This is the standing §6 limitation restated, not new debt; its successor
+  is the post-MVP subscribable feed. Recommendation: queue with the feed,
+  not before.
+- **The stored venue address now has a surface but still no edit path
+  behind it.** A wrong address saved at creation can, from today, mislead a
+  phone's directions rather than just sitting unread in the database. This
+  joins the standing venue-correction gap rather than opening a new one.
+  Recommendation: queue, and let it add weight to whenever venue correction
+  gets its slice.
+- **No migration, no model call, and no new environment variable.** Nothing
+  joins the pre-deploy checklist, and this slice costs nothing per use to
+  run.
+
+**Suite and verification.** Baseline at slice start: 59 files, 736 tests,
+all green (with the cross-check discrepancy above recorded rather than
+absorbed). After this slice: 62 files, 750 tests, all green. Every new test
+was written and shown failing before the code that made it pass, with one
+named exception: two of the composer's tests (see the review finding below)
+were rewritten during review against code that already passed, since the
+review found the tests themselves, not yet-unbuilt behavior, to be the
+defect. The recognition bench (`npm run eval:detect`) was not rerun and was not
+triggered: no prompt changed and no model call was added, so there was
+nothing for it to re-measure. Walkthrough evidence is appended to this entry
+by the next task.
+
+**One review finding worth keeping as a lesson.** Two of the calendar
+composer's tests, as first written, could not have failed against the bugs
+they existed to catch: one checked that a backslash gets escaped using input
+that contained no backslash, and another checked a long line's wrapping
+against a run of identical characters, which a duplication bug would have
+satisfied just as well as correct code. Both were caught in review and
+rewritten to be capable of failing. A clean concrete instance of this
+project's rule that a passing test is only evidence if it could have failed,
+and a reminder that the failure mode is usually a test that is *almost*
+right rather than one nobody wrote.
+
+**Browser walkthrough, 11 Aug 2026.** Run against the real dev server on the
+dev-test database, with one event staged for it
+(`scripts/qa-stage-ics.ts`, new: a "[QA] ICS" group whose event carries a
+venue with both a display label and a street address, and no stored end
+time, because no existing QA row exercised either the address or the
+fallback). What was seen, not inferred:
+
+- The event screen renders the teal "Add to calendar" pill full-width
+  between the details card and the roster, with the details card keeping its
+  own teal "I'm in" above it. Two regions, one teal action each, which is
+  the per-element reading of the color rule working as intended rather than
+  a violation. Screenshotted at phone width in the dark theme.
+- The pill is a real anchor to `/events/<id>/calendar.ics` with no click
+  handler, so it degrades to an ordinary link.
+- Fetching that URL returns HTTP 200 with `text/calendar; charset=utf-8` and
+  no `Content-Disposition`, and the body is a complete calendar object: all
+  sixteen lines end CRLF, timestamps are UTC `Z` times, the summary and the
+  location escape their commas, and the description line wraps at the
+  75-octet limit with its continuation carrying a leading space. The whole
+  file is 458 bytes.
+- The staged event has no stored end time and its entry blocks exactly one
+  hour (18:30 to 19:30 UTC), which is the fallback the owner chose.
+- Its location line reads
+  `LOCATION:Movement\, 1622 W Belmont Ave\, Chicago\, IL`, the escaped bytes
+  as they appear in the file (the adjacent bullet on comma-escaping applies
+  here too): the venue's short display label rather than its stored legal
+  name, with the street address appended. This is the stored address's first appearance
+  anywhere in the product, seen working.
+- A venue-less event's file omits the location line entirely rather than
+  emitting an empty one, and takes the same one-hour fallback.
+- An unknown event id returns 404 rather than an error page or a malformed
+  file.
+- Neither file contains a name, an email, an attendee, or an organizer.
+- Enlarged text does not clip the pill: at a 24px root font size it grows
+  from 44px to 66px and the label still fits, measured on the live element
+  rather than eyeballed. This one is checked because clipping at enlarged
+  text is a recorded past failure in this project.
+
+**What the walkthrough could not reach, stated plainly.** No phone was
+involved, so the tap-to-add flow a member would actually use is unverified,
+and no Apple, Google, or Outlook import was exercised; the file's
+correctness is established by its contents and its unit tests, not by any
+calendar application's behavior. The optional phone step in the PR's QA
+script is what closes that gap, and it belongs to the owner. The QA rows are
+left in the dev-test database as inspectable evidence, expendable
+thereafter.
+
+### Pre-MVP triage, round two (11 Aug 2026)
+
+The owner revisited the 10 Aug triage list the next day, with group info, the joining arc, and the .ics button landed, and made a second round of decisions in the same triage session. Recorded here riding the .ics branch, the branch open when the decisions were made; the amendments this entry summarizes were made in place in the same commit (deploy-checklist item 9, the §8 registers, the sealed one-shot entry, and CLAUDE.md's next-slice pointer).
+
+**One slice added to the MVP push: share-readiness hardening, after .ics, before polish.** Full definition in the §8 demo-critical register. The deciding fact was new: the first public link goes to an investor the owner works with, who is expected to pressure-test the product with a real group. That is real use arriving the moment MVP exists, which moved the write-gating half of access control up from the launch bucket (a non-member's silently dropped "I'm in" is the product's worst failure mode, and it would fire in front of exactly that audience) and created the graceful out-of-credit state (a job evaluator finding a dead app because a prepaid credit ran dry is an avoidable first impression; the screen says why, explicitly, in Orbit's voice).
+
+**The spending-ceiling checklist item was reframed rather than built.** The owner already runs a provider-side hard cap: prepaid credit with auto-reload off. That satisfies item 9 with no rate-limiting code; the annotation on the item records it. The owner will also check the provider console for a low-balance email notification, which may exist (unverified at decision time); the graceful screen is built either way, as the fail-safe.
+
+**Captcha on anonymous sign-in: declined for MVP.** A portfolio reviewer hitting a captcha as their first interaction is a worse product moment than the risk it prevents, and the billing hard cap already bounds a bot's damage to downtime rather than money. Revisit if the credit ever drains unexpectedly. This amends the founder-auth entry's production-readiness note by decision rather than by edit.
+
+**Notifications have their answer: the email arc, first post-MVP work.** Capture, then digest, as one story; definition in the §8 fast-follow register. Email capture therefore does not precede MVP: with nothing sending, capture would collect a promise with nothing behind it.
+
+**Post-MVP queue, confirmed or added.** The recognition-precedence slice (the both-true discard, the cross-activity window overlap, and bench cases for both plus the untested two-ideas question) stays a fast follow rather than squeezing into the MVP push; the owner is eager to share and nothing about it compounds by waiting. Verbal RSVP stays queued, with the coupling question answered: it touches the classifier and the RSVP write path, polish touches neither, so it costs the same after polish as before. Orbit-miss observability and a feedback affordance enter the register, declined for now. The eval benches for extraction and merge stay trigger-queued, unchanged, with one clarification worth keeping: the benches are development-time instruments, and what stands between the model and the live demo is the runtime pair already built, the normalize boundary and the guardrails, so the missing benches do not make the demo less safe.
+
+**Closed and declined.** The sealed one-shot entry's "test bigger slices deliberately" intent is closed as overtaken by events (annotated there). The engineering tidiness tail from the first triage round (account-deletion handling, durationMinutes wired to endsAt, the Prisma generator migration, promoting recurringActivities to a table, relocating RsvpControls, the page-shell dedup) is declined as standalone work; each item rides whichever slice next opens its file. The watch-items stay watch-only, unchanged.
