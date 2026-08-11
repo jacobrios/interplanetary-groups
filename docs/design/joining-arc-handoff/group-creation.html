@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Creation · Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Hanken+Grotesk:wght@600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ===== Dark identity tokens ===== */
+    --surface-base: #15161e;
+    --surface-raised: #20222d;
+    --surface-self: #2d3040;
+    --hairline: #363a49;
+    --text-primary: #ECEDF2;
+    --text-secondary: #A7AAB6;
+    --text-faint: #6F7280;
+    --lime: #a4ef4e;
+    --lime-ink: #233006;
+    --action: #18bccb;
+    --action-ink: #0a2125;
+    /* legacy aliases mapped onto the dark system */
+    --paper: #15161e;
+    --ink: #ECEDF2;
+    --ink-soft: #A7AAB6;
+    --ink-faint: #6F7280;
+    --stroke: #363a49;
+    --stroke-strong: #363a49;
+    --fill: #20222d;
+    --accent: #18bccb;
+    --accent-soft: #14313a;
+    --lime-tint: #1b2a10;
+    --hand: 'Caveat', cursive;
+    --display: 'Hanken Grotesk', system-ui, sans-serif;
+    --ui: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: var(--ui); }
+
+  /* ---------- phone shell ---------- */
+  .phone {
+    width: 390px;
+    height: 100%;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .statusbar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    flex: 0 0 auto;
+  }
+  .statusbar .dots { display: flex; gap: 4px; align-items: center; }
+  .statusbar .dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
+  .statusbar .battery { width: 22px; height: 11px; border: 1.5px solid var(--ink); border-radius: 3px; position: relative; }
+  .statusbar .battery::after { content: ''; position: absolute; right: -3px; top: 3px; width: 2px; height: 5px; background: var(--ink); border-radius: 0 1px 1px 0; }
+  .statusbar .battery::before { content: ''; position: absolute; left: 1.5px; top: 1.5px; bottom: 1.5px; width: 60%; background: var(--ink); border-radius: 1px; }
+
+  .navbar {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    flex: 0 0 auto;
+  }
+  .chev {
+    width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--stroke-strong);
+    border-radius: 50%;
+    color: var(--ink-soft);
+  }
+  .progress { display: flex; gap: 6px; align-items: center; }
+  .progress i { display: block; height: 5px; border-radius: 3px; background: var(--stroke); }
+  .progress i.w { width: 26px; }
+  .progress i.n { width: 8px; }
+  .progress i.on { background: var(--ink); }
+  .skip { font-size: 13px; color: var(--ink-faint); font-weight: 500; }
+
+  .body { flex: 1 1 auto; padding: 8px 26px 0; display: flex; flex-direction: column; min-height: 0; }
+
+  .kicker { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; }
+  .headline { font-family: var(--hand); font-size: 40px; line-height: 1.02; color: var(--ink); margin: 10px 0 0; font-weight: 700; }
+  .subline { font-size: 14.5px; line-height: 1.45; color: var(--ink-soft); margin: 10px 0 0; max-width: 30ch; }
+
+  /* sketchy text area */
+  .field {
+    margin-top: 22px;
+    border: 1.8px solid var(--stroke-strong);
+    border-radius: 14px;
+    padding: 16px 16px 14px;
+    background: var(--surface-raised);
+    position: relative;
+    flex: 0 0 auto;
+  }
+  .field.grow { flex: 1 1 auto; min-height: 0; }
+  .field .ph { font-size: 15px; line-height: 1.55; color: var(--ink-faint); }
+  .field .caret { display:inline-block; width: 1.5px; height: 18px; background: var(--accent); vertical-align: -3px; margin-left: 1px; }
+  .field .count { position: absolute; right: 12px; bottom: 9px; font-size: 11px; color: var(--ink-faint); }
+
+  /* buttons */
+  .cta {
+    margin-top: 18px;
+    height: 52px;
+    border-radius: 30px;
+    background: var(--ink);
+    color: var(--text-primary);
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    font-size: 16px; font-weight: 600;
+    flex: 0 0 auto;
+  }
+  .cta.ghost { background: transparent; color: var(--ink-soft); border: 1.6px solid var(--stroke-strong); }
+  .cta.accent { background: var(--accent); }
+
+  .ainote {
+    display: flex; gap: 9px; align-items: flex-start;
+    margin: 16px 4px 0;
+    font-size: 12.5px; line-height: 1.4; color: var(--ink-soft);
+  }
+  .spark { flex: 0 0 auto; width: 18px; height: 18px; color: var(--accent); margin-top: 1px; }
+
+  .home-ind { height: 26px; flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
+  .home-ind i { width: 128px; height: 5px; border-radius: 3px; background: var(--ink); opacity: .85; }
+
+  /* ---------- B: chat ---------- */
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1.8px solid var(--ink); display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; background: var(--accent-soft);
+  }
+  .orbit-head { display:flex; align-items:center; gap: 10px; padding: 4px 4px 2px; }
+  .orbit-head .nm { font-weight: 600; font-size: 14.5px; color: var(--ink); }
+  .orbit-head .st { font-size: 11.5px; color: var(--ink-faint); }
+  .bubble {
+    margin-top: 18px;
+    background: var(--fill);
+    border-radius: 18px 18px 18px 4px;
+    padding: 14px 15px;
+    font-size: 15px; line-height: 1.5; color: var(--ink);
+    max-width: 86%;
+  }
+  .bubble.b2 { margin-top: 8px; }
+  .reply-wrap { margin-top: auto; padding-bottom: 6px; }
+  .reply {
+    border: 1.8px solid var(--stroke-strong);
+    border-radius: 20px;
+    background: var(--surface-raised);
+    padding: 14px 15px;
+    min-height: 96px;
+    position: relative;
+  }
+  .reply .ph { font-size: 14.5px; line-height: 1.5; color: var(--ink-faint); }
+  .send {
+    position: absolute; right: 9px; bottom: 9px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: var(--text-primary);
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* ---------- C: chips ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip {
+    border: 1.6px solid var(--stroke-strong);
+    border-radius: 20px;
+    padding: 7px 13px;
+    font-size: 13px; color: var(--ink-soft);
+    display: flex; gap: 6px; align-items: center;
+  }
+  .chip .pl { color: var(--ink-faint); font-weight: 600; }
+  .callout {
+    margin-top: 16px;
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 10px 10px 0;
+    padding: 11px 13px;
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-soft);
+  }
+
+  /* ---------- D: notecard ---------- */
+  .nc-stage { flex: 1 1 auto; display:flex; flex-direction: column; justify-content: center; padding-bottom: 16px; min-height: 0; }
+  .card {
+    background: var(--surface-raised);
+    border: 1.8px solid var(--stroke);
+    border-radius: 16px;
+    box-shadow: 6px 7px 0 rgba(43,43,43,.05);
+    padding: 22px 20px 20px;
+    position: relative;
+  }
+  .card::before {
+    content: ''; position: absolute; top: -7px; left: 50%; transform: translateX(-50%) rotate(-3deg);
+    width: 64px; height: 16px; background: rgba(24,188,203,.16); border: 1px solid var(--accent);
+    border-radius: 2px;
+  }
+  .lines { margin-top: 14px; }
+  .lines i { display:block; height: 1.5px; background: repeating-linear-gradient(90deg, var(--stroke) 0 8px, transparent 8px 14px); margin-bottom: 22px; }
+  .lines .txt { font-family: var(--hand); font-size: 21px; color: var(--ink-soft); line-height: 1.9; }
+  .tag {
+    display:inline-flex; gap:6px; align-items:center;
+    margin-top: 4px;
+    background: var(--ink); color: var(--text-primary);
+    font-size: 11px; font-weight: 600; letter-spacing: .03em;
+    padding: 5px 10px; border-radius: 20px;
+  }
+
+  .cap {
+    font-family: var(--hand);
+    font-size: 20px;
+    color: var(--ink-soft);
+  }
+  .cap b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- A+B refined: Orbit intro ---------- */
+  .orbit-intro { display: flex; gap: 11px; align-items: flex-start; margin-top: 2px; }
+  .orbit-intro .who { display: flex; align-items: center; gap: 7px; }
+  .orbit-intro .who .nm { font-weight: 600; font-size: 14px; color: var(--ink); }
+  .orbit-intro .who .st { font-size: 11px; color: var(--ink-faint); letter-spacing: .02em; }
+  .orbit-intro .line { font-size: 15px; line-height: 1.4; color: var(--ink); margin-top: 4px; }
+  .orbit-intro .line span { color: var(--ink-faint); }
+
+  /* ---------- A+B v2: header moment ---------- */
+  .ab2-head { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 18px; }
+  .ab2-avatar {
+    width: 104px; height: 104px; border-radius: 50%;
+    border: 2px solid var(--stroke-strong);
+    background: var(--surface-raised);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .ab2-avatar img { width: 86px; height: 86px; object-fit: contain; filter: grayscale(1) contrast(.92) brightness(1.02); }
+  .ab2-step {
+    margin-top: 16px;
+    white-space: nowrap;
+    font-family: var(--ui);
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 600;
+  }
+  .ab2-name {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 34px;
+    letter-spacing: -.01em;
+    color: var(--ink);
+    margin: 3px 0 0;
+    line-height: 1;
+  }
+  .ab2-line {
+    font-family: var(--ui);
+    font-size: 16px; line-height: 1.45;
+    color: var(--ink-soft);
+    margin: 12px 0 0;
+    max-width: 27ch;
+  }
+  .cta.lime { background: var(--lime); color: var(--lime-ink); }
+  .cta.lime svg { stroke: var(--lime-ink); }
+  .ainote.ab2-note { flex-direction: column; align-items: center; text-align: center; margin-top: 12px; }
+
+  /* ===================== STEP 2 ===================== */
+  .s2-body { flex: 1 1 auto; padding: 10px 22px 0; display: flex; flex-direction: column; min-height: 0; }
+  .s2-top { display: flex; align-items: center; gap: 11px; padding: 4px 0 2px; flex: 0 0 auto; }
+  .s2-av {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid var(--stroke-strong); background: var(--surface-raised);
+    display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto;
+  }
+  .s2-av img { width: 36px; height: 36px; object-fit: contain; filter: grayscale(1) contrast(.92) brightness(1.02); }
+  .s2-top .nm { font-family: var(--display); font-weight: 800; font-size: 19px; color: var(--ink); line-height: 1; }
+  .s2-top .step { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; margin-top: 4px; }
+  .s2-live { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ink-faint); font-weight: 600; }
+  .s2-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 3px rgba(24,188,203,.22); }
+
+  .s2-scroll { flex: 1 1 auto; min-height: 0; padding-top: 14px; }
+
+  /* chat bubbles */
+  .s2-bubble {
+    background: var(--surface-raised); border: 1.5px solid var(--stroke);
+    border-radius: 16px 16px 16px 5px;
+    padding: 13px 14px; font-size: 15px; line-height: 1.5; color: var(--ink);
+    max-width: 90%; margin-bottom: 9px;
+  }
+  .s2-bubble .lead { font-weight: 600; }
+  .s2-typing { display: inline-flex; gap: 4px; align-items: center; }
+  .s2-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
+
+  .s2-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .s2-chip {
+    border: 1.6px solid var(--stroke-strong); background: var(--surface-raised);
+    border-radius: 9px; padding: 8px 11px; font-size: 13px; color: var(--ink);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .s2-chip .k { font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+  .s2-chip .pen { color: var(--ink-faint); }
+  .s2-ask { color: var(--ink-soft); font-size: 14px; margin: 12px 2px 0; }
+
+  /* summary card (V2) */
+  .s2-card {
+    border: 1.8px solid var(--stroke); border-radius: 16px; background: var(--surface-raised);
+    box-shadow: 5px 6px 0 rgba(43,43,43,.04);
+    overflow: hidden; margin-top: 4px;
+  }
+  .s2-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 15px; border-bottom: 1.4px solid var(--stroke);
+  }
+  .s2-row:last-child { border-bottom: 0; }
+  .s2-row .lab { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; width: 64px; flex: 0 0 auto; }
+  .s2-row .val { font-size: 15.5px; color: var(--ink); font-weight: 500; flex: 1 1 auto; }
+  .s2-row .pen { color: var(--ink-faint); flex: 0 0 auto; }
+  .s2-row.gap { background: var(--surface-raised); }
+  .s2-row.gap .val { color: var(--ink-faint); font-style: italic; font-weight: 400; }
+  .s2-row .add { font-size: 12px; font-weight: 700; color: var(--ink); border: 1.5px solid var(--stroke-strong); border-radius: 20px; padding: 4px 10px; flex: 0 0 auto; }
+
+  /* recap (V3) */
+  .s2-recap { font-size: 19px; line-height: 1.6; color: var(--ink); margin: 2px 2px 0; }
+  .s2-edit { border-bottom: 2px solid var(--stroke-strong); padding-bottom: 1px; font-weight: 600; }
+  .s2-q {
+    margin-top: 18px; border: 1.6px solid var(--stroke-strong); border-radius: 14px;
+    padding: 14px 14px 13px; background: var(--surface-raised);
+  }
+  .s2-q .qlab { display: flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; }
+  .s2-q .qtxt { font-size: 16px; color: var(--ink); margin-top: 7px; line-height: 1.4; }
+  .s2-replies { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .s2-reply { border: 1.6px solid var(--ink); border-radius: 20px; padding: 8px 14px; font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--surface-raised); }
+
+  /* shared step2 footer */
+  .s2-foot { flex: 0 0 auto; padding-top: 10px; }
+  .s2-fix { text-align: center; margin-top: 11px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); }
+  .s2-fix u { text-decoration: none; border-bottom: 1.5px solid var(--stroke-strong); padding-bottom: 1px; }
+
+  /* ---- V1 refined: static summary + chat input ---- */
+  .s2-sumhead { font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+  .s2-sum { margin-top: 6px; }
+  .s2-srow { display: flex; gap: 12px; align-items: baseline; padding: 9px 0; border-bottom: 1.4px solid var(--stroke); }
+  .s2-srow:last-child { border-bottom: 0; padding-bottom: 0; }
+  .s2-srow .k { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; width: 50px; flex: 0 0 auto; }
+  .s2-srow .v { font-size: 15px; color: var(--ink); line-height: 1.4; flex: 1 1 auto; }
+  .s2-upd { font-size: 11px; color: var(--ink-faint); font-style: italic; }
+  .s2-talk { margin: 13px 2px 0; font-size: 13px; color: var(--ink-soft); }
+
+  .s2-inwrap { flex: 0 0 auto; padding-top: 14px; }
+  .s2-input { display: flex; align-items: center; gap: 10px; border: 1.8px solid var(--stroke-strong); border-radius: 26px; padding: 8px 8px 8px 16px; background: var(--surface-raised); }
+  .s2-input .ftxt { flex: 1 1 auto; font-size: 14.5px; color: var(--ink); }
+  .s2-input .ftxt.suggest { font-style: italic; color: var(--ink-faint); }
+  .s2-input .caret { display: inline-block; width: 1.5px; height: 16px; background: var(--ink); vertical-align: -3px; margin-left: 1px; }
+  .s2-send { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .s2-send.lime { background: var(--lime); }
+  .s2-send.lime svg { stroke: var(--lime-ink); }
+  .s2-send.plain { background: var(--surface-self); }
+  .s2-send.plain svg { stroke: var(--ink-soft); }
+  .s2-inhint { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 10px; }
+  .s2-inhint b { color: var(--ink-soft); font-weight: 600; }
+
+  .s2-confirm2 { display: flex; justify-content: center; margin-top: 14px; }
+  .s2-confirm2 .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink); border: 1.8px solid var(--lime); background: var(--surface-raised); border-radius: 24px; padding: 10px 18px; }
+  .s2-confirm2 .btn svg { stroke: var(--ink); }
+
+  /* ---- Step 2 final: confirm chip + pinned input ---- */
+  .s2-final-scroll { flex: 1 1 auto; min-height: 0; padding-top: 14px; display: flex; flex-direction: column; }
+  .s2-card-bubble {
+    background: var(--surface-raised); border: 1.5px solid var(--stroke);
+    border-radius: 16px 16px 16px 5px; padding: 14px 15px; max-width: 95%; margin-bottom: 12px;
+  }
+  .s2-orbit-msg {
+    background: var(--surface-raised); border: 1.5px solid var(--stroke);
+    border-radius: 16px 16px 16px 5px; padding: 13px 15px;
+    font-size: 15px; line-height: 1.5; color: var(--ink); max-width: 92%; margin-bottom: 12px;
+  }
+  .s2-chip-confirm {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--lime); color: var(--lime-ink);
+    border-radius: 24px; padding: 12px 18px;
+    font-size: 15px; font-weight: 700; line-height: 1;
+    margin-left: 4px;
+  }
+  .s2-chip-confirm svg { stroke: var(--lime-ink); }
+  .s2-pin { flex: 0 0 auto; padding: 12px 0 8px; border-top: 1.4px solid var(--stroke); margin-top: 4px; }
+
+  /* ===== Step 2 rebalanced: chat is the hero ===== */
+  /* summary = white structured card Orbit dropped into the thread */
+  .s2r-card {
+    background: var(--surface-raised); border: 1.7px solid var(--stroke-strong); border-radius: 14px;
+    padding: 13px 15px; max-width: 96%; margin-bottom: 16px;
+    box-shadow: 4px 5px 0 rgba(43,43,43,.04);
+  }
+  .s2r-cardtag { display: flex; align-items: center; gap: 6px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin-bottom: 9px; }
+  .s2r-cardtag svg { width: 12px; height: 12px; }
+
+  /* Orbit speaking = avatar + solid-fill bubble, no solid */
+  .s2r-msgrow { display: flex; gap: 9px; align-items: flex-end; margin-bottom: 12px; max-width: 93%; }
+  .s2r-msgav { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--surface-raised); display: flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; }
+  .s2r-msgav img { width: 23px; height: 23px; object-fit: contain; filter: grayscale(1) contrast(.92) brightness(1.02); }
+  .s2r-msg { background: var(--ink); color: var(--text-primary); border-radius: 16px 16px 16px 5px; padding: 12px 14px; font-size: 14.5px; line-height: 1.5; }
+
+  /* quick-reply chip (variation A) */
+  .s2r-qr { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 0 37px; }
+  .s2r-qrchip { display: inline-flex; align-items: center; gap: 7px; border: 1.8px solid var(--lime); background: var(--surface-raised); color: var(--ink); border-radius: 22px; padding: 9px 15px; font-size: 14px; font-weight: 700; }
+  .s2r-qrchip svg { stroke: var(--ink); }
+
+  /* live chat input (both variations) */
+  .s2r-pin { flex: 0 0 auto; padding-top: 12px; }
+  .s2r-input { display: flex; align-items: center; gap: 10px; border: 2px solid var(--ink); border-radius: 26px; padding: 7px 7px 7px 16px; background: var(--surface-raised); box-shadow: 0 2px 0 rgba(43,43,43,.06); }
+  .s2r-input .ftxt { flex: 1 1 auto; font-size: 14.5px; color: var(--ink-faint); }
+  .s2r-input .caret { display: inline-block; width: 2px; height: 17px; background: var(--lime); vertical-align: -3px; margin-left: 1px; }
+  .s2r-send { width: 40px; height: 40px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .s2r-send svg { stroke: var(--lime-ink); }
+  .s2r-prompt { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 9px; }
+
+  /* quiet persistent confirm bar (variation B) */
+  .s2r-confirmbar { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 11px 0 3px; }
+  .s2r-confirmbar .lnk { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--ink-soft); border: 1.5px solid var(--stroke-strong); border-radius: 22px; padding: 8px 16px; background: var(--surface-raised); }
+  .s2r-confirmbar .lnk .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); flex: 0 0 auto; }
+  .s2r-confirmbar .lnk svg { stroke: var(--ink-soft); }
+
+  /* ===== Step 2 converged: confirm lives in the card footer ===== */
+  .s2f-cardfoot {
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    margin-top: 13px; padding-top: 13px; border-top: 1.4px solid var(--stroke);
+  }
+  .s2f-cardfoot .hint { font-size: 12px; color: var(--ink-faint); line-height: 1.3; flex: 1 1 auto; }
+  .s2f-confirm {
+    display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
+    border: 1.7px solid var(--lime); background: var(--surface-raised); color: var(--ink);
+    border-radius: 22px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+  }
+  .s2f-confirm svg { stroke: var(--ink); width: 15px; height: 15px; }
+
+  /* ===== Step 2 confirm-treatment explorations ===== */
+  .cardX { background: var(--surface-raised); border: 1.7px solid var(--stroke-strong); border-radius: 14px; max-width: 96%; margin-bottom: 16px; box-shadow: 4px 5px 0 rgba(43,43,43,.04); overflow: hidden; }
+  .cardX .pad { padding: 13px 15px 12px; }
+  .cardX .pad-tight { padding-top: 11px; }
+  .cardX .s2r-cardtag { margin-bottom: 9px; }
+  .cardX .s2-srow:last-child { padding-bottom: 2px; }
+  /* pending fill-in-the-blank gap */
+  .s2-gap { display: inline-flex; align-items: center; gap: 5px; border-bottom: 2px solid var(--lime); color: var(--ink-faint); font-style: italic; padding: 0 3px 1px; margin-left: 2px; }
+  .s2-gap svg { width: 12px; height: 12px; stroke: var(--ink-faint); flex: 0 0 auto; }
+  .s2-srow.pending .k { color: var(--lime-ink); }
+
+  /* V1 — tinted footer band */
+  .cfA { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(24,188,203,.16); padding: 12px 15px; cursor: pointer; }
+  .cfA .lbl { font-size: 13.5px; font-weight: 700; color: var(--lime-ink); }
+  .cfA .go { width: 26px; height: 26px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .cfA .go svg { stroke: var(--lime-ink); width: 15px; height: 15px; }
+
+  /* V2 — full-width footer action, single divider line, text + arrow */
+  .cfB { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 15px; border-top: 1.5px solid var(--stroke); }
+  .cfB .lbl { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .cfB svg { stroke: var(--lime-ink); width: 18px; height: 18px; flex: 0 0 auto; }
+
+  /* V3 — compact inline text link */
+  .cfC { padding: 10px 15px 11px; border-top: 1.4px solid var(--stroke); display: flex; justify-content: flex-end; }
+  .cfC .lnk { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .cfC .lnk u { text-decoration: none; border-bottom: 2px solid var(--lime); padding-bottom: 1px; }
+  .cfC .lnk svg { stroke: var(--lime-ink); width: 16px; height: 16px; }
+
+  /* card title replacing the eyebrow */
+  .cardX-title { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1.4px solid var(--stroke); }
+  .cardX-title .nm { font-family: var(--display); font-weight: 800; font-size: 18px; letter-spacing: -.01em; color: var(--ink); line-height: 1; white-space: nowrap; }
+
+  /* ===== Step 3 — invite link card ===== */
+  .s3-caption { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin: 0 0 7px; }
+  .s3-link {
+    display: flex; align-items: center; gap: 9px;
+    border: 1.6px solid var(--stroke-strong); border-radius: 10px;
+    background: var(--surface-base); padding: 11px 12px;
+  }
+  .s3-link .glb { width: 16px; height: 16px; color: var(--ink-faint); flex: 0 0 auto; }
+  .s3-link .url { font-size: 13.5px; color: var(--ink); font-weight: 500; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .s3-link .copy { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink); border: 1.5px solid var(--stroke-strong); border-radius: 16px; padding: 5px 10px; background: var(--surface-raised); flex: 0 0 auto; }
+  .s3-link .copy svg { width: 13px; height: 13px; stroke: var(--ink-soft); }
+
+  /* share as tinted footer band (variation A) */
+  .s3-shareband { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(24,188,203,.16); padding: 12px 15px; }
+  .s3-shareband .lbl { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--lime-ink); }
+  .s3-shareband .lbl svg { width: 16px; height: 16px; stroke: var(--lime-ink); }
+  .s3-shareband .go { width: 26px; height: 26px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .s3-shareband .go svg { stroke: var(--lime-ink); width: 14px; height: 14px; }
+
+  /* copy-secondary under the band (variation A) */
+  .s3-copytext { display: flex; justify-content: center; margin-top: 12px; }
+  .s3-copytext .lnk { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .s3-copytext .lnk svg { width: 14px; height: 14px; stroke: var(--ink-soft); }
+
+  /* share as in-card primary button (variation B) */
+  .s3-sharebtn {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    margin-top: 12px; height: 46px; border-radius: 24px;
+    background: var(--lime); color: var(--lime-ink);
+    font-size: 15px; font-weight: 700;
+  }
+  .s3-sharebtn svg { width: 17px; height: 17px; stroke: var(--lime-ink); }
+
+  /* proceed — quiet text link (variation A) */
+  .s3-proceedA { display: flex; justify-content: center; flex: 0 0 auto; padding-top: 6px; }
+  .s3-proceedA .lnk { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .s3-proceedA .lnk u { text-decoration: none; border-bottom: 2px solid var(--stroke-strong); padding-bottom: 2px; }
+  .s3-proceedA .lnk svg { width: 16px; height: 16px; stroke: var(--ink); }
+
+  /* proceed — pinned solid bottom bar (variation B) */
+  .s3-proceedB { flex: 0 0 auto; padding-top: 12px; }
+  .s3-proceedB .btn { display: flex; align-items: center; justify-content: center; gap: 9px; height: 52px; border-radius: 28px; background: var(--ink); color: var(--text-primary); font-size: 16px; font-weight: 700; }
+  .s3-proceedB .btn svg { width: 18px; height: 18px; stroke: var(--text-primary); }
+  .s3-proceedB .hint { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 9px; }
+
+  /* Step 3 final conventions */
+  .s2-back { width: 20px; height: 30px; color: var(--ink-soft); display: flex; align-items: center; justify-content: flex-start; flex: 0 0 auto; margin-right: -3px; margin-left: -4px; }
+  .s2-back svg { width: 22px; height: 22px; }
+  .s3-msg-light { background: var(--surface-raised) !important; color: var(--ink) !important; }
+  .s3-proceedB .btn.outline { background: var(--surface-raised); color: var(--ink); border: 1.8px solid var(--stroke-strong); }
+  .s3-proceedB .btn.outline svg { stroke: var(--ink); }
+
+  /* Step 1 consistent — describe field + footer */
+  .s1-field { flex: 1 1 auto; min-height: 150px; border: 1.7px solid var(--stroke-strong); border-radius: 14px; padding: 14px 15px; background: var(--surface-raised); position: relative; margin-top: 2px; }
+  .s1-field .ph { font-size: 15px; line-height: 1.55; color: var(--ink-faint); }
+  .s1-field .caret { display: inline-block; width: 2px; height: 17px; background: var(--lime); vertical-align: -3px; margin-left: 1px; }
+  .s1-field .count { position: absolute; right: 12px; bottom: 10px; font-size: 11px; color: var(--ink-faint); }
+  .s1-foot { flex: 0 0 auto; padding-top: 14px; }
+  .s1-note { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 11px; line-height: 1.4; }
+
+  /* Step 1 — compact name field (modest; description stays the hero) */
+  .s1-namelab { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); font-weight: 700; margin: 13px 4px 6px; flex: 0 0 auto; }
+  .s1-name {
+    flex: 0 0 auto;
+    border: 1.7px solid var(--stroke-strong); border-radius: 12px;
+    background: var(--surface-raised); padding: 11px 14px;
+    font-size: 14.5px; color: var(--ink); font-weight: 500;
+  }
+
+
+/* =====================================================================
+   DARK IDENTITY — role overrides (recolor pass over the wireframe base)
+   surfaces base #15161e / raised #20222d / self #2d3040 / hairline #363a49
+   Brand(Orbit)=lime · single Action=teal · Status=neutral + icon/label
+   ===================================================================== */
+
+/* Brand · Orbit identity = lime; mascot stays a flat lime placeholder for now */
+.s2-av, .s2r-msgav, .jn-msgav, .gh-msgav, .ed-noteav,
+.gh-homebtn, .gh-orbitdot, .ab2-avatar, .avatar {
+  background: var(--lime); border: none;
+}
+.s2-av img, .s2r-msgav img, .jn-msgav img, .gh-msgav img, .ed-noteav img,
+.gh-homebtn img, .gh-orbitdot img, .ab2-avatar img { display: none; }
+.gi-emblem, .gh-gav { background: var(--lime); border: none; color: var(--lime-ink); }
+.s2-live i { background: var(--lime); box-shadow: 0 0 0 3px rgba(164,239,78,.20); }
+
+/* Action · ONE teal primary per screen, action-ink label */
+.cta, .cta.lime, .cta.accent,
+.jn-primary, .gh-rsvp .in, .s3-sharebtn, .gi-sharebtn,
+.s2-send.lime, .s2-chip-confirm, .send {
+  background: var(--action); color: var(--action-ink); border-color: var(--action);
+}
+.cta svg, .cta.lime svg, .cta.accent svg, .jn-primary svg, .gh-rsvp .in svg,
+.s3-sharebtn svg, .gi-sharebtn svg, .s2-send.lime svg, .s2-chip-confirm svg,
+.send svg { stroke: var(--action-ink); }
+.cfA { background: var(--action); }
+.cfA .lbl { color: var(--action-ink); }
+.cfA .go { background: rgba(10,33,37,.20); }
+.cfA .go svg { stroke: var(--action-ink); }
+
+/* Chat voices — separated by STRUCTURE + fill, never hue */
+.s2r-msg, .jn-msg, .gh-msg, .bubble, .s2-bubble,
+.s2-orbit-msg, .s2-card-bubble {
+  background: var(--surface-raised); color: var(--text-primary);
+}
+.s3-msg-light { background: var(--surface-raised) !important; color: var(--text-primary) !important; }
+.gh-human .hmsg { background: transparent; border: 1.5px solid var(--hairline); color: var(--text-primary); }
+.gh-self .smsg { background: var(--surface-self); color: var(--text-primary); }
+
+/* Surfaces · cards & raised elements */
+.cardX, .jn-card, .gh-evcard, .ed-card, .gi-card,
+.card, .s2-card, .s2r-card {
+  background: var(--surface-raised); box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.s3-link, .gi-linkrow { background: var(--surface-base); }
+.s1-field, .s1-name, .field, .reply, .s2-q,
+.s2r-input, .gh-input, .jn-input, .s2-input {
+  background: var(--surface-raised); border-color: var(--hairline); box-shadow: none;
+}
+.s1-field .caret, .s2r-input .caret, .gh-input .caret,
+.jn-input .caret, .s2-input .caret, .field .caret, .reply .caret { background: var(--text-primary); }
+
+/* Secondary actions · outlined hairline, never filled */
+.gh-rsvp .out, .ed-cal, .gi-leave, .s3-proceedB .btn.outline,
+.gh-qrchip, .s2-reply, .s2r-qrchip, .cta.ghost {
+  background: transparent; border-color: var(--hairline); color: var(--text-primary);
+}
+.gh-qrchip.quiet { color: var(--text-secondary); border-color: var(--hairline); }
+.s3-proceedB .btn { background: var(--surface-raised); color: var(--text-primary); }
+.s3-proceedB .btn svg, .s3-proceedB .btn.outline svg, .ed-cal svg, .gi-leave svg { stroke: var(--text-primary); }
+
+/* Neutral send (composing a message is not the primary action) */
+.gh-send, .s2r-send, .s2-send.plain { background: var(--surface-self); }
+.gh-send svg, .s2r-send svg, .s2-send.plain svg { stroke: var(--text-secondary); }
+
+/* Status · hue-free; meaning via icon + label (confirmed RSVP) */
+.ed-band { background: transparent; border: 1.6px solid var(--hairline); }
+.ed-band.footer { background: transparent; border: none; border-top: 1.6px solid var(--hairline); }
+.ed-band .yin { color: var(--text-primary); }
+.ed-band .yin svg { stroke: var(--text-primary); }
+.ed-band .chg { color: var(--text-secondary); text-decoration-color: var(--hairline); }
+
+/* Roster / member avatars — neutral, not Orbit */
+.ed-av { background: var(--surface-raised); border: 1.6px solid var(--hairline); }
+.ed-av svg { stroke: var(--text-primary); }
+.ed-people.dim .ed-av { background: var(--surface-raised); border: 1.6px dashed var(--hairline); }
+.ed-people.dim .ed-av svg { stroke: var(--text-faint); }
+
+/* Orbit's inline prompt for missing info — lime dashed underline (a prompt, not a stroke) */
+.s2-gap { border-bottom: 2px dashed var(--lime); color: var(--text-secondary); }
+.s2-gap svg { stroke: var(--lime); }
+.s2-srow.pending .k { color: var(--lime); }
+
+/* exploration-only cleanup (keep abandoned variants legible in dark) */
+.tag { background: var(--surface-self); color: var(--text-primary); }
+.gh-datetile { border-color: var(--hairline); }
+.gh-datetile .d { background: var(--surface-self); color: var(--text-primary); }
+.gh-datetile .t { color: var(--text-primary); }
+.gh-ppav .tick, .gh-mini .mbadge.yes { background: var(--surface-self); }
+.gh-ppav .tick svg, .gh-mini .mbadge.yes svg { stroke: var(--text-primary); }
+.callout { background: var(--surface-raised); border-left-color: var(--action); }
+
+/* Board chrome (walkthrough gallery) → dark */
+body { background: #0e0f16; }
+.bd-frame { border-color: var(--hairline); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#4f63d2"/>
+    <rect x="34" y="20" width="32" height="60" rx="5" fill="#fff"/>
+    <rect x="39" y="34" width="22" height="18" rx="2" fill="#e7eafc"/>
+    <rect x="39" y="58" width="22" height="7" rx="3.5" fill="#4f63d2"/>
+  </svg>
+</template>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel">
+
+const { useState } = React;
+
+/* shared phone chrome */
+function Status() {
+  return (
+    <div className="statusbar">
+      <span>9:41</span>
+      <div className="dots"><span></span><span></span><span></span><div className="battery"></div></div>
+    </div>);
+
+}
+function Home() {return <div className="home-ind"><i></i></div>;}
+
+function Spark() {
+  return (
+    <svg className="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+      <circle cx="12" cy="12" r="3.4" />
+    </svg>);
+
+}
+function Arrow() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
+}
+function Chev() {
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>;
+}
+
+/* ---------- A — Open Canvas ---------- */
+function PhoneA() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="navbar">
+        <div className="chev"><Chev /></div>
+        <div className="progress"><i className="w on"></i><i className="n"></i><i className="n"></i></div>
+        <span className="skip">Skip</span>
+      </div>
+      <div className="body">
+        <div className="kicker">New group · Step 1 of 3</div>
+        <h1 className="headline">Tell us about<br />your group</h1>
+        <p className="subline">Just describe it like you'd tell a friend — we'll handle the rest.</p>
+        <div className="field grow">
+          <div className="ph">We're a climbing crew of 8. We usually go Monday and Wednesday mornings. Sometimes we grab beers after.<span className="caret"></span></div>
+          <div className="count">0 / 500</div>
+        </div>
+        <div className="cta">Continue <Arrow /></div>
+        <div className="ainote"><Spark /><span>Our AI reads this to set your days, send reminders, and build a shared group page.</span></div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ---------- B — Chat with Orbit ---------- */
+function PhoneB() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="navbar">
+        <div className="chev"><Chev /></div>
+        <div className="orbit-head" style={{ margin: 0 }}>
+          <div className="avatar"><Spark /></div>
+          <div><div className="nm">Orbit</div><div className="st">setting up your group</div></div>
+        </div>
+        <span className="skip"> </span>
+      </div>
+      <div className="body">
+        <div className="bubble">Hey! I'll get your group running. ✨</div>
+        <div className="bubble b2">First — tell me about the group in your own words. Who are you, and when do you usually meet?</div>
+        <div className="reply-wrap">
+          <div className="reply">
+            <div className="ph">We're a climbing crew of 8. We usually go Monday and Wednesday mornings. Sometimes we grab beers after.<span className="caret"></span></div>
+            <div className="send"><Arrow /></div>
+          </div>
+          <div className="ainote"><Spark /><span>I'll use this to suggest days, reminders & your group page.</span></div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ---------- C — Guided prompt + chips ---------- */
+function PhoneC() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="navbar">
+        <div className="chev"><Chev /></div>
+        <div className="progress"><i className="w on"></i><i className="n"></i><i className="n"></i></div>
+        <span className="skip">Skip</span>
+      </div>
+      <div className="body">
+        <div className="kicker">Describe your group</div>
+        <h1 className="headline" style={{ fontFamily: 'var(--ui)', fontSize: '24px', fontWeight: 600, marginTop: '8px' }}>What's your group about?</h1>
+        <div className="field" style={{ marginTop: '16px' }}>
+          <div className="ph">We're a climbing crew of 8. We usually go Monday and Wednesday mornings. Sometimes we grab beers after.<span className="caret"></span></div>
+        </div>
+        <p className="subline" style={{ margin: '16px 0 0', fontSize: '13px' }}>Not sure what to say? Try mentioning…</p>
+        <div className="chips">
+          <div className="chip"><span className="pl">+</span> Days you meet</div>
+          <div className="chip"><span className="pl">+</span> Group size</div>
+          <div className="chip"><span className="pl">+</span> Your usual vibe</div>
+          <div className="chip"><span className="pl">+</span> A regular spot</div>
+        </div>
+        <div className="callout">No need to be exact — the AI fills the gaps and you can tweak anything later.</div>
+        <div style={{ flex: '1 1 auto' }}></div>
+        <div className="cta accent">Continue <Arrow /></div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ---------- D — Notecard ---------- */
+function PhoneD() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="navbar">
+        <div className="chev"><Chev /></div>
+        <div className="progress"><i className="w on"></i><i className="n"></i><i className="n"></i></div>
+        <span className="skip">Skip</span>
+      </div>
+      <div className="body">
+        <div className="nc-stage">
+          <div className="kicker" style={{ textAlign: 'center' }}>New group</div>
+          <h1 className="headline" style={{ textAlign: 'center', margin: '8px 0 18px' }}>Tell us about your group</h1>
+          <div className="card">
+            <div className="tag"><Spark /> AI will read this</div>
+            <div className="lines">
+              <div className="txt">We're a climbing crew of 8. We go Mon &amp; Wed mornings. Beers after sometimes.</div>
+              <i></i><i></i>
+            </div>
+          </div>
+          <p className="cap" style={{ textAlign: 'center', marginTop: '16px' }}>Write it like a sticky note — <b>we'll organize it.</b></p>
+        </div>
+        <div className="cta">Continue <Arrow /></div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ---------- A+B — Open Canvas with Orbit intro ---------- */
+function PhoneAB() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="body" style={{ paddingTop: '4px' }}>
+        <div className="ab2-head">
+          <div className="ab2-avatar"><img src="orbit-mascot.png" alt="Orbit" /></div>
+          <div className="ab2-step">Step 1 of 3</div>
+          <h1 className="ab2-name">Orbit</h1>
+          <p className="ab2-line">Hey! Tell me about your group and I'll handle the rest.</p>
+        </div>
+        <div className="field grow" style={{ marginTop: '24px' }}>
+          <div className="ph">We're a climbing crew of 8. We usually go Monday and Wednesday mornings. Sometimes we grab beers after.<span className="caret"></span></div>
+          <div className="count">0 / 500</div>
+        </div>
+        <div className="cta lime">Continue <Arrow /></div>
+        <div className="ainote ab2-note"><span>Orbit reads this to set your days, send reminders, and build a shared group page.</span></div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ============ STEP 2 — three playback variations ============ */
+function S2Header({ live, step, back }) {
+  return (
+    <div className="s2-top">
+      {back && <div className="s2-back"><Chev /></div>}
+      <div className="s2-av"><img src="orbit-mascot.png" alt="Orbit" /></div>
+      <div>
+        <div className="nm">Orbit</div>
+        <div className="step">{step || 'Step 2 of 3'}</div>
+      </div>
+      {live && <div className="s2-live"><i></i>thinking…</div>}
+    </div>);
+
+}
+function Pencil() {
+  return <svg className="pen" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>;
+}
+
+/* V1 — Chat playback */
+function PhoneS2a() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header live />
+        <div className="s2-scroll">
+          <div className="s2-bubble">Ok, got it! Here's what I picked up about your crew 👇</div>
+          <div className="s2-bubble" style={{ maxWidth: '94%' }}>
+            <span className="lead">A climbing crew that meets twice a week.</span>
+            <div className="s2-chips">
+              <div className="s2-chip"><span className="k">Who</span> Climbing · 8 people <Pencil /></div>
+              <div className="s2-chip"><span className="k">Days</span> Mon &amp; Wed <Pencil /></div>
+              <div className="s2-chip"><span className="k">Time</span> Mornings <Pencil /></div>
+              <div className="s2-chip"><span className="k">After</span> Beers sometimes <Pencil /></div>
+            </div>
+          </div>
+          <div className="s2-ask">Did I get that right? Tap anything to fix it.</div>
+        </div>
+        <div className="s2-foot">
+          <div className="cta lime">Yep, that's us <Arrow /></div>
+          <div className="s2-fix">Something's off? <u>Tell Orbit</u></div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* V2 — Summary card with editable rows + a gap */
+function PhoneS2b() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-scroll">
+          <div className="s2-bubble" style={{ marginBottom: '14px' }}>Here's your group so far. Anything look off? Just tap to fix it.</div>
+          <div className="s2-card">
+            <div className="s2-row"><span className="lab">Group</span><span className="val">Climbing crew · 8 people</span><Pencil /></div>
+            <div className="s2-row"><span className="lab">Days</span><span className="val">Mondays &amp; Wednesdays</span><Pencil /></div>
+            <div className="s2-row gap"><span className="lab">Time</span><span className="val">morning… but when?</span><span className="add">+ Add</span></div>
+            <div className="s2-row"><span className="lab">After</span><span className="val">Beers sometimes</span><Pencil /></div>
+          </div>
+          <div className="s2-ask">I just need a rough time so I can send reminders.</div>
+        </div>
+        <div className="s2-foot">
+          <div className="cta lime">Looks right — continue <Arrow /></div>
+          <div className="s2-fix"><u>Add more about the group</u></div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* V3 — Narrative recap + one clarifying question (sparse case) */
+function PhoneS2c() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-scroll">
+          <p className="s2-recap">
+            So you're a <span className="s2-edit">climbing crew</span> who gets out on <span className="s2-edit">Mon &amp; Wed</span> mornings — with the odd <span className="s2-edit">beer after</span>. 🍻
+          </p>
+          <div className="s2-q">
+            <div className="qlab"><span>One quick thing</span></div>
+            <div className="qtxt">About how often does the whole crew actually make it out?</div>
+            <div className="s2-replies">
+              <div className="s2-reply">Every week</div>
+              <div className="s2-reply">Most weeks</div>
+              <div className="s2-reply">When we can</div>
+            </div>
+          </div>
+        </div>
+        <div className="s2-foot">
+          <div className="cta lime">That's us — continue <Arrow /></div>
+          <div className="s2-fix">Tap any <u>underlined detail</u> to change it</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== V1 refined — static summary + chat-to-correct ====== */
+function S2Summary() {
+  return (
+    <React.Fragment>
+      <div className="s2-bubble">Ok — here's what I've got so far 👇</div>
+      <div className="s2-bubble" style={{ maxWidth: '94%' }}>
+        <div className="s2-sumhead">Your climbing crew</div>
+        <div className="s2-sum">
+          <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+          <div className="s2-srow"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings — every week</span></div>
+          <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month <span className="s2-upd">· just updated</span></span></div>
+        </div>
+      </div>
+      <div className="s2-talk">Talk to me below to change anything — I'll update this.</div>
+    </React.Fragment>);
+
+}
+
+/* Variation A — pre-filled, editable confirm suggestion in the input */
+function PhoneS2v1a() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-scroll"><S2Summary /></div>
+        <div className="s2-inwrap">
+          <div className="s2-input">
+            <span className="ftxt suggest">Yup, this looks good<span className="caret"></span></span>
+            <div className="s2-send lime"><Arrow /></div>
+          </div>
+          <div className="s2-inhint">Send to confirm — or <b>type a correction</b> like “we also climb Fridays”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* Variation B — chat is corrections only; separate secondary confirm */
+function PhoneS2v1b() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-scroll"><S2Summary /></div>
+        <div className="s2-inwrap">
+          <div className="s2-input">
+            <span className="ftxt suggest">Fix something… “beers are more like once a month”</span>
+            <div className="s2-send plain"><Arrow /></div>
+          </div>
+          <div className="s2-confirm2">
+            <div className="btn">Looks right — invite members <Arrow /></div>
+          </div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 2 — converged final direction ====== */
+function PhoneS2final() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-final-scroll">
+          <div className="s2-card-bubble">
+            <div className="s2-sumhead">Your climbing crew</div>
+            <div className="s2-sum">
+              <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+              <div className="s2-srow"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings — every week</span></div>
+              <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+            </div>
+          </div>
+          <div className="s2-orbit-msg">Here's what I got. If it looks right, tap below and we'll get your crew invited. Or just tell me what to fix.</div>
+          <div className="s2-chip-confirm">Looks right, set up invites <Arrow /></div>
+        </div>
+        <div className="s2-pin">
+          <div className="s2-input">
+            <span className="ftxt suggest">Tell Orbit what to fix…<span className="caret"></span></span>
+            <div className="s2-send plain"><Arrow /></div>
+          </div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 2 rebalanced — chat as the hero · 2 variations ====== */
+function S2rSummaryCard() {
+  return (
+    <div className="s2r-card">
+      <div className="s2r-cardtag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+        What Orbit understood
+      </div>
+      <div className="s2-sum">
+        <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+        <div className="s2-srow"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings — every week</span></div>
+        <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+      </div>
+    </div>);
+
+}
+function S2rOrbitMsg({ text, light }) {
+  return (
+    <div className="s2r-msgrow">
+      <div className="s2r-msgav"><img src="orbit-mascot.png" alt="Orbit" /></div>
+      <div className={"s2r-msg" + (light ? " s3-msg-light" : "")}>{text}</div>
+    </div>);
+
+}
+
+/* Variation A — confirm as a chat-native quick-reply chip on Orbit's message */
+function PhoneS2rA() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-final-scroll">
+          <S2rSummaryCard />
+          <S2rOrbitMsg text="That's what I picked up! Tell me anything I got wrong — otherwise we can get your crew invited." />
+          <div className="s2r-qr"><div className="s2r-qrchip">Looks right, set up invites <Arrow /></div></div>
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-input">
+            <span className="ftxt">Message Orbit<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+          <div className="s2r-prompt">e.g. “we also climb Fridays” · “beers are once a month”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* Variation B — quiet persistent confirm bar above the live chat input */
+function PhoneS2rB() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-final-scroll">
+          <S2rSummaryCard />
+          <S2rOrbitMsg text="Here's what I got. Tell me what to fix — or if it looks right, you're all set to invite your crew." />
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-confirmbar"><span className="lnk"><span className="dot"></span>Looks right — set up invites <Arrow /></span></div>
+          <div className="s2r-input">
+            <span className="ftxt">Tell Orbit what to fix<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 2 converged — confirm lives in the summary card ====== */
+function PhoneS2converged() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-final-scroll">
+          <div className="s2r-card">
+            <div className="s2r-cardtag">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+              What Orbit understood
+            </div>
+            <div className="s2-sum">
+              <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+              <div className="s2-srow"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings — every week</span></div>
+              <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+            </div>
+            <div className="s2f-cardfoot">
+              <span className="s2f-confirm">Looks right, set up invites <Arrow /></span>
+            </div>
+          </div>
+          <S2rOrbitMsg text="That's what I picked up. Tell me anything I got wrong and I'll update it above." />
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-input">
+            <span className="ftxt">Message Orbit<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+          <div className="s2r-prompt">e.g. “we also climb Fridays” · “beers are once a month”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 2 — confirm-treatment explorations (card only varies) ====== */
+function S2Screen({ footer }) {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad">
+              <div className="s2r-cardtag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3 8-8" /><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" /></svg>
+                What Orbit understood
+              </div>
+              <div className="s2-sum">
+                <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+                <div className="s2-srow"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings — every week</span></div>
+                <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+              </div>
+            </div>
+            {footer}
+          </div>
+          <S2rOrbitMsg text="That's what I picked up. Tell me anything I got wrong and I'll update it above." />
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-input">
+            <span className="ftxt">Message Orbit<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+          <div className="s2r-prompt">e.g. “we also climb Fridays” · “beers are once a month”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+function PhoneCFa() {
+  return <S2Screen footer={
+  <div className="cfA"><span className="lbl">Looks right, set up invites</span><span className="go"><Arrow /></span></div>
+  } />;
+}
+function PhoneCFb() {
+  return <S2Screen footer={
+  <div className="cfB"><span className="lbl">Looks right, set up invites</span><Arrow /></div>
+  } />;
+}
+function PhoneCFc() {
+  return <S2Screen footer={
+  <div className="cfC"><span className="lnk"><u>Looks right, set up invites</u> <Arrow /></span></div>
+  } />;
+}
+
+/* ====== Step 2 — when Orbit needs more (vague answer) ====== */
+function PhoneS2gap() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header back />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad pad-tight">
+              <div className="cardX-title">
+                <span className="nm">Climbing Crew</span>
+              </div>
+              <div className="s2-sum">
+                <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+                <div className="s2-srow"><span className="k">You</span><span className="v">Jacob</span></div>
+                <div className="s2-srow pending"><span className="k">Climbs</span><span className="v">Mondays &amp; Wednesdays, mornings <span className="s2-gap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>what time?</span></span></div>
+                <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+              </div>
+            </div>
+          </div>
+          <S2rOrbitMsg light text="Here's what I got. One question: what time do you usually climb on Mondays and Wednesdays?" />
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-input">
+            <span className="ftxt">Message Orbit<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+          <div className="s2r-prompt">e.g. “around 9am” · “we start at 7”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 2 — approved: treatment A + group name as card title ====== */
+function PhoneS2named() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header back />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad pad-tight">
+              <div className="cardX-title">
+                <span className="nm">Climbing Crew</span>
+              </div>
+              <div className="s2-sum">
+                <div className="s2-srow"><span className="k">Who</span><span className="v">Climbing crew of 8</span></div>
+                <div className="s2-srow"><span className="k">You</span><span className="v">Jacob</span></div>
+                <div className="s2-srow"><span className="k">Climbs</span><span className="v">Monday & Wednesday mornings @ 8am — every week</span></div>
+                <div className="s2-srow"><span className="k">Beers</span><span className="v">Now and then, about once a month</span></div>
+              </div>
+            </div>
+            <div className="cfA"><span className="lbl">Looks right, set up invites</span><span className="go"><Arrow /></span></div>
+          </div>
+          <S2rOrbitMsg light text="That's what I picked up, name and all. Tell me anything you'd like to change and I'll update it above." />
+        </div>
+        <div className="s2r-pin">
+          <div className="s2r-input">
+            <span className="ftxt">Message Orbit<span className="caret"></span></span>
+            <div className="s2r-send"><Arrow /></div>
+          </div>
+          <div className="s2r-prompt">e.g. “we also climb Fridays” · “beers are once a month”</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 3 — final onboarding: invite link card · 2 variations ====== */
+function IconGlobe() {
+  return <svg className="glb" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>;
+}
+function IconCopy() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>;
+}
+function IconShare() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15V4M8 8l4-4 4 4" /><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" /></svg>;
+}
+
+/* Variation A — card owns share (tinted band), quiet text proceed */
+function PhoneS3a() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header step="Step 3 of 3" />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad pad-tight">
+              <div className="cardX-title"><span className="nm">Climbing Crew</span></div>
+              <p className="s3-caption">Group invite link</p>
+              <div className="s3-link">
+                <IconGlobe />
+                <span className="url">join.interplanetary.app/climbing-crew</span>
+                <span className="copy"><IconCopy /> Copy</span>
+              </div>
+            </div>
+            <div className="s3-shareband">
+              <span className="lbl"><IconShare /> Share invite link</span>
+              <span className="go"><Arrow /></span>
+            </div>
+          </div>
+          <S2rOrbitMsg text="Here's your invite link. Send it to anyone you want in the group — they just tap to join. No rush, you can share it again anytime." />
+        </div>
+        <div className="s3-proceedA">
+          <span className="lnk"><u>Take me to my group</u> <Arrow /></span>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* Variation B — card holds link + share/copy; proceed pinned as solid bottom bar */
+function PhoneS3b() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header step="Step 3 of 3" />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad pad-tight">
+              <div className="cardX-title"><span className="nm">Climbing Crew</span></div>
+              <p className="s3-caption">Group invite link</p>
+              <div className="s3-link">
+                <IconGlobe />
+                <span className="url">join.interplanetary.app/climbing-crew</span>
+                <span className="copy"><IconCopy /> Copy</span>
+              </div>
+              <div className="s3-sharebtn"><IconShare /> Share invite link</div>
+            </div>
+          </div>
+          <S2rOrbitMsg text="Here's your invite link. Send it to anyone you want in the group — they just tap to join. No rush, you can share it again anytime." />
+        </div>
+        <div className="s3-proceedB">
+          <div className="btn">Take me to my group <Arrow /></div>
+          <div className="hint">You can invite people now or anytime later</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 3 converged final ====== */
+function PhoneS3final() {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header step="Step 3 of 3" back />
+        <div className="s2-final-scroll">
+          <div className="cardX">
+            <div className="pad pad-tight">
+              <div className="cardX-title"><span className="nm">Climbing Crew</span></div>
+              <p className="s3-caption">Group invite link</p>
+              <div className="s3-link">
+                <IconGlobe />
+                <span className="url">join.interplanetary.app/climbing-crew</span>
+              </div>
+              <div className="s3-sharebtn"><IconShare /> Share invite link</div>
+            </div>
+          </div>
+          <S2rOrbitMsg light text="Here's your invite link. Send it to anyone you want — they just tap to join, and you can share it again anytime from inside your group. Ready? Head in below." />
+        </div>
+        <div className="s3-proceedB">
+          <div className="btn outline">Take me to my group <Arrow /></div>
+          <div className="hint">You can invite people now or anytime later</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+/* ====== Step 1 consistent — same header, light Orbit prompt, describe field ====== */
+function PhoneS1final({ text }) {
+  return (
+    <div className="phone">
+      <Status />
+      <div className="s2-body">
+        <S2Header step="Step 1 of 3" />
+        <div className="s2-final-scroll">
+          <S2rOrbitMsg light text="Hey! Tell me about your group and I'll handle the rest." />
+          <div className="s1-field">
+            <div className="ph">{text || "We're a climbing crew of 8. We usually go Monday and Wednesday mornings at 8am. We'd also like to grab beers occasionally."}<span className="caret"></span></div>
+            <div className="count">0 / 500</div>
+          </div>
+          <div className="s1-namelab">What should the crew call you?</div>
+          <div className="s1-name">Jacob</div>
+        </div>
+        <div className="s1-foot">
+          <div className="cta lime">Continue <Arrow /></div>
+          <div className="s1-note">Orbit reads this to set your days, send reminders, and build a shared group page.</div>
+        </div>
+      </div>
+      <Home />
+    </div>);
+
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="flow-grid-complete" title="Onboarding flows · how Step 1 input drives Orbit — Row 1: When Orbit has what it needs" subtitle="Complete answer (specific time) → clean confirmation · both rows converge on the same Step 3 · 390px">
+        <DCArtboard id="g1a" label="Step 1 · Complete input (“mornings at 9”)" width={390} height={780}><PhoneS1final text="We're a climbing crew of 8. We usually go Monday and Wednesday mornings at 9. We'd also like to grab beers occasionally." /></DCArtboard>
+        <DCArtboard id="g1b" label="Step 2 · Orbit confirms (Looks right)" width={390} height={780}><PhoneS2named /></DCArtboard>
+        <DCArtboard id="g1c" label="Step 3 · Invite link" width={390} height={780}><PhoneS3final /></DCArtboard>
+      </DCSection>
+      <DCSection id="flow-grid-needsmore" title="Row 2: When Orbit needs more" subtitle="Vague answer (no time) → Orbit catches the gap and asks a clarifying question · converges on the same Step 3 · 390px">
+        <DCArtboard id="g2a" label="Step 1 · Vague input (no time)" width={390} height={780}><PhoneS1final text="We're a climbing crew of 8. We usually go Monday and Wednesday mornings. We'd also like to grab beers occasionally." /></DCArtboard>
+        <DCArtboard id="g2b" label="Step 2 · Orbit asks (pending time, no confirm)" width={390} height={780}><PhoneS2gap /></DCArtboard>
+        <DCArtboard id="g2c" label="Step 3 · Invite link (same as Row 1)" width={390} height={780}><PhoneS3final /></DCArtboard>
+      </DCSection>
+      <DCSection id="flow-consistency" title="Onboarding flow · consistency pass" subtitle="Steps 1–3 side by side · identical Orbit header, light bubbles, single lime primary, outlined secondaries, matched cards &amp; strokes · 390px">
+        <DCArtboard id="f1" label="Step 1 · Describe your group" width={390} height={780}><PhoneS1final /></DCArtboard>
+        <DCArtboard id="f2" label="Step 2 · Orbit playback" width={390} height={780}><PhoneS2named /></DCArtboard>
+        <DCArtboard id="f3" label="Step 3 · Invite link" width={390} height={780}><PhoneS3final /></DCArtboard>
+      </DCSection>
+      <DCSection id="step3-final" title="Step 3 · Invite link — final" subtitle="Lime share in card, outlined secondary proceed pinned below, light Orbit bubble · 390px">
+        <DCArtboard id="s3final" label="Step 3 · Invite link (converged)" width={390} height={780}><PhoneS3final /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-named" title="Step 2 · Approved — group name as card title" subtitle="Treatment A (tinted footer confirm) · card titled with the group's working name · 390px">
+        <DCArtboard id="s2named" label="Step 2 · Orbit playback — titled card" width={390} height={780}><PhoneS2named /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-gap" title="Step 2 · When Orbit needs more" subtitle="Vague answer — Orbit catches the missing climb time, flags it as pending, and asks · no confirm until complete · 390px">
+        <DCArtboard id="s2gap" label="Step 2 · When Orbit needs more (pending time)" width={390} height={780}><PhoneS2gap /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-confirm" title="Step 2 · Confirm treatment — explorations" subtitle="Only the card's confirm action varies · tighter, no border-in-border, obviously tappable · 390px">
+        <DCArtboard id="cfA" label="A · Tinted footer band — soft lime zone, arrow-in-circle cue" width={390} height={780}><PhoneCFa /></DCArtboard>
+        <DCArtboard id="cfB" label="B · Full-width footer action — single divider, text + lime arrow" width={390} height={780}><PhoneCFb /></DCArtboard>
+        <DCArtboard id="cfC" label="C · Compact text link — lime underline + arrow, minimal height" width={390} height={780}><PhoneCFc /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-converged" title="Step 2 · Converged — confirm lives in the card" subtitle="Two-surface model: card = the thing being confirmed (carries confirm); chat = how you correct it · 390px">
+        <DCArtboard id="s2c-final" label="Step 2 · Orbit playback — final" width={390} height={780}><PhoneS2converged /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-rebalanced" title="Step 2 · Rebalanced — chat is the hero" subtitle="Live chat input (lime), Orbit speaks in a solid bubble, summary is a dropped-in card, quiet confirm · 2 variations · 390px">
+        <DCArtboard id="s2rA" label="A · Confirm as a chat-native quick-reply chip on Orbit's message" width={390} height={780}><PhoneS2rA /></DCArtboard>
+        <DCArtboard id="s2rB" label="B · Quiet persistent confirm bar above the live chat input" width={390} height={780}><PhoneS2rB /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-final" title="Step 2 · Final — talk to Orbit" subtitle="Converged direction · static summary, Orbit message, confirm chip, pinned correction input · 390px">
+        <DCArtboard id="s2f" label="Step 2 · Orbit playback (converged)" width={390} height={780}><PhoneS2final /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2-v1r" title="Step 2 · V1 refined — talk to Orbit" subtitle="Static summary + chat-to-correct · 2 ways to confirm & move on · 390px">
+        <DCArtboard id="v1a" label="A · Pre-filled confirm suggestion in the input (accept or type over)" width={390} height={780}><PhoneS2v1a /></DCArtboard>
+        <DCArtboard id="v1b" label="B · Chat for corrections only + secondary confirm action" width={390} height={780}><PhoneS2v1b /></DCArtboard>
+      </DCSection>
+      <DCSection id="step2" title="Step 2 · Orbit plays it back" subtitle="Confirm-or-correct moment · 3 ways to make the playback feel alive · 390px">
+        <DCArtboard id="s2a" label="V1 · Chat playback — conversational, tappable detail chips" width={390} height={780}><PhoneS2a /></DCArtboard>
+        <DCArtboard id="s2b" label="V2 · Summary card — editable rows + one gap (sparse case)" width={390} height={780}><PhoneS2b /></DCArtboard>
+        <DCArtboard id="s2c" label="V3 · Recap + clarifying question — narrative, quick replies" width={390} height={780}><PhoneS2c /></DCArtboard>
+      </DCSection>
+      <DCSection id="refined" title="Refined direction" subtitle="Open canvas + Orbit mascot header · lime accent on Continue only">
+        <DCArtboard id="ab" label="A+B · Orbit header moment" width={390} height={770}><PhoneAB /></DCArtboard>
+      </DCSection>
+      <DCSection id="group-create" title="Group Creation" subtitle="Earlier exploration · 4 approaches">
+        <DCArtboard id="a" label="A · Open Canvas — warm, footnote AI note" width={390} height={770}><PhoneA /></DCArtboard>
+        <DCArtboard id="b" label="B · Chat with Orbit — playful, AI character" width={390} height={770}><PhoneB /></DCArtboard>
+        <DCArtboard id="c" label="C · Guided prompt — chips + reassuring callout" width={390} height={770}><PhoneC /></DCArtboard>
+        <DCArtboard id="d" label="D · Notecard — structured-soft, inline AI tag" width={390} height={770}><PhoneD /></DCArtboard>
+      </DCSection>
+    </DesignCanvas>);
+
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
