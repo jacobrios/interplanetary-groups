@@ -14,6 +14,8 @@
 import { extractGroupProfile } from "@/lib/orbit/extract"
 import { normalizeExtraction } from "@/lib/orbit/normalize"
 import { readClarifyingQuestion, resolveGapQuestion, type GapAskable } from "@/lib/orbit/gap"
+import { ModelUnavailableError } from "@/lib/orbit/model-errors"
+import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
 
 /** Everything the gap step needs: card state, the render-ready question
@@ -30,6 +32,7 @@ export interface GapPayload {
 export type ExtractGroupState =
   | { status: "idle" }
   | { status: "error" }
+  | { status: "unavailable"; reason: ModelFailureReason }
   | { status: "unusable" }
   | { status: "incomplete"; gap: GapPayload }
   | { status: "ready"; profile: { groupName: string; rhythms: StoredRhythm[] } }
@@ -45,8 +48,13 @@ export async function extractGroupAction(
   try {
     raw = await extractGroupProfile(description)
   } catch (err) {
-    // Every extraction failure is the same soft-retry state: the founder
-    // stays on Step 1 with their text intact.
+    if (err instanceof ModelUnavailableError) {
+      // The service, not the founder: honest reason, same soft-retry contract.
+      console.error("[onboarding] extraction unavailable:", err)
+      return { status: "unavailable", reason: err.reason }
+    }
+    // Every other extraction failure is the same soft-retry state: the
+    // founder stays on Step 1 with their text intact.
     console.error("[onboarding] extraction failed:", err)
     return { status: "error" }
   }
