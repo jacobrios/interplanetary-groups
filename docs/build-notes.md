@@ -1853,14 +1853,60 @@ principle out loud, which is worth recording because it governs future
 screens rather than this one: this decision was made at the very beginning,
 and early rules are strong opinions weakly held.
 
-*The phone step.* The QA script's optional step, opening the event on a real
-phone and tapping the button, was not run: the owner had no ready way to
-reach a local dev server from a phone. The gap named in this entry
-("no phone was involved, so the tap-to-add flow a member would actually use
-is unverified") therefore stands open, unchanged, after QA. It is not
-closable on this machine and is not worth building tooling for; the first
-Vercel deploy closes it for free, since a deployed URL opens on a phone
-like any other link. Recorded here so a later session does not read the QA
-sign-off as covering it. The local-network route does work in principle
-(`next dev` serves on the machine's LAN address, verified reachable at the
-time of QA), so it remains available to anyone whose phone shares the wifi.
+*The phone step ran after all, and it found something.* An earlier draft of
+this postscript said the step went unrun; that was true for about an hour
+and is corrected here rather than above, per the append-only rule. The owner
+reached the dev server from an iPhone over the local network. Safari refused
+outright, because its secure-connections setting will not open a plain
+`http://` address and a dev server has no certificate; Chrome on iOS opened
+it without complaint. So the gap named earlier in this entry is now closed
+in part, and what closed it was not the answer anyone expected.
+
+**iOS offered to subscribe to the URL, not to import the event.** The sheet
+read "Subscribe to Calendar" and showed the address. That is iOS treating
+any web address returning calendar data as a live feed it can attach to the
+Calendar app and re-check over time, and it follows from a decision this
+slice made deliberately: no `Content-Disposition` header, so a phone is free
+to act on the file rather than being forced to download it.
+
+Three consequences, in order of how much they matter:
+
+- **The obvious hoped-for reading is wrong, and worth stating plainly so
+  nobody carries it forward.** The owner's first thought on seeing the sheet
+  was that this might accumulate every plan he says yes to. It cannot. The
+  file holds exactly one event and no recurrence rule, and the address is
+  that one event's own address, so the subscription is a calendar containing
+  one plan forever.
+- **A subscription may quietly soften the staleness limitation this slice
+  shipped with.** A subscribed feed gets re-fetched, so a plan the group
+  later moves could correct itself on the member's phone without a second
+  tap, which is exactly what "a saved entry never updates itself" says will
+  not happen. Unverified: it needs a deployed URL and a real time change to
+  watch. Worth checking at the first deploy rather than assuming, in either
+  direction.
+- **It exposes a clutter risk that argues for the queued feed.** If every tap
+  attaches its own subscribed calendar, a member who adds five plans
+  collects five calendars in their Calendar app. That is precisely the noise
+  this product exists to oppose. The subscribable per-group feed already
+  recorded as the post-MVP successor (§6, §8) is the shape that gets the
+  auto-updating upside without the clutter: one subscription per group, not
+  one per plan. The owner's instinct on the phone went straight to that
+  feature before knowing it was already queued, which is the strongest
+  signal yet for building it.
+
+The narrower original question, whether a phone does anything sensible when
+a member taps the button, is answered yes. The subscription it creates
+during local QA points at a laptop on a home network and should be deleted
+after testing; it is a dead address anywhere else.
+
+*Post-MVP note from the same QA: the downloaded file has a generic name.* On
+desktop the download works well and lands as `calendar.ics`, which says
+nothing about which plan it holds. A descriptive name would be friendlier.
+The reason it is generic is that the name comes from the route's own final
+path segment, and the fix is a `Content-Disposition` header carrying a
+filename built from the event. Recorded rather than done, and with a
+caution attached: that header is exactly the thing this slice deliberately
+omitted so phones stay free to subscribe or add rather than being forced
+into a download. Anyone taking this on should treat "does the phone still
+behave" as the acceptance test, not the filename alone. Low priority, no
+product harm today.
