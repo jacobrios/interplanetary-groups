@@ -23,6 +23,7 @@ export interface CreateMessageInput {
  * - Rejects blank bodies (trimmed empty string) with "EMPTY_BODY".
  * - For MEMBER messages, authorId must be provided (non-null).
  * - For ORBIT messages, authorId must be null.
+ * - For MEMBER messages, the author must be a current member of the group ("NOT_A_MEMBER").
  *
  * The server action re-validates the viewer's session before calling this;
  * this function trusts that the authorId is already resolved server-side.
@@ -35,6 +36,18 @@ export async function createMessage({
 }: CreateMessageInput): Promise<Message> {
   if (!body.trim()) {
     throw new Error("EMPTY_BODY")
+  }
+
+  // Membership gate (share-readiness slice): a MEMBER message must come from
+  // a current member of this group. Orbit and SYSTEM lines have no author and
+  // are written by trusted server paths, so they pass through.
+  if (authorType === MessageAuthor.MEMBER) {
+    if (!authorId) throw new Error("NOT_A_MEMBER")
+    const membership = await prisma.membership.findUnique({
+      where: { userId_groupId: { userId: authorId, groupId } },
+      select: { id: true },
+    })
+    if (!membership) throw new Error("NOT_A_MEMBER")
   }
 
   return prisma.message.create({
