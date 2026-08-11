@@ -1384,3 +1384,9 @@ The triage pass over the §8 remaining register ran on 10 Aug 2026 and set the p
 - **The goodbye's current-members-only reading is confirmed as the product decision.** A departed member's yes does not earn the group a closing note. The goodbye exists for people still in the room who had said yes; a yes from someone who has since left is not owed a message the remaining group never asked for.
 
 **One elevation:** a spending ceiling on pre-auth model calls moved from standing debt to item 9 of the pre-deploy checklist (top of this section). It is a deploy gate, not a slice: nothing about it needs building until the product is about to be reachable at a public URL.
+
+### The full group-info page (10 Aug 2026)
+
+Entry started at slice open; spec path to be added when the design is written.
+
+**Suite baseline before any code:** 47 files, 692 tests, all green, zero skipped. This is one test above the day-comment slice's finishing number of 47 files, 691 tests; the extra test is accounted for and is not a pre-existing failure. Commit `d49e720` ("Keep the revival out of the way when the group beat it to it", the day-comment whole-branch review fix) landed after that entry's 691 count was recorded but before the branch merged to main, and it added one test to `src/lib/orbit/__tests__/endgame.test.ts`; file count held at 47 because the addition was inside an existing test file. Nothing failed and nothing was skipped.
