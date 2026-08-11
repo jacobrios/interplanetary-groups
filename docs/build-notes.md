@@ -294,6 +294,15 @@ Both unbenched behaviors predate the bench, which was built on 29 July out of th
 
 Recommendation recorded at queue time: queue, not fix now. The cost of the gap is zero until the trigger fires, and the trigger is identifiable, so paying for the benches now would buy nothing that waiting does not.
 
+**The join announcement is not on this list, on purpose (11 Aug 2026).** The
+"Jesse joined" feed line (joining-arc slice) is deterministic system speech:
+no model, no judgment, no Orbit voice, written in the same transaction as the
+membership itself. This list catalogs places where *Orbit* decides; a SYSTEM
+message decides nothing. Recorded here so its absence reads as scoping, not
+rot. The adjacent real decision is recorded in the joining-arc §11 entry:
+SYSTEM rows are excluded from the detection window, so Orbit does not know
+who joined, and whether it should is an open question.
+
 ## 11. Build log (implementation decisions)
 
 *Build phase, begun June 2026. Entries here are decisions made while implementing, ADR-style, one per build slice. They realize and extend the product-design decisions in sections 1 to 10; they do not replace them.*
@@ -341,6 +350,12 @@ Seven High-priority items come due at the moment of the first production deploy.
    *Detail:* elevated from debt to checklist item at the pre-MVP triage pass, 10 Aug 2026 (triage entry, below in §11).
 
 *Correction, 10 Aug 2026 (pre-MVP triage pass): nine items now. Same reading as above: check all of them.*
+
+10. **Apply migration `20260811150701_add_system_message_author` to the production database** (adds `SYSTEM` to the `MessageAuthor` enum, nothing else changes shape).
+    *Why it blocks deploy:* the join announcement (joining-arc slice) writes a `MessageAuthor.SYSTEM` message inside the join transaction. A production database without this migration fails every first join, and it fails inside a transaction that also writes the membership row, so the person would not even get into the group.
+    *Detail:* joining-arc slice, Task 2. Applied to dev-test only, per the two-databases rule.
+
+*Correction, 11 Aug 2026 (joining-arc slice): ten items now. Same reading as above: check all of them.*
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -1421,3 +1436,104 @@ Slice started from main at db5b37d. Suite baseline before any code: 55 files,
 727 tests, all green, matching the group-info slice's finishing number. Spec:
 docs/superpowers/specs/2026-08-11-joining-arc-design.md. The rest of this
 entry is written at slice close.
+
+**Two halves, one moment.** The founder side (a third wizard step that hands
+over the invite link at peak setup momentum) and the group side (a quiet
+"Jesse joined" line in the feed) shipped as one slice because they are the
+same product moment seen from both ends: handing out the link only matters if
+the group notices what comes back. Per the 10 Aug 2026 pre-MVP triage, both
+were already marked demo-critical; today's build had the founder land in
+their new group alone with the link buried on the info page, and every join
+was silent.
+
+**What shipped, as each side experiences it.** A founder finishing onboarding
+now sees "STEP N OF 3" and Orbit's header on every wizard screen, including a
+new step 3: the group's name on a card, the real invite link in a pill, a
+teal "Share invite link" button, Orbit's bubble explaining what to do with
+it, and an outlined "Take me to my group" that lets them in. A person who
+taps that link and joins for the first time makes the feed grow a centered,
+muted, bubble-free line reading "Jesse joined," visible to everyone already
+there and to the new member the moment they land. A re-tap of the same link
+by someone already in the group changes nothing and announces nothing.
+
+**The decisions as settled with the owner in this slice's brainstorm, and why.**
+- **The wizard header rebuild rides in this slice, not a separate one.** The
+  missing step indicator and the missing share step were one problem wearing
+  two symptoms; shipping the step without the counter would have shipped a
+  flow that cannot count its own steps.
+- **The join line is a quiet centered line, not a bubble.** A bubble promises
+  a reply, and nobody replies to a join notice; the room noticing is the
+  whole message.
+- **The invite link stays an opaque token.** Friendly slugs were declined for
+  MVP because the share button already means nobody retypes the URL by hand;
+  this closes the founder-auth slice's old open question about link
+  friendliness as a deliberate no, not an oversight.
+- **The share screen is a real third wizard step**, not a banner or a
+  separate route. Both alternatives had already been rejected once before (the
+  banner in the one-shot experiment, standalone join-success and welcome
+  routes as future dead code), so re-litigating either here would have been
+  re-opening closed decisions rather than making a new one.
+- **Step 3 has no back chevron.** The group already exists by the time
+  someone reaches this screen; a back arrow would imply the creation could
+  still be undone, which would be a lie. A recorded, deliberate departure
+  from the mockup, which draws one.
+- **Step 2's confirm button now reads "Looks right, set up invites."** True
+  again now that confirming leads into the share step instead of ending the
+  flow.
+- **The wizard header uses the same letter-O placeholder every other Orbit
+  appearance uses.** The real mascot face is queued for the end-of-build
+  visual-polish pass; this slice only made sure its asset lives in the repo
+  (`orbit-mark.js`) so that pass has something to swap in.
+
+**How first-join is told apart from a re-tap.** The join writes the
+membership with `createMany({ skipDuplicates: true })` rather than a plain
+create, specifically so a second person tapping an already-used link, or the
+same person tapping it twice, can never abort the transaction: the database
+maps the duplicate to a harmless no-op instead of an error, and the write's
+own returned count (1 for a genuine first join, 0 for a re-tap) is what
+decides whether the "Jesse joined" line gets written, with no separate lookup
+needed to ask the question. The announcement rides inside the same
+transaction as the membership itself, so the two can never exist without
+each other. Small engineering choice, but it is the reason a race between two
+people tapping the same link at the same moment cannot corrupt or double up
+the record.
+
+**What Orbit is deliberately kept blind to.** The twenty-message window Orbit
+reads to interpret requests now excludes SYSTEM rows. Without the exclusion,
+a join line would have reached Orbit's context mislabeled as coming from "a
+former member" (the window's existing fallback for a message with no author),
+which could have actively misled it rather than just being noise. Nothing
+about how Orbit behaves changed in this slice; whether Orbit should know who
+just joined, and could say something about it, is recorded as an open
+question rather than answered by accident.
+
+**Debt opened or left standing.**
+- **No system voice has a design token yet.** The join line ships on
+  existing muted text styles. Recommendation: queue for the visual-polish
+  pass rather than invent a token now for a single use.
+- **The native share sheet is still unexercised live**, standing debt carried
+  from the group-info slice; the clipboard fallback is what a desktop browser
+  can actually prove.
+- **A founder who refreshes or abandons the tab on step 3 loses the wizard,
+  not the group.** The group already exists; their invite link is still on
+  the info page. Accepted knowingly as the honest fallback rather than built
+  around.
+- **Open question, recorded and not built:** should Orbit know who just
+  joined. No behavior changes today; answering it later would shape Orbit's
+  future conversational context, not this slice's.
+
+**Deploy obligation.** One migration, `20260811150701_add_system_message_author`
+(adds `SYSTEM` to the `MessageAuthor` enum, nothing else changes shape), is
+now pre-deploy checklist item 10 (above in §11): the join announcement is
+dead in production without it, and it fails inside the same transaction that
+creates the membership, so an unmigrated production database would fail the
+join itself, not just the announcement.
+
+**Suite and verification.** Baseline at slice start: 55 files, 727 tests, all
+green, matching the group-info slice's finishing number. After this slice:
+59 files, 735 tests, all green, zero skipped. Every new test in this slice
+was written and shown failing before the code that made it pass. The
+recognition bench (`npm run eval:detect`) was not rerun: this slice touches
+neither the extraction nor the intent-recognition prompt, only a wizard step
+and a deterministic window query, so there was nothing for the bench to
+re-measure. Walkthrough evidence is appended to this entry by the next task.
