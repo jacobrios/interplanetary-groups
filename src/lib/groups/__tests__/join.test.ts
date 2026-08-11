@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
+import { MessageAuthor } from "@prisma/client"
 import { joinGroupByInvite } from "../join"
 
 describe("joinGroupByInvite", () => {
@@ -150,5 +151,91 @@ describe("joinGroupByInvite", () => {
     // No User row was created
     const user = await prisma.user.findUnique({ where: { supabaseAuthId: badAuthId } })
     expect(user).toBeNull()
+  })
+
+  it("announces a first join with exactly one SYSTEM message in the feed", async () => {
+    const founderAuthId = `test-founder-announce-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Announce", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Announce", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    const { user } = await joinGroupByInvite({
+      supabaseAuthId: `test-joiner-announce-${Date.now()}`,
+      memberName: "[TEST] Jesse",
+      inviteToken: group.inviteToken,
+    })
+    userIds.push(user.id)
+
+    const announcements = await prisma.message.findMany({
+      where: { groupId: group.id, authorType: MessageAuthor.SYSTEM },
+    })
+    expect(announcements).toHaveLength(1)
+    expect(announcements[0].body).toBe("[TEST] Jesse joined")
+    expect(announcements[0].authorId).toBeNull()
+  })
+
+  it("does not announce a re-tap of the invite link", async () => {
+    const founderAuthId = `test-founder-retap-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Retap", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Retap", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    const joinerAuthId = `test-joiner-retap-${Date.now()}`
+    const { user } = await joinGroupByInvite({
+      supabaseAuthId: joinerAuthId,
+      memberName: "[TEST] Retap Member",
+      inviteToken: group.inviteToken,
+    })
+    userIds.push(user.id)
+    await joinGroupByInvite({
+      supabaseAuthId: joinerAuthId,
+      memberName: "[TEST] Retap Member",
+      inviteToken: group.inviteToken,
+    })
+
+    const announcements = await prisma.message.findMany({
+      where: { groupId: group.id, authorType: MessageAuthor.SYSTEM },
+    })
+    expect(announcements).toHaveLength(1)
+  })
+
+  it("announces an existing user by their stored name, never the submitted name", async () => {
+    const existingAuthId = `test-existing-announce-${Date.now()}`
+    const existingUser = await prisma.user.create({
+      data: { name: "[TEST] Stored Name", supabaseAuthId: existingAuthId },
+    })
+    userIds.push(existingUser.id)
+
+    const founderAuthId = `test-founder-stored-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Stored", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Stored", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    await joinGroupByInvite({
+      supabaseAuthId: existingAuthId,
+      memberName: "[TEST] Submitted Name",
+      inviteToken: group.inviteToken,
+    })
+
+    const announcements = await prisma.message.findMany({
+      where: { groupId: group.id, authorType: MessageAuthor.SYSTEM },
+    })
+    expect(announcements).toHaveLength(1)
+    expect(announcements[0].body).toBe("[TEST] Stored Name joined")
   })
 })
