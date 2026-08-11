@@ -198,7 +198,10 @@ export default function OnboardingWizard() {
   if (step === "playback" && rhythms) {
     return (
       <>
-        <WizardHeader step={2} onBack={() => setStep("describe")} />
+        {/* No onBack mid-create: Step2Playback's own edit link already disables
+            during isCreating, and the header chevron must match it so a
+            founder can't navigate away from an in-flight creation. */}
+        <WizardHeader step={2} onBack={isCreating ? undefined : () => setStep("describe")} />
         <Step2Playback
           founderName={founderName}
           groupName={groupName}

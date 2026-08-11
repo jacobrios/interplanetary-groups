@@ -242,8 +242,12 @@ async function handleBump(gauge: CandidateGauge, timeZone: string, now: Date): P
     return { gaugeId: gauge.id, action: "skipped", reason: "born_today" }
   }
 
+  // SYSTEM rows (e.g. a "Jesse joined" notice) are excluded here for the
+  // same reason fetch-window.ts excludes them from detection: a join notice
+  // is nobody speaking, so it must not count as breaking still_newest and
+  // firing a bump the group never actually spoke into.
   const newest = await prisma.message.findFirst({
-    where: { groupId: gauge.groupId },
+    where: { groupId: gauge.groupId, authorType: { not: MessageAuthor.SYSTEM } },
     orderBy: { createdAt: "desc" },
     select: { id: true },
   })
