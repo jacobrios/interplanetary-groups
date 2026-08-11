@@ -19,7 +19,8 @@ import { detectIntentClaim, normalizeIntent } from "@/lib/orbit/spark"
 import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
 import { planDayComment } from "@/lib/orbit/day-comment-plan"
 import { recordDayComment } from "@/lib/gauges/day-comment"
-import { buildConversationWindow, WINDOW_MESSAGES, type WindowMessage } from "@/lib/orbit/window"
+import { buildConversationWindow } from "@/lib/orbit/window"
+import { fetchPriorWindow } from "@/lib/orbit/fetch-window"
 import {
   buildGaugeMessage,
   buildLiveGaugeLine,
@@ -85,22 +86,21 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     )
 
     // The conversational window: the 19 messages before the trigger plus the
-    // trigger itself, oldest first. Fetched separately from the trigger so the
+    // trigger itself, oldest first. Fetched via fetchPriorWindow (which
+    // excludes SYSTEM announcements from Orbit's reading, by spec) so the
     // trigger is always the marked last entry even under created-at ties.
-    const prior = await prisma.message.findMany({
-      where: { groupId: group.id, id: { not: message.id }, createdAt: { lte: message.createdAt } },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: WINDOW_MESSAGES - 1,
-      include: { author: true },
-    })
-    const toWindowMessage = (m: (typeof prior)[number]): WindowMessage => ({
-      authorName: m.author?.name ?? null,
-      isOrbit: m.authorType === MessageAuthor.ORBIT,
-      body: m.body,
-      createdAt: m.createdAt,
-    })
+    const priorWindow = await fetchPriorWindow(group.id, message)
     const conversationBlock = buildConversationWindow(
-      [...prior.reverse().map(toWindowMessage), toWindowMessage(message)],
+      [
+        ...priorWindow,
+        {
+          // The trigger is always a MEMBER message (guarded above).
+          authorName: message.author?.name ?? null,
+          isOrbit: false,
+          body: message.body,
+          createdAt: message.createdAt,
+        },
+      ],
       group.timeZone,
       now
     )
