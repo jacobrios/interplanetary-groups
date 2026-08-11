@@ -10,6 +10,7 @@ export interface IcsEventInput {
   title: string
   startsAt: Date
   endsAt: Date | null
+  updatedAt: Date
   venue: { label: string | null; name: string; address: string | null } | null
   eventUrl: string
 }
@@ -73,10 +74,10 @@ export function composeEventIcs(event: IcsEventInput, now: Date): string {
     "VERSION:2.0",
     "PRODID:-//Interplanetary Groups//Orbit//EN",
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:${event.id}@interplanetary-groups`,
     `DTSTAMP:${formatUtc(now)}`,
+    `SEQUENCE:${Math.floor(event.updatedAt.getTime() / 1000)}`,
     `DTSTART:${formatUtc(event.startsAt)}`,
     `DTEND:${formatUtc(end)}`,
     `SUMMARY:${escapeText(event.title)}`,

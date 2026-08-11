@@ -9,6 +9,7 @@ function baseEvent(overrides: Partial<IcsEventInput> = {}): IcsEventInput {
     title: "Sunday climb",
     startsAt: new Date("2026-08-16T15:00:00Z"),
     endsAt: null,
+    updatedAt: new Date("2026-08-10T09:00:00Z"),
     venue: null,
     eventUrl: "http://localhost:3000/events/evt123",
     ...overrides,
@@ -34,7 +35,7 @@ describe("composeEventIcs", () => {
   it("carries summary, description link, and calendar envelope", () => {
     const ics = composeEventIcs(baseEvent(), NOW)
     expect(ics).toContain("BEGIN:VCALENDAR")
-    expect(ics).toContain("METHOD:PUBLISH")
+    expect(ics).not.toContain("METHOD:")
     expect(ics).toContain("SUMMARY:Sunday climb")
     expect(ics).toContain(
       "DESCRIPTION:Details and RSVPs: http://localhost:3000/events/evt123"
@@ -84,14 +85,54 @@ describe("composeEventIcs", () => {
     expect(ics).toContain("SUMMARY:Beers\\; then pool\\, maybe\\ndarts")
   })
 
+  it("escapes a literal backslash before semicolons and commas, not after", () => {
+    // If escaping ran ";" and "," before "\", a literal backslash next to
+    // either would come out double-escaped ("\\;" instead of "\;").
+    const ics = composeEventIcs(
+      baseEvent({ title: "Plan B\\; bring cash, snacks" }),
+      NOW
+    )
+    // Expected SUMMARY payload, written out character by character so the
+    // JS string literal itself isn't a source of confusion:
+    //   Plan B \ ; bring cash , snacks
+    // becomes, after backslash-first escaping:
+    //   Plan B \\ \; bring cash \, snacks
+    const expected = "SUMMARY:Plan B" + "\\\\" + "\\;" + " bring cash" + "\\," + " snacks"
+    expect(ics).toContain(expected)
+  })
+
   it("folds lines longer than 75 octets with a leading space", () => {
-    const longTitle = "A".repeat(200)
+    // A repeating numbered pattern makes every position distinguishable, so
+    // a fold bug that drops or duplicates a character at a fold boundary
+    // changes the unfolded text rather than being masked by uniform input.
+    const longTitle = Array.from({ length: 200 }, (_, i) => i % 10).join("")
     const ics = composeEventIcs(baseEvent({ title: longTitle }), NOW)
     const physicalLines = ics.split("\r\n")
     for (const line of physicalLines) {
       expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75)
     }
-    // Unfolding (CRLF + space removed) restores the logical line.
-    expect(ics.replace(/\r\n /g, "")).toContain(`SUMMARY:${longTitle}`)
+    // Unfolding (CRLF + space removed) must restore the logical line exactly,
+    // not merely contain it as a substring.
+    const unfolded = ics.replace(/\r\n /g, "")
+    const summaryLine = unfolded
+      .split("\r\n")
+      .find((line) => line.startsWith("SUMMARY:"))
+    expect(summaryLine).toBe(`SUMMARY:${longTitle}`)
+  })
+
+  it("derives SEQUENCE from updatedAt, rising strictly when the event changes", () => {
+    const earlier = composeEventIcs(
+      baseEvent({ updatedAt: new Date("2026-08-10T09:00:00Z") }),
+      NOW
+    )
+    const later = composeEventIcs(
+      baseEvent({ updatedAt: new Date("2026-08-11T09:00:00Z") }),
+      NOW
+    )
+    const sequenceOf = (s: string) => Number(s.match(/SEQUENCE:(\d+)/)?.[1])
+    const uidOf = (s: string) => s.match(/UID:[^\r]+/)?.[0]
+
+    expect(sequenceOf(later)).toBeGreaterThan(sequenceOf(earlier))
+    expect(uidOf(later)).toBe(uidOf(earlier))
   })
 })
