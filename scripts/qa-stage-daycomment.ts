@@ -11,13 +11,13 @@
 // What this script seeds and what the walkthrough is expected to add, in
 // order:
 //   1. (seeded) One IN vote from a non-founder member.
-//   2. (seeded) One NOT_THAT_DAY vote from a second non-founder member — the
-//      "can't that day" chip tap, done here as a direct row rather than a
+//   2. (seeded) One NOT_THAT_DAY vote from a second non-founder member (the
+//      "can't that day" chip tap), done here as a direct row rather than a
 //      real chip tap, because exercising the chip UI itself is already
 //      covered by RsvpControls/GaugeChips' own component tests. This script
 //      exists to exercise the day-comment path, not to re-prove the chip.
-//   3. (live, in the browser) A THIRD member — a fresh join, since the
-//      walkthrough session cannot become one of the seeded identities —
+//   3. (live, in the browser) A THIRD member (a fresh join, since the
+//      walkthrough session cannot become one of the seeded identities)
 //      posts "Sunday works better" as a day comment. recordDayComment
 //      records their vote as NOT_THAT_DAY too (they hold no prior vote), which
 //      is what carries the gauge from 1 IN + 1 NOT_THAT_DAY (short of the bar)
@@ -41,7 +41,7 @@
 //
 //   npx tsx --env-file=.env scripts/qa-stage-daycomment.ts --close <groupId>
 //
-// Runs the REAL endgame sweep (scoped to that group only, never unscoped —
+// Runs the REAL endgame sweep (scoped to that group only, never unscoped;
 // see the file-header warning in src/lib/orbit/__tests__/endgame.test.ts for
 // why an unscoped sweep is dangerous in a shared database) against a clock
 // set just past the beers gauge's close time, and prints the sweep's results.
@@ -151,7 +151,7 @@ async function verify(groupId: string) {
 /**
  * Runs the real endgame sweep, scoped to this group only, against a clock set
  * just past the target gauge's close time. Never call runGaugeEndgame without
- * { groupId } — see the file header above and the warning in
+ * { groupId }; see the file header above and the warning in
  * src/lib/orbit/__tests__/endgame.test.ts.
  */
 async function closeNow(groupId: string) {
@@ -256,7 +256,7 @@ async function main() {
   })
 
   // One IN from a non-founder member (Ravi), one NOT_THAT_DAY from a second
-  // non-founder member (Elle) — the seeded half of the would-have-cleared
+  // non-founder member (Elle): the seeded half of the would-have-cleared
   // bar. See the file header for why the second half comes from the live day
   // comment instead of a third seeded row.
   await prisma.gaugeVote.create({ data: { gaugeId: created.gauge.id, userId: ravi.id, answer: GaugeAnswer.IN } })
