@@ -1592,3 +1592,17 @@ anywhere in the founder's own onboarding. This was a plan-sanctioned
 consequence of the header redesign, not an oversight caught late. Whether the
 reassurance should return somewhere in onboarding is an open question for the
 owner.
+
+*Postscript, 11 Aug 2026 (owner QA, pre-merge):* the owner asked, after
+running the QA script, whether step 3 could get a back chevron to step 2 so a
+founder who spots a mistake could reach "Edit my description." Considered and
+declined together, because it is not the small change it looks like: the
+group already exists by step 3, and step 2's screen was built for the moment
+before creation, so every control on it would lie (edits go nowhere, the
+confirm button would create a duplicate group, and the edit-description path
+would create a third). Making the trip back honest means teaching the wizard
+to edit an existing group, which is a real feature, not navigation. The
+underlying need is real and is queued post-MVP as "founder can fix group
+details after creation," whose natural home is the info page or Orbit's chat
+once change requests widen, not the wizard. Recorded so "why is there no back
+on step 3" never resurfaces as a mystery.
