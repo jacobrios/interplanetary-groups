@@ -336,6 +336,12 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Correction, 10 Aug 2026 (day-comment slice): eight items now, not seven. The count in the line above is left as written, per the append-only rule; read it as "check all of them".*
 
+9. **Put a spending ceiling on pre-auth model calls before the product is reachable at a public URL.**
+   *Why it blocks deploy:* every model call in the product (onboarding extraction, the gap-ask merge, chat intent detection) is reachable by an anonymous session with no sign-in, because no surface is membership-gated and identity is anonymous-first by design. A deployed URL with no ceiling is an open door to unbounded API spend that no user account limits. The ceiling can be a provider-side spend limit, an app-side cap, or both; which one is a decision for the deploy moment, not for this line.
+   *Detail:* elevated from debt to checklist item at the pre-MVP triage pass, 10 Aug 2026 (triage entry, below in §11).
+
+*Correction, 10 Aug 2026 (pre-MVP triage pass): nine items now. Same reading as above: check all of them.*
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -1360,3 +1366,51 @@ While wiring the bench to prove the fix, found and fixed a gap in the eval harne
 *The waste, fixed alongside it.* A revived original left no marker of its own, so every sweep for up to two days retried the whole revival write and let the database reject it. Nothing a member could see, and correctness never depended on it (the naming message can only ever anchor one gauge, which is what actually makes a second revival impossible), but it wrote and rolled back an Orbit message every hour for no reason. The revival now checks first and skips, matching how the week-later guess already behaved.
 
 *The spec claim that was too broad, corrected rather than rewritten.* The spec says in two places that this slice's window and the older "what day works better?" window cannot overlap. That is true only when both are about the same activity. For the same activity it holds exactly as written. Across different activities they can overlap: Orbit can be waiting up to 48 hours for an answer about climbing while a beers gauge is live, and nothing prevents that. In that overlap the older reading wins, purely because it is checked first, so a member replying "Sunday works better" about beers could open a climbing gauge for Sunday while the beers comment is dropped. Which of the two readings should win in that case has never been decided as a product question; today it falls out of the model's own answer on one flag. No behavior changed for this correction, and no bench case covers the overlap. A bench case for it and a decided precedence between the two readings are both queued, not built. The correction is appended beside the original claim in the spec (`docs/superpowers/specs/2026-08-10-day-comment-live-gauge-design.md`, "Correction (10 Aug 2026, whole-branch review)"), which still stands where it was written.
+
+### Pre-MVP triage pass (10 Aug 2026)
+
+The triage pass over the §8 remaining register ran on 10 Aug 2026 and set the path to MVP complete. Recorded here at the start of the group-info slice, riding its branch, because the session that ran the triage is the only one that reliably knows its outcome.
+
+**The decided order, do-not-relitigate:**
+
+1. **The full group-info page** (this slice, next). The `/groups/[id]/info` stub grows in place into the surface §4 and mockup 10 define: the member list (names only, never emails), the standing rhythm rows with venues, the founder powers (remove member, reset invite link), and Leave group (warm, destructive-styled, never buried). The invite link becomes visible to members rather than founder-only; today a non-founder sees "Group info coming soon."
+2. **The joining arc**, one slice: the onboarding share moment (mockup 04) plus the "Jesse joined" system announcement. The two halves of the same product moment (handing the founder the link, and the group seeing the person it produced), so they travel together.
+3. **The .ics add-to-calendar button**, its own small slice.
+4. **The end-of-build visual-polish pass**, closing the feel-pass register and the scaffolding gaps.
+
+**Two owner decisions made at triage, recorded so they stop reading as open questions:**
+
+- **Ruling 2 of the day-comment slice is ratified as shipped.** A guess gauge caught by a delayed sweep closes plainly, never earning an ask or a guess of its own. What was decided by the build controller in the owner's absence and surfaced in the PR's open questions is now the owner's own decision, on the same reasoning: once the member's named day has passed, there is no member-named revival left to carry full rights.
+- **The goodbye's current-members-only reading is confirmed as the product decision.** A departed member's yes does not earn the group a closing note. The goodbye exists for people still in the room who had said yes; a yes from someone who has since left is not owed a message the remaining group never asked for.
+
+**One elevation:** a spending ceiling on pre-auth model calls moved from standing debt to item 9 of the pre-deploy checklist (top of this section). It is a deploy gate, not a slice: nothing about it needs building until the product is about to be reachable at a public URL.
+
+### The full group-info page (10 Aug 2026)
+
+Entry started at slice open; spec path to be added when the design is written.
+
+**Suite baseline before any code:** 47 files, 692 tests, all green, zero skipped. This is one test above the day-comment slice's finishing number of 47 files, 691 tests; the extra test is accounted for and is not a pre-existing failure. Commit `d49e720` ("Keep the revival out of the way when the group beat it to it", the day-comment whole-branch review fix) landed after that entry's 691 count was recorded but before the branch merged to main, and it added one test to `src/lib/orbit/__tests__/endgame.test.ts`; file count held at 47 because the addition was inside an existing test file. Nothing failed and nothing was skipped.
+
+**Spec:** `docs/superpowers/specs/2026-08-10-group-info-page-design.md`, fourteen settled decisions plus the debt list, written from the 10 Aug 2026 brainstorm and Section 1's approved addition on invite-link visibility.
+
+**What shipped, as a member experiences it.** The `/groups/[id]/info` stub is gone. Any session can open the page and see the group's identity (lime emblem with deterministic initials, name, member count), the WHO list in founder-first-then-join-order, and every stored rhythm with its venue when it has one. A member or the founder additionally sees the real invite link in a pill with a teal "Share invite link" button (native share sheet where the browser offers one, clipboard copy with the existing "Copied!" feedback otherwise); a member alone also sees an outlined "Leave group" button at the bottom, warmly confirmed and never buried, which never renders for the founder. The founder sees the same page plus two quiet text links, never teal: "Manage members" flips the WHO card into a stacked list with a per-row remove affordance (the founder's own row has none), and "Reset link" rotates the invite token, killing the old link everywhere it has been shared. Every other change to the group still goes through Orbit in chat, and the page says so in a hint line.
+
+**The decisions as built.**
+- **Departures are silent, both kinds.** Leaving and removal post nothing to the feed. The WHO list is the only record, which also kept the joining arc's system-message plumbing out of this slice.
+- **The founder cannot leave.** No Leave button renders on the founder's own view. A real founder exit (transfer or dissolve) is a future decision, not this one.
+- **Removal and leaving are the same one-row delete, and the product self-heals for free.** Every tally, roster, consensus bar, and goodbye already counted current members only, so removing someone updates counts and gauge tallies with no extra write. The departed member's chat history and old RSVPs stay visible, as a group would expect to still see them.
+- **Reset is the keep-them-out mechanism.** Since removal alone does not revoke a link someone already has, reset-then-remove is the designed pair: a fresh token kills the old link immediately, everywhere.
+- **The invite link is visible to members, not to everyone.** A non-member session gets the identity block, the WHO/rhythm card, and the hint line only; no invite pill, no share button, no Leave. Showing the link to any holder of the URL would have turned every group page into a public invite, which is more than triage decided.
+- **The Manage-members state is our own design**, not something the Claude Design handoff drew; noted as debt below.
+
+**Walkthrough evidence, and its honest limits.** Full evidence in `.superpowers/sdd/2026-08-10-group-info-page/walkthrough-evidence.md`, gathered 10-11 Aug 2026 on dev-test against a real onboarded group plus `scripts/qa-stage-groupinfo.ts` seeding three more members and a live gauge. Observed directly in the rendered app: the founder view with no Leave button and exactly three Remove affordances for four members; removing Theo self-healing the WHO list, the member count, and the gauge tally line (which disappeared entirely once his was the only yes); reset producing a new token in the pill, the old link 404ing into the existing bad-invite screen, the new link opening the join form; a fresh member session seeing the invite pill and share button for the first time (the stub previously read "Group info coming soon" for anyone but the founder); a full leave-and-rejoin round trip proving the confirm copy's promise ("you can always rejoin") true, landing on the front door and then back in; and a non-member session seeing only the identity block, the WHO/rhythm card, and the hint, with no invite, share, Leave, or founder affordances. Two things the evidence does not cover: the copied clipboard value could not be read back in the browser pane (read permission denied), so the exact-URL claim rests on the ShareInviteLink component test rather than the live walkthrough; and the native share-sheet branch was never exercised, because `navigator.share` is undefined in the desktop pane used, so only the clipboard fallback ran live. The pane's accessibility tree also went empty intermittently while backgrounded, forcing some clicks by screenshot coordinate; that is a QA-process quirk, not a product finding.
+
+**Suite and typecheck, before and after.** Before: 47 files, 692 tests, all green. After this slice: 55 files, 727 tests, all green, zero skipped, with `npx tsc --noEmit` clean.
+
+**Debt opened or left standing.**
+- **Founder exit has no path.** Transfer or dissolve is a future decision; until it exists, founder account deletion also stays blocked by the same schema constraint. Recommendation: queue, not urgent, because no founder has needed to leave yet.
+- **Removal is not a lock, until the access-control slice.** A removed or departed member holding the URL can still view the group and post in chat; removal only takes them out of every count, roster, this page, and front-door routing. Accepted standing state, not a defect of this slice; its fix is the access-control slice's job.
+- **The Manage-members state is our design, not Claude Design's.** The handoff never drew a stacked-list-with-remove state. Recommendation: queue a design pass in the end-of-build visual-polish sweep rather than treat it as wrong today.
+- **Watch-item, cosmetic:** a group name that starts with punctuation yields punctuation initials (the seeded QA group "[QA] Group Info" rendered "[G"). Real group names are unaffected by this in practice; recommendation is decline unless it actually shows up on a live group.
+
+No migration, no model call, and no new pre-deploy checklist item came out of this slice.
