@@ -1606,3 +1606,25 @@ underlying need is real and is queued post-MVP as "founder can fix group
 details after creation," whose natural home is the info page or Orbit's chat
 once change requests widen, not the wizard. Recorded so "why is there no back
 on step 3" never resurfaces as a mystery.
+
+### The .ics add-to-calendar button (started 11 Aug 2026)
+
+Slice started from main at 3d40d75. Suite baseline before any code: 59
+files, 736 tests, all green. Spec:
+docs/superpowers/specs/2026-08-11-ics-calendar-button-design.md. The rest
+of this entry is written at slice close.
+
+**Cross-check discrepancy, recorded rather than absorbed.** The joining-arc
+entry above states its finishing number as "59 files, 735 tests." The fresh
+count taken here, on the merged `3d40d75` itself, is 59 files, 736 tests,
+one test higher. The likely explanation, found by reading the commit
+history rather than assumed: the joining-arc entry's suite line was written
+at commit `4725db3` (735 tests), but the branch that actually merged as
+`3d40d75` includes a later commit, `60ac249` ("Fix eve-bump SYSTEM-row leak
+and mid-create back navigation"), whose commit message says the fix is
+"Covered by a new failing-first test in endgame.test.ts" — one new test,
+never folded back into the §11 entry's recorded number. This baseline (59
+files, 736 tests) is the real, current, all-green count as of this slice's
+start and is what later slices should cross-check against; the joining-arc
+entry's "735" is now a known-stale number, left as-is above per the
+append-only rule rather than rewritten.
