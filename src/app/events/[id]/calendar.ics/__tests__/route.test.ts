@@ -1,14 +1,23 @@
 // src/app/events/[id]/calendar.ics/__tests__/route.test.ts
 //
 // Integration test — hits the real dev database (repo idiom).
-import { describe, it, expect, afterAll } from "vitest"
+import { describe, it, expect, afterAll, beforeEach, vi } from "vitest"
 import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { GET } from "../route"
 
+let mockViewer: { id: string } | null = null
+vi.mock("@/lib/auth/current-user", () => ({
+  getCurrentUser: () => Promise.resolve(mockViewer),
+}))
+
 describe("GET /events/[id]/calendar.ics", () => {
   const groupIds: string[] = []
   const userIds: string[] = []
+
+  beforeEach(() => {
+    mockViewer = null
+  })
 
   afterAll(async () => {
     for (const id of groupIds) {
@@ -20,15 +29,22 @@ describe("GET /events/[id]/calendar.ics", () => {
     await prisma.$disconnect()
   })
 
-  it("serves a parseable calendar file for a real event", async () => {
+  async function createEventFixture() {
     const founder = await prisma.user.create({
       data: { name: "[TEST] Ics Founder", supabaseAuthId: `test-ics-${Date.now()}` },
     })
+    const outsider = await prisma.user.create({
+      data: { name: "[TEST] Ics Outsider", supabaseAuthId: `test-ics-outsider-${Date.now()}` },
+    })
     const group = await prisma.group.create({
-      data: { name: "[TEST] Ics Group", founderId: founder.id },
+      data: {
+        name: "[TEST] Ics Group",
+        founderId: founder.id,
+        memberships: { create: [{ userId: founder.id }] },
+      },
     })
     groupIds.push(group.id)
-    userIds.push(founder.id)
+    userIds.push(founder.id, outsider.id)
     const event = await prisma.event.create({
       data: {
         groupId: group.id,
@@ -37,6 +53,12 @@ describe("GET /events/[id]/calendar.ics", () => {
         venues: { create: { name: "[TEST] The Wall", address: "123 Main St" } },
       },
     })
+    return { founder, outsider, group, event }
+  }
+
+  it("serves a parseable calendar file for a real event", async () => {
+    const { founder, event } = await createEventFixture()
+    mockViewer = { id: founder.id }
 
     const response = await GET(
       new NextRequest(`http://localhost:3000/events/${event.id}/calendar.ics`),
@@ -67,5 +89,28 @@ describe("GET /events/[id]/calendar.ics", () => {
       { params: Promise.resolve({ id: "nope" }) }
     )
     expect(response.status).toBe(404)
+  })
+
+  it("refuses a non-member with 403 and no calendar body", async () => {
+    const { outsider, event } = await createEventFixture()
+    mockViewer = { id: outsider.id }
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/events/${event.id}/calendar.ics`),
+      { params: Promise.resolve({ id: event.id }) }
+    )
+    expect(response.status).toBe(403)
+    expect(await response.text()).not.toContain("BEGIN:VCALENDAR")
+  })
+
+  it("refuses a session-less request with 403", async () => {
+    const { event } = await createEventFixture()
+    mockViewer = null
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/events/${event.id}/calendar.ics`),
+      { params: Promise.resolve({ id: event.id }) }
+    )
+    expect(response.status).toBe(403)
   })
 })
