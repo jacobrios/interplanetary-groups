@@ -259,6 +259,27 @@ Not decision points, but they are what a future reader will reason from, so they
 
 > A checklist is only true the day it is written. Any slice that adds a new speak-or-stay-quiet decision adds its line here. Without that, this rots into something worse than nothing: a list that looks complete and is not.
 
+### Model-behavior eval coverage: two of three behaviors have no bench (queued 10 Aug 2026)
+
+Queued by the owner after he asked whether evals get updated in every slice that needs it. They do for recognition, and asking the question is what surfaced that "where it needs it" had quietly come to mean recognition only.
+
+The product makes three kinds of model call, and one is benched:
+
+- `src/lib/orbit/spark.ts` (INTENT_SYSTEM_PROMPT, intent recognition): 33 graded cases in `evals/detect/`, scored as rates over N runs, and updated in every slice that changed recognition. Healthy.
+- `src/lib/orbit/extract.ts` (SYSTEM_PROMPT, onboarding rhythm extraction): no bench. Last changed 23 July 2026.
+- `src/lib/orbit/merge.ts` (MERGE_SYSTEM_PROMPT, gap-ask merge): no bench. Last changed 22 July 2026.
+
+Both unbenched behaviors predate the bench, which was built on 29 July out of the recognition failure and was only ever pointed at the behavior that had failed. `scripts/try-extract.ts` and `scripts/try-merge.ts` exist, but they only print output for a human to read: under the standing rule they are the named hand-run tier, not evidence, because they grade nothing and score no rate.
+
+**Why this is worth protecting rather than shrugging at.** The merge behavior has already failed in exactly the way a bench catches. Across a gap-merge round the activity label drifted from CLIMBING to CLIMB, because the model re-derived a value it should have carried; that failure is what produced the CLAUDE.md guardrail "stored state is not display; carry it, do not regenerate it". Nothing in the project today would notice it coming back. Onboarding extraction is the higher-stakes of the two: it is pre-auth, it is a founder's first impression of the product, and it feeds the server-side completeness gate that decides whether a group can be created at all. And all three behaviors run through one pinned model, so a version bump lands on all three while only one of them can report the damage.
+
+**The commitment is trigger-based rather than dated, because nothing is broken today.** Neither prompt has been touched in weeks and neither is scheduled to change, so the gap currently costs nothing; it goes live the moment one of them is edited or the model version moves.
+
+1. Benches for extraction and merge are the FIRST task of whichever slice next touches onboarding.
+2. A model version change requires all three behaviors benched before it lands.
+
+Recommendation recorded at queue time: queue, not fix now. The cost of the gap is zero until the trigger fires, and the trigger is identifiable, so paying for the benches now would buy nothing that waiting does not.
+
 ## 11. Build log (implementation decisions)
 
 *Build phase, begun June 2026. Entries here are decisions made while implementing, ADR-style, one per build slice. They realize and extend the product-design decisions in sections 1 to 10; they do not replace them.*
