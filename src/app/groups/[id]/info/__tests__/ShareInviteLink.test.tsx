@@ -24,19 +24,19 @@ describe("ShareInviteLink", () => {
   })
 
   it("uses navigator.share with the full join URL when the browser has it", async () => {
-    const share = vi.fn(async () => {})
+    const share = vi.fn<(data?: ShareData) => Promise<void>>(async () => {})
     Object.defineProperty(navigator, "share", { value: share, configurable: true })
 
     render(<ShareInviteLink inviteToken="tok-2" groupName="Climbing Crew" />)
     fireEvent.click(screen.getByRole("button", { name: "Share invite link" }))
 
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1))
-    const arg = share.mock.calls[0][0] as { url?: string }
-    expect(arg.url).toContain("/join/tok-2")
+    const arg = share.mock.calls[0][0]
+    expect(arg?.url).toContain("/join/tok-2")
   })
 
   it("falls back to clipboard copy with Copied! feedback when share is absent", async () => {
-    const writeText = vi.fn(async () => {})
+    const writeText = vi.fn<(text: string) => Promise<void>>(async () => {})
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
       configurable: true,
