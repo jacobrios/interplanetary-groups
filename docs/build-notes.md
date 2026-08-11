@@ -1556,11 +1556,12 @@ share button on the desktop pane hit the clipboard branch and showed
 "Copied!" before reverting. "Take me to my group" landed on the group home
 with the pinned event card and Orbit's "Next up" note.
 
-The second session followed the pattern from the group-info walkthrough:
-a second browser tab pointed at `127.0.0.1:3000` instead of `localhost:3000`,
-a distinct origin and therefore a distinct cookie jar on the same dev
-server (`allowedDevOrigins` in `next.config.ts` already carries this pattern
-from earlier QA). Opening the real invite URL there showed the join screen
+The second session followed the pattern from the change-request-part-two
+walkthrough, where this two-origin technique was first used: a second browser
+tab pointed at `127.0.0.1:3000` instead of `localhost:3000`, a distinct
+origin and therefore a distinct cookie jar on the same dev server
+(`allowedDevOrigins` in `next.config.ts` already carries this pattern from
+that earlier QA). Opening the real invite URL there showed the join screen
 for "Monday Wednesday Climbers"; joining as "Jesse" landed on the group home
 with a centered, bubble-free "Jesse joined" line in the feed and the TBD
 count moved from 1 to 2. Reloading the founder's own session showed the same
@@ -1582,3 +1583,12 @@ recorded). Everything else in the Task 10 checklist was observed directly in
 the rendered app, not inferred from code reading. The sandbox was left as-is
 afterward (standing convention): "Jordan" founder, "Jesse" member, one live
 group time-change proposal on Climbing Monday.
+
+*Postscript, 11 Aug 2026 (fix wave, code review):* removing the `/create`
+page's own h1 as part of this slice's header redesign also removed the "No
+sign-up needed. You can add an email later to keep access." reassurance that
+used to live on that page header; it now appears only on the join screen, not
+anywhere in the founder's own onboarding. This was a plan-sanctioned
+consequence of the header redesign, not an oversight caught late. Whether the
+reassurance should return somewhere in onboarding is an open question for the
+owner.
