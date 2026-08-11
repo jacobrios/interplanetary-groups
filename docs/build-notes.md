@@ -1539,3 +1539,46 @@ recognition bench (`npm run eval:detect`) was not rerun: this slice touches
 neither the extraction nor the intent-recognition prompt, only a wizard step
 and a deterministic window query, so there was nothing for the bench to
 re-measure. Walkthrough evidence is appended to this entry by the next task.
+
+**Walkthrough evidence (11 Aug 2026).** Run on dev-test (db:which confirmed
+`pxbewardwvoyqqcvogel` on all three sources before starting), against a group
+built live through the real product, no seeding script. Founder "Jordan"
+onboarded through the real extraction model with "We're a climbing crew of 8.
+We usually go Monday and Wednesday mornings at 8am." (no gap round
+triggered): step 1 showed "STEP 1 OF 3" with the "Never mind, take me back"
+exit; step 2 showed "STEP 2 OF 3" and the confirm button read exactly "Looks
+right, set up invites"; step 3 rendered the name card ("Monday Wednesday
+Climbers"), the uppercase "GROUP INVITE LINK" eyebrow, the real
+`/join/<token>` URL, the teal "Share invite link" button, Orbit's bubble with
+no em dash, the outlined "Take me to my group," the caption, "STEP 3 OF 3" in
+the header, and no back chevron, a full match to the brief. Clicking the
+share button on the desktop pane hit the clipboard branch and showed
+"Copied!" before reverting. "Take me to my group" landed on the group home
+with the pinned event card and Orbit's "Next up" note.
+
+The second session followed the pattern from the group-info walkthrough:
+a second browser tab pointed at `127.0.0.1:3000` instead of `localhost:3000`,
+a distinct origin and therefore a distinct cookie jar on the same dev
+server (`allowedDevOrigins` in `next.config.ts` already carries this pattern
+from earlier QA). Opening the real invite URL there showed the join screen
+for "Monday Wednesday Climbers"; joining as "Jesse" landed on the group home
+with a centered, bubble-free "Jesse joined" line in the feed and the TBD
+count moved from 1 to 2. Reloading the founder's own session showed the same
+line, confirming it is a shared feed write, not a per-viewer artifact.
+Re-opening the same invite URL as Jesse (session remembered, so the join
+screen read "Joining as Jesse" with no name field) and tapping join again
+left the feed unchanged: still exactly one "Jesse joined" line, TBD count
+still 2, proving the `skipDuplicates` re-tap path holds live and not just in
+tests. Jesse then sent "can we do climbing at 9 instead of 8?" in the group
+chat; Orbit replied normally with a group time-change proposal ("Jesse wants
+climbing this Wed at 9am instead of 8am. Works for you?"), chips, Jesse's own
+chip pre-checked, and a live tally, proving detection survives a SYSTEM row
+sitting in the twenty-message window it now excludes.
+
+**Not exercised, named honestly:** the native share sheet (`navigator.share`
+is undefined in the desktop browser pane used for this walkthrough, so only
+the clipboard branch could run live, the same gap the group-info slice
+recorded). Everything else in the Task 10 checklist was observed directly in
+the rendered app, not inferred from code reading. The sandbox was left as-is
+afterward (standing convention): "Jordan" founder, "Jesse" member, one live
+group time-change proposal on Climbing Monday.
