@@ -50,7 +50,10 @@ export async function rsvpAction(
 
   try {
     await setRsvp({ supabaseAuthId: user.id, eventId, status })
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message === "NOT_A_MEMBER") {
+      return { errors: { general: "Only members can RSVP to this one." } }
+    }
     return { errors: { general: "Couldn't save that, try again." } }
   }
 
