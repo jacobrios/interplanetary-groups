@@ -11,6 +11,7 @@
 import Link from "next/link"
 import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
+import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import OrbitPause from "./OrbitPause"
 
 const INTRO_COPY =
@@ -53,9 +54,11 @@ export default function Step1Describe({
       ? REASK_COPY[extractState.gap.missing]
       : extractState.status === "unusable"
         ? REASK_COPY.nothing_schedulable
-        : extractState.status === "error"
-          ? ERROR_COPY
-          : INTRO_COPY)
+        : extractState.status === "unavailable"
+          ? UNAVAILABLE_COPY[extractState.reason]
+          : extractState.status === "error"
+            ? ERROR_COPY
+            : INTRO_COPY)
 
   const canSubmit = founderName.trim().length > 0 && description.trim().length > 0
 

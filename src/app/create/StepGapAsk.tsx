@@ -17,12 +17,18 @@
 import type { GapPayload } from "@/app/actions/extract-group"
 import { GAP_HINT_EXAMPLES, gapBubbleLine } from "@/lib/orbit/gap"
 import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
+import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
+import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
 // Same soft-retry contract and copy as Step 1's extraction error.
 const MERGE_ERROR_COPY = "Hmm, that didn't go through. Give it another try in a moment."
+
+/** Which flavor of failure the last merge attempt hit. "generic" keeps the
+ * old one-size retry line; the other two carry the honest reason. */
+export type MergeErrorKind = "generic" | ModelFailureReason
 
 interface Props {
   founderName: string
@@ -35,7 +41,7 @@ interface Props {
   onSubmit: () => void
   onEditDescription: () => void
   isMerging: boolean
-  mergeError: boolean
+  mergeError: MergeErrorKind | null
 }
 
 const rowLabelStyle: React.CSSProperties = {
@@ -218,7 +224,7 @@ export default function StepGapAsk({
             marginBottom: "0.75rem",
           }}
         >
-          {MERGE_ERROR_COPY}
+          {mergeError === "generic" ? MERGE_ERROR_COPY : UNAVAILABLE_COPY[mergeError]}
         </p>
       )}
 

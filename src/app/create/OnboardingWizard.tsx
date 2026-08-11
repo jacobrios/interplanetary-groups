@@ -25,7 +25,7 @@ import type { StoredRhythm } from "@/lib/orbit/rhythm"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
-import StepGapAsk from "./StepGapAsk"
+import StepGapAsk, { type MergeErrorKind } from "./StepGapAsk"
 import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
@@ -75,7 +75,7 @@ export default function OnboardingWizard() {
   // plainly instead of thanking the founder for nothing.
   const [stalled, setStalled] = useState(false)
   const [gapExhausted, setGapExhausted] = useState(false)
-  const [mergeError, setMergeError] = useState(false)
+  const [mergeError, setMergeError] = useState<MergeErrorKind | null>(null)
   const [isMerging, startMerge] = useTransition()
 
   const [isCreating, startCreate] = useTransition()
@@ -105,7 +105,7 @@ export default function OnboardingWizard() {
     setRound(0)
     setAnswerDraft("")
     setStalled(false)
-    setMergeError(false)
+    setMergeError(null)
     setGapExhausted(false)
     setStep("gap")
   }
@@ -115,12 +115,17 @@ export default function OnboardingWizard() {
   // than a second useActionState with its own handled marker.
   function handleAnswerSubmit() {
     if (!gap || answerDraft.trim().length === 0) return
-    setMergeError(false)
+    setMergeError(null)
     startMerge(async () => {
       const result = await mergeGapAction({ description, answer: answerDraft, round, gap })
       if (result.status === "error") {
         // Soft retry: draft preserved, round not consumed.
-        setMergeError(true)
+        setMergeError("generic")
+        return
+      }
+      if (result.status === "unavailable") {
+        // Same contract, honest reason (credits or trouble).
+        setMergeError(result.reason)
         return
       }
       if (result.status === "ready") {
