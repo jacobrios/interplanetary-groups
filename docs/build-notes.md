@@ -336,6 +336,12 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Correction, 10 Aug 2026 (day-comment slice): eight items now, not seven. The count in the line above is left as written, per the append-only rule; read it as "check all of them".*
 
+9. **Put a spending ceiling on pre-auth model calls before the product is reachable at a public URL.**
+   *Why it blocks deploy:* every model call in the product (onboarding extraction, the gap-ask merge, chat intent detection) is reachable by an anonymous session with no sign-in, because no surface is membership-gated and identity is anonymous-first by design. A deployed URL with no ceiling is an open door to unbounded API spend that no user account limits. The ceiling can be a provider-side spend limit, an app-side cap, or both; which one is a decision for the deploy moment, not for this line.
+   *Detail:* elevated from debt to checklist item at the pre-MVP triage pass, 10 Aug 2026 (triage entry, below in §11).
+
+*Correction, 10 Aug 2026 (pre-MVP triage pass): nine items now. Same reading as above: check all of them.*
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -1360,3 +1366,21 @@ While wiring the bench to prove the fix, found and fixed a gap in the eval harne
 *The waste, fixed alongside it.* A revived original left no marker of its own, so every sweep for up to two days retried the whole revival write and let the database reject it. Nothing a member could see, and correctness never depended on it (the naming message can only ever anchor one gauge, which is what actually makes a second revival impossible), but it wrote and rolled back an Orbit message every hour for no reason. The revival now checks first and skips, matching how the week-later guess already behaved.
 
 *The spec claim that was too broad, corrected rather than rewritten.* The spec says in two places that this slice's window and the older "what day works better?" window cannot overlap. That is true only when both are about the same activity. For the same activity it holds exactly as written. Across different activities they can overlap: Orbit can be waiting up to 48 hours for an answer about climbing while a beers gauge is live, and nothing prevents that. In that overlap the older reading wins, purely because it is checked first, so a member replying "Sunday works better" about beers could open a climbing gauge for Sunday while the beers comment is dropped. Which of the two readings should win in that case has never been decided as a product question; today it falls out of the model's own answer on one flag. No behavior changed for this correction, and no bench case covers the overlap. A bench case for it and a decided precedence between the two readings are both queued, not built. The correction is appended beside the original claim in the spec (`docs/superpowers/specs/2026-08-10-day-comment-live-gauge-design.md`, "Correction (10 Aug 2026, whole-branch review)"), which still stands where it was written.
+
+### Pre-MVP triage pass (10 Aug 2026)
+
+The triage pass over the §8 remaining register ran on 10 Aug 2026 and set the path to MVP complete. Recorded here at the start of the group-info slice, riding its branch, because the session that ran the triage is the only one that reliably knows its outcome.
+
+**The decided order, do-not-relitigate:**
+
+1. **The full group-info page** (this slice, next). The `/groups/[id]/info` stub grows in place into the surface §4 and mockup 10 define: the member list (names only, never emails), the standing rhythm rows with venues, the founder powers (remove member, reset invite link), and Leave group (warm, destructive-styled, never buried). The invite link becomes visible to members rather than founder-only; today a non-founder sees "Group info coming soon."
+2. **The joining arc**, one slice: the onboarding share moment (mockup 04) plus the "Jesse joined" system announcement. The two halves of the same product moment (handing the founder the link, and the group seeing the person it produced), so they travel together.
+3. **The .ics add-to-calendar button**, its own small slice.
+4. **The end-of-build visual-polish pass**, closing the feel-pass register and the scaffolding gaps.
+
+**Two owner decisions made at triage, recorded so they stop reading as open questions:**
+
+- **Ruling 2 of the day-comment slice is ratified as shipped.** A guess gauge caught by a delayed sweep closes plainly, never earning an ask or a guess of its own. What was decided by the build controller in the owner's absence and surfaced in the PR's open questions is now the owner's own decision, on the same reasoning: once the member's named day has passed, there is no member-named revival left to carry full rights.
+- **The goodbye's current-members-only reading is confirmed as the product decision.** A departed member's yes does not earn the group a closing note. The goodbye exists for people still in the room who had said yes; a yes from someone who has since left is not owed a message the remaining group never asked for.
+
+**One elevation:** a spending ceiling on pre-auth model calls moved from standing debt to item 9 of the pre-deploy checklist (top of this section). It is a deploy gate, not a slice: nothing about it needs building until the product is about to be reachable at a public URL.
