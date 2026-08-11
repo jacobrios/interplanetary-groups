@@ -1622,7 +1622,7 @@ history rather than assumed: the joining-arc entry's suite line was written
 at commit `4725db3` (735 tests), but the branch that actually merged as
 `3d40d75` includes a later commit, `60ac249` ("Fix eve-bump SYSTEM-row leak
 and mid-create back navigation"), whose commit message says the fix is
-"Covered by a new failing-first test in endgame.test.ts" — one new test,
+"Covered by a new failing-first test in endgame.test.ts", one new test
 never folded back into the §11 entry's recorded number. This baseline (59
 files, 736 tests) is the real, current, all-green count as of this slice's
 start and is what later slices should cross-check against; the joining-arc
