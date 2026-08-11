@@ -1829,3 +1829,84 @@ The owner revisited the 10 Aug triage list the next day, with group info, the jo
 **Post-MVP queue, confirmed or added.** The recognition-precedence slice (the both-true discard, the cross-activity window overlap, and bench cases for both plus the untested two-ideas question) stays a fast follow rather than squeezing into the MVP push; the owner is eager to share and nothing about it compounds by waiting. Verbal RSVP stays queued, with the coupling question answered: it touches the classifier and the RSVP write path, polish touches neither, so it costs the same after polish as before. Orbit-miss observability and a feedback affordance enter the register, declined for now. The eval benches for extraction and merge stay trigger-queued, unchanged, with one clarification worth keeping: the benches are development-time instruments, and what stands between the model and the live demo is the runtime pair already built, the normalize boundary and the guardrails, so the missing benches do not make the demo less safe.
 
 **Closed and declined.** The sealed one-shot entry's "test bigger slices deliberately" intent is closed as overtaken by events (annotated there). The engineering tidiness tail from the first triage round (account-deletion handling, durationMinutes wired to endsAt, the Prisma generator migration, promoting recurringActivities to a table, relocating RsvpControls, the page-shell dedup) is declined as standalone work; each item rides whichever slice next opens its file. The watch-items stay watch-only, unchanged.
+
+**Postscript, 11 Aug 2026 (QA): the teal rule was rewritten, and the phone
+step went unrun.**
+
+*The teal rule.* This slice's QA put a teal "Add to calendar" on a screen
+that already carried a teal "I'm in", and the rule as written
+("the single primary action per *element*") allowed it only because the two
+sit in different regions. The owner's read on seeing it: the technicality
+was doing the work the rule should have been doing itself. Both actions
+really are important, and a rule that has to be argued around on every
+screen is written wrong. So teal is now defined by weight rather than by
+count: it marks an action that genuinely matters, more than one may appear
+when more than one is genuinely important, and what it must never mark is a
+secondary or incidental action ("Edit my description", back and exit links).
+Sparing use is still the point, because the entire signal is that a teal
+button is worth reading; a screen where most things are teal has said
+nothing. CLAUDE.md carries the new rule with its dated amendment note above
+the July one, both kept, since the lineage is the useful part: this is the
+second time the rule was too rigid rather than the code being wrong, and
+that pattern is the actual finding. The owner also named the general
+principle out loud, which is worth recording because it governs future
+screens rather than this one: this decision was made at the very beginning,
+and early rules are strong opinions weakly held.
+
+*The phone step ran after all, and it found something.* An earlier draft of
+this postscript said the step went unrun; that was true for about an hour
+and is corrected here rather than above, per the append-only rule. The owner
+reached the dev server from an iPhone over the local network. Safari refused
+outright, because its secure-connections setting will not open a plain
+`http://` address and a dev server has no certificate; Chrome on iOS opened
+it without complaint. So the gap named earlier in this entry is now closed
+in part, and what closed it was not the answer anyone expected.
+
+**iOS offered to subscribe to the URL, not to import the event.** The sheet
+read "Subscribe to Calendar" and showed the address. That is iOS treating
+any web address returning calendar data as a live feed it can attach to the
+Calendar app and re-check over time, and it follows from a decision this
+slice made deliberately: no `Content-Disposition` header, so a phone is free
+to act on the file rather than being forced to download it.
+
+Three consequences, in order of how much they matter:
+
+- **The obvious hoped-for reading is wrong, and worth stating plainly so
+  nobody carries it forward.** The owner's first thought on seeing the sheet
+  was that this might accumulate every plan he says yes to. It cannot. The
+  file holds exactly one event and no recurrence rule, and the address is
+  that one event's own address, so the subscription is a calendar containing
+  one plan forever.
+- **A subscription may quietly soften the staleness limitation this slice
+  shipped with.** A subscribed feed gets re-fetched, so a plan the group
+  later moves could correct itself on the member's phone without a second
+  tap, which is exactly what "a saved entry never updates itself" says will
+  not happen. Unverified: it needs a deployed URL and a real time change to
+  watch. Worth checking at the first deploy rather than assuming, in either
+  direction.
+- **It exposes a clutter risk that argues for the queued feed.** If every tap
+  attaches its own subscribed calendar, a member who adds five plans
+  collects five calendars in their Calendar app. That is precisely the noise
+  this product exists to oppose. The subscribable per-group feed already
+  recorded as the post-MVP successor (§6, §8) is the shape that gets the
+  auto-updating upside without the clutter: one subscription per group, not
+  one per plan. The owner's instinct on the phone went straight to that
+  feature before knowing it was already queued, which is the strongest
+  signal yet for building it.
+
+The narrower original question, whether a phone does anything sensible when
+a member taps the button, is answered yes. The subscription it creates
+during local QA points at a laptop on a home network and should be deleted
+after testing; it is a dead address anywhere else.
+
+*Post-MVP note from the same QA: the downloaded file has a generic name.* On
+desktop the download works well and lands as `calendar.ics`, which says
+nothing about which plan it holds. A descriptive name would be friendlier.
+The reason it is generic is that the name comes from the route's own final
+path segment, and the fix is a `Content-Disposition` header carrying a
+filename built from the event. Recorded rather than done, and with a
+caution attached: that header is exactly the thing this slice deliberately
+omitted so phones stay free to subscribe or add rather than being forced
+into a download. Anyone taking this on should treat "does the phone still
+behave" as the acceptance test, not the filename alone. Low priority, no
+product harm today.
