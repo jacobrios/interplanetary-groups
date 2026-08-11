@@ -568,6 +568,10 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made.
 
+- **The add-to-calendar pill has no leading calendar glyph (recorded 11 August 2026, from the .ics-slice review).** The design source's `.ed-cal` rules in `docs/design/walkthrough-screens` (and screen 09) draw a small calendar icon left of the "Add to calendar" label inside the teal pill, with 9px of gap between icon and text; what shipped is label-only. Polish-pass candidate: add the 16px glyph and the gap, matching `.ed-cal`.
+
+- **The add-to-calendar pill has no hover or focus treatment (recorded 11 August 2026, from the .ics-slice review).** Checked against the codebase rather than assumed: no teal action anywhere has a genuine `:hover` state today; the nearest existing idiom is `RsvpControls`' `--color-teal-hover` token, used for its pending (in-flight write) color rather than mouse hover. The pill is a plain anchor with neither. Polish-pass candidate: settle one real hover/focus idiom for teal pills generally, then apply it here and to its siblings together.
+
 ### Orbit scheduled event auto-creation (26 June 2026)
 
 Orbit now creates recurring events on a schedule rather than having them faked by a seed fixture. This is the first real event-creation path in the codebase and the first "Orbit acts autonomously" slice. Deliberately model-free: the rhythm arrives already structured (onboarding is deferred), so Orbit does only date math plus deterministic copy.
@@ -1648,7 +1652,11 @@ below the details card and above the roster, there is now a full-width teal
 "Add to calendar" pill. Tapping it on a phone opens the phone's own
 add-to-calendar flow; clicking it on a desktop downloads a calendar file.
 The entry carries the plan's title, its day and time, the meeting spot, and
-a line pointing back at the event page for details and RSVPs. Nothing about
+a line pointing back at the event page for details and RSVPs. The pill is
+label-only; the design source's small leading calendar glyph (`.ed-cal` in
+the prior handoffs' `walkthrough.css`) was not built and is registered in
+the feel-pass register above for the polish pass to pick up, rather than
+silently dropped. Nothing about
 the member is in the file: no names, no emails.
 
 **The decisions as settled with the owner in this slice's brainstorm, and why.**
@@ -1739,8 +1747,11 @@ because it is the mechanism the re-tap promise rests on.
 **Suite and verification.** Baseline at slice start: 59 files, 736 tests,
 all green (with the cross-check discrepancy above recorded rather than
 absorbed). After this slice: 62 files, 750 tests, all green. Every new test
-was written and shown failing before the code that made it pass. The
-recognition bench (`npm run eval:detect`) was not rerun and was not
+was written and shown failing before the code that made it pass, with one
+named exception: two of the composer's tests (see the review finding below)
+were rewritten during review against code that already passed, since the
+review found the tests themselves, not yet-unbuilt behavior, to be the
+defect. The recognition bench (`npm run eval:detect`) was not rerun and was not
 triggered: no prompt changed and no model call was added, so there was
 nothing for it to re-measure. Walkthrough evidence is appended to this entry
 by the next task.
@@ -1778,9 +1789,11 @@ fallback). What was seen, not inferred:
   file is 458 bytes.
 - The staged event has no stored end time and its entry blocks exactly one
   hour (18:30 to 19:30 UTC), which is the fallback the owner chose.
-- Its location line reads `Movement, 1622 W Belmont Ave, Chicago, IL`: the
-  venue's short display label rather than its stored legal name, with the
-  street address appended. This is the stored address's first appearance
+- Its location line reads
+  `LOCATION:Movement\, 1622 W Belmont Ave\, Chicago\, IL`, the escaped bytes
+  as they appear in the file (the adjacent bullet on comma-escaping applies
+  here too): the venue's short display label rather than its stored legal
+  name, with the street address appended. This is the stored address's first appearance
   anywhere in the product, seen working.
 - A venue-less event's file omits the location line entirely rather than
   emitting an empty one, and takes the same one-hour fallback.

@@ -1,3 +1,5 @@
+// src/app/events/[id]/calendar.ics/__tests__/route.test.ts
+//
 // Integration test — hits the real dev database (repo idiom).
 import { describe, it, expect, afterAll } from "vitest"
 import { NextRequest } from "next/server"
@@ -43,6 +45,9 @@ describe("GET /events/[id]/calendar.ics", () => {
 
     expect(response.status).toBe(200)
     expect(response.headers.get("Content-Type")).toBe("text/calendar; charset=utf-8")
+    // Composed fresh per request (spec: "fresh at tap time"); no cache may
+    // sit between a group's time-change vote and the next download.
+    expect(response.headers.get("Cache-Control")).toBe("no-store")
     const rawBody = await response.text()
     // RFC 5545 §3.1 line folding wraps long lines with CRLF + a single space;
     // unfold before asserting so the check targets real content, not where a

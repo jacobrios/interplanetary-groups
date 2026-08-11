@@ -1,3 +1,4 @@
+// src/lib/events/__tests__/ics.test.ts
 import { describe, it, expect } from "vitest"
 import { composeEventIcs, type IcsEventInput } from "../ics"
 
@@ -126,7 +127,10 @@ describe("composeEventIcs", () => {
       NOW
     )
     const later = composeEventIcs(
-      baseEvent({ updatedAt: new Date("2026-08-11T09:00:00Z") }),
+      // At least a minute after `earlier`'s updatedAt: SEQUENCE is now
+      // derived in whole minutes (see below), so two timestamps under a
+      // minute apart would collapse to the same value.
+      baseEvent({ updatedAt: new Date("2026-08-11T09:01:00Z") }),
       NOW
     )
     const sequenceOf = (s: string) => Number(s.match(/SEQUENCE:(\d+)/)?.[1])
@@ -134,5 +138,27 @@ describe("composeEventIcs", () => {
 
     expect(sequenceOf(later)).toBeGreaterThan(sequenceOf(earlier))
     expect(uidOf(later)).toBe(uidOf(earlier))
+  })
+
+  it("derives SEQUENCE from updatedAt in whole minutes, not seconds", () => {
+    // RFC 5545 §3.3.8 caps INTEGER at 2147483647. Epoch-seconds crosses that
+    // boundary on 19 Jan 2038; epoch-minutes does not for thousands of
+    // years. This pins the unit, not just the ordering.
+    const ics = composeEventIcs(
+      baseEvent({ updatedAt: new Date("2026-08-10T09:00:00Z") }),
+      NOW
+    )
+    const sequenceOf = (s: string) => Number(s.match(/SEQUENCE:(\d+)/)?.[1])
+    expect(sequenceOf(ics)).toBe(
+      Math.floor(new Date("2026-08-10T09:00:00Z").getTime() / 60000)
+    )
+  })
+
+  it("escapes a lone carriage return like a newline, never emitting it raw", () => {
+    // RFC 5545 TEXT values forbid raw control characters mid-line. A bare
+    // "\r" (no paired "\n") previously slipped through /\r?\n/ unescaped.
+    const ics = composeEventIcs(baseEvent({ title: "Beers\rthen darts" }), NOW)
+    expect(ics).toContain("SUMMARY:Beers\\nthen darts")
+    expect(ics).not.toMatch(/SUMMARY:[^\r\n]*\r(?!\n)/)
   })
 })

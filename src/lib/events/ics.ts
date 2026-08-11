@@ -1,3 +1,5 @@
+// src/lib/events/ics.ts
+//
 // Composes the one-way calendar snapshot (build-notes §6): one VEVENT,
 // deterministic, no model call. Timestamps are written as UTC Z-times so
 // every calendar client does its own zone conversion and daylight-saving
@@ -25,7 +27,7 @@ function escapeText(value: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n")
+    .replace(/\r\n|\r|\n/g, "\\n")
 }
 
 // RFC 5545 §3.1: physical lines are capped at 75 octets; the remainder
@@ -77,7 +79,10 @@ export function composeEventIcs(event: IcsEventInput, now: Date): string {
     "BEGIN:VEVENT",
     `UID:${event.id}@interplanetary-groups`,
     `DTSTAMP:${formatUtc(now)}`,
-    `SEQUENCE:${Math.floor(event.updatedAt.getTime() / 1000)}`,
+    // Minutes, not seconds: RFC 5545 §3.3.8 caps INTEGER at 2147483647,
+    // which epoch-seconds crosses on 19 Jan 2038. Epoch-minutes stays
+    // monotonic with updatedAt and in range for thousands of years.
+    `SEQUENCE:${Math.floor(event.updatedAt.getTime() / 60000)}`,
     `DTSTART:${formatUtc(event.startsAt)}`,
     `DTEND:${formatUtc(end)}`,
     `SUMMARY:${escapeText(event.title)}`,

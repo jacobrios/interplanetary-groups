@@ -1,3 +1,5 @@
+// src/app/events/[id]/calendar.ics/route.ts
+//
 // Serves the one-way calendar snapshot. Public by design: no surface in the
 // product is membership-gated (standing state, owned by the access-control
 // slice), and the file contains nothing personal. Composed per request so a
@@ -43,6 +45,11 @@ export async function GET(
     new Date()
   )
   return new Response(body, {
-    headers: { "Content-Type": "text/calendar; charset=utf-8" },
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      // Composed fresh per request; no cache may serve a stale copy after a
+      // group's time-change vote moves the plan.
+      "Cache-Control": "no-store",
+    },
   })
 }
