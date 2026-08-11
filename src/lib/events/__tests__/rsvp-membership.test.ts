@@ -20,8 +20,9 @@ describe("setRsvp membership gate", () => {
 
   it("refuses a non-member's RSVP and leaves no row behind", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const founderAuthId = `test-rsvpm-f-${stamp}`
     const founder = await prisma.user.create({
-      data: { name: "[TEST] Rsvp Founder", supabaseAuthId: `test-rsvpm-f-${stamp}` },
+      data: { name: "[TEST] Rsvp Founder", supabaseAuthId: founderAuthId },
     })
     const outsiderAuthId = `test-rsvpm-o-${stamp}`
     const outsider = await prisma.user.create({
@@ -48,7 +49,7 @@ describe("setRsvp membership gate", () => {
 
     // A member's RSVP still writes.
     const { rsvp } = await setRsvp({
-      supabaseAuthId: founder.supabaseAuthId,
+      supabaseAuthId: founderAuthId,
       eventId: event.id,
       status: RsvpStatus.IN,
     })
