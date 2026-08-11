@@ -1283,6 +1283,48 @@ describe("suggested-day revival", () => {
     expect(revival).toBeNull()
   })
 
+  it("skips the revival when the group already opened a live gauge for the same activity", async () => {
+    // The window the code review found: the original closes at its own close
+    // time, and the next hourly sweep can be up to 59 minutes later (longer
+    // under a cron outage). In between, a member floating "let's just do beers
+    // tomorrow then" opens a real beers gauge, which the spark path now permits
+    // because the original is no longer live. A revival on top of that would
+    // leave one plan with two cards, two sets of chips, and its votes split
+    // across both.
+    const { groupId: gid, members } = await setupGroup(4)
+    const { gauge, namingMessage } = await stageSuggestedGauge(gid, members, { cantDayCount: 2 })
+
+    // The member's own gauge: same activity, the same Sunday the revival would
+    // have picked, opened half an hour after the Saturday gauge closed and
+    // still live at the sweep instant (Sunday 20:00 start, closing at 18:00).
+    const memberGauge = await makeGauge(gid, members[3], {
+      activity: "beers",
+      proposedDate: SUN_REVIVAL,
+      proposedTime: "20:00",
+      createdAt: new Date(SAT_PAST_START.getTime() - 30 * 60 * 1000),
+    })
+
+    const before = await orbitMessageCount(gid)
+    const results = await runGaugeEndgame(SAT_PAST_START, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "same_activity_live",
+    })
+
+    // Nothing was created off the naming message, and Orbit said nothing: no
+    // second gauge, no ask, no goodbye.
+    expect(await prisma.gauge.findUnique({ where: { sourceMessageId: namingMessage.id } })).toBeNull()
+    expect(await orbitMessageCount(gid)).toBe(before)
+    const after = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(after.retryAskMessageId).toBeNull()
+    expect(after.closureMessageId).toBeNull()
+
+    // Exactly one beers gauge is left asking the group: the member's own.
+    const beersGauges = await prisma.gauge.findMany({ where: { groupId: gid, activity: "beers" } })
+    expect(beersGauges.map((g) => g.id).sort()).toEqual([gauge.id, memberGauge.id].sort())
+  })
+
   it("a guess gauge whose named day already slipped past closes, and never picks up an ask marker", async () => {
     // The other half of the slipped-past fallback. The ordinary gauge above
     // keeps the ask; one of Orbit's own guess gauges gets the plain close,

@@ -87,6 +87,11 @@ export type EndgameResult =
         // The suggested revival already exists for this naming message
         // (day-comment slice): the sourceMessageId unique constraint fired.
         | "already_revived"
+        // A same-activity gauge is live right now (day-comment slice, code
+        // review): the group opened one themselves in the gap between this
+        // gauge's close and the sweep, so a revival would split one plan's
+        // votes across two cards.
+        | "same_activity_live"
     }
 
 /**
@@ -444,6 +449,21 @@ async function handleRevive(
   timeZone: string,
   now: Date
 ): Promise<EndgameResult> {
+  // An optimisation, not the guard: createGauge's sourceMessageId unique
+  // constraint below remains the actual cannot-revive-twice guarantee. A
+  // revived original keeps no marker of its own, so without this cheap read
+  // every sweep for as long as the failed day stays inside the candidate
+  // window (up to two days) would re-run a full createGauge transaction that
+  // inserts an Orbit message and then rolls it back on the constraint
+  // violation. handleGuess has the same upfront check for the same reason.
+  const existingRevival = await prisma.gauge.findUnique({
+    where: { sourceMessageId: gauge.suggestedMessageId },
+    select: { id: true },
+  })
+  if (existingRevival) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "already_revived" }
+  }
+
   const revivalDate = chooseSuggestedRetryDate(gauge.proposedDate, gauge.suggestedDayOfWeek, timeZone)
   const timeLocal = gauge.suggestedTime ?? gauge.proposedTime ?? EVENING_TIME
   const start = sparkStartInstant(revivalDate, timeLocal, timeZone)
@@ -463,6 +483,41 @@ async function handleRevive(
   if (start.getTime() <= now.getTime()) {
     return gauge.retryGuessOfGaugeId ? handleClose(gauge) : handleAsk(gauge, timeZone)
   }
+
+  // The group already solved it themselves. A gauge closes at its own close
+  // time and the next hourly sweep can be up to 59 minutes later (longer under
+  // a cron outage), and that gap sits exactly where people are talking about
+  // the plan falling through: a member floating the same idea again opens a real
+  // gauge, which the spark path permits now that this one is no longer live.
+  // Reviving on top of that would leave one plan with two cards, two sets of
+  // chips, and its votes split across both, both of them on the pending strip.
+  //
+  // Liveness is the honest analogue of handleGuess's `answered` check here:
+  // that one compares createdAt against the ask's timestamp, and this path has
+  // no ask to compare against, so the question becomes whether a same-activity
+  // gauge is asking the group right now. That is a question about the group's
+  // local calendar, so it is answered the way findLiveGauges answers it: a
+  // coarse proposedDate filter in the database, then the exact per-gauge
+  // isGaugeLive check here. Two deliberate differences from handleGuess: an
+  // Orbit guess gauge is NOT excluded (a live guess for this activity splits
+  // the votes just as badly, and a gauge reaching this function never carries
+  // an ask, so it can never have a guess of its own to trip over), and a
+  // promoted gauge still ahead on the calendar is not excluded either, because
+  // the plan already existing as a real event is at least as strong a reason
+  // not to open a second card for it.
+  const sameActivity = await prisma.gauge.findMany({
+    where: {
+      groupId: gauge.groupId,
+      id: { not: gauge.id },
+      activity: { equals: gauge.activity, mode: "insensitive" },
+      proposedDate: { gte: new Date(now.getTime() - WINDOW_MS) },
+    },
+    select: { proposedDate: true, proposedTime: true, createdAt: true },
+  })
+  if (sameActivity.some((g) => isGaugeLive(g, timeZone, now))) {
+    return { gaugeId: gauge.id, action: "skipped", reason: "same_activity_live" }
+  }
+
   const bornLate =
     now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
 

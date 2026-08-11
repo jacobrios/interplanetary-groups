@@ -80,3 +80,17 @@ The same behavior holds on every kind of live gauge: an original spark, a member
 - The remembered day is invisible outside Orbit's one reply, so a member who missed that message cannot see what Orbit is holding. If that confuses anyone, the fix lives in a surface slice, not here.
 - Latest-wins deliberately discards earlier suggestions; a future "most requested day" feature would need to store more than we do. Recommendation: decline until proven otherwise; nothing gets worse by never doing it.
 - Decision 9 adds a new place Orbit decides to speak; the build-notes speak-or-quiet list gains its line in this slice (an obligation, recorded here so it is not lost, not strictly debt).
+
+## Correction (10 Aug 2026, whole-branch review)
+
+Appended, not rewritten: the claims below stand where they were written, and this is the correction beside them.
+
+**What was claimed.** Decision 8 says "the two windows cannot overlap the answer arm's", and the last bullet of Not in this slice says the open-ask window "and this seam cannot overlap because the window shuts the moment a live gauge exists". Both are stated as though they hold in general. They do not.
+
+**What is actually true.**
+
+1. For the **same activity** the claim holds exactly as written. `findOpenRetryAsk` treats an ask as answered the moment any newer same-activity gauge exists, and it is a live gauge for that activity that makes the day-comment reading possible at all, so the two windows are mutually exclusive there.
+2. **Across different activities they can overlap**, and the code has no guard against it. `findOpenRetryAsk`'s cancel-check is same-activity only, so an open climbing day-ask (open for up to 48 hours) can sit alongside a live beers gauge. That is a reachable state, not a theoretical one.
+3. **Inside that overlap the answer reading wins, by accident of ordering rather than by decision.** `normalizeIntent` checks the answer arm first and gates it only on `hasOpenAsk`, so a member replying "Sunday works better" about the live beers gauge can open a CLIMBING gauge for Sunday while the beers day comment is discarded. Which reading wins is therefore the model's call on this one flag, not a decided product rule.
+
+**Status.** No behavior changed for this correction; the branch's code is unchanged by it. No bench case covers the cross-activity overlap. Both a bench case for it and a decided precedence between the two readings are queued, not built.
