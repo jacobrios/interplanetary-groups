@@ -17,6 +17,10 @@
 // well within Haiku's capability and keeps the onboarding pause short).
 
 import Anthropic from "@anthropic-ai/sdk"
+import { ExtractionError, ModelUnavailableError, classifyModelCallError } from "./model-errors"
+
+export { ExtractionError, ModelUnavailableError } from "./model-errors"
+export type { ModelFailureReason } from "./model-errors"
 
 const MODEL = "claude-haiku-4-5"
 
@@ -74,14 +78,6 @@ Rules:
 ${FIELD_RULES}`
 
 /**
- * Thrown for every extraction failure mode (missing key, API error,
- * unexpected stop reason, unparsable output). Callers map every throw to
- * the same soft-retry state — the founder stays where they were with their
- * text intact, and no group is created.
- */
-export class ExtractionError extends Error {}
-
-/**
  * One structured-outputs call. Both onboarding calls (extraction and
  * gap-answer merge) go through here against the shared EXTRACTION_SCHEMA;
  * spark detection passes its own schema. The returned value is always a
@@ -98,7 +94,7 @@ export async function callExtractionModel(
   schema: unknown = EXTRACTION_SCHEMA
 ): Promise<unknown> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new ExtractionError("ANTHROPIC_API_KEY is not set")
+    throw new ModelUnavailableError("trouble", "ANTHROPIC_API_KEY is not set")
   }
 
   const client = new Anthropic()
@@ -118,7 +114,7 @@ export async function callExtractionModel(
       messages: [{ role: "user", content: user }],
     })
   } catch (err) {
-    throw new ExtractionError(`extraction request failed: ${(err as Error).message}`)
+    throw classifyModelCallError(err)
   }
 
   // Anything other than a clean finish (refusal, truncation) is unusable.
