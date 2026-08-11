@@ -26,8 +26,9 @@ const ANSWERS: string[] = [GaugeAnswer.IN, GaugeAnswer.OUT, GaugeAnswer.NOT_THAT
  * write, so a client-passed id is never trusted. No anonymous session is
  * minted; the chips are not rendered for a viewer without one.
  *
- * Voting is not membership-gated, consistent with every other surface in the
- * product. That is the standing access-control gap, not a new one.
+ * Voting is membership-gated (share-readiness slice): castVote refuses a
+ * non-member inside its transaction, because an IN here can be the tap that
+ * creates a real event for the whole group.
  */
 export async function gaugeVoteAction(
   _prevState: GaugeVoteState,
@@ -82,7 +83,10 @@ export async function gaugeVoteAction(
 
   try {
     await castVote({ supabaseAuthId: user.id, gaugeId, answer })
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message === "NOT_A_MEMBER") {
+      return { errors: { general: "Only members can vote on this." } }
+    }
     return { errors: { general: "Couldn't save that, try again." } }
   }
 
