@@ -1628,3 +1628,119 @@ files, 736 tests) is the real, current, all-green count as of this slice's
 start and is what later slices should cross-check against; the joining-arc
 entry's "735" is now a known-stale number, left as-is above per the
 append-only rule rather than rewritten.
+
+**Why this button is the product's reminder.** §6 settled long ago that the
+MVP has no web push, so the one-way calendar snapshot is the whole of how
+Interplanetary Groups says "Orbit remembers for you" outside the app. The
+event-detail slice drew the button and deliberately did not wire it, on the
+reasoning that a dead button is worse than none; this slice is that deferral
+coming back as a real export. It is item 3 of the 10 Aug 2026 pre-MVP triage
+order, which is not re-derived here.
+
+**What shipped, as a member experiences it.** On an event's detail screen,
+below the details card and above the roster, there is now a full-width teal
+"Add to calendar" pill. Tapping it on a phone opens the phone's own
+add-to-calendar flow; clicking it on a desktop downloads a calendar file.
+The entry carries the plan's title, its day and time, the meeting spot, and
+a line pointing back at the event page for details and RSVPs. Nothing about
+the member is in the file: no names, no emails.
+
+**The decisions as settled with the owner in this slice's brainstorm, and why.**
+- **Event detail only, not the home card.** The home event card stays the
+  gist, with its two-button footer; adding a plan to a calendar is a
+  completeness action, so it lives on the completeness screen. This
+  supersedes a type-rules line in CLAUDE.md that had imagined the button as
+  a compact in-card control; that line was amended in this slice rather than
+  left to contradict what shipped.
+- **Teal, in a region of its own.** The two design handoff files disagreed
+  with each other: one called this the event screen's single teal primary,
+  the other grouped it with the outlined secondaries. The primary treatment
+  won, because the product's only reminder mechanism should not read as an
+  afterthought. This is legal under the per-element teal rule as amended on
+  27 July, since the pill is its own region and the details card keeps its
+  own teal "I'm in."
+- **One hour when an event has no stored end.** A stored end time always
+  wins; only an event that never got one falls back. The owner chose one
+  hour over the agent's two-hour recommendation, on the grounds that one
+  hour is the calendar convention people already expect to see blocked.
+- **Composed fresh at tap time, on the server.** The button is a plain link
+  to an endpoint that builds the file per request from the stored plan, so a
+  member who taps after the group voted to move the time gets the moved
+  time, with nothing cached in between. Building the file in the browser was
+  rejected because phone browsers handle that unreliably and phones are
+  where this product lives; per-vendor "Add to Google Calendar" links were
+  rejected because the record already chose one calendar snapshot rather
+  than a row of branded buttons.
+- **A personal calendar showing the member's own local time is correct, not
+  drift.** Recorded explicitly so a future reader does not "fix" it. The
+  everything-renders-in-group-time rule governs the app's shared surfaces,
+  where one stored string has to serve every viewer at once. A calendar
+  entry is not a shared surface: it is the member's own device telling them
+  when to show up, for one absolute moment, wherever they happen to be.
+- **The stored venue address gets its first surface anywhere in the
+  product**, appended after the venue's short label, because a calendar
+  location's whole job is letting the phone offer directions. It is still
+  rendered nowhere else in the app.
+- **Visible to every viewer**, session or not, member or not, matching the
+  standing ungated state rather than inventing a gate for one endpoint.
+
+**A decision made during the build that the spec did not anticipate.** The
+calendar file originally announced itself as a published invitation but
+carried no revision marker, which meant a strict calendar app could look at
+a re-download and decide it was not newer than what it already had, leaving
+a member staring at a stale time. Since the whole promise of the stable
+entry identity is that a re-tap after a change *replaces* the old entry
+instead of duplicating it, the announcement was dropped and each file is now
+stamped with the event's own last-changed time, so a corrected entry always
+looks newer than the one it replaces. Recorded as a decision with its
+reasoning, not as a bug fix, because it is the mechanism that makes the
+re-tap promise true.
+
+**Declined, each naming its home.**
+- **A calendar button on the home event card:** declined by the placement
+  decision above.
+- **Built-in reminder alarms inside the entry:** declined. The member's own
+  calendar defaults govern when their phone buzzes; overriding them would be
+  our clutter in their pocket, which is the opposite of the anti-clutter
+  north star.
+- **Recurring-series export:** declined. Each stored event is one
+  occurrence, and the series lives in Orbit's rhythm; exporting a series
+  belongs to the post-MVP subscribable feed (§8).
+- **Membership gating of the endpoint:** the access-control slice.
+- **Friendly per-vendor links:** settled above.
+
+**Debt opened or left standing.**
+- **A saved entry goes stale if the group later moves the plan.** The feed
+  announcement is the correction channel and a re-tap replaces the entry.
+  This is the standing §6 limitation restated, not new debt; its successor
+  is the post-MVP subscribable feed. Recommendation: queue with the feed,
+  not before.
+- **The stored venue address now has a surface but still no edit path
+  behind it.** A wrong address saved at creation can, from today, mislead a
+  phone's directions rather than just sitting unread in the database. This
+  joins the standing venue-correction gap rather than opening a new one.
+  Recommendation: queue, and let it add weight to whenever venue correction
+  gets its slice.
+- **No migration, no model call, and no new environment variable.** Nothing
+  joins the pre-deploy checklist, and this slice costs nothing per use to
+  run.
+
+**Suite and verification.** Baseline at slice start: 59 files, 736 tests,
+all green (with the cross-check discrepancy above recorded rather than
+absorbed). After this slice: 62 files, 750 tests, all green. Every new test
+was written and shown failing before the code that made it pass. The
+recognition bench (`npm run eval:detect`) was not rerun and was not
+triggered: no prompt changed and no model call was added, so there was
+nothing for it to re-measure. Walkthrough evidence is appended to this entry
+by the next task.
+
+**One review finding worth keeping as a lesson.** Two of the calendar
+composer's tests, as first written, could not have failed against the bugs
+they existed to catch: one checked that a backslash gets escaped using input
+that contained no backslash, and another checked a long line's wrapping
+against a run of identical characters, which a duplication bug would have
+satisfied just as well as correct code. Both were caught in review and
+rewritten to be capable of failing. A clean concrete instance of this
+project's rule that a passing test is only evidence if it could have failed,
+and a reminder that the failure mode is usually a test that is *almost*
+right rather than one nobody wrote.
