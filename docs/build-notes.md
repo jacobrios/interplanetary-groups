@@ -143,6 +143,8 @@ Demo-critical (the portfolio piece is not complete without these):
   - the standing rhythm rows (schedule plus venue, the surface that will consume `formatRhythmRow(r).value · r.venueName`);
   - the founder powers: remove member, and reset invite link (§4);
   - Leave group (warm, destructive-styled, never buried; §4).
+
+  ~~The `/groups/[id]/info` stub grows in place.~~ **Landed with the group-info slice (10-11 Aug 2026; strikethrough added 11 Aug during the joining-arc record pass, the landing slice missed it).** What shipped: the identity block, the WHO list, every rhythm with its venue, the real invite link with a share button for members and the founder, and the founder's Manage-members and Reset-link powers, plus Leave group for members. Reasoning, decisions, and walkthrough evidence in the §11 group-info entry.
 - **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font). What makes the demo look finished rather than scaffolded.
 
 Launch, not demo (real requirements for a launched product, invisible in a walkthrough, deferred on purpose):
