@@ -9,6 +9,7 @@ import RosterAvatar from "./RosterAvatar"
 import AddToCalendarButton from "./AddToCalendarButton"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
+import MembersOnlyWall from "@/components/MembersOnlyWall"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -39,6 +40,12 @@ export default async function EventPage({ params }: Props) {
   if (!event) notFound()
 
   const viewer = await getCurrentUser()
+
+  // Members only (share-readiness slice): an event page carries the roster's
+  // real names and the meeting spot, so it is as private as the feed.
+  const isMember =
+    viewer !== null && event.group.memberships.some((m) => m.userId === viewer.id)
+  if (!isMember) return <MembersOnlyWall />
 
   // ─── Derive roster buckets from membership + RSVP data ────────────────────
   // "HAVEN'T REPLIED" is the absence of an Rsvp row — never stored (§2, §11).

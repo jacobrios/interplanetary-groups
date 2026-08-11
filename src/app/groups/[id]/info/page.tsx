@@ -8,9 +8,8 @@
 // Visibility (spec decisions 3 to 5):
 //   member          identity · invite+share · card · hint · Leave
 //   founder         identity · invite+share+reset · card(+manage) · hint, NO Leave
-//   non-member      identity · card · hint (no invite, no share, no Leave)
-// Viewing stays ungated (standing access-control gap, by design); every
-// mutation re-verifies membership/founder server-side in its own action.
+// Viewing is members-only (share-readiness slice); every mutation still
+// re-verifies membership/founder server-side in its own action.
 //
 // Design source: docs/design/group-info-handoff/wireframes/group-info.html.
 // Deliberate deviations recorded in the spec (decision 1): real token URL,
@@ -25,6 +24,7 @@ import { formatRhythmRow } from "@/lib/orbit/playback"
 import { groupInitials } from "@/lib/groups/initials"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
+import MembersOnlyWall from "@/components/MembersOnlyWall"
 import ShareInviteLink from "@/components/ShareInviteLink"
 import LeaveGroupButton from "./LeaveGroupButton"
 import ManageMembers from "./ManageMembers"
@@ -50,6 +50,7 @@ export default async function GroupInfoPage({ params }: Props) {
   const isFounder = viewer?.id === group.founderId
   const isMember =
     viewer !== null && group.memberships.some((m) => m.userId === viewer.id)
+  if (!isMember) return <MembersOnlyWall />
 
   // WHO ordering (spec decision 12): founder first, then join order. The
   // query already sorts by joinedAt; this hoists the founder to the front.

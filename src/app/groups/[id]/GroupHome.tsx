@@ -138,11 +138,11 @@ export default function GroupHome({
         viewerIsMember={viewerIsMember}
       />
 
-      {/* Pinned input. canPost is "has a session and a name," NOT "is a member":
-          viewerIsMember is computed and passed to the feed above, and is
-          deliberately not consulted here yet. Anyone signed in can post to any
-          group. That is the standing access-control gap, not an oversight in
-          this component, and it gets closed in its own slice. */}
+      {/* Pinned input. The page-level wall means only members ever render
+          this screen, and createMessage refuses a non-member server-side
+          regardless (a removed member's stale tab still holds a live form).
+          canPost still checks the session because a member row without a
+          session cannot author anything. */}
       {canPost && (
         <ChatInput
           groupId={groupId}

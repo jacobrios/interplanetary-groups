@@ -13,13 +13,13 @@
 //
 // Deliberately deferred per §11:
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
-// - Membership gating (consistent with prior ungated surfaces)
 // - Carousel active-dot state (interim chrome; no design handoff yet)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
 
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
+import MembersOnlyWall from "@/components/MembersOnlyWall"
 import { findUpcomingEvents } from "@/lib/events/upcoming-list"
 import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
@@ -57,6 +57,13 @@ export default async function GroupPage({ params }: Props) {
   if (!group) notFound()
 
   const viewer = await getCurrentUser()
+
+  // Members only (share-readiness slice): the wall replaces every non-member
+  // view of this screen. An unknown id stays notFound() above; a real group
+  // and a stranger meet the wall, which names nothing about the group.
+  const viewerIsMember =
+    viewer !== null && group.memberships.some((m) => m.userId === viewer.id)
+  if (!viewerIsMember) return <MembersOnlyWall />
 
   // ── Upcoming events + rosters ─────────────────────────────────────────────
   // Up to three upcoming cards. The carousel comes live here because a sparked
@@ -170,7 +177,6 @@ export default async function GroupPage({ params }: Props) {
         viewerAnswer: p.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
       }
     })
-  const viewerIsMember = viewer ? memberIds.has(viewer.id) : false
 
   // ── Pending surface ──────────────────────────────────────────────────────
   // A second window onto liveGauges/liveProposals, not a second query: pure
