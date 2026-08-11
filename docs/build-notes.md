@@ -1911,3 +1911,15 @@ omitted so phones stay free to subscribe or add rather than being forced
 into a download. Anyone taking this on should treat "does the phone still
 behave" as the acceptance test, not the filename alone. Low priority, no
 product harm today.
+
+### Share-readiness hardening: slice start (11 Aug 2026)
+
+Slice started from main at 4c019c6, on branch `feat/share-readiness`. Suite
+baseline before any code: 62 files, 752 tests, all green, zero skipped. This
+is two tests above the .ics slice's recorded finishing number of 62 files,
+750 tests; the difference is accounted for and is not a pre-existing
+failure. Commit `7038ddf` ("Fix ics-slice review findings: sequence
+overflow, stray CR, no-store, padding") landed after that entry's 750 count
+was recorded but before the branch merged to main, and it added two tests
+inside existing test files (`ics.test.ts` and the calendar route's test),
+so the file count held at 62. Nothing failed and nothing was skipped.
