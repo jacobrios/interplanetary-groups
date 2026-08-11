@@ -72,6 +72,12 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     if (message.authorType !== MessageAuthor.MEMBER) return { status: "quiet" }
     if (message.authorId !== user.id) return { status: "quiet" }
 
+    // Membership gate (share-readiness slice): Orbit only acts on members'
+    // words. The memberships are already loaded on the message's group.
+    if (!message.group.memberships.some((m) => m.userId === user.id)) {
+      return { status: "quiet" }
+    }
+
     const group = message.group
     const now = new Date()
 
