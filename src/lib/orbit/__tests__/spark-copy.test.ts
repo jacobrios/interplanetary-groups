@@ -1,21 +1,27 @@
 // src/lib/orbit/__tests__/spark-copy.test.ts
 import { describe, it, expect } from "vitest"
 import {
+  buildDayCommentReply,
   buildGaugeMessage,
+  buildLiveGaugeLine,
   buildOpenAskLine,
   buildRetryAskMessage,
   buildRetryGuessMessage,
   buildSparkAnnouncement,
+  buildSuggestedRetryMessage,
   buildTallyLine,
+  buildWhichGaugeQuestion,
   chooseProposedDate,
   chooseRetryGuessDate,
+  chooseSuggestedRetryDate,
   formatTimeLocalLabel,
+  localWeekday,
   planAnswerGauge,
   resolveAnswerTime,
   resolveSparkTime,
   sparkStartInstant,
 } from "../spark-copy"
-import { zonedWallTimeToUtc } from "../occurrence"
+import { getLocalParts, zonedWallTimeToUtc } from "../occurrence"
 
 describe("resolveSparkTime", () => {
   it("takes a clear stated time at face value, and says nothing", () => {
@@ -406,5 +412,60 @@ describe("planAnswerGauge", () => {
     // Fri 2099-01-28 + 7 days = Fri 2099-02-04, still CST (UTC-6) in February.
     expect(result?.proposedDate.toISOString()).toBe("2099-02-04T06:00:00.000Z")
     expect(result?.timeLocal).toBe("20:00")
+  })
+})
+
+describe("day-comment helpers", () => {
+  // Sat 2026-08-15 as UTC group-local midnight.
+  const failedSaturday = zonedWallTimeToUtc(2026, 8, 15, 0, 0, "UTC")
+
+  it("localWeekday reads the weekday in the group's zone", () => {
+    expect(localWeekday(failedSaturday, "UTC")).toBe(6)
+    // 2026-08-15T00:00Z is still Friday evening in Los Angeles.
+    expect(localWeekday(failedSaturday, "America/Los_Angeles")).toBe(5)
+  })
+
+  it("chooseSuggestedRetryDate lands the first named weekday strictly after the failed day", () => {
+    // Sunday after Saturday Aug 15 is Aug 16.
+    const sunday = chooseSuggestedRetryDate(failedSaturday, 0, "UTC")
+    expect(getLocalParts(sunday, "UTC")).toMatchObject({ month: 8, day: 16 })
+    // Friday after Saturday Aug 15 is Aug 21, six days out, never the day before.
+    const friday = chooseSuggestedRetryDate(failedSaturday, 5, "UTC")
+    expect(getLocalParts(friday, "UTC")).toMatchObject({ month: 8, day: 21 })
+    // Month boundary: Wednesday after Sat Aug 29 is Sep 2.
+    const lateSat = zonedWallTimeToUtc(2026, 8, 29, 0, 0, "UTC")
+    const wednesday = chooseSuggestedRetryDate(lateSat, 3, "UTC")
+    expect(getLocalParts(wednesday, "UTC")).toMatchObject({ month: 9, day: 2 })
+  })
+
+  it("buildDayCommentReply speaks to the not-in and already-in cases", () => {
+    expect(buildDayCommentReply(failedSaturday, 0, false, "UTC")).toBe(
+      "Got it, Saturday doesn't work for you. Sunday's noted in case this one doesn't come together."
+    )
+    expect(buildDayCommentReply(failedSaturday, 0, true, "UTC")).toBe(
+      "You're still in for Saturday, and Sunday's noted if it doesn't come together."
+    )
+  })
+
+  it("buildWhichGaugeQuestion lists two or more activities", () => {
+    expect(buildWhichGaugeQuestion(["beers", "climbing"])).toBe(
+      "Which one do you mean, beers or climbing? Name it with the day again and I've got it."
+    )
+    expect(buildWhichGaugeQuestion(["beers", "climbing", "games"])).toBe(
+      "Which one do you mean, beers, climbing, or games? Name it with the day again and I've got it."
+    )
+  })
+
+  it("buildSuggestedRetryMessage names the failed day, the new day, and keeps the promise", () => {
+    const sunday = chooseSuggestedRetryDate(failedSaturday, 0, "UTC")
+    expect(buildSuggestedRetryMessage("beers", failedSaturday, sunday, "UTC")).toBe(
+      "Beers didn't happen for Saturday, but Sunday came up as a better day. Anyone in for beers this Sunday? If three of you are in, I'll set it up."
+    )
+  })
+
+  it("buildLiveGaugeLine is model-facing context, not member copy", () => {
+    expect(buildLiveGaugeLine("beers", failedSaturday, "UTC")).toBe(
+      "Orbit is currently gauging interest in beers for this Saturday; the group answers with the chips under that message."
+    )
   })
 })

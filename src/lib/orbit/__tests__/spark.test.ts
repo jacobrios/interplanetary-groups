@@ -764,3 +764,57 @@ describe("normalizeIntent, answer arm", () => {
     expect(normalizeIntent(old, 0, true)).toEqual({ kind: "none" })
   })
 })
+
+describe("normalizeIntent day-comment arm", () => {
+  const dayCommentClaim = {
+    isSpark: false, activity: null, statedDayOfWeek: null, statedTime: null,
+    timeAmbiguous: false, partOfDay: null,
+    isChangeRequest: false, targetEventNumber: null, requestedTime: null,
+    requestedTimeAmbiguous: false, requestedFields: [], intentClear: false,
+    isAskAnswer: false, answerDayOfWeek: null, answerTime: null, answerTimeAmbiguous: false,
+    isDayComment: true, dayCommentActivity: "beers", dayCommentDayOfWeek: 0,
+    dayCommentTime: null, dayCommentTimeAmbiguous: false,
+  }
+
+  it("returns the day comment only when deterministic code confirms a live gauge", () => {
+    const withGauge = normalizeIntent(dayCommentClaim, 0, false, true)
+    expect(withGauge).toEqual({
+      kind: "dayComment",
+      dayComment: { activity: "beers", dayOfWeek: 0, time: null, timeAmbiguous: false },
+    })
+    // The same claim with no live gauge is discarded whatever the model says.
+    expect(normalizeIntent(dayCommentClaim, 0, false, false)).toEqual({ kind: "none" })
+    expect(normalizeIntent(dayCommentClaim, 0, false)).toEqual({ kind: "none" })
+  })
+
+  it("discards a day comment naming no single day", () => {
+    expect(
+      normalizeIntent({ ...dayCommentClaim, dayCommentDayOfWeek: null }, 0, false, true)
+    ).toEqual({ kind: "none" })
+    expect(
+      normalizeIntent({ ...dayCommentClaim, dayCommentDayOfWeek: 9 }, 0, false, true)
+    ).toEqual({ kind: "none" })
+  })
+
+  it("the day-comment reading outranks a simultaneous change reading inside the situation", () => {
+    const both = { ...dayCommentClaim, isChangeRequest: true, requestedFields: ["day"] }
+    expect(normalizeIntent(both, 0, false, true).kind).toBe("dayComment")
+    // Outside the situation the change reading still stands on its own.
+    expect(normalizeIntent(both, 0, false, false).kind).toBe("change")
+  })
+
+  it("validates the stated time and ties ambiguity to it", () => {
+    const withTime = normalizeIntent(
+      { ...dayCommentClaim, dayCommentTime: "18:00", dayCommentTimeAmbiguous: true },
+      0, false, true
+    )
+    expect(withTime).toMatchObject({
+      dayComment: { time: "18:00", timeAmbiguous: true },
+    })
+    const badTime = normalizeIntent(
+      { ...dayCommentClaim, dayCommentTime: "6pm", dayCommentTimeAmbiguous: true },
+      0, false, true
+    )
+    expect(badTime).toMatchObject({ dayComment: { time: null, timeAmbiguous: false } })
+  })
+})
