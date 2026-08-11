@@ -1691,10 +1691,15 @@ a re-download and decide it was not newer than what it already had, leaving
 a member staring at a stale time. Since the whole promise of the stable
 entry identity is that a re-tap after a change *replaces* the old entry
 instead of duplicating it, the announcement was dropped and each file is now
-stamped with the event's own last-changed time, so a corrected entry always
-looks newer than the one it replaces. Recorded as a decision with its
-reasoning, not as a bug fix, because it is the mechanism that makes the
-re-tap promise true.
+stamped with the event's own last-changed time, so the second copy carries
+everything a calendar app needs to recognize it as a newer version of the
+same plan rather than a separate one. That pair, a steady identity plus a
+freshness marker, is what most calendar apps go on when they decide to
+replace instead of duplicate. What this slice can honestly claim stops
+there: the file is correct, and no specific Apple, Google, or Outlook
+behavior was verified, because none of it can be exercised from this
+machine. Recorded as a decision with its reasoning, not as a bug fix,
+because it is the mechanism the re-tap promise rests on.
 
 **Declined, each naming its home.**
 - **A calendar button on the home event card:** declined by the placement
