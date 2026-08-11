@@ -6,6 +6,7 @@ import { deriveRoster } from "@/lib/events/roster"
 import { formatEventDate } from "@/lib/events/format"
 import RsvpControls from "./RsvpControls"
 import RosterAvatar from "./RosterAvatar"
+import AddToCalendarButton from "./AddToCalendarButton"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 
@@ -134,6 +135,15 @@ export default async function EventPage({ params }: Props) {
               <RsvpControls eventId={event.id} currentStatus={viewerStatus} />
             </>
           )}
+        </div>
+
+        {/* ── Add to calendar ────────────────────────────────────────── */}
+        {/* The screen's own primary action, its own region: teal, separate
+            from the details card's teal "I'm in" (per-element teal rule).
+            Reuses the same 1rem gap that already separates the details card
+            from the roster card below. */}
+        <div style={{ marginBottom: "1rem" }}>
+          <AddToCalendarButton eventId={event.id} />
         </div>
 
         {/* ── Roster card ────────────────────────────────────────────── */}
