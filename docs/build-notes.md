@@ -259,6 +259,20 @@ Not decision points, but they are what a future reader will reason from, so they
 
 > A checklist is only true the day it is written. Any slice that adds a new speak-or-stay-quiet decision adds its line here. Without that, this rots into something worse than nothing: a list that looks complete and is not.
 
+### Declined for MVP: Orbit answering read-only questions, and Orbit declining off-topic ones (10 Aug 2026)
+
+A dated postscript recording a decision NOT to build, so a future reader does not mistake the silence for an oversight.
+
+**What was considered.** Two behaviors, raised together because they are one seam (a member speaks to Orbit and gets nothing back): Orbit answering read-only questions about the group's own plans ("what's open?", "what's next?"), and Orbit giving a graceful decline when someone asks it something outside the product ("what's the weather?", "can you check my stocks?"). The read-only half had been the standing next-slice candidate since the answer-seam slice.
+
+**The decision: neither, for MVP. Orbit stays silent on both.** The owner's product reasoning: the pending strip shipped in the pending-surface slice already gives unanswered items a second home, which is most of what "what's open?" was for, making the answer a nice-to-have rather than an MVP need. He named the off-topic case himself and then closed it the same way: silence is a fine answer when someone pokes Orbit about the weather.
+
+**The engineering reasoning, which pointed the same way rather than against it.** Every class added to the recognizer competes for attention with the four that carry the product (spark, change request, answer to an open day question, day comment), and each one is paid for in must-stay-quiet bench cases; this slice's single addition already required a careful full-board re-measurement to prove nothing regressed. Nothing compounds by waiting: flipping the prompt's existing instruction costs the same later as now, and there is no coupling that makes now cheaper. Worth recording that the silence on read-only questions is not a coverage gap but an explicit instruction: the intent prompt lists "questions that only ask for information about an existing plan" among the things that are NOT requests.
+
+**What was NOT decided, and would need settling if this ever comes back.** The design crux is telling "addressed to Orbit" apart from "merely mentions something Orbit cannot do", because the failure mode is Orbit interjecting "I can't check the weather" into two members grumbling about the rain, which is worse than the silence it replaced. The shape proposed at the time, unbuilt: answer an on-topic question about the group's own plans whether or not Orbit is named, but fire an off-topic decline only when Orbit is addressed directly. Also unbuilt and worth keeping in mind: the risk of Orbit becoming a toy people poke, which turns a shared feed into a chatbot demo.
+
+CLAUDE.md's "never leave a direct ask hanging" bullet was scoped in the same change, so a future session cannot read it as covering these two cases and quietly undo this decision. That scoping exists because the 29 July recognition bug was precisely one rule living in two places and the two disagreeing.
+
 ### Model-behavior eval coverage: two of three behaviors have no bench (queued 10 Aug 2026)
 
 Queued by the owner after he asked whether evals get updated in every slice that needs it. They do for recognition, and asking the question is what surfaced that "where it needs it" had quietly come to mean recognition only.
