@@ -18,11 +18,13 @@ describe("removeMember", () => {
 
   async function makeGroup() {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const founderAuthId = `test-remove-founder-${stamp}`
+    const memberAuthId = `test-remove-member-${stamp}`
     const founder = await prisma.user.create({
-      data: { name: "[TEST] Remove Founder", supabaseAuthId: `test-remove-founder-${stamp}` },
+      data: { name: "[TEST] Remove Founder", supabaseAuthId: founderAuthId },
     })
     const member = await prisma.user.create({
-      data: { name: "[TEST] Remove Member", supabaseAuthId: `test-remove-member-${stamp}` },
+      data: { name: "[TEST] Remove Member", supabaseAuthId: memberAuthId },
     })
     const group = await prisma.group.create({
       data: {
@@ -33,14 +35,14 @@ describe("removeMember", () => {
     })
     groupIds.push(group.id)
     userIds.push(founder.id, member.id)
-    return { founder, member, group }
+    return { founder, member, group, founderAuthId, memberAuthId }
   }
 
   it("lets the founder remove a member, deleting exactly that membership", async () => {
-    const { founder, member, group } = await makeGroup()
+    const { founder, member, group, founderAuthId } = await makeGroup()
 
     await removeMember({
-      supabaseAuthId: founder.supabaseAuthId,
+      supabaseAuthId: founderAuthId,
       groupId: group.id,
       targetUserId: member.id,
     })
@@ -61,15 +63,16 @@ describe("removeMember", () => {
   it("rejects a non-founder caller", async () => {
     const { member, group } = await makeGroup()
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const secondAuthId = `test-remove-second-${stamp}`
     const second = await prisma.user.create({
-      data: { name: "[TEST] Remove Second", supabaseAuthId: `test-remove-second-${stamp}` },
+      data: { name: "[TEST] Remove Second", supabaseAuthId: secondAuthId },
     })
     userIds.push(second.id)
     await prisma.membership.create({ data: { userId: second.id, groupId: group.id } })
 
     await expect(
       removeMember({
-        supabaseAuthId: second.supabaseAuthId,
+        supabaseAuthId: secondAuthId,
         groupId: group.id,
         targetUserId: member.id,
       })
@@ -83,10 +86,10 @@ describe("removeMember", () => {
   })
 
   it("rejects removing the founder", async () => {
-    const { founder, group } = await makeGroup()
+    const { founder, group, founderAuthId } = await makeGroup()
     await expect(
       removeMember({
-        supabaseAuthId: founder.supabaseAuthId,
+        supabaseAuthId: founderAuthId,
         groupId: group.id,
         targetUserId: founder.id,
       })
@@ -94,7 +97,7 @@ describe("removeMember", () => {
   })
 
   it("rejects a target who is not a member", async () => {
-    const { founder, group } = await makeGroup()
+    const { founder, group, founderAuthId } = await makeGroup()
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
     const outsider = await prisma.user.create({
       data: { name: "[TEST] Remove Outsider", supabaseAuthId: `test-remove-outsider-${stamp}` },
@@ -102,7 +105,7 @@ describe("removeMember", () => {
     userIds.push(outsider.id)
     await expect(
       removeMember({
-        supabaseAuthId: founder.supabaseAuthId,
+        supabaseAuthId: founderAuthId,
         groupId: group.id,
         targetUserId: outsider.id,
       })
