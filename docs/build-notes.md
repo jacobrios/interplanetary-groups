@@ -1749,3 +1749,48 @@ rewritten to be capable of failing. A clean concrete instance of this
 project's rule that a passing test is only evidence if it could have failed,
 and a reminder that the failure mode is usually a test that is *almost*
 right rather than one nobody wrote.
+
+**Browser walkthrough, 11 Aug 2026.** Run against the real dev server on the
+dev-test database, with one event staged for it
+(`scripts/qa-stage-ics.ts`, new: a "[QA] ICS" group whose event carries a
+venue with both a display label and a street address, and no stored end
+time, because no existing QA row exercised either the address or the
+fallback). What was seen, not inferred:
+
+- The event screen renders the teal "Add to calendar" pill full-width
+  between the details card and the roster, with the details card keeping its
+  own teal "I'm in" above it. Two regions, one teal action each, which is
+  the per-element reading of the color rule working as intended rather than
+  a violation. Screenshotted at phone width in the dark theme.
+- The pill is a real anchor to `/events/<id>/calendar.ics` with no click
+  handler, so it degrades to an ordinary link.
+- Fetching that URL returns HTTP 200 with `text/calendar; charset=utf-8` and
+  no `Content-Disposition`, and the body is a complete calendar object: all
+  sixteen lines end CRLF, timestamps are UTC `Z` times, the summary and the
+  location escape their commas, and the description line wraps at the
+  75-octet limit with its continuation carrying a leading space. The whole
+  file is 458 bytes.
+- The staged event has no stored end time and its entry blocks exactly one
+  hour (18:30 to 19:30 UTC), which is the fallback the owner chose.
+- Its location line reads `Movement, 1622 W Belmont Ave, Chicago, IL`: the
+  venue's short display label rather than its stored legal name, with the
+  street address appended. This is the stored address's first appearance
+  anywhere in the product, seen working.
+- A venue-less event's file omits the location line entirely rather than
+  emitting an empty one, and takes the same one-hour fallback.
+- An unknown event id returns 404 rather than an error page or a malformed
+  file.
+- Neither file contains a name, an email, an attendee, or an organizer.
+- Enlarged text does not clip the pill: at a 24px root font size it grows
+  from 44px to 66px and the label still fits, measured on the live element
+  rather than eyeballed. This one is checked because clipping at enlarged
+  text is a recorded past failure in this project.
+
+**What the walkthrough could not reach, stated plainly.** No phone was
+involved, so the tap-to-add flow a member would actually use is unverified,
+and no Apple, Google, or Outlook import was exercised; the file's
+correctness is established by its contents and its unit tests, not by any
+calendar application's behavior. The optional phone step in the PR's QA
+script is what closes that gap, and it belongs to the owner. The QA rows are
+left in the dev-test database as inspectable evidence, expendable
+thereafter.
