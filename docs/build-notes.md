@@ -1829,3 +1829,38 @@ The owner revisited the 10 Aug triage list the next day, with group info, the jo
 **Post-MVP queue, confirmed or added.** The recognition-precedence slice (the both-true discard, the cross-activity window overlap, and bench cases for both plus the untested two-ideas question) stays a fast follow rather than squeezing into the MVP push; the owner is eager to share and nothing about it compounds by waiting. Verbal RSVP stays queued, with the coupling question answered: it touches the classifier and the RSVP write path, polish touches neither, so it costs the same after polish as before. Orbit-miss observability and a feedback affordance enter the register, declined for now. The eval benches for extraction and merge stay trigger-queued, unchanged, with one clarification worth keeping: the benches are development-time instruments, and what stands between the model and the live demo is the runtime pair already built, the normalize boundary and the guardrails, so the missing benches do not make the demo less safe.
 
 **Closed and declined.** The sealed one-shot entry's "test bigger slices deliberately" intent is closed as overtaken by events (annotated there). The engineering tidiness tail from the first triage round (account-deletion handling, durationMinutes wired to endsAt, the Prisma generator migration, promoting recurringActivities to a table, relocating RsvpControls, the page-shell dedup) is declined as standalone work; each item rides whichever slice next opens its file. The watch-items stay watch-only, unchanged.
+
+**Postscript, 11 Aug 2026 (QA): the teal rule was rewritten, and the phone
+step went unrun.**
+
+*The teal rule.* This slice's QA put a teal "Add to calendar" on a screen
+that already carried a teal "I'm in", and the rule as written
+("the single primary action per *element*") allowed it only because the two
+sit in different regions. The owner's read on seeing it: the technicality
+was doing the work the rule should have been doing itself. Both actions
+really are important, and a rule that has to be argued around on every
+screen is written wrong. So teal is now defined by weight rather than by
+count: it marks an action that genuinely matters, more than one may appear
+when more than one is genuinely important, and what it must never mark is a
+secondary or incidental action ("Edit my description", back and exit links).
+Sparing use is still the point, because the entire signal is that a teal
+button is worth reading; a screen where most things are teal has said
+nothing. CLAUDE.md carries the new rule with its dated amendment note above
+the July one, both kept, since the lineage is the useful part: this is the
+second time the rule was too rigid rather than the code being wrong, and
+that pattern is the actual finding. The owner also named the general
+principle out loud, which is worth recording because it governs future
+screens rather than this one: this decision was made at the very beginning,
+and early rules are strong opinions weakly held.
+
+*The phone step.* The QA script's optional step, opening the event on a real
+phone and tapping the button, was not run: the owner had no ready way to
+reach a local dev server from a phone. The gap named in this entry
+("no phone was involved, so the tap-to-add flow a member would actually use
+is unverified") therefore stands open, unchanged, after QA. It is not
+closable on this machine and is not worth building tooling for; the first
+Vercel deploy closes it for free, since a deployed URL opens on a phone
+like any other link. Recorded here so a later session does not read the QA
+sign-off as covering it. The local-network route does work in principle
+(`next dev` serves on the machine's LAN address, verified reachable at the
+time of QA), so it remains available to anyone whose phone shares the wifi.
