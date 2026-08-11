@@ -293,8 +293,18 @@ export function normalizeIntent(
   // comment with no live gauge is ignored entirely, and inside the situation
   // the day-comment reading outranks the change reading, because a gauge is
   // not a calendar plan and the change ladder has nothing true to say about
-  // one. The two windows cannot overlap the answer arm's: an open ask exists
-  // only while NO same-activity gauge does.
+  // one.
+  //
+  // How this window relates to the answer arm's, corrected 10 Aug 2026
+  // (whole-branch review; the dated correction in the day-comment spec carries
+  // the reasoning). For the SAME activity the two cannot overlap: an open ask's
+  // window shuts the moment a same-activity gauge exists. Across DIFFERENT
+  // activities they can, because findOpenRetryAsk's cancel-check is
+  // same-activity only and an ask stays open up to 48 hours, so an open
+  // climbing ask can sit beside a live beers gauge. In that overlap the answer
+  // arm above wins, only because it is checked first and unconditionally: the
+  // model's call on one flag, not a decided rule. A decided precedence and a
+  // bench case for it are queued, not built.
   if (hasLiveGauge && o.isDayComment === true) {
     const d = o.dayCommentDayOfWeek
     const dayOfWeek =
