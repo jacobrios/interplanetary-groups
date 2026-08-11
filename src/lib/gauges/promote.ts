@@ -40,7 +40,14 @@ export async function promoteGaugeToEvent(
   const gauge = await prisma.gauge.findUnique({
     where: { id: gaugeId },
     include: {
-      group: { select: { id: true, timeZone: true, recurringActivities: true } },
+      group: {
+        select: {
+          id: true,
+          timeZone: true,
+          recurringActivities: true,
+          memberships: { select: { userId: true } },
+        },
+      },
       votes: { select: { userId: true, answer: true } },
       event: { select: { id: true } },
     },
@@ -48,7 +55,12 @@ export async function promoteGaugeToEvent(
 
   if (!gauge) return { status: "skipped", reason: "no_gauge" }
   if (gauge.event) return { status: "skipped", reason: "already_created" }
-  if (!hasReachedThreshold(gauge.votes)) {
+
+  // Current members only, the same rule proposals promote and the endgame
+  // sweep already follow: a voter who has since left neither counts nor gets
+  // seeded, and removal self-heals with no extra write.
+  const memberIds = new Set(gauge.group.memberships.map((m) => m.userId))
+  if (!hasReachedThreshold(gauge.votes.filter((v) => memberIds.has(v.userId)))) {
     return { status: "skipped", reason: "below_threshold" }
   }
 
@@ -73,10 +85,12 @@ export async function promoteGaugeToEvent(
       // again for an answer they already gave. Re-reading also refuses to
       // create an event for a gauge that dropped back below the bar between the
       // read and the write.
-      const votes = await tx.gaugeVote.findMany({
-        where: { gaugeId: gauge.id },
-        select: { userId: true, answer: true },
-      })
+      const votes = (
+        await tx.gaugeVote.findMany({
+          where: { gaugeId: gauge.id },
+          select: { userId: true, answer: true },
+        })
+      ).filter((v) => memberIds.has(v.userId))
       if (!hasReachedThreshold(votes)) throw new BelowThresholdInTx()
 
       const event = await createEventInTx(tx, {

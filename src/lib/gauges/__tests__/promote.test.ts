@@ -192,6 +192,38 @@ describe("promoteGaugeToEvent", () => {
       reason: "no_gauge",
     })
   })
+
+  it("does not count a non-member's yes toward the bar", async () => {
+    const gaugeId = await gaugeWith("kayaking", [GaugeAnswer.IN, GaugeAnswer.IN])
+    const outsider = await prisma.user.create({
+      data: { name: "[TEST] Promote Outsider", supabaseAuthId: `test-promote-out-${Date.now()}` },
+    })
+    userIds.push(outsider.id) // registered for afterAll cleanup only; not a member
+    await prisma.gaugeVote.create({
+      data: { gaugeId, userId: outsider.id, answer: GaugeAnswer.IN },
+    })
+
+    const result = await promoteGaugeToEvent(gaugeId, NOW)
+    expect(result).toEqual({ status: "skipped", reason: "below_threshold" })
+  })
+
+  it("seeds RSVPs for members only when a stray non-member vote exists", async () => {
+    const gaugeId = await gaugeWith("bowling", [GaugeAnswer.IN, GaugeAnswer.IN, GaugeAnswer.IN])
+    const outsider = await prisma.user.create({
+      data: { name: "[TEST] Promote Outsider 2", supabaseAuthId: `test-promote-out2-${Date.now()}` },
+    })
+    userIds.push(outsider.id)
+    await prisma.gaugeVote.create({
+      data: { gaugeId, userId: outsider.id, answer: GaugeAnswer.IN },
+    })
+
+    const result = await promoteGaugeToEvent(gaugeId, NOW)
+    expect(result.status).toBe("created")
+    if (result.status !== "created") return
+    const rsvps = await prisma.rsvp.findMany({ where: { eventId: result.eventId } })
+    expect(rsvps).toHaveLength(3)
+    expect(rsvps.some((r) => r.userId === outsider.id)).toBe(false)
+  })
 })
 
 describe("promoteGaugeToEvent, venue inheritance", () => {
@@ -237,6 +269,9 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
           })
         )
       )
+      await prisma.membership.createMany({
+        data: extras.map((u) => ({ groupId: group.id, userId: u.id })),
+      })
       for (const u of [user, ...extras]) {
         await prisma.gaugeVote.create({
           data: { gaugeId: r.gauge.id, userId: u.id, answer: GaugeAnswer.IN },
