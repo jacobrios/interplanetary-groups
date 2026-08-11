@@ -18,7 +18,7 @@ export type ModelFailureReason = "credits" | "trouble"
 /**
  * Thrown for every extraction failure mode (missing key, API error,
  * unexpected stop reason, unparsable output). Callers map every throw to
- * the same soft-retry state — the founder stays where they were with their
+ * the same soft-retry state, the founder stays where they were with their
  * text intact, and no group is created.
  */
 export class ExtractionError extends Error {}
