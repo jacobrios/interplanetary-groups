@@ -46,6 +46,8 @@ Layout grows with content (min-height plus padding, buttons stack, nothing clips
 
 ## The actions
 
+Amendment (11 Aug 2026, whole-branch review): the shipped destructive confirm labels are "Yes, remove" and "Yes, reset it" rather than the bracketed "Remove" and "Reset link" drafted here; an affirmative label naming the act reads clearer on a destructive button. The Leave confirm shipped exactly as drafted.
+
 All four follow the repo's server-action conventions (session re-resolved server-side, `revalidatePath` outside the try/catch, errors surfaced as `errors.general`).
 
 **Share invite link.** Client island. `navigator.share` with the absolute join URL when available; otherwise the existing copy-with-"Copied!" behavior. No server action needed.

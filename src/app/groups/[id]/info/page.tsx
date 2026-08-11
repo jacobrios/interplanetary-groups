@@ -231,8 +231,8 @@ export default async function GroupInfoPage({ params }: Props) {
             )}
           </InfoRow>
 
-          {rhythmRows.map((row) => (
-            <InfoRow key={row.label} label={row.label}>
+          {rhythmRows.map((row, i) => (
+            <InfoRow key={i} label={row.label}>
               <span>{row.value}</span>
             </InfoRow>
           ))}
