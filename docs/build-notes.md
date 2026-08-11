@@ -1414,3 +1414,10 @@ Entry started at slice open; spec path to be added when the design is written.
 - **Watch-item, cosmetic:** a group name that starts with punctuation yields punctuation initials (the seeded QA group "[QA] Group Info" rendered "[G"). Real group names are unaffected by this in practice; recommendation is decline unless it actually shows up on a live group.
 
 No migration, no model call, and no new pre-deploy checklist item came out of this slice.
+
+### The joining arc: the share moment and the join announcement (started 11 Aug 2026)
+
+Slice started from main at db5b37d. Suite baseline before any code: 55 files,
+727 tests, all green, matching the group-info slice's finishing number. Spec:
+docs/superpowers/specs/2026-08-11-joining-arc-design.md. The rest of this
+entry is written at slice close.
