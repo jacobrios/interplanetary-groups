@@ -329,6 +329,37 @@ describe("runGaugeEndgame", () => {
     expect(refreshed.bumpMessageId).toBeNull()
   })
 
+  it("still skips as still_newest when only a SYSTEM row (e.g. a join notice) landed after the gauge", async () => {
+    const { groupId: gid, members } = await setupGroup(1)
+    const gauge = await makeGauge(gid, members[0], {
+      activity: "beers",
+      proposedDate: PROPOSED,
+      createdAt: CREATED_2D_BEFORE,
+    })
+    // A SYSTEM row (a "Jesse joined" notice) posted after the gauge's own
+    // orbit message is nobody speaking — it must not count as breaking the
+    // still_newest guard, the same reasoning fetch-window.ts already applies
+    // to detection.
+    await prisma.message.create({
+      data: {
+        groupId: gid,
+        authorType: MessageAuthor.SYSTEM,
+        authorId: null,
+        body: "Jesse joined the group",
+        createdAt: new Date(CREATED_2D_BEFORE.getTime() + 3600_000),
+      },
+    })
+
+    const results = await runGaugeEndgame(EVE_8PM, { groupId: gid })
+    expect(results.find((r) => r.gaugeId === gauge.id)).toEqual({
+      gaugeId: gauge.id,
+      action: "skipped",
+      reason: "still_newest",
+    })
+    const refreshed = await prisma.gauge.findUniqueOrThrow({ where: { id: gauge.id } })
+    expect(refreshed.bumpMessageId).toBeNull()
+  })
+
   it("does not bump outside the eve evening", async () => {
     const { groupId: gid, members } = await setupGroup(1)
     // A late proposedTime (11pm, closing at 9pm) so the gauge is still live

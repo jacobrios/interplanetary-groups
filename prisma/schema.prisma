@@ -167,8 +167,8 @@ enum RsvpStatus {
  * Append-only: no updatedAt (matches the Membership/Rsvp precedent for
  * non-editable rows).
  *
- * Future extensibility: a SYSTEM value on MessageAuthor cleanly absorbs
- * the "Jesse joined" system announcement without another migration.
+ * SYSTEM (added Aug 2026, joining-arc slice) carries the "Jesse joined" join
+ * announcement: authorId null, body composed deterministically at write time.
  */
 model Message {
   id         String        @id @default(cuid())
@@ -197,6 +197,7 @@ model Message {
 enum MessageAuthor {
   MEMBER
   ORBIT
+  SYSTEM
 }
 
 // ── Spark: gauging interest ──────────────────────────────────────────────────

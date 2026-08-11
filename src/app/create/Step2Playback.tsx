@@ -275,7 +275,7 @@ export default function Step2Playback({
           cursor: isCreating ? "not-allowed" : "pointer",
         }}
       >
-        {isCreating ? "Setting things up…" : "Looks right, create my group"}
+        {isCreating ? "Setting things up…" : "Looks right, set up invites"}
       </button>
 
       <button

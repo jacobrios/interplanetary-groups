@@ -1,9 +1,9 @@
 // src/app/create/OnboardingWizard.tsx
 //
 // Client wizard for founder onboarding: describe → (extraction pause) →
-// [gap-ask rounds, when the description leaves a gap] → playback → confirm.
-// All beats live at /create in client state (no multi-route wizard); the
-// group is created only at Step 2 confirm.
+// [gap-ask rounds, when the description leaves a gap] → playback → confirm →
+// share. All beats live at /create in client state (no multi-route wizard);
+// the group is created only at Step 2 confirm.
 //
 // State ownership: this component holds the founder's inputs, the gap-round
 // state, and the normalized profile; Step components are presentational.
@@ -22,9 +22,11 @@ import {
 import { mergeGapAction } from "@/app/actions/merge-gap"
 import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
 import StepGapAsk from "./StepGapAsk"
+import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
 
@@ -35,7 +37,7 @@ const EXHAUSTED_COPY =
   "I'm still missing a few details. Add the day and time to your description and I'll take another look."
 
 export default function OnboardingWizard() {
-  const [step, setStep] = useState<"describe" | "gap" | "playback">("describe")
+  const [step, setStep] = useState<"describe" | "gap" | "playback" | "share">("describe")
   const [founderName, setFounderName] = useState("")
   const [description, setDescription] = useState("")
   const [groupName, setGroupName] = useState("")
@@ -78,6 +80,9 @@ export default function OnboardingWizard() {
 
   const [isCreating, startCreate] = useTransition()
   const [createError, setCreateError] = useState<string | null>(null)
+  // Set exactly once, by a successful confirm; the share step needs the id
+  // to proceed and the token to share.
+  const [created, setCreated] = useState<{ groupId: string; inviteToken: string } | null>(null)
 
   // Route each new extraction result exactly once, using the
   // adjust-state-during-render pattern (React's documented alternative to a
@@ -158,67 +163,94 @@ export default function OnboardingWizard() {
     if (!rhythms) return
     setCreateError(null)
     startCreate(async () => {
-      // Redirects server-side on success; only an error ever returns.
       const result = await createGroupAction({
         founderName,
         groupName,
         description,
-        // Empty venue inputs never reach the wire as empty strings; the
-        // server's parseStoredRhythms re-nulls them anyway (no bypass).
         rhythms: rhythms.map((r) => ({
           ...r,
           venueName: r.venueName?.trim() ? r.venueName.trim() : null,
         })),
         timeZone,
       })
-      if (result?.error) setCreateError(result.error)
+      if ("error" in result) {
+        setCreateError(result.error)
+        return
+      }
+      setCreated(result)
+      setStep("share")
     })
+  }
+
+  if (step === "share" && created) {
+    return (
+      <>
+        <WizardHeader step={3} />
+        <Step3Share
+          groupId={created.groupId}
+          inviteToken={created.inviteToken}
+          groupName={groupName}
+        />
+      </>
+    )
   }
 
   if (step === "playback" && rhythms) {
     return (
-      <Step2Playback
-        founderName={founderName}
-        groupName={groupName}
-        onGroupNameChange={setGroupName}
-        rhythms={rhythms}
-        onVenueNameChange={handleVenueNameChange}
-        timeZone={timeZone}
-        onConfirm={handleConfirm}
-        onBack={() => setStep("describe")}
-        isCreating={isCreating}
-        error={createError}
-      />
+      <>
+        {/* No onBack mid-create: Step2Playback's own edit link already disables
+            during isCreating, and the header chevron must match it so a
+            founder can't navigate away from an in-flight creation. */}
+        <WizardHeader step={2} onBack={isCreating ? undefined : () => setStep("describe")} />
+        <Step2Playback
+          founderName={founderName}
+          groupName={groupName}
+          onGroupNameChange={setGroupName}
+          rhythms={rhythms}
+          onVenueNameChange={handleVenueNameChange}
+          timeZone={timeZone}
+          onConfirm={handleConfirm}
+          onBack={() => setStep("describe")}
+          isCreating={isCreating}
+          error={createError}
+        />
+      </>
     )
   }
 
   if (step === "gap" && gap) {
     return (
-      <StepGapAsk
-        founderName={founderName}
-        gap={gap}
-        round={round}
-        stalled={stalled}
-        answer={answerDraft}
-        onAnswerChange={setAnswerDraft}
-        onSubmit={handleAnswerSubmit}
-        onEditDescription={() => setStep("describe")}
-        isMerging={isMerging}
-        mergeError={mergeError}
-      />
+      <>
+        <WizardHeader step={2} onBack={() => setStep("describe")} />
+        <StepGapAsk
+          founderName={founderName}
+          gap={gap}
+          round={round}
+          stalled={stalled}
+          answer={answerDraft}
+          onAnswerChange={setAnswerDraft}
+          onSubmit={handleAnswerSubmit}
+          onEditDescription={() => setStep("describe")}
+          isMerging={isMerging}
+          mergeError={mergeError}
+        />
+      </>
     )
   }
 
   return (
-    <Step1Describe
-      founderName={founderName}
-      onFounderNameChange={setFounderName}
-      description={description}
-      onDescriptionChange={setDescription}
-      formAction={extractFormActionClearingExhausted}
-      isExtracting={isExtracting}
-      extractState={extractState}
-      bubbleOverride={gapExhausted ? EXHAUSTED_COPY : undefined}
-    />
+    <>
+      <WizardHeader step={1} />
+      <Step1Describe
+        founderName={founderName}
+        onFounderNameChange={setFounderName}
+        description={description}
+        onDescriptionChange={setDescription}
+        formAction={extractFormActionClearingExhausted}
+        isExtracting={isExtracting}
+        extractState={extractState}
+        bubbleOverride={gapExhausted ? EXHAUSTED_COPY : undefined}
+      />
+    </>
   )
 }

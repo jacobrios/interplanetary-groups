@@ -125,7 +125,7 @@ Demo-critical (the portfolio piece is not complete without these):
 - **Spark / spontaneous events** (Orbit posting live, interest gauging with chips, nudges; §5). The confirmed next slice, and the core of the demo: this is the product thesis, Orbit as an active coordinator rather than a cron job.
 - **Add to calendar (.ics) button** (§6). More load-bearing than a deferred button looks: §6 makes the one-way .ics the MVP reminder workaround precisely because there is no web push, so without it a product that pitches Orbit as the thing that remembers for you has no reminder mechanism at all to demonstrate. Deferred in the event-detail slice (a dead button is worse than none); it comes back as a real export.
 - **Change-request slice** (Orbit edits group details on request, announce-and-easy-revert; §4). Demonstrates Orbit's transparency-on-changes behavior, and directly resolves the venue-capture DEBT below: today a founder who skips a venue at onboarding has no way to add one later, and no group can switch venues.
-- **Onboarding share moment (mockup 04).** Not built. The invite link is reachable today at `/groups/[id]/info`, so founders can already invite people; what is missing is the designed dedicated screen that hands the founder their link at peak setup momentum. Stays in the demo-critical set (getting a second person in is the product's activation point, and burying the link on an info page is a real drop-off risk), but it is small and it is not a blocker. This is the same finding as the feel-pass register's missing "STEP 2 OF 3" indicator: the shipped wizard cannot say "of 3" because there is no third step. One collapsed step, two symptoms; treat them as one problem.
+- **Onboarding share moment (mockup 04).** ~~Not built. The invite link is reachable today at `/groups/[id]/info`, so founders can already invite people; what is missing is the designed dedicated screen that hands the founder their link at peak setup momentum. Stays in the demo-critical set (getting a second person in is the product's activation point, and burying the link on an info page is a real drop-off risk), but it is small and it is not a blocker. This is the same finding as the feel-pass register's missing "STEP 2 OF 3" indicator: the shipped wizard cannot say "of 3" because there is no third step. One collapsed step, two symptoms; treat them as one problem.~~ **Landed with the joining-arc slice (11 Aug 2026).** What shipped: a real third wizard step carrying the invite link, the share button, and a proceed action, plus the "STEP N OF 3" header on every step, both problems closed by the same slice as the spec predicted. Reasoning and decisions in the §11 joining-arc entry.
 - **Multi-card peek-and-dots carousel.** ~~Not built.~~ **Landed with spark part two (24 July 2026), as an interim treatment.** What shipped: a CSS scroll-snap row of cards, soonest first, capped at three on display, with a peek of the next card and one dot per card. A single card still renders bare, because dots under one card imply something that is not there. What a real design handoff would change: screen 08's dots carry an active state showing which card you are on, and these do not, because tracking scroll position needs client-side state in a region that is otherwise fully server-rendered. That difference is a known question, not a defect. The reason it is interim at all is that no Claude Design handoff exists for the carousel chrome; `docs/design/` holds only reference PNGs, whose own README says they are not a build source. Agreed with the product owner before any visual code was written, rather than improvised.
 - **Navigation is missing on most screens, and there is no shared chrome to inherit it from.** Found by the product owner during QA of spark part two (27 July 2026): tapping into an event has no way back to the feed except the browser's back button. Audited across the whole app afterwards, because the instinct that it was an oversight rather than one screen was right. Of six routes, exactly two navigate correctly: the group home (forward to an event, sideways to group info) and group info (the app's only back link). The other four, plus every error state, are dead ends:
   - **`/events/[id]` is the worst,** and the one the owner hit. No header, no back link, no router call anywhere in the file. It is also the most-reached screen in the product, since every card taps into it. The group's name is rendered there as inert text even though the group relation is already loaded, so a back link needs no new query.
@@ -137,12 +137,14 @@ Demo-critical (the portfolio piece is not complete without these):
   The structural cause, and the reason this is one problem rather than five: `src/app/layout.tsx` renders bare `{children}` and there are no nested layouts, so navigation is hand-written per page and any screen whose author did not write a header simply has none. The two headers that exist are copy-paste duplicates down to their inlined chevron SVGs, and `next/link` is imported exactly once in the entire codebase. The fix is a shared header/back component plus the two missing route boundaries, not a link bolted onto the event page. Demo-critical: a reviewer clicking into an event and getting stuck is a visible dead end in the walkthrough.
 
   ~~Four of six routes are dead ends, plus both error states.~~ **Landed with the app-wide-navigation slice (27 July 2026).** What shipped: event detail and group info both carry `‹ [group name]` pointing at that group's home; the group home's Orbit logo is a real link; `/create` step 1 has a way out; a bad invite token gets a note from Orbit plus a way into the product; and a wrong id or a render error now lands on a branded screen with an exit instead of Next's default. The shared piece owns only the header bar's rules (its spacing, its hairline, that it grows with what is put inside it) and nothing about content, so it has no title slot and no opinion about what opens group info; that boundary is what keeps every future screen's exception out of one file. `/` became a session-aware front door rather than the create-next-app page: a session with a group is sent straight in, a session without one sees the product's pitch and one teal "Start your group," which is what makes "Take me home" a correct destination on all three failure screens. The whole app was then walked in a browser, screen by screen, and from every screen there is at least one route back into the product that is not the browser's back button. Two things are deliberately left standing: the group home's designed subline and Orbit's real avatar (a letter-"O" placeholder still stands in) both stay with the visual-polish pass below, and a session belonging to several groups is still sent to the most recent one, a placeholder holding a seat for the multi-group home. Reasoning in the §11 entry.
-- **"Jesse joined" system announcement** (the `SYSTEM` MessageAuthor value, anticipated by the Message model but never wired; §4). Demo-critical because the walkthrough includes a second person joining, and a silent feed at that moment is a visible hole.
+- **"Jesse joined" system announcement** (the `SYSTEM` MessageAuthor value, anticipated by the Message model but never wired; §4). ~~Demo-critical because the walkthrough includes a second person joining, and a silent feed at that moment is a visible hole.~~ **Landed with the joining-arc slice (11 Aug 2026).** What shipped: a quiet centered system line written in the same transaction as the membership itself, on a first join only; a re-tap of an already-used link announces nothing. Reasoning and decisions in the §11 joining-arc entry.
 - **Full group-info page** (the `/groups/[id]/info` stub grows in place). Mockup 10 and §4 define its contents concretely, recorded here as sub-items so the register stays findable:
   - the member list (names only, per §3);
   - the standing rhythm rows (schedule plus venue, the surface that will consume `formatRhythmRow(r).value · r.venueName`);
   - the founder powers: remove member, and reset invite link (§4);
   - Leave group (warm, destructive-styled, never buried; §4).
+
+  ~~The `/groups/[id]/info` stub grows in place.~~ **Landed with the group-info slice (10-11 Aug 2026; strikethrough added 11 Aug during the joining-arc record pass, the landing slice missed it).** What shipped: the identity block, the WHO list, every rhythm with its venue, the real invite link with a share button for members and the founder, and the founder's Manage-members and Reset-link powers, plus Leave group for members. Reasoning, decisions, and walkthrough evidence in the §11 group-info entry.
 - **End-of-build visual-polish pass:** the pixel-level pass against the walkthrough, every item in the feel-pass register, and the two create-next-app scaffolding gaps recorded there (light-mode default, Arial body font). What makes the demo look finished rather than scaffolded.
 
 Launch, not demo (real requirements for a launched product, invisible in a walkthrough, deferred on purpose):
@@ -294,6 +296,15 @@ Both unbenched behaviors predate the bench, which was built on 29 July out of th
 
 Recommendation recorded at queue time: queue, not fix now. The cost of the gap is zero until the trigger fires, and the trigger is identifiable, so paying for the benches now would buy nothing that waiting does not.
 
+**The join announcement is not on this list, on purpose (11 Aug 2026).** The
+"Jesse joined" feed line (joining-arc slice) is deterministic system speech:
+no model, no judgment, no Orbit voice, written in the same transaction as the
+membership itself. This list catalogs places where *Orbit* decides; a SYSTEM
+message decides nothing. Recorded here so its absence reads as scoping, not
+rot. The adjacent real decision is recorded in the joining-arc §11 entry:
+SYSTEM rows are excluded from the detection window, so Orbit does not know
+who joined, and whether it should is an open question.
+
 ## 11. Build log (implementation decisions)
 
 *Build phase, begun June 2026. Entries here are decisions made while implementing, ADR-style, one per build slice. They realize and extend the product-design decisions in sections 1 to 10; they do not replace them.*
@@ -341,6 +352,12 @@ Seven High-priority items come due at the moment of the first production deploy.
    *Detail:* elevated from debt to checklist item at the pre-MVP triage pass, 10 Aug 2026 (triage entry, below in §11).
 
 *Correction, 10 Aug 2026 (pre-MVP triage pass): nine items now. Same reading as above: check all of them.*
+
+10. **Apply migration `20260811150701_add_system_message_author` to the production database** (adds `SYSTEM` to the `MessageAuthor` enum, nothing else changes shape).
+    *Why it blocks deploy:* the join announcement (joining-arc slice) writes a `MessageAuthor.SYSTEM` message inside the join transaction. A production database without this migration fails every first join, and it fails inside a transaction that also writes the membership row, so the person would not even get into the group.
+    *Detail:* joining-arc slice, Task 2. Applied to dev-test only, per the two-databases rule.
+
+*Correction, 11 Aug 2026 (joining-arc slice): ten items now. Same reading as above: check all of them.*
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -1414,3 +1431,178 @@ Entry started at slice open; spec path to be added when the design is written.
 - **Watch-item, cosmetic:** a group name that starts with punctuation yields punctuation initials (the seeded QA group "[QA] Group Info" rendered "[G"). Real group names are unaffected by this in practice; recommendation is decline unless it actually shows up on a live group.
 
 No migration, no model call, and no new pre-deploy checklist item came out of this slice.
+
+### The joining arc: the share moment and the join announcement (started 11 Aug 2026)
+
+Slice started from main at db5b37d. Suite baseline before any code: 55 files,
+727 tests, all green, matching the group-info slice's finishing number. Spec:
+docs/superpowers/specs/2026-08-11-joining-arc-design.md. The rest of this
+entry is written at slice close.
+
+**Two halves, one moment.** The founder side (a third wizard step that hands
+over the invite link at peak setup momentum) and the group side (a quiet
+"Jesse joined" line in the feed) shipped as one slice because they are the
+same product moment seen from both ends: handing out the link only matters if
+the group notices what comes back. Per the 10 Aug 2026 pre-MVP triage, both
+were already marked demo-critical; today's build had the founder land in
+their new group alone with the link buried on the info page, and every join
+was silent.
+
+**What shipped, as each side experiences it.** A founder finishing onboarding
+now sees "STEP N OF 3" and Orbit's header on every wizard screen, including a
+new step 3: the group's name on a card, the real invite link in a pill, a
+teal "Share invite link" button, Orbit's bubble explaining what to do with
+it, and an outlined "Take me to my group" that lets them in. A person who
+taps that link and joins for the first time makes the feed grow a centered,
+muted, bubble-free line reading "Jesse joined," visible to everyone already
+there and to the new member the moment they land. A re-tap of the same link
+by someone already in the group changes nothing and announces nothing.
+
+**The decisions as settled with the owner in this slice's brainstorm, and why.**
+- **The wizard header rebuild rides in this slice, not a separate one.** The
+  missing step indicator and the missing share step were one problem wearing
+  two symptoms; shipping the step without the counter would have shipped a
+  flow that cannot count its own steps.
+- **The join line is a quiet centered line, not a bubble.** A bubble promises
+  a reply, and nobody replies to a join notice; the room noticing is the
+  whole message.
+- **The invite link stays an opaque token.** Friendly slugs were declined for
+  MVP because the share button already means nobody retypes the URL by hand;
+  this closes the founder-auth slice's old open question about link
+  friendliness as a deliberate no, not an oversight.
+- **The share screen is a real third wizard step**, not a banner or a
+  separate route. Both alternatives had already been rejected once before (the
+  banner in the one-shot experiment, standalone join-success and welcome
+  routes as future dead code), so re-litigating either here would have been
+  re-opening closed decisions rather than making a new one.
+- **Step 3 has no back chevron.** The group already exists by the time
+  someone reaches this screen; a back arrow would imply the creation could
+  still be undone, which would be a lie. A recorded, deliberate departure
+  from the mockup, which draws one.
+- **Step 2's confirm button now reads "Looks right, set up invites."** True
+  again now that confirming leads into the share step instead of ending the
+  flow.
+- **The wizard header uses the same letter-O placeholder every other Orbit
+  appearance uses.** The real mascot face is queued for the end-of-build
+  visual-polish pass; this slice only made sure its asset lives in the repo
+  (`orbit-mark.js`) so that pass has something to swap in.
+
+**How first-join is told apart from a re-tap.** The join writes the
+membership with `createMany({ skipDuplicates: true })` rather than a plain
+create, specifically so a second person tapping an already-used link, or the
+same person tapping it twice, can never abort the transaction: the database
+maps the duplicate to a harmless no-op instead of an error, and the write's
+own returned count (1 for a genuine first join, 0 for a re-tap) is what
+decides whether the "Jesse joined" line gets written, with no separate lookup
+needed to ask the question. The announcement rides inside the same
+transaction as the membership itself, so the two can never exist without
+each other. Small engineering choice, but it is the reason a race between two
+people tapping the same link at the same moment cannot corrupt or double up
+the record.
+
+**What Orbit is deliberately kept blind to.** The twenty-message window Orbit
+reads to interpret requests now excludes SYSTEM rows. Without the exclusion,
+a join line would have reached Orbit's context mislabeled as coming from "a
+former member" (the window's existing fallback for a message with no author),
+which could have actively misled it rather than just being noise. Nothing
+about how Orbit behaves changed in this slice; whether Orbit should know who
+just joined, and could say something about it, is recorded as an open
+question rather than answered by accident.
+
+**Debt opened or left standing.**
+- **No system voice has a design token yet.** The join line ships on
+  existing muted text styles. Recommendation: queue for the visual-polish
+  pass rather than invent a token now for a single use.
+- **The native share sheet is still unexercised live**, standing debt carried
+  from the group-info slice; the clipboard fallback is what a desktop browser
+  can actually prove.
+- **A founder who refreshes or abandons the tab on step 3 loses the wizard,
+  not the group.** The group already exists; their invite link is still on
+  the info page. Accepted knowingly as the honest fallback rather than built
+  around.
+- **Open question, recorded and not built:** should Orbit know who just
+  joined. No behavior changes today; answering it later would shape Orbit's
+  future conversational context, not this slice's.
+
+**Deploy obligation.** One migration, `20260811150701_add_system_message_author`
+(adds `SYSTEM` to the `MessageAuthor` enum, nothing else changes shape), is
+now pre-deploy checklist item 10 (above in §11): the join announcement is
+dead in production without it, and it fails inside the same transaction that
+creates the membership, so an unmigrated production database would fail the
+join itself, not just the announcement.
+
+**Suite and verification.** Baseline at slice start: 55 files, 727 tests, all
+green, matching the group-info slice's finishing number. After this slice:
+59 files, 735 tests, all green, zero skipped. Every new test in this slice
+was written and shown failing before the code that made it pass. The
+recognition bench (`npm run eval:detect`) was not rerun: this slice touches
+neither the extraction nor the intent-recognition prompt, only a wizard step
+and a deterministic window query, so there was nothing for the bench to
+re-measure. Walkthrough evidence is appended to this entry by the next task.
+
+**Walkthrough evidence (11 Aug 2026).** Run on dev-test (db:which confirmed
+`pxbewardwvoyqqcvogel` on all three sources before starting), against a group
+built live through the real product, no seeding script. Founder "Jordan"
+onboarded through the real extraction model with "We're a climbing crew of 8.
+We usually go Monday and Wednesday mornings at 8am." (no gap round
+triggered): step 1 showed "STEP 1 OF 3" with the "Never mind, take me back"
+exit; step 2 showed "STEP 2 OF 3" and the confirm button read exactly "Looks
+right, set up invites"; step 3 rendered the name card ("Monday Wednesday
+Climbers"), the uppercase "GROUP INVITE LINK" eyebrow, the real
+`/join/<token>` URL, the teal "Share invite link" button, Orbit's bubble with
+no em dash, the outlined "Take me to my group," the caption, "STEP 3 OF 3" in
+the header, and no back chevron, a full match to the brief. Clicking the
+share button on the desktop pane hit the clipboard branch and showed
+"Copied!" before reverting. "Take me to my group" landed on the group home
+with the pinned event card and Orbit's "Next up" note.
+
+The second session followed the pattern from the change-request-part-two
+walkthrough, where this two-origin technique was first used: a second browser
+tab pointed at `127.0.0.1:3000` instead of `localhost:3000`, a distinct
+origin and therefore a distinct cookie jar on the same dev server
+(`allowedDevOrigins` in `next.config.ts` already carries this pattern from
+that earlier QA). Opening the real invite URL there showed the join screen
+for "Monday Wednesday Climbers"; joining as "Jesse" landed on the group home
+with a centered, bubble-free "Jesse joined" line in the feed and the TBD
+count moved from 1 to 2. Reloading the founder's own session showed the same
+line, confirming it is a shared feed write, not a per-viewer artifact.
+Re-opening the same invite URL as Jesse (session remembered, so the join
+screen read "Joining as Jesse" with no name field) and tapping join again
+left the feed unchanged: still exactly one "Jesse joined" line, TBD count
+still 2, proving the `skipDuplicates` re-tap path holds live and not just in
+tests. Jesse then sent "can we do climbing at 9 instead of 8?" in the group
+chat; Orbit replied normally with a group time-change proposal ("Jesse wants
+climbing this Wed at 9am instead of 8am. Works for you?"), chips, Jesse's own
+chip pre-checked, and a live tally, proving detection survives a SYSTEM row
+sitting in the twenty-message window it now excludes.
+
+**Not exercised, named honestly:** the native share sheet (`navigator.share`
+is undefined in the desktop browser pane used for this walkthrough, so only
+the clipboard branch could run live, the same gap the group-info slice
+recorded). Everything else in the Task 10 checklist was observed directly in
+the rendered app, not inferred from code reading. The sandbox was left as-is
+afterward (standing convention): "Jordan" founder, "Jesse" member, one live
+group time-change proposal on Climbing Monday.
+
+*Postscript, 11 Aug 2026 (fix wave, code review):* removing the `/create`
+page's own h1 as part of this slice's header redesign also removed the "No
+sign-up needed. You can add an email later to keep access." reassurance that
+used to live on that page header; it now appears only on the join screen, not
+anywhere in the founder's own onboarding. This was a plan-sanctioned
+consequence of the header redesign, not an oversight caught late. Whether the
+reassurance should return somewhere in onboarding is an open question for the
+owner.
+
+*Postscript, 11 Aug 2026 (owner QA, pre-merge):* the owner asked, after
+running the QA script, whether step 3 could get a back chevron to step 2 so a
+founder who spots a mistake could reach "Edit my description." Considered and
+declined together, because it is not the small change it looks like: the
+group already exists by step 3, and step 2's screen was built for the moment
+before creation, so every control on it would lie (edits go nowhere, the
+confirm button would create a duplicate group, and the edit-description path
+would create a third). Making the trip back honest means teaching the wizard
+to edit an existing group, which is a real feature, not navigation. The
+underlying need is real and is queued post-MVP as "founder can fix group
+details after creation," whose natural home is the info page or Orbit's chat
+once change requests widen, not the wizard. Recorded so "why is there no back
+on step 3" never resurfaces as a mystery.

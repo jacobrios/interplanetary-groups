@@ -4,11 +4,12 @@
 // generate the first event immediately (scoped reconcile) so the home is
 // alive on day one. The client-held rhythm payload is re-validated here —
 // the completeness gate is enforced server-side, so no request path can
-// create a group without a schedulable primary rhythm.
+// create a group without a schedulable primary rhythm. The wizard advances
+// to the Step 3 share screen on success rather than being redirected; see
+// CreateGroupResult.
 
 "use server"
 
-import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { provisionFounderGroup } from "@/lib/groups/provision"
 import { parseStoredRhythms, parseRhythm } from "@/lib/orbit/rhythm"
@@ -31,7 +32,11 @@ export interface CreateGroupInput {
 
 const DESCRIPTION_MAX = 2000
 
-export async function createGroupAction(input: CreateGroupInput): Promise<{ error: string }> {
+export type CreateGroupResult =
+  | { error: string }
+  | { groupId: string; inviteToken: string }
+
+export async function createGroupAction(input: CreateGroupInput): Promise<CreateGroupResult> {
   const founderName = input.founderName?.trim() ?? ""
   const groupName = input.groupName?.trim() ?? ""
   const description = (input.description ?? "").trim().slice(0, DESCRIPTION_MAX)
@@ -94,5 +99,8 @@ export async function createGroupAction(input: CreateGroupInput): Promise<{ erro
     console.error("[onboarding] first-event reconcile failed (cron will catch up):", err)
   }
 
-  redirect(`/groups/${group.id}`)
+  // The wizard advances to the share step (mockup 04) instead of being
+  // redirected into the group; it needs the id to proceed and the token to
+  // share. Returning after the reconcile keeps first-event creation fail-soft.
+  return { groupId: group.id, inviteToken: group.inviteToken }
 }
