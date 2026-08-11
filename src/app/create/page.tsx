@@ -1,8 +1,9 @@
 // src/app/create/page.tsx
 //
 // Founder onboarding entry: a thin server shell around the client wizard.
-// All three onboarding beats (describe → playback → confirm) live at this
-// route in client state; the share step is out of scope for this slice.
+// All four onboarding beats (describe → playback → confirm → share) live at
+// this route in client state; the wizard now owns the top of the screen via
+// WizardHeader, so this shell carries only the page frame.
 
 import OnboardingWizard from "./OnboardingWizard"
 
@@ -22,27 +23,6 @@ export default function CreateGroupPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
-        <h1
-          style={{
-            fontSize: "var(--type-display)",
-            lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
-            marginBottom: "0.5rem",
-          }}
-        >
-          Start your group
-        </h1>
-        <p
-          style={{
-            fontSize: "var(--type-body)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
-            marginBottom: "1.5rem",
-          }}
-        >
-          No sign-up needed. You can add an email later to keep access.
-        </p>
-
         <OnboardingWizard />
       </div>
     </main>
