@@ -6,6 +6,7 @@ import { ProposalKind, ProposalVoteAnswer } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
+import { isGroupMember } from "@/lib/auth/membership"
 import { promoteProposalMove } from "@/lib/proposals/promote"
 import { STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
 
@@ -22,9 +23,10 @@ const ANSWERS: string[] = [ProposalVoteAnswer.YES, ProposalVoteAnswer.KEEP]
  *
  * Same auth model as gaugeVoteAction and proposalAnswerAction: the session is
  * re-verified server-side and the user is re-resolved from it, never trusted
- * from the client. Unlike gaugeVoteAction, this vote is membership-gated,
- * because a proposal vote can move an already-scheduled plan for the whole
- * group, not just answer an open interest gauge.
+ * from the client. Every write path in the product is membership-gated as of
+ * the share-readiness slice; this one was historically the only one, because
+ * a proposal vote can move an already-scheduled plan for the whole group, not
+ * just answer an open interest gauge.
  *
  * The promote is best-effort exactly like gauge-vote's promotion: a vote that
  * saved is a real answer, and failing the whole action because the promote
@@ -71,6 +73,16 @@ export async function proposalVoteAction(
     return { errors: { general: "That question is gone." } }
   }
 
+  // Membership, via the shared check every gate now uses, checked right
+  // after the proposal is confirmed to exist and before any other state
+  // check, so a non-member is refused before learning whether the proposal
+  // is settled or stale. (Historically this was the product's only
+  // membership-gated write; the share-readiness slice made it the rule
+  // rather than the exception.)
+  if (!(await isGroupMember(user.id, proposal.groupId))) {
+    return { errors: { general: "Only members can vote on this." } }
+  }
+
   if (proposal.answer !== null) {
     return { errors: { general: "That one's settled." } }
   }
@@ -82,16 +94,6 @@ export async function proposalVoteAction(
     proposal.priorStartsAt.getTime() !== proposal.event.startsAt.getTime()
   ) {
     return { errors: { general: STALE_PROPOSAL_ERROR } }
-  }
-
-  // Membership, checked here unlike gauge-vote: a gauge vote only answers an
-  // open interest question, but this vote can move a plan the whole group
-  // already has, so only members get a say.
-  const membership = await prisma.membership.findUnique({
-    where: { userId_groupId: { userId: user.id, groupId: proposal.groupId } },
-  })
-  if (!membership) {
-    return { errors: { general: "Only members can vote on this." } }
   }
 
   try {

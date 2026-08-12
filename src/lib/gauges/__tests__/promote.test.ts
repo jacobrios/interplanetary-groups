@@ -192,6 +192,38 @@ describe("promoteGaugeToEvent", () => {
       reason: "no_gauge",
     })
   })
+
+  it("does not count a non-member's yes toward the bar", async () => {
+    const gaugeId = await gaugeWith("kayaking", [GaugeAnswer.IN, GaugeAnswer.IN])
+    const outsider = await prisma.user.create({
+      data: { name: "[TEST] Promote Outsider", supabaseAuthId: `test-promote-out-${Date.now()}` },
+    })
+    userIds.push(outsider.id) // registered for afterAll cleanup only; not a member
+    await prisma.gaugeVote.create({
+      data: { gaugeId, userId: outsider.id, answer: GaugeAnswer.IN },
+    })
+
+    const result = await promoteGaugeToEvent(gaugeId, NOW)
+    expect(result).toEqual({ status: "skipped", reason: "below_threshold" })
+  })
+
+  it("seeds RSVPs for members only when a stray non-member vote exists", async () => {
+    const gaugeId = await gaugeWith("bowling", [GaugeAnswer.IN, GaugeAnswer.IN, GaugeAnswer.IN])
+    const outsider = await prisma.user.create({
+      data: { name: "[TEST] Promote Outsider 2", supabaseAuthId: `test-promote-out2-${Date.now()}` },
+    })
+    userIds.push(outsider.id)
+    await prisma.gaugeVote.create({
+      data: { gaugeId, userId: outsider.id, answer: GaugeAnswer.IN },
+    })
+
+    const result = await promoteGaugeToEvent(gaugeId, NOW)
+    expect(result.status).toBe("created")
+    if (result.status !== "created") return
+    const rsvps = await prisma.rsvp.findMany({ where: { eventId: result.eventId } })
+    expect(rsvps).toHaveLength(3)
+    expect(rsvps.some((r) => r.userId === outsider.id)).toBe(false)
+  })
 })
 
 describe("promoteGaugeToEvent, venue inheritance", () => {
@@ -214,6 +246,12 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
       },
     })
 
+    // Declared out here so the finally can always reach them: cleanup that
+    // lives in the try only runs when the assertions pass, which is exactly
+    // when cleanup matters least. Two failing runs during the share-readiness
+    // slice left four orphaned users behind in dev-test that way.
+    const extras: { id: string }[] = []
+
     try {
       const msg = await prisma.message.create({
         data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: user.id, body: "beers?" },
@@ -230,13 +268,18 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
 
       // Three yeses from one fixture user is impossible, so vote rows are
       // written directly with distinct ids.
-      const extras = await Promise.all(
-        [1, 2].map((n) =>
-          prisma.user.create({
-            data: { name: `[TEST] Venue Extra ${n}`, supabaseAuthId: `test-venue-extra-${n}-${Date.now()}` },
-          })
-        )
+      extras.push(
+        ...(await Promise.all(
+          [1, 2].map((n) =>
+            prisma.user.create({
+              data: { name: `[TEST] Venue Extra ${n}`, supabaseAuthId: `test-venue-extra-${n}-${Date.now()}` },
+            })
+          )
+        ))
       )
+      await prisma.membership.createMany({
+        data: extras.map((u) => ({ groupId: group.id, userId: u.id })),
+      })
       for (const u of [user, ...extras]) {
         await prisma.gaugeVote.create({
           data: { gaugeId: r.gauge.id, userId: u.id, answer: GaugeAnswer.IN },
@@ -252,12 +295,13 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
       expect(event!.venues[0]?.name).toBe("Lucky Lab")
 
       await prisma.event.deleteMany({ where: { groupId: group.id } })
-      for (const u of extras) await prisma.user.delete({ where: { id: u.id } }).catch(() => {})
     } finally {
+      await prisma.event.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.message.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.membership.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.group.delete({ where: { id: group.id } }).catch(() => {})
       await prisma.user.delete({ where: { id: user.id } }).catch(() => {})
+      for (const u of extras) await prisma.user.delete({ where: { id: u.id } }).catch(() => {})
     }
   })
 

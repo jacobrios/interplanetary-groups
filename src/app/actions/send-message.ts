@@ -30,11 +30,12 @@ export interface SendMessageState {
  *   Posting is something you do inside a group you already reached, not an
  *   entry point, so it should not manufacture an identity to let you in.
  *
- * What this does NOT do, stated because the line above used to imply it:
- * there is no membership check here. Having a session and a name is the whole
- * gate. A signed-in person who never joined this group can post to it. That is
- * the standing access-control gap recorded in build-notes and the README, and
- * it belongs to that slice rather than this action.
+ * Membership gate (share-readiness slice): createMessage refuses a MEMBER
+ * message whose author is not a current member of the group, and this action
+ * surfaces that as an honest refusal. The page-level wall means members are
+ * the only people who ever see the input, but a removed member's stale tab
+ * still holds a live form, and the server refusing is what actually protects
+ * the feed.
  *
  * On success, revalidatePath refreshes the group home so the feed reflects
  * the new message on the next server render.
@@ -82,6 +83,9 @@ export async function sendMessageAction(
     const msg = err instanceof Error ? err.message : ""
     if (msg === "EMPTY_BODY") {
       return { errors: { general: "Message cannot be empty." } }
+    }
+    if (msg === "NOT_A_MEMBER") {
+      return { errors: { general: "Only members can post here." } }
     }
     return { errors: { general: "Couldn't send that, try again." } }
   }

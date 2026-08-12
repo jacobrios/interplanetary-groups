@@ -60,6 +60,10 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 
 **Orbit is not a user.** It speaks through an author enum with no person record behind it, which is why it can never accidentally appear in a member list or an attendance count.
 
+**A group is invite-only, and the link is the only door.** Someone who holds a group's URL without being in the group sees a note from Orbit telling them to ask a member for the invite link, and nothing else: not the group's name, not who is in it, not a word of the chat. Every write refuses a non-member on the server too, so a stale browser tab left open by someone who has since left cannot post, RSVP, or cast the vote that creates an event.
+
+**When Orbit cannot think, it says so plainly.** A model call that fails because the prototype ran out of credits is told apart from one that fails because the service is down, and each gets its own honest wording. In onboarding the founder keeps their text and can retry; in chat the message posts as normal and only the sender sees a quiet line saying Orbit might miss ideas until it is fixed. The reason shown is never a guess.
+
 ---
 
 ## Where it stands
@@ -82,7 +86,7 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 **Known gaps, deliberately**
 
 - Orbit reads a correction to an event's **time** and nothing else. A wrong venue, day, or cadence still gets an honest decline in chat and has no path to being fixed there. Those are their own slices.
-- Nothing is membership-gated, including posting and RSVPs, so a signed-in non-member can post to any group and their RSVP is silently dropped. Access control is a planned slice, not an oversight.
+- A member who loses their session (cleared cookies, a new device) sees the invite-only screen until they tap the group's invite link again. Email sign-in, which would carry an identity across devices, is the first post-MVP work.
 - A visual polish pass is pending, and some scaffolding defaults from project creation are still in place.
 
 **Out of scope for the MVP**

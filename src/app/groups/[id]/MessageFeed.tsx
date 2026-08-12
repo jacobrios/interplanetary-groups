@@ -187,10 +187,16 @@ export default function MessageFeed({
                     rendering it here is already asker-only. */}
                 {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
 
-                {/* The group consensus question: the tally is feed history
-                    for everyone, but only a member gets a vote (the chips),
-                    so a non-member sees the standing count with no chips
-                    rather than the chips vanishing along with the tally. */}
+                {/* Defense in depth, not a live path today: the group page
+                    now walls every non-member before this feed ever renders
+                    (share-readiness slice), so the GroupProposalTally branch
+                    below cannot currently be reached. It stays, with its prop
+                    chain, so the feed still renders correctly for a
+                    non-member if viewing the group is ever deliberately
+                    loosened: the tally is feed history for everyone, but
+                    only a member gets a vote (the chips), so a non-member
+                    would see the standing count with no chips rather than
+                    the chips vanishing along with the tally. */}
                 {groupProposal &&
                   (viewerIsMember ? (
                     <GroupProposalChips proposal={groupProposal} />

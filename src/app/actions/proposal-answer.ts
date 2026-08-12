@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
+import { isGroupMember } from "@/lib/auth/membership"
 import { moveEventTime } from "@/lib/events/move"
 import { buildChangeAnnouncement, buildGroupProposalQuestion, PAST_TIME_REPLY, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
 import { consensusFloor } from "@/lib/proposals/consensus"
@@ -61,6 +62,11 @@ export async function proposalAnswerAction(
   }
   if (proposal.askerUserId !== user.id) {
     return { errors: { general: "Only the person who asked can answer this one." } }
+  }
+  // The asker may have left (or been removed from) the group since asking; a
+  // non-member's confirm must not move a plan or open a group question.
+  if (!(await isGroupMember(user.id, proposal.groupId))) {
+    return { errors: { general: "Only members can answer this one." } }
   }
   if (proposal.answer !== null) {
     return { errors: { general: "That one's settled." } }

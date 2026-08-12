@@ -21,6 +21,10 @@ export interface RsvpState {
  * would create a row disconnected from any group roster and misrepresent
  * the "who's coming" picture. The page omits the RSVP control for unauthenticated
  * viewers, so this path should only be hit in error or direct-POST cases.
+ *
+ * Membership-gated too (share-readiness slice): setRsvp throws NOT_A_MEMBER
+ * for a session that has one but isn't in this event's group, and this
+ * action surfaces that as an honest refusal rather than a generic error.
  */
 export async function rsvpAction(
   _prevState: RsvpState,
@@ -50,7 +54,10 @@ export async function rsvpAction(
 
   try {
     await setRsvp({ supabaseAuthId: user.id, eventId, status })
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.message === "NOT_A_MEMBER") {
+      return { errors: { general: "Only members can RSVP to this one." } }
+    }
     return { errors: { general: "Couldn't save that, try again." } }
   }
 

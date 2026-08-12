@@ -26,6 +26,9 @@ interface SetRsvpResult {
  *    RSVP action does NOT mint an anonymous session — a user who has no
  *    account has no group membership, so letting them RSVP would produce a
  *    row disconnected from any group roster.
+ * 4. Throws "NO_EVENT" when no Event row exists for the given event id.
+ * 5. Throws "NOT_A_MEMBER" when the resolved user is not a member of the
+ *    event's group.
  *
  * This function is intentionally reusable: the event-detail page and the
  * future home-screen quick-RSVP card both call it.
@@ -39,6 +42,21 @@ export async function setRsvp({
     // Re-resolve user inside the tx — never trust a client-passed id.
     const user = await tx.user.findUnique({ where: { supabaseAuthId } })
     if (!user) throw new Error("NO_USER")
+
+    // Membership gate (share-readiness slice): an RSVP is a statement about a
+    // group's plan, so only that group's members may make one. Before this
+    // guard, a non-member's row wrote and then vanished from every derived
+    // count, the silent-drop failure the slice exists to close.
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      select: { groupId: true },
+    })
+    if (!event) throw new Error("NO_EVENT")
+    const membership = await tx.membership.findUnique({
+      where: { userId_groupId: { userId: user.id, groupId: event.groupId } },
+      select: { id: true },
+    })
+    if (!membership) throw new Error("NOT_A_MEMBER")
 
     const rsvp = await tx.rsvp.upsert({
       where: { eventId_userId: { eventId, userId: user.id } },

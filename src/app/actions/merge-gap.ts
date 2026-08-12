@@ -24,6 +24,8 @@ import {
   readClarifyingQuestion,
   type GapAskable,
 } from "@/lib/orbit/gap"
+import { ModelUnavailableError } from "@/lib/orbit/model-errors"
+import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import { parseStoredRhythms, type StoredRhythm } from "@/lib/orbit/rhythm"
 import type { GapPayload } from "./extract-group"
 
@@ -47,6 +49,7 @@ export interface MergeGapInput {
 
 export type MergeGapResult =
   | { status: "error" }
+  | { status: "unavailable"; reason: ModelFailureReason }
   | { status: "ready"; profile: { groupName: string; rhythms: StoredRhythm[] } }
   | {
       status: "incomplete"
@@ -92,6 +95,11 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
       answer,
     })
   } catch (err) {
+    if (err instanceof ModelUnavailableError) {
+      // The service, not the founder: honest reason, same soft-retry contract.
+      console.error("[onboarding] gap merge unavailable:", err)
+      return { status: "unavailable", reason: err.reason }
+    }
     // Same soft-retry contract as extraction: the founder keeps their draft
     // and the round is not consumed.
     console.error("[onboarding] gap merge failed:", err)
