@@ -17,11 +17,12 @@
 // - Chat body stays at --type-body (17px), never shrunk (§7 firm rule).
 
 import { MessageAuthor } from "@prisma/client"
-import { useRef, useEffect } from "react"
+import { Fragment, useRef, useEffect } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
 import GroupProposalChips, { GroupProposalTally, type FeedGroupProposal } from "./GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import { groupMessagesByDay } from "@/lib/messages/day-groups"
 
 export interface FeedMessage {
   id: string
@@ -37,6 +38,13 @@ export interface FeedMessage {
 interface Props {
   messages: FeedMessage[]
   viewerId: string | null
+  /**
+   * The group's own IANA timezone (stored on the group row, threaded down
+   * from page.tsx). Day dividers render in this zone, never the viewer's —
+   * the feed is a shared surface and "Today" must mean the same day to
+   * everyone in the group's own terms (CLAUDE.md time rules).
+   */
+  timeZone: string
   /**
    * Live gauges, keyed to the Orbit message each one renders under. A gauge
    * whose day has passed is simply absent, so its message stays in the feed as
@@ -69,6 +77,7 @@ interface Props {
 export default function MessageFeed({
   messages,
   viewerId,
+  timeZone,
   gauges = [],
   proposals = [],
   groupProposals = [],
@@ -81,6 +90,14 @@ export default function MessageFeed({
     groupProposals.map((p) => [p.orbitMessageId, p])
   )
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Day dividers group in the GROUP's own timezone, never the viewer's (Task
+  // 7, CLAUDE.md time rules): the feed is a shared surface, so "Today" must
+  // mean the same calendar day to everyone reading it. `now` is only the
+  // instant this render happened; the zone conversion for the label itself
+  // happens entirely inside groupMessagesByDay via Intl with an explicit
+  // timeZone, never a local-zone Date method.
+  const dayGroups = groupMessagesByDay(messages, timeZone, new Date())
 
   // Scroll to the bottom sentinel on mount (so the feed opens at the most
   // recent messages) and whenever the message count changes (so the viewer's
@@ -137,153 +154,176 @@ export default function MessageFeed({
         paddingTop: stripAbove ? 6 : undefined,
       }}
     >
-      {messages.map((msg) => {
-        // System announcements ("Jesse joined"): the room noticing, not anyone
-        // speaking. Centered quiet line — no bubble, no avatar, no name label
-        // (§7: bubbles are for dialogue, and nobody replies to a join).
-        if (msg.authorType === MessageAuthor.SYSTEM) {
-          return (
-            <p
-              key={msg.id}
-              style={{
-                width: "100%",
-                textAlign: "center",
-                fontSize: "var(--type-meta)",
-                lineHeight: "var(--leading-normal)",
-                color: "var(--text-secondary)",
-                margin: 0,
-              }}
-            >
-              {msg.body}
-            </p>
-          )
-        }
-
-        const isOrbit = msg.authorType === MessageAuthor.ORBIT
-        const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
-        const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
-        const proposal = isOrbit ? proposalByMessageId.get(msg.id) : undefined
-        const groupProposal = isOrbit ? groupProposalByMessageId.get(msg.id) : undefined
-
-        return (
+      {dayGroups.map((group) => (
+        <Fragment key={group.key}>
+          {/* Centered uppercase day divider, in the group's own time (Task
+              7). SYSTEM lines and optimistic messages ride inside their
+              day's group in ordinary feed order; an optimistic message is
+              always "Today" since it is stamped with the moment it was
+              sent. */}
           <div
-            key={msg.id}
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: isOrbit ? "flex-start" : isSelf ? "flex-end" : "flex-start",
-              opacity: msg.isPending ? 0.65 : 1,
-              transition: "opacity 0.1s ease",
+              textAlign: "center",
+              fontSize: "var(--type-eyebrow)",
+              letterSpacing: ".12em",
+              textTransform: "uppercase",
+              color: "var(--text-secondary)",
+              fontWeight: 700,
+              padding: "12px 0 4px",
             }}
           >
-            {/* Orbit: lime avatar + muted fill, no name label */}
-            {isOrbit && (
-              <div style={{ width: "100%" }}>
-                <OrbitBubble>
-                  <p
-                    style={{
-                      fontSize: "var(--type-body)",
-                      lineHeight: "var(--leading-normal)",
-                      color: "var(--text-primary)",
-                      margin: 0,
-                    }}
-                  >
-                    {msg.body}
-                  </p>
-                  {/* Where things stand, inside the bubble under Orbit's words. */}
-                  {gauge && <GaugeTally line={gauge.tallyLine} />}
-                </OrbitBubble>
-
-                {/* The three answers, indented under the bubble. Only a viewer
-                    with a session can answer, matching the RSVP control. */}
-                {gauge && viewerId !== null && <GaugeChips gauge={gauge} />}
-
-                {/* The asker's one-tap answer to Orbit's change question. The
-                    page only composes a proposal DTO for its asker, so
-                    rendering it here is already asker-only. */}
-                {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
-
-                {/* Defense in depth, not a live path today: the group page
-                    now walls every non-member before this feed ever renders
-                    (share-readiness slice), so the GroupProposalTally branch
-                    below cannot currently be reached. It stays, with its prop
-                    chain, so the feed still renders correctly for a
-                    non-member if viewing the group is ever deliberately
-                    loosened: the tally is feed history for everyone, but
-                    only a member gets a vote (the chips), so a non-member
-                    would see the standing count with no chips rather than
-                    the chips vanishing along with the tally. */}
-                {groupProposal &&
-                  (viewerIsMember ? (
-                    <GroupProposalChips proposal={groupProposal} />
-                  ) : (
-                    <GroupProposalTally line={groupProposal.tallyLine} />
-                  ))}
-              </div>
-            )}
-
-            {/* Other member: name label above, outlined low-fill */}
-            {!isOrbit && !isSelf && (
-              <div style={{ maxWidth: "80%" }}>
+            {group.label}
+          </div>
+          {group.messages.map((msg) => {
+            // System announcements ("Jesse joined"): the room noticing, not
+            // anyone speaking. Centered quiet line — no bubble, no avatar, no
+            // name label (§7: bubbles are for dialogue, and nobody replies to
+            // a join).
+            if (msg.authorType === MessageAuthor.SYSTEM) {
+              return (
                 <p
+                  key={msg.id}
                   style={{
-                    fontSize: "var(--type-eyebrow)",
+                    width: "100%",
+                    textAlign: "center",
+                    fontSize: "var(--type-meta)",
                     lineHeight: "var(--leading-normal)",
                     color: "var(--text-secondary)",
-                    marginBottom: "0.25rem",
+                    margin: 0,
                   }}
                 >
-                  {msg.authorName ?? "Member"}
+                  {msg.body}
                 </p>
-                <div
-                  style={{
-                    backgroundColor: "var(--surface-base)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "4px 16px 16px 16px",
-                    padding: "0.5rem 0.75rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "var(--type-body)",
-                      lineHeight: "var(--leading-normal)",
-                      color: "var(--text-primary)",
-                      margin: 0,
-                    }}
-                  >
-                    {msg.body}
-                  </p>
-                </div>
-              </div>
-            )}
+              )
+            }
 
-            {/* Self (viewer): right-aligned, strongest neutral fill */}
-            {isSelf && (
-              <div style={{ maxWidth: "80%" }}>
-                <div
-                  style={{
-                    backgroundColor: "var(--surface-self)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "16px 4px 16px 16px",
-                    padding: "0.5rem 0.75rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "var(--type-body)",
-                      lineHeight: "var(--leading-normal)",
-                      color: "var(--text-primary)",
-                      margin: 0,
-                    }}
-                  >
-                    {msg.body}
-                  </p>
-                </div>
+            const isOrbit = msg.authorType === MessageAuthor.ORBIT
+            const isSelf = !isOrbit && viewerId !== null && msg.authorId === viewerId
+            const gauge = isOrbit ? gaugeByMessageId.get(msg.id) : undefined
+            const proposal = isOrbit ? proposalByMessageId.get(msg.id) : undefined
+            const groupProposal = isOrbit ? groupProposalByMessageId.get(msg.id) : undefined
+
+            return (
+              <div
+                key={msg.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: isOrbit ? "flex-start" : isSelf ? "flex-end" : "flex-start",
+                  opacity: msg.isPending ? 0.65 : 1,
+                  transition: "opacity 0.1s ease",
+                }}
+              >
+                {/* Orbit: lime avatar + muted fill, no name label */}
+                {isOrbit && (
+                  <div style={{ width: "100%" }}>
+                    <OrbitBubble>
+                      <p
+                        style={{
+                          fontSize: "var(--type-body)",
+                          lineHeight: "var(--leading-normal)",
+                          color: "var(--text-primary)",
+                          margin: 0,
+                        }}
+                      >
+                        {msg.body}
+                      </p>
+                      {/* Where things stand, inside the bubble under Orbit's words. */}
+                      {gauge && <GaugeTally line={gauge.tallyLine} />}
+                    </OrbitBubble>
+
+                    {/* The three answers, indented under the bubble. Only a viewer
+                        with a session can answer, matching the RSVP control. */}
+                    {gauge && viewerId !== null && <GaugeChips gauge={gauge} />}
+
+                    {/* The asker's one-tap answer to Orbit's change question. The
+                        page only composes a proposal DTO for its asker, so
+                        rendering it here is already asker-only. */}
+                    {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
+
+                    {/* Defense in depth, not a live path today: the group page
+                        now walls every non-member before this feed ever renders
+                        (share-readiness slice), so the GroupProposalTally branch
+                        below cannot currently be reached. It stays, with its prop
+                        chain, so the feed still renders correctly for a
+                        non-member if viewing the group is ever deliberately
+                        loosened: the tally is feed history for everyone, but
+                        only a member gets a vote (the chips), so a non-member
+                        would see the standing count with no chips rather than
+                        the chips vanishing along with the tally. */}
+                    {groupProposal &&
+                      (viewerIsMember ? (
+                        <GroupProposalChips proposal={groupProposal} />
+                      ) : (
+                        <GroupProposalTally line={groupProposal.tallyLine} />
+                      ))}
+                  </div>
+                )}
+
+                {/* Other member: name label above, outlined low-fill */}
+                {!isOrbit && !isSelf && (
+                  <div style={{ maxWidth: "80%" }}>
+                    <p
+                      style={{
+                        fontSize: "var(--type-eyebrow)",
+                        lineHeight: "var(--leading-normal)",
+                        color: "var(--text-secondary)",
+                        marginBottom: "0.25rem",
+                      }}
+                    >
+                      {msg.authorName ?? "Member"}
+                    </p>
+                    <div
+                      style={{
+                        backgroundColor: "var(--surface-base)",
+                        border: "1px solid var(--hairline)",
+                        borderRadius: "4px 16px 16px 16px",
+                        padding: "0.5rem 0.75rem",
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: "var(--type-body)",
+                          lineHeight: "var(--leading-normal)",
+                          color: "var(--text-primary)",
+                          margin: 0,
+                        }}
+                      >
+                        {msg.body}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Self (viewer): right-aligned, strongest neutral fill */}
+                {isSelf && (
+                  <div style={{ maxWidth: "80%" }}>
+                    <div
+                      style={{
+                        backgroundColor: "var(--surface-self)",
+                        border: "1px solid var(--hairline)",
+                        borderRadius: "16px 4px 16px 16px",
+                        padding: "0.5rem 0.75rem",
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: "var(--type-body)",
+                          lineHeight: "var(--leading-normal)",
+                          color: "var(--text-primary)",
+                          margin: 0,
+                        }}
+                      >
+                        {msg.body}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )
-      })}
+            )
+          })}
+        </Fragment>
+      ))}
       {/* Bottom sentinel — scrolled into view on mount and on message-count change */}
       <div ref={bottomRef} />
     </div>

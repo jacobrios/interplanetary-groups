@@ -310,6 +310,7 @@ export default async function GroupPage({ params }: Props) {
           initialMessages={messages}
           viewerId={viewer?.id ?? null}
           viewerName={viewer?.name ?? null}
+          timeZone={group.timeZone}
           gauges={gauges}
           proposals={proposals}
           groupProposals={groupProposals}

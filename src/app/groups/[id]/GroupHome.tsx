@@ -40,6 +40,9 @@ interface Props {
   initialMessages: FeedMessage[]
   viewerId: string | null
   viewerName: string | null
+  /** The group's own IANA timezone, threaded to MessageFeed for day dividers
+   * that render in group time, never the viewer's (CLAUDE.md time rules). */
+  timeZone: string
   gauges: FeedGauge[]
   proposals: FeedProposal[]
   groupProposals: FeedGroupProposal[]
@@ -55,6 +58,7 @@ export default function GroupHome({
   initialMessages,
   viewerId,
   viewerName,
+  timeZone,
   gauges,
   proposals,
   groupProposals,
@@ -149,6 +153,7 @@ export default function GroupHome({
       <MessageFeed
         messages={optimisticMessages}
         viewerId={viewerId}
+        timeZone={timeZone}
         gauges={gauges}
         proposals={proposals}
         groupProposals={groupProposals}

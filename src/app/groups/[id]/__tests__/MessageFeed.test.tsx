@@ -12,6 +12,7 @@ describe("MessageFeed system messages", () => {
     render(
       <MessageFeed
         viewerId={null}
+        timeZone="America/Chicago"
         messages={[
           {
             id: "m-sys-1",
