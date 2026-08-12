@@ -1,15 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
 
-  /* ─── Design tokens ─────────────────────────────── */
-
-  /* Color: teal (primary action) and lime (Orbit brand) */
-  --color-teal: #2dd4bf;        /* single primary action */
-  --color-teal-hover: #14b8a6;
-  --color-lime: #a3e635;        /* Orbit brand — never a primary action */
+  /* ===== Dark identity tokens =====
+     Source of truth: docs/design/design-polish-rd-2/walkthrough.css :root
+     (adopted by the visual-polish pass, 11 Aug 2026). Dark is the default,
+     not a media-query branch. */
+  --surface-base: #15161e;
+  --surface-raised: #262b37;
+  --surface-self: #363c4b;   /* viewer's own bubble; strongest fill, never teal */
+  --hairline: #454c5e;
+  --text-primary: #ECEDF2;
+  --text-secondary: #A7AAB6;
+  --placeholder: #8c91a0;    /* empty-field text */
+  --text-faint: #6F7280;     /* eyebrows, incidental chrome */
+  --lime: #a4ef4e;           /* Orbit brand — never an action */
+  --lime-ink: #233006;
+  --action: #18bccb;         /* teal: an action that genuinely matters */
+  --action-ink: #0a2125;
 
   /* Type scale (rem values honor device text size; unitless line-heights) */
   --type-display:  1.75rem;   /* 28px */
@@ -22,52 +31,21 @@
 
   --leading-tight:  1.15;
   --leading-normal: 1.5;
-
-  /* Neutrals (dark-first) */
-  --surface-page:   #0a0a0a;
-  --surface-card:   #141414;
-  --surface-input:  #1a1a1a;
-  --border-subtle:  #2a2a2a;
-  --text-primary:   #f4f4f5;
-  --text-secondary: #a1a1aa;
-  --text-placeholder: #52525b;
-
-  /*
-   * Chat-bubble surface tokens (build-notes §7 "chat voice system").
-   * These satisfy the structural rule — Orbit, member, and self-bubble must be
-   * distinguishable at a glance by structure and weight, not hue — using
-   * on-system neutrals rather than the two reserved chromas (teal = primary
-   * action; lime = Orbit brand).  Values are functional placeholders; the
-   * pixel-level visual pass against the walkthrough is a deferred phase.
-   *
-   * --surface-orbit: soft muted fill for Orbit's speech bubbles.
-   * --surface-bubble-member: low-fill background when an outlined-only bubble
-   *   needs a hint of fill (member bubbles are primarily outlined).
-   * --surface-self: the viewer's "strongest fill" bubble — a neutral step
-   *   above surface-card, provably NOT teal (teal reads as a button) and NOT
-   *   lime (lime reads as Orbit).
-   */
-  --surface-orbit:         #1e2a20; /* muted green-tinted dark — reads as Orbit without being lime */
-  --surface-bubble-member: #1a1a1a; /* = surface-input; low fill, outlined primarily */
-  --surface-self:          #232323; /* strongest neutral fill — darker than surface-card */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--surface-base);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* The one thing inline styles cannot express: WebKit scrollbar hiding for
+   the carousel rail (Firefox is covered by inline scrollbarWidth). */
+.scrollbar-hidden::-webkit-scrollbar { display: none; }
