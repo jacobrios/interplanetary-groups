@@ -6,7 +6,7 @@
 // network.
 
 import { describe, expect, it } from "vitest"
-import { derivePending } from "@/lib/pending/derive"
+import { derivePending, pendingStripWillRender } from "@/lib/pending/derive"
 import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
 
@@ -162,5 +162,39 @@ describe("derivePending", () => {
     if (item.kind === "gauge") {
       expect(item.whenLine).toBe("Sat")
     }
+  })
+})
+
+describe("pendingStripWillRender", () => {
+  // Fix-wave 1 (visual-polish task 6 review): derivePending returns a
+  // non-null PendingData with empty arrays for any signed-in viewer
+  // whenever nothing is being gauged -- the ordinary quiet state of a
+  // group, not a rare one. page.tsx used to test `pending !== null`, which
+  // is true in that ordinary state too, so the strip's air-above padding
+  // and the feed's reduced top padding rendered with no band between them.
+  // This predicate is the single source of truth both page.tsx and
+  // PendingStrip.tsx now call, so that mistake can't recur independently
+  // in either place.
+  it("is false for the real derivePending output when nothing is waiting and nothing is standing", () => {
+    const out = derivePending({ liveGauges: [], liveProposals: [],
+      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
+    expect(out.waiting).toHaveLength(0)
+    expect(out.standingYes).toHaveLength(0)
+    // This is the exact bug: `out` is a real, non-null PendingData, so a
+    // page-level check of `pending !== null` would wrongly claim a strip is
+    // coming. The predicate must say no.
+    expect(pendingStripWillRender(out)).toBe(false)
+  })
+
+  it("is true when there's a waiting item, even with no standing yes", () => {
+    expect(pendingStripWillRender({ waiting: [{} as never], standingYes: [] })).toBe(true)
+  })
+
+  it("is true when there's a standing yes, even with nothing waiting", () => {
+    expect(pendingStripWillRender({ waiting: [], standingYes: [{} as never] })).toBe(true)
+  })
+
+  it("is false only when both arrays are empty", () => {
+    expect(pendingStripWillRender({ waiting: [], standingYes: [] })).toBe(false)
   })
 })

@@ -19,6 +19,7 @@
 import { useState } from "react"
 import type { GaugeAnswer, ProposalVoteAnswer } from "@prisma/client"
 import type { PendingData, PendingItem } from "@/lib/pending/derive"
+import { pendingStripWillRender } from "@/lib/pending/derive"
 import GaugeChips, { GaugeTally } from "@/app/groups/[id]/GaugeChips"
 import GroupProposalChips from "@/app/groups/[id]/GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
@@ -294,7 +295,15 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
     setCaughtUp(false)
   }
 
-  if (effectiveWaiting.length === 0 && standingYes.length === 0 && !caughtUp) {
+  // The shared predicate (src/lib/pending/derive.ts) is the same one
+  // page.tsx calls to decide whether to leave room for this band. On a
+  // fresh mount effectiveWaiting === waiting and caughtUp is false, so this
+  // reduces exactly to pendingStripWillRender(pending); the caughtUp
+  // fallback keeps the one-time goodbye visible for the render after the
+  // last item's decline, which page.tsx's SSR-once layout never needs to
+  // see because `waiting` was non-empty at load time (that non-emptiness is
+  // what page.tsx already accounted for).
+  if (!pendingStripWillRender({ waiting: effectiveWaiting, standingYes }) && !caughtUp) {
     return null
   }
 

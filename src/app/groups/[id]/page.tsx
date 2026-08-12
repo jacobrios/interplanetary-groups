@@ -37,7 +37,7 @@ import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import PageHeader from "@/components/PageHeader"
-import { derivePending } from "@/lib/pending/derive"
+import { derivePending, pendingStripWillRender } from "@/lib/pending/derive"
 import { PendingStrip } from "./PendingStrip"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 
@@ -200,6 +200,17 @@ export default async function GroupPage({ params }: Props) {
       })
     : null
 
+  // Whether PendingStrip will actually render a band, not merely whether a
+  // `pending` object exists: derivePending returns a non-null object with
+  // empty arrays for every signed-in viewer whenever nothing is being
+  // gauged (the ordinary quiet state of a group, not a rare one), and
+  // PendingStrip itself returns null in that state. The layout spacing
+  // below (the card's air-above padding, the feed's reduced top padding)
+  // must agree with PendingStrip's own render gate exactly, so both call
+  // this one shared predicate (fix-wave 1, visual-polish task 6) rather
+  // than page.tsx keeping a second, looser condition of its own.
+  const stripRenders = pending !== null && pendingStripWillRender(pending)
+
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
     authorType: msg.authorType,
@@ -246,7 +257,7 @@ export default async function GroupPage({ params }: Props) {
           before the strip begins; 0 when there's no strip to separate from. */}
       <div
         style={{
-          padding: `0.75rem ${cards.length > 1 ? 0 : "1rem"} ${pending ? "14px" : 0}`,
+          padding: `0.75rem ${cards.length > 1 ? 0 : "1rem"} ${stripRenders ? "14px" : 0}`,
           flexShrink: 0,
         }}>
         {cards.length > 0 ? (
@@ -303,7 +314,7 @@ export default async function GroupPage({ params }: Props) {
           proposals={proposals}
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
-          stripAbove={pending !== null}
+          stripAbove={stripRenders}
         />
       </div>
     </div>
