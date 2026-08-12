@@ -2486,10 +2486,89 @@ this slice, stated so its absence from the PR reads as correct rather than
 skipped. Deploy-time obligations: none. No migration, no environment variable,
 no model call.
 
-**Walkthrough evidence: pending.** The multi-session browser walkthrough on the
-dev-test database is the next task in this slice and its evidence list will be
-appended here when it runs. Nothing in this entry should be read as a verified
-visual claim until that happens.
+**Walkthrough evidence (12 Aug 2026).** Run on dev-test (`npm run db:which`
+confirmed project ref pxbewardwvoyqqcvogel on all three sources before anything
+was written). A fresh group was staged through a throwaway script that never
+entered the repo: one confirmed Saturday event with a venue, one open "beers"
+idea proposed for the Friday before it (so the mixed date order in the rail
+would actually be visible), and one open group time-change vote on the
+Saturday event. Multiple real, separately-cookied member sessions joined
+through the invite link against the same running dev server and drove every
+check below; the interactive preview pane handled the first join and a couple
+of early checks, then repeatedly stopped repainting on the carousel's swipe
+gesture, so the remaining sessions and every screenshot were driven through a
+second, independently automated real browser instead pointed at the same
+server. Nothing below was staged or faked; it was clicked, typed, and read
+back from the live page.
+
+Seen directly, matching the spec: the unanswered event card showed "I'm in"
+and "Can't make it" with the same teal outline on both, a teal "NEEDS YOUR
+RSVP" top right, and no checkmark anywhere. Tapping "Can't make it" filled
+that side solid teal with a checkmark and dropped "I'm in" to a quiet
+outline. The idea card sat ahead of the Saturday event in the rail exactly
+as staged, visibly flatter than the confirmed card (no shadow, a single
+hairline), titled "Beers?", reading "Fri 7pm · Place TBD," with a teal
+"NEEDS YOUR VOTE." Voting yes on it moved that label to a grey "NEEDS OTHER
+VOTES," and the running tally line ("Sam is in so far," then "Sam & Robin
+are in so far · one more makes it happen") read identically on the card and
+under Orbit's own message in the chat feed, confirming both surfaces are
+reading the same rows rather than two separate counts. A third yes, cast
+from a third member's own session, converted the idea into a real event in
+place: reloading that member's screen showed "Beers" as a genuine event
+card with a real RSVP already recorded for them from their gauge vote, and
+the chat feed carried exactly one Orbit line announcing it, never more.
+
+The confirmed event's card carried the recessed one-line notice ("Time
+change proposed · Move to 11am?"); tapping it landed on the event's own
+screen with the vote sitting between the details card and "Add to
+calendar," exactly the placement the spec calls for, using the shipped
+chip copy ("11am works" / "Keep 10am"). Voting there put a checkmark on the
+chosen chip and the same names-voice tally showed back up on the group
+home. Answering the RSVP and then the vote walked the card's own label down
+the ladder, RSVP to vote to other votes, confirmed once the page had fully
+settled. The event detail screen showed the identical RSVP pair with no
+label above it at all, as specified. Measuring the two card shells directly
+(not just by eye) showed them at the same height, pixel for pixel, with the
+shorter idea card's leftover room absorbed inside its own border rather
+than left as grey space beneath it. The pending strip never appeared
+anywhere on the group home, checked both visually and by a direct text
+search of the page for its old wording. No console or page errors turned up
+in any session.
+
+One honest wrinkle, not a defect: on a few of the very first post-tap
+screenshots, the app's own "Rendering…" dev indicator was still showing and
+a card's need-label briefly still read its pre-tap value, even though the
+button that was actually tapped had already flipped to its settled look.
+Every one of those labels was confirmed correct moments later once the
+indicator cleared and the page had a beat to catch up, and the settled
+reading is what is described above throughout. Worth a quick recheck
+against a production build before calling that fully closed, since dev-mode
+compile pauses do not exist there.
+
+Rendered screens were opened side by side against
+`round6-design-reference.html`'s boards 01, 03, and 06 (the footer notice,
+the detail-screen vote placement, and the stretch rule), read in full.
+Everything matched, including board 06's own description of the stretch
+rule ("cards stretch to the region's height... leftover space lives inside
+a card's border") against the measured equal heights above, except the five
+departures already written down and approved in spec decision 13: a cap of
+five cards instead of three, the shipped tally and chip wording in place of
+the boards' invented copy, "NEEDS OTHER VOTES" instead of "NEEDS MORE
+VOTES," teal instead of grey on the viewer's own labels, and "Beers?"
+instead of a bare "Beers." `round5-design-reference.html` was not opened
+this pass; round 6 carries the same boards in their superseding, shipped
+form, so it was read instead.
+
+**Not verified.** A decline ("Next time") clearing an idea card out of that
+viewer's own rail was not exercised in this pass; treat it as unverified
+rather than assumed to work. The group time-change vote was only shown
+accepting a vote and updating its tally, not actually clearing its bar and
+moving the plan; nobody in the staged group had an existing RSVP on the old
+time to switch, which is what that path needs to be representative, and
+staging it was not worth the added seed complexity this pass. The native
+share sheet and a true phone-width layout were both out of scope for this
+pass (already flagged elsewhere as open); screenshots throughout were taken
+at a 480px-wide layout, not a real device width.
 
 **Debt this slice knowingly carries.**
 - *Hidden overflow has no count anywhere.* More than five items and the rest of
