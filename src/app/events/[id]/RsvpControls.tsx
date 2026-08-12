@@ -100,7 +100,13 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
           style={{
             flex: 1,
             padding: btnPadding,
-            backgroundColor: isPending ? "var(--action)" : "var(--action)",
+            backgroundColor: "var(--action)",
+            // In-flight feedback: the old palette shifted the fill to a
+            // second teal while pending; the new palette has no second
+            // teal, so this dims instead, matching MessageFeed's optimistic-
+            // message idiom (0.65, greyscale-safe, no new token). No
+            // transition: this slice is no-animation, so the change is instant.
+            opacity: isPending ? 0.65 : 1,
             color: "#0a0a0a",
             fontSize: "var(--type-label)",
             fontWeight: 600,

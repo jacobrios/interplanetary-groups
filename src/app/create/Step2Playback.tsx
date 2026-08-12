@@ -266,7 +266,13 @@ export default function Step2Playback({
         style={{
           width: "100%",
           padding: "0.75rem 1.5rem",
-          backgroundColor: isCreating ? "var(--action)" : "var(--action)",
+          backgroundColor: "var(--action)",
+          // In-flight feedback: the old palette shifted the fill to a
+          // second teal while pending; the new palette has no second
+          // teal, so this dims instead, matching MessageFeed's optimistic-
+          // message idiom (0.65, greyscale-safe, no new token). No
+          // transition: this slice is no-animation, so the change is instant.
+          opacity: isCreating ? 0.65 : 1,
           color: "#0a0a0a",
           fontSize: "var(--type-body)",
           fontWeight: 600,
