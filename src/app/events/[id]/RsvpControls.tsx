@@ -69,6 +69,12 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
 
   // Padding scales between compact (home card) and full (event detail).
   const btnPadding = compact ? "0.375rem 0.75rem" : "0.625rem 1rem"
+  // Pill radius and tighter row gap are a compact-only (home card) design
+  // value (walkthrough.css .gh-rsvp: 24px radius, 0.6em gap); event detail
+  // keeps its original rounded-rect radius and gap until its own fidelity
+  // pass (see build-notes §11, visual-polish task 9 fix round 1).
+  const btnRadius = compact ? "24px" : "0.5rem"
+  const rowGap = compact ? "0.6em" : "0.625rem"
 
   return (
     <form action={handle}>
@@ -90,7 +96,7 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
         </p>
       )}
 
-      <div style={{ display: "flex", gap: "0.625rem" }}>
+      <div style={{ display: "flex", gap: rowGap }}>
         {/* Primary action — teal fill, one per screen */}
         <button
           type="submit"
@@ -107,11 +113,11 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
             // message idiom (0.65, greyscale-safe, no new token). No
             // transition: this slice is no-animation, so the change is instant.
             opacity: isPending ? 0.65 : 1,
-            color: "#0a0a0a",
+            color: "var(--action-ink)",
             fontSize: "var(--type-label)",
             fontWeight: 600,
             border: "none",
-            borderRadius: "0.5rem",
+            borderRadius: btnRadius,
             cursor: isPending ? "not-allowed" : "pointer",
           }}
         >
@@ -133,7 +139,7 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
             fontSize: "var(--type-label)",
             fontWeight: optimisticStatus === RsvpStatus.OUT ? 600 : 400,
             border: "1px solid var(--hairline)",
-            borderRadius: "0.5rem",
+            borderRadius: btnRadius,
             cursor: isPending ? "not-allowed" : "pointer",
           }}
         >
