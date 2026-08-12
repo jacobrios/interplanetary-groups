@@ -49,3 +49,11 @@ body {
 /* The one thing inline styles cannot express: WebKit scrollbar hiding for
    the carousel rail (Firefox is covered by inline scrollbarWidth). */
 .scrollbar-hidden::-webkit-scrollbar { display: none; }
+
+/* Another thing inline styles cannot express: the ::placeholder pseudo-
+   element. Every native text input's empty-state text should read as the
+   design's dimmer placeholder grey, not the browser default (near-white
+   text color at the browser's own opacity). The explicit opacity: 1 is
+   load-bearing: Firefox's UA stylesheet applies its own opacity on top of
+   the color, which would otherwise dim the token a second time. */
+input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
