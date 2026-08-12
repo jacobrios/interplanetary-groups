@@ -13,8 +13,10 @@
 //
 // Deliberately deferred per §11:
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
-// - Carousel active-dot state (interim chrome; no design handoff yet)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
+//
+// The carousel's peek geometry and active dot are finished chrome per the
+// visual-polish Claude Design handoff (round4-base.css); see CarouselRail.tsx.
 
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
@@ -235,7 +237,11 @@ export default async function GroupPage({ params }: Props) {
       </PageHeader>
 
       {/* ── Pinned event cards ─────────────────────────────────────────── */}
-      <div style={{ padding: "0.75rem 1rem 0", flexShrink: 0 }}>
+      {/* Multi-card: side padding moves onto CarouselRail so the rail can
+          bleed past the screen edge for the peek. Single-card: padding stays
+          here, there is no rail to carry it. (Bottom padding changes again
+          in the pending-strip polish task.) */}
+      <div style={{ padding: cards.length > 1 ? "0.75rem 0 0" : "0.75rem 1rem 0", flexShrink: 0 }}>
         {cards.length > 0 ? (
           <EventCarousel
             events={cards}
