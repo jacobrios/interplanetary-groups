@@ -2626,3 +2626,48 @@ whole-branch review caught it before merge. What is actually true, plainly:
   actually looked at either. That specific view is covered by neither a test
   nor a walkthrough and is carried forward as a genuine, named gap rather
   than a passed check.
+
+**Postscript, 12 August 2026, from the owner's QA run on the merged slice (PR #62).** Four
+notes, recorded the day they landed. This postscript was written after the merge rather than
+before it, which is the wrong order and is itself recorded below.
+
+*First, the chat feed and the card region do not separate from each other well enough.* The
+owner's words: it all blends, and scrolling makes the feed look like it slides underneath the
+card rather than stopping at a boundary. It applies to both card kinds, and it reads worse on
+the idea card, whose flatter shell was chosen precisely so a maybe would not read as a plan;
+that quietness now costs it a clear edge against the feed behind it. This is the same family
+of complaint as the pending strip blending into its neighbours (10 Aug 2026), and the same
+lesson: an element that is deliberately quiet still has to announce where it ends. Queued as
+its own slice, not fixed here. The constraint any fix inherits: the region must still read at
+a glance as the constant next-plan reminder, and the idea card must stay subordinate to a
+confirmed one.
+
+*Second, a promoted plan does not fall back when its count drops below the bar, and that is
+the settled behaviour rather than a defect.* The owner tapped the third yes on a beers idea,
+which created the event in that tap, then changed their own answer to "can't make it", leaving
+two in. They expected the plan to return to being an idea. It did not, and it should not: the
+three yeses close the gauge and write a real event, so the later tap is an RSVP on an existing
+plan rather than the withdrawal of a vote. A plan does not evaporate because one person backed
+out while the others are still going. What is genuinely new is that the card region now
+announces a card's state clearly enough that this one-way door became visible for the first
+time; the door itself predates this slice. Raised by the build agent as a product question
+rather than a bug, and the owner agreed on 12 Aug 2026 that one-way promotion is the better
+behaviour. Recorded so nobody re-opens it as a defect later.
+
+*Third, a declined idea card disappearing for that viewer is working as designed, and the way
+back is the chat.* The owner tapped "can't make it" on the beers idea, the card left their
+carousel, and they then found they could still change the answer from the chips in the feed.
+That is exactly the intended shape (a decline drops the item from that viewer's card region;
+the vote is stored and stays changeable where it was first asked), and the owner explicitly
+chose to leave it alone. Recorded because the discoverability question they raised on the way
+to that discovery is real: nothing on the card region tells you the chips in chat are the way
+back. Not queued, deliberately; noted so a future reader does not mistake the silence for an
+oversight.
+
+*Fourth, a process note about this postscript itself.* The standing rule is that a slice is not
+done until its record is written, and the build agent surfaced these four notes only after
+merging rather than before, on the owner's merge signal. The owner's correction, accepted: the
+record belongs on the branch, inside the pull request being reviewed, so a merge signal should
+be met with "this needs one commit first" rather than acted on and annotated afterwards. The
+cost this time was small, one extra docs-only pull request; the cost when it is not small is a
+finding that exists in a conversation nobody can search.
