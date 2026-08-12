@@ -34,12 +34,10 @@ import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
-import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
-import Chevron from "@/components/Chevron"
-import { OrbitMark } from "@/components/OrbitMark"
 import { derivePending } from "@/lib/pending/derive"
 import { PendingStrip } from "./PendingStrip"
+import { GroupHomeHeader } from "./GroupHomeHeader"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -74,6 +72,10 @@ export default async function GroupPage({ params }: Props) {
   const upcomingEvents = await findUpcomingEvents(group.id, new Date(), 3)
 
   const allMembers = group.memberships.map((m) => m.user)
+  // Current members only, same source as the info page's tally: a removed
+  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
+  // already-fetched include never needs a second query to stay accurate.
+  const memberCount = group.memberships.length
   const cards: EventCardData[] = await Promise.all(
     upcomingEvents.map(async (event) => {
       const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id } })
@@ -222,66 +224,14 @@ export default async function GroupPage({ params }: Props) {
           link). The logo is a real link as of the navigation slice, now
           that "/" exists to send it to.
 
-          The three children sit in their own space-between row rather than
-          PageHeader arranging them: PageHeader owns the bar's rules and
-          nothing about content, which is what keeps it from ever growing an
-          opinion about this title chevron.
-
-          Still unbuilt and owned by the visual-polish pass: Orbit's real
-          avatar (a letter-O circle stands in) and the subline reading
-          "N members · group info & invite link" drawn on screens 06 to 08. */}
+          The content is its own component (GroupHomeHeader, visual-polish
+          Task 4) rather than PageHeader arranging it: PageHeader owns the
+          bar's rules and nothing about content, which is what keeps it from
+          ever growing an opinion about this title chevron. GroupHomeHeader
+          carries the heading-weight name, Orbit's real avatar, and the
+          designed "N members · group info & invite link" subline. */}
       <PageHeader>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-          }}
-        >
-          {/* Orbit logo — the home button (multi-group home is a fast-follow) */}
-          <Link
-            href="/"
-            aria-label="Home"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textDecoration: "none",
-              flexShrink: 0,
-            }}
-          >
-            <OrbitMark size={28} label={null} />
-          </Link>
-
-          {/* Group title + chevron → group info */}
-          <Link
-            href={`/groups/${group.id}/info`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-              textDecoration: "none",
-              color: "var(--text-primary)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "var(--type-body)",
-                fontWeight: 600,
-                lineHeight: "var(--leading-tight)",
-              }}
-            >
-              {group.name}
-            </span>
-            <span style={{ color: "var(--text-secondary)", display: "flex" }}>
-              <Chevron direction="right" />
-            </span>
-          </Link>
-
-          {/* Right-side spacer to visually balance the logo */}
-          <div style={{ width: 28, flexShrink: 0 }} aria-hidden="true" />
-        </div>
+        <GroupHomeHeader groupId={group.id} groupName={group.name} memberCount={memberCount} />
       </PageHeader>
 
       {/* ── Pinned event cards ─────────────────────────────────────────── */}
