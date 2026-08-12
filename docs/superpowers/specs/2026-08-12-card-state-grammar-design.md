@@ -135,14 +135,26 @@ boards: recessed one step under the raised card (`--surface-base` behind a hairl
 "TIME CHANGE" kind label, Orbit's question, the two shipped proposal chips, and that vote's
 own tally. The card stays a confirmed card (the plan is real; only its time is in question)
 and grows to hold the band. The label ladder for this dense face is in decision 6.
-Alternative considered and declined: a separate "time change proposed" card, rejected for the
-duplicate-plan confusion. **Height, raised by the owner and accepted knowingly for MVP:** the
-dense face makes the pinned card region tall, which shrinks the chat feed's visible window
-(the feed is its own scroll region, so nothing overlaps or hides; you see fewer messages
-until the vote resolves and the band leaves). Accepted because the state is rare and
-self-resolving, and the alternatives run into the grows-never-clips rule and the parked
-condense-after-RSVP question. The owner judges the felt height on a real phone in the QA
-script; a bad verdict there is data for a targeted fix, not grounds to pre-solve it now.
+Alternative considered and declined, and still declined: a separate "time change proposed"
+card, rejected for the duplicate-plan confusion (it also would not help, since the region is
+as tall as its tallest card either way).
+
+**REOPENED 12 Aug 2026, same day, before any code.** The height cost was first accepted
+knowingly; when the mechanics were replayed precisely (the region renders at its tallest
+card's height, so every shorter card sits above blank space while a vote is open, and the
+chat window loads shorter), the owner rejected that consequence, specifically the blank
+space under cards that do not need it. A second Claude Design round decides the treatment
+(prompt: `2026-08-12-dense-face-alternatives-design-prompt.md` beside this file), drawing
+three variants: a compact notice on the card with the full vote moving to the event detail
+screen (a knowing bend of the answer-in-place principle, one extra tap); a trimmed band
+(question and chips only, no kind label, no tally on the card); and one variant of the
+designer's own invention. Going in, the owner leans toward the compact notice; the other
+variants are drawn for completeness, so the round weights its attention accordingly. The round also answers the general mixed-height question, since an
+idea card is shorter than a confirmed card even with no vote open. The round-5 board 05 band
+anatomy stands only as the superseded baseline the variants are judged against. Decisions 6
+(the ladder), 9, and the rest of this spec are unaffected; the build is on hold at the
+owner's call until this settles, and the implementation plan's derive/band/carousel tasks
+get revised to match the outcome before execution.
 
 ### 9. Viewer tailoring carries over, adapted to cards
 
