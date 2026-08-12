@@ -12,7 +12,7 @@ import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
 import { findLiveProposals } from "@/lib/proposals/read"
-import { deriveProposalBands } from "@/lib/pending/derive"
+import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -74,17 +74,21 @@ export default async function EventPage({ params }: Props) {
   // second, event-scoped query path to keep in sync with the home's.
   const liveProposals = await findLiveProposals(event.group.id, new Date())
   const memberIds = new Set(event.group.memberships.map((m) => m.userId))
-  const proposalBands = deriveProposalBands({
-    liveProposals,
-    // Non-null in practice: the members-only wall above already returned
-    // for a null viewer, since isMember requires viewer !== null. TS can't
-    // see that narrowing across the boolean, so this mirrors the existing
-    // `viewer?.id ?? null` idiom used for the roster derivation above.
-    viewerId: viewer?.id ?? "",
-    memberIds,
-    memberCount: event.group.memberships.length,
-    timeZone: event.group.timeZone,
-  })
+  // Non-null in practice: the members-only wall above already returned for a
+  // null viewer, since isMember requires viewer !== null. TS can't see that
+  // narrowing across the boolean, so this narrows on `viewer` itself instead
+  // of trusting isMember, the same way the group home guards deriveIdeaItems
+  // and deriveProposalBands (src/app/groups/[id]/page.tsx): no empty-string
+  // sentinel can flow into the derivation.
+  const proposalBands = viewer
+    ? deriveProposalBands({
+        liveProposals,
+        viewerId: viewer.id,
+        memberIds,
+        memberCount: event.group.memberships.length,
+        timeZone: event.group.timeZone,
+      })
+    : new Map<string, ProposalBandData>()
   const proposalBand = proposalBands.get(event.id) ?? null
 
   return (
@@ -150,7 +154,11 @@ export default async function EventPage({ params }: Props) {
           {/* Activity label — optional free-text tag */}
           {event.activityLabel && <MetaRow label="Activity" value={event.activityLabel} />}
 
-          {/* RSVP controls — only when the viewer has a session */}
+          {/* RSVP controls — only when the viewer has a session. groupId is
+              passed so rsvpAction revalidates the group home too, matching
+              the home-card caller (EventCard.tsx): a member who RSVPs here
+              and taps back should see the card's need label already settled,
+              not the pre-tap "Needs your RSVP" from a stale render. */}
           {viewer && (
             <>
               <hr
@@ -160,7 +168,7 @@ export default async function EventPage({ params }: Props) {
                   margin: "0.125rem 0",
                 }}
               />
-              <RsvpControls eventId={event.id} currentStatus={viewerStatus} />
+              <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
             </>
           )}
         </div>
