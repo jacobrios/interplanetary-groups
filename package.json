@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:which": "tsx scripts/db-which.ts",
-    "eval:detect": "tsx scripts/eval-detect.ts"
+    "eval:detect": "tsx scripts/eval-detect.ts",
+    "qa:stage-cardstate": "tsx --env-file=.env scripts/qa-stage-cardstate.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",
