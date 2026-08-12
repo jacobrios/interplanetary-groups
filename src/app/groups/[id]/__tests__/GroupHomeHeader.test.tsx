@@ -24,4 +24,11 @@ describe("GroupHomeHeader", () => {
     const home = screen.getByLabelText("Home")
     expect(home.getAttribute("href")).toBe("/")
   })
+
+  it("lets a long name wrap instead of clipping (fix round 1)", () => {
+    const longName = "A".repeat(120)
+    render(<GroupHomeHeader groupId="g1" groupName={longName} memberCount={8} />)
+    const nameEl = screen.getByText(longName)
+    expect(nameEl.style.whiteSpace).not.toBe("nowrap")
+  })
 })
