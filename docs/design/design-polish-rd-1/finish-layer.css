@@ -1,0 +1,44 @@
+/* Round 4 · FINISH LAYER (pilot: group home only)
+   Everything here is scoped to .fx on the screen root. Remove this file, or
+   drop the .fx class, and the screen falls back to the plain base with items
+   02 and 03 intact. No motion, no new hues, no new type sizes.
+   Eight moves: 1 depth wash + grain · 2 surface tones · 3 two-layer card
+   shadow · 4 top-lit teal primary · 5 Orbit lime glow · 6 eyebrow tracking
+   · 7 tabular tallies · 8 grounded composer. */
+
+/* 1 · barely-there top wash, dithered by grain so it cannot band.
+      Painted on the screen's own background, behind every region. */
+.fx.phone {
+  background-color: var(--surface-base);
+  background-image:
+    radial-gradient(128% 58% at 50% -10%, rgba(146,170,205,.115), rgba(21,22,30,0) 64%),
+    url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNTAnIGhlaWdodD0nMTUwJz48ZmlsdGVyIGlkPSduJz48ZmVUdXJidWxlbmNlIHR5cGU9J2ZyYWN0YWxOb2lzZScgYmFzZUZyZXF1ZW5jeT0nMC44NicgbnVtT2N0YXZlcz0nMicgc3RpdGNoVGlsZXM9J3N0aXRjaCcvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPScxNTAnIGhlaWdodD0nMTUwJyBmaWx0ZXI9J3VybCgjbiknIG9wYWNpdHk9JzAuMDUnLz48L3N2Zz4=");
+  background-size: 100% 340px, 150px 150px;
+  background-repeat: no-repeat, repeat;
+}
+
+/* 2 · three distinct surface tones: card lifted, strip recessed, feed base */
+.fx .gh-evcard { background-image: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0) 56%); border-color: #4d5468; }
+.fx .pd-strip { background: rgba(6,7,11,.42); }
+
+/* 3 · two-layer shadow — tight contact edge plus a soft cast */
+.fx .gh-evcard { box-shadow: 0 1px 2px rgba(0,0,0,.55), 0 16px 30px -12px rgba(0,0,0,.68); }
+
+/* 4 · teal primary: top-lit gradient + hairline inner stroke.
+      Same recipe applies to any other teal primary when adopted. */
+.fx .gh-rsvp .in {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 62%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 1px 2px rgba(0,0,0,.42);
+}
+
+/* 5 · soft lime glow — Orbit's mark only, never an action or a status */
+.fx .gh-msgav .orbit-mark, .fx .gh-homebtn .orbit-mark { filter: drop-shadow(0 0 9px rgba(164,239,78,.30)); }
+
+/* 6 · uppercase eyebrows get their tracking opened up */
+.fx .gh-day { letter-spacing: .2em; }
+
+/* 7 · tallies and counts on tabular figures so they stop jittering */
+.fx .gh-statusline, .fx .pd-striptxt, .fx .gh-msg .gtally { font-variant-numeric: tabular-nums; }
+
+/* 8 · the pinned composer sits on a grounded base, not floating on the feed */
+.fx .gh-pin { background-image: linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0)); }
