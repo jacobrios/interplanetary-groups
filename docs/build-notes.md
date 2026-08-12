@@ -1923,3 +1923,163 @@ overflow, stray CR, no-store, padding") landed after that entry's 750 count
 was recorded but before the branch merged to main, and it added two tests
 inside existing test files (`ics.test.ts` and the calendar route's test),
 so the file count held at 62. Nothing failed and nothing was skipped.
+
+### Share-readiness hardening: membership becomes real, and Orbit fails honestly (11 Aug 2026)
+
+The slice that makes the first shared link safe to hand to a real group. Spec:
+`docs/superpowers/specs/2026-08-11-share-readiness-design.md`; plan:
+`docs/superpowers/plans/2026-08-11-share-readiness.md`. Both rode this branch
+from the start, per the standing rule.
+
+**What shipped, in product terms.** A group is now invite-only in the way
+people already assumed it was. Someone holding a group's URL who is not in
+that group sees one note from Orbit ("This group is invite-only. If you know
+someone in it, ask them for the invite link, it'll bring you right in") and
+nothing else: not the group's name, not its member count, not a word of the
+chat. The same is true of the event page, the group info page, and the
+calendar file. Underneath, every write refuses a non-member on the server:
+posting, RSVPs, idea-gauge votes, group time-change votes, answering Orbit's
+clarifying question, and Orbit acting on a message at all. Separately, when
+Orbit's model calls fail, the product now tells the truth about why: out of
+credits, or the service having trouble, never one blamed for the other, and
+never the old generic "that didn't go through" that a founder could retry
+against forever.
+
+**Three premise corrections found by investigation, recorded because the
+register's framing outlived the facts.** First, the two docstrings the slice
+scope said falsely claimed membership checks exist had already been corrected
+on 30 July (commit `936075c`); both honestly admitted the gap, so this slice
+made the code match the comments rather than the reverse. Second, the register
+understated the gauge problem: a non-member's RSVP was the known silent drop,
+but a non-member's yes on an idea gauge genuinely counted toward the three-yes
+bar and could be the tap that created a real event for a group they were never
+in, and the pending strip handed non-members live voting chips including on
+group time-change votes that the chat feed correctly showed read-only. Third,
+exactly one write path in the whole product checked membership before this
+slice (the group time-change vote); everything else checked only "has a
+session."
+
+**The scope grew once, by the owner's decision, and this supersedes the
+triage-round-two scoping.** That triage said "viewing stays ungated by
+design." The owner reversed it during this slice's brainstorm on the privacy
+argument, and the deciding fact was not the stranger with a forwarded URL but
+the person who leaves or is removed: they keep the URL, and rotating the
+invite link only changes the join door, not the reading, so they would have
+read a real group's chat and real names indefinitely. What remains at the §8
+access-control item is anything beyond the wall: a request-to-join flow, and
+any loosening of the wall itself. The cost accepted with eyes open: a member
+who loses their session (cleared cookies, a new device) meets the wall until
+the email arc ships, and their way back in is the invite link.
+
+**Decisions worth keeping, none relitigated after the spec.**
+- The wall reveals nothing about the group, deliberately. A leaked URL should
+  not confirm that a group exists, who is in it, or what it is called.
+- The wall doubles as the path in. There is no request-to-join flow, because
+  the invite link is the product's only door and always has been.
+- Server refusal is not made redundant by the wall. A removed member's stale
+  open tab still holds live buttons, and the server refusing is what actually
+  protects the counts and event creation.
+- The calendar file is member-gated too, because it carries the venue's street
+  address. The in-app button still works (the tap carries the member's own
+  session); a calendar app re-fetching the saved URL on its own is refused.
+  Named as a real tradeoff rather than discovered later: the feed announcement
+  remains the correction channel, and the registered subscribable feed is the
+  successor that would dissolve it.
+- Promotion now counts current members only, matching what proposals promote
+  and the endgame sweep already did. This closes the leaving-member case as
+  well as any pre-gate row.
+- The failure reason shown to a person is never false: "credits" only when the
+  provider genuinely reports a dry balance, "trouble" for outages, overload,
+  rate limits, auth trouble and connection failures, and the old generic copy
+  for our own malformed requests, which are our bug and not an outage.
+- The chat disclosure goes to the sender alone, in their own browser, stored
+  nowhere. Chosen over a once-per-outage feed post and a standing banner: it
+  was both the owner's preference and, contrary to first instinct, the least
+  machinery, because the send flow already returns a private result to the
+  sender while the alternatives need outage bookkeeping or a stored health
+  state.
+- No recovery pass. Orbit does not go back and re-read what it missed while
+  down; a missed idea stays missed, and the registered Orbit-miss
+  observability item is where anything smarter would live.
+- The extraction and merge eval benches were NOT triggered. This slice touches
+  onboarding's failure screens but changes no prompt, no model, and no reading
+  of a model's answer; the classification happens when the model never answered
+  at all. Verified rather than asserted: `git diff main` shows no change to
+  `spark.ts`, `merge.ts`, or any prompt string or model constant in
+  `extract.ts`. The standing trigger survives intact for the next slice that
+  touches those prompts.
+
+**Suite and verification.** Baseline at slice start: 62 files, 752 tests, all
+green (the two-test delta from the .ics slice's recorded 750 traced to that
+slice's post-count review commit, recorded above). After: 73 files, 776 tests,
+all green, zero skipped. `tsc` clean. Every new test was written and shown
+failing before the code that made it pass.
+
+Browser walkthrough on the dev-test database, group "Monday Wednesday
+Climbers": as a member, the group home, event detail and group info render
+exactly as before and the calendar file returns 200 with real content; with no
+session, all three screens render the wall with no group name, chat, or member
+count in the response body, and the calendar file returns 403 with a twelve
+byte body; as a signed-in non-member (a second session created by running
+onboarding for real, which also proved the happy path is untouched), the same
+walls and the same 403. An unknown group id still 404s to the branded
+not-found screen rather than the wall, and an unknown event's calendar file
+still 404s.
+
+The unavailable path was driven end to end against the real Anthropic client
+with a deliberately invalid key: the real 401 came back classified as
+`ModelUnavailableError` with reason "trouble", and both `extractGroupAction`
+and `mergeGapAction` returned `{status:"unavailable",reason:"trouble"}`. This
+was done with a hand-run script rather than a second dev server, because
+Next.js 16 refuses a second dev server from the same directory and port 3000
+belonged to a concurrent session's server that was not ours to kill. What that
+run does not cover is the browser rendering of those two states, which is
+covered by component tests instead.
+
+**The honest gap, named before the work started and still true.** The credits
+flavor was never reproduced against the live provider, because that would mean
+draining the account. Its trigger is pinned by a test replaying the provider's
+documented dry-balance 400, and the review independently traced the SDK's
+request path to confirm the message the classifier matches on is really where
+that string lands on a real 400, rather than an artifact of a hand-built error
+object. The screens themselves are proven by component tests.
+
+**Two findings from the build worth remembering.**
+- A pre-existing test was relying on the bug. `promote.test.ts`'s venue
+  inheritance case cleared the three-yes bar using voters who were never
+  members of the group, so tightening promotion broke it. The fixture gained
+  real memberships and the assertion was left alone. Worth noting because it
+  is the second time this project has found a test encoding a behavior nobody
+  chose.
+- The per-task reviews were not running `tsc`, and a type error rode two tasks
+  before a later implementer surfaced it (fixed in `65bb942`). The lesson is
+  about the review recipe rather than the code: a green suite is not a green
+  branch when the suite runs through a transpiler that does not typecheck.
+
+**A correction to the record, since the append-only rule means fixing it in
+place is not an option.** Earlier entries describe "one pre-existing lint
+error" in `OnboardingWizard.tsx`. The real baseline on main is fifteen errors:
+that one, one in `ResetInviteLink.tsx`, and thirteen inside the
+`docs/design/*.jsx` handoff files, which are design artifacts rather than
+product source. None of them sit in a file this branch touched. Future slices
+should compare against fifteen, not one.
+
+**Deploy-time obligations: none.** No migration, no new environment variable,
+no new model call, nothing added to the pre-deploy checklist. Checklist item
+9's note that "the hardening slice's graceful out-of-credit screen is the face
+of that downtime" is now satisfied.
+
+**Debt this slice knowingly carries.**
+- A member who loses their session meets the wall until email sign-in exists.
+  Path back: the invite link. On a genuinely fresh device this still re-adds
+  them as a second copy of themselves, the standing identity gap, unchanged
+  here but easier to bump into now.
+- A calendar app re-fetching its saved .ics URL is refused. Recommendation:
+  carry, revisit if the subscribable feed is ever built.
+- Only the sender learns Orbit is down; readers and non-senders are not told.
+  Accepted by design; the observability item is the home of anything broader.
+- Membership is read once before the promotion transaction opens rather than
+  again inside it, so someone removed in that millisecond window still counts
+  toward a promotion and gets an RSVP. Surfaced by review, recommendation
+  queue rather than fix: the window is milliseconds, the product is a casual
+  group coordinator, and removal already self-heals everywhere else.
