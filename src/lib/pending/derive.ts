@@ -2,19 +2,14 @@
 // The card region's derivations: rows in, viewer-personal DTOs out. Pure on
 // purpose: page.tsx already fetched these rows for the feed, and the card
 // region must be a second window onto the same rows, never a second query.
-import type { GaugeAnswer, ProposalVoteAnswer } from "@prisma/client"
+import type { GaugeAnswer } from "@prisma/client"
 import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
 import type { FeedGauge } from "@/app/groups/[id]/GaugeChips"
 import type { FeedGroupProposal } from "@/app/groups/[id]/GroupProposalChips"
 import { buildTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
-import {
-  buildProposalTallyLine,
-  proposalBandQuestion,
-  proposalChipLabels,
-  proposalNoticeQuestion,
-} from "@/lib/orbit/change-copy"
-import { oneMoreClearsIt } from "@/lib/proposals/consensus"
+import { proposalBandQuestion, proposalNoticeQuestion } from "@/lib/orbit/change-copy"
+import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import { formatWeekdayShort } from "@/lib/events/format"
 
 export interface IdeaItem {
@@ -91,18 +86,13 @@ export function deriveProposalBands(input: {
   const bands = new Map<string, ProposalBandData>()
   for (const p of input.liveProposals) {
     if (p.kind !== "GROUP") continue
-    const viewerAnswer: ProposalVoteAnswer | null =
-      p.votes.find((v) => v.userId === input.viewerId)?.answer ?? null
-    const memberVotes = p.votes.filter((v) => input.memberIds.has(v.userId))
-    const yesVoters = memberVotes.filter((v) => v.answer === "YES")
-    const consensus = {
-      yesVoterIds: yesVoters.map((v) => v.userId),
-      keepVoterIds: memberVotes.filter((v) => v.answer === "KEEP").map((v) => v.userId),
-      currentInUserIds: p.event.rsvps
-        .filter((r) => r.status === "IN" && input.memberIds.has(r.userId))
-        .map((r) => r.userId),
+    const tally = deriveGroupProposalTally({
+      proposal: p,
+      viewerId: input.viewerId,
+      memberIds: input.memberIds,
       memberCount: input.memberCount,
-    }
+      timeZone: input.timeZone,
+    })
     bands.set(p.event.id, {
       eventId: p.event.id,
       question: proposalBandQuestion(p.event.title, p.proposedStartsAt, input.timeZone),
@@ -110,13 +100,9 @@ export function deriveProposalBands(input: {
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
-        labels: proposalChipLabels(p.proposedStartsAt, p.priorStartsAt, input.timeZone),
-        tallyLine: buildProposalTallyLine(
-          yesVoters.map((v) => v.user.name),
-          consensus.keepVoterIds.length,
-          oneMoreClearsIt(consensus)
-        ),
-        viewerAnswer,
+        labels: tally.labels,
+        tallyLine: tally.tallyLine,
+        viewerAnswer: tally.viewerAnswer,
       },
     })
   }

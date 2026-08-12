@@ -28,8 +28,8 @@ import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { buildTallyLine, chipLabels } from "@/lib/orbit/spark-copy"
 import { findLiveProposals } from "@/lib/proposals/read"
-import { changeChipLabels, proposalChipLabels, buildProposalTallyLine } from "@/lib/orbit/change-copy"
-import { oneMoreClearsIt } from "@/lib/proposals/consensus"
+import { changeChipLabels } from "@/lib/orbit/change-copy"
+import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import EventCarousel from "./EventCarousel"
 import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
@@ -163,28 +163,22 @@ export default async function GroupPage({ params }: Props) {
   const groupProposals: FeedGroupProposal[] = liveProposals
     .filter((p) => p.kind === "GROUP")
     .map((p) => {
-      const memberVotes = p.votes.filter((v) => memberIds.has(v.userId))
-      const yesVoters = memberVotes.filter((v) => v.answer === "YES")
-      const consensusInput = {
-        yesVoterIds: yesVoters.map((v) => v.userId),
-        keepVoterIds: memberVotes.filter((v) => v.answer === "KEEP").map((v) => v.userId),
-        currentInUserIds: p.event.rsvps
-          .filter((r) => r.status === "IN" && memberIds.has(r.userId))
-          .map((r) => r.userId),
+      // Shared with the card region's own bands (lib/pending/derive.ts) via
+      // deriveGroupProposalTally, so the chat feed and the event card's
+      // detail screen can never disagree about the same proposal's tally.
+      const tally = deriveGroupProposalTally({
+        proposal: p,
+        viewerId: viewer?.id ?? null,
+        memberIds,
         memberCount: group.memberships.length,
-      }
+        timeZone: group.timeZone,
+      })
       return {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
-        labels: proposalChipLabels(p.proposedStartsAt, p.priorStartsAt, group.timeZone),
-        tallyLine: buildProposalTallyLine(
-          yesVoters.map((v) => v.user.name),
-          consensusInput.keepVoterIds.length,
-          oneMoreClearsIt(consensusInput)
-        ),
-        // Unfiltered, the gauge precedent: the viewer's own chip must reflect
-        // what they chose, member or not.
-        viewerAnswer: p.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
+        labels: tally.labels,
+        tallyLine: tally.tallyLine,
+        viewerAnswer: tally.viewerAnswer,
       }
     })
 
