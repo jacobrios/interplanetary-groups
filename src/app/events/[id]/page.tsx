@@ -7,9 +7,12 @@ import { formatEventDate } from "@/lib/events/format"
 import RsvpControls from "@/components/RsvpControls"
 import RosterAvatar from "./RosterAvatar"
 import AddToCalendarButton from "./AddToCalendarButton"
+import ProposalSection from "./ProposalSection"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { findLiveProposals } from "@/lib/proposals/read"
+import { deriveProposalBands } from "@/lib/pending/derive"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -64,6 +67,25 @@ export default async function EventPage({ params }: Props) {
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
 
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, event.group.timeZone)
+
+  // ─── Open time-change vote, if any ─────────────────────────────────────
+  // Same group-scoped read the group home uses (src/lib/proposals/read.ts),
+  // filtered to this event by the derivation's own keyed map — never a
+  // second, event-scoped query path to keep in sync with the home's.
+  const liveProposals = await findLiveProposals(event.group.id, new Date())
+  const memberIds = new Set(event.group.memberships.map((m) => m.userId))
+  const proposalBands = deriveProposalBands({
+    liveProposals,
+    // Non-null in practice: the members-only wall above already returned
+    // for a null viewer, since isMember requires viewer !== null. TS can't
+    // see that narrowing across the boolean, so this mirrors the existing
+    // `viewer?.id ?? null` idiom used for the roster derivation above.
+    viewerId: viewer?.id ?? "",
+    memberIds,
+    memberCount: event.group.memberships.length,
+    timeZone: event.group.timeZone,
+  })
+  const proposalBand = proposalBands.get(event.id) ?? null
 
   return (
     <main
@@ -142,6 +164,14 @@ export default async function EventPage({ params }: Props) {
             </>
           )}
         </div>
+
+        {/* ── Open time-change vote ─────────────────────────────────────── */}
+        {/* Placed here, ahead of "Add to calendar", because a vote here
+            amends the very time that button would save: the calendar file
+            should never be built from a plan the group might be about to
+            move. The compact card's footer notice (EventCard.tsx) links
+            here; this is where the actual chips live. */}
+        {proposalBand && <ProposalSection band={proposalBand} />}
 
         {/* ── Add to calendar ────────────────────────────────────────── */}
         {/* The screen's own primary action, its own region: teal, separate
