@@ -83,7 +83,7 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
           display: "flex",
           flexWrap: "wrap",
           gap: "7px",
-          margin: "0.5rem 0 0 36px",
+          margin: "8px 0 0 37px",
         }}
       >
         {chips.map(({ answer, label, quiet }) => {
@@ -97,9 +97,7 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
               disabled={isPending}
               style={{
                 border: "1.7px solid var(--hairline)",
-                backgroundColor: selected
-                  ? "var(--surface-self)"
-                  : "var(--surface-raised)",
+                backgroundColor: selected ? "var(--surface-self)" : "transparent",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",
@@ -144,12 +142,20 @@ export function GroupProposalTally({ line }: { line: string }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "7px",
-        margin: "8px 0 0 36px",
-        fontSize: "var(--type-eyebrow)",
+        gap: "6px",
+        // Recorded deviation (build-notes §11): this tally sits below the
+        // chip row rather than inside a bubble like GaugeTally, so it keeps
+        // its own left-indent (37px, matching the chip row) in addition to
+        // the shared hairline treatment below.
+        marginTop: 9,
+        marginLeft: 37,
+        paddingTop: 9,
+        borderTop: "1.4px solid var(--hairline)",
+        fontSize: "var(--type-label)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--placeholder)",
+        color: "var(--text-secondary)",
         fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
       }}
     >
       <i
@@ -158,7 +164,7 @@ export function GroupProposalTally({ line }: { line: string }) {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          backgroundColor: "var(--placeholder)",
+          backgroundColor: "var(--text-secondary)",
           flexShrink: 0,
         }}
       />

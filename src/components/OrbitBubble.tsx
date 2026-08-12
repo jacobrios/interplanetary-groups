@@ -15,14 +15,24 @@ import { OrbitMark } from "@/components/OrbitMark"
 
 export function OrbitBubble({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "9px",
+        marginTop: "12px",
+        maxWidth: "93%",
+      }}
+    >
       <OrbitMark size={28} />
       <div
         style={{
           backgroundColor: "var(--surface-raised)",
-          borderRadius: "4px 16px 16px 16px",
-          padding: "0.5rem 0.75rem",
-          maxWidth: "80%",
+          borderRadius: "16px 16px 16px 5px",
+          padding: "12px 14px",
+          fontSize: "var(--type-body)",
+          lineHeight: "var(--leading-normal)",
+          color: "var(--text-primary)",
         }}
       >
         {children}

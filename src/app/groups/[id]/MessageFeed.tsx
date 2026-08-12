@@ -142,15 +142,17 @@ export default function MessageFeed({
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
-        gap: "0.75rem",
-        padding: "1rem 1rem 0.5rem",
+        padding: "4px 20px 0",
         // The pending strip's own 6px of air below it (round4-base.css
         // `.pd-host.pd-sep-host + .gh-feed { padding-top: 6px }`), so
         // separation from the strip is carried by this plus the strip's
         // bottom hairline, not by the strip. Below the bottom hairline, the
         // feed's own centred day divider (Task 7) is feed furniture, not
-        // strip furniture. Undefined (not stripAbove) leaves the shorthand's
-        // 1rem top padding untouched when no strip renders above.
+        // strip furniture. Undefined (not stripAbove) leaves the base 4px
+        // top padding (`.gh-feed`) untouched when no strip renders above.
+        // Row-to-row spacing is now carried per-row (marginTop on each
+        // message block), not by a container gap, matching the design's
+        // `.gh-msgrow`/`.gh-human`/`.gh-self` margins — see below.
         paddingTop: stripAbove ? 6 : undefined,
       }}
     >
@@ -189,7 +191,13 @@ export default function MessageFeed({
                     fontSize: "var(--type-meta)",
                     lineHeight: "var(--leading-normal)",
                     color: "var(--text-secondary)",
-                    margin: 0,
+                    // Not covered by the handoff (system lines are a product
+                    // addition, not in walkthrough.css), but the row spacing
+                    // that used to come from the container's flex `gap`
+                    // (removed this task) still has to come from somewhere,
+                    // so this keeps its prior visual spacing at the same 14px
+                    // other rows now carry as their own marginTop.
+                    margin: "14px 0 0",
                   }}
                 >
                   {msg.body}
@@ -211,7 +219,11 @@ export default function MessageFeed({
                   flexDirection: "column",
                   alignItems: isOrbit ? "flex-start" : isSelf ? "flex-end" : "flex-start",
                   opacity: msg.isPending ? 0.65 : 1,
-                  transition: "opacity 0.1s ease",
+                  // Row-to-row spacing (`.gh-human` / `.gh-self` marginTop
+                  // 14px). Orbit's own 12px lives inside OrbitBubble itself
+                  // (it IS the `.gh-msgrow` avatar+bubble row), so it is not
+                  // duplicated here.
+                  marginTop: isOrbit ? undefined : 14,
                 }}
               >
                 {/* Orbit: lime avatar + muted fill, no name label */}
@@ -262,13 +274,14 @@ export default function MessageFeed({
 
                 {/* Other member: name label above, outlined low-fill */}
                 {!isOrbit && !isSelf && (
-                  <div style={{ maxWidth: "80%" }}>
+                  <div style={{ maxWidth: "93%" }}>
                     <p
                       style={{
                         fontSize: "var(--type-eyebrow)",
                         lineHeight: "var(--leading-normal)",
                         color: "var(--text-secondary)",
-                        marginBottom: "0.25rem",
+                        fontWeight: 600,
+                        margin: "0 0 4px 8px",
                       }}
                     >
                       {msg.authorName ?? "Member"}
@@ -277,8 +290,8 @@ export default function MessageFeed({
                       style={{
                         backgroundColor: "var(--surface-base)",
                         border: "1px solid var(--hairline)",
-                        borderRadius: "4px 16px 16px 16px",
-                        padding: "0.5rem 0.75rem",
+                        borderRadius: "16px 16px 16px 5px",
+                        padding: "11px 14px",
                       }}
                     >
                       <p
@@ -295,15 +308,14 @@ export default function MessageFeed({
                   </div>
                 )}
 
-                {/* Self (viewer): right-aligned, strongest neutral fill */}
+                {/* Self (viewer): right-aligned, strongest neutral fill, no border */}
                 {isSelf && (
-                  <div style={{ maxWidth: "80%" }}>
+                  <div style={{ maxWidth: "93%" }}>
                     <div
                       style={{
                         backgroundColor: "var(--surface-self)",
-                        border: "1px solid var(--hairline)",
-                        borderRadius: "16px 4px 16px 16px",
-                        padding: "0.5rem 0.75rem",
+                        borderRadius: "16px 16px 5px 16px",
+                        padding: "11px 14px",
                       }}
                     >
                       <p

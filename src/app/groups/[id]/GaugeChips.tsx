@@ -98,7 +98,7 @@ export default function GaugeChips({ gauge, onAnswered }: Props) {
           display: "flex",
           flexWrap: "wrap",
           gap: "7px",
-          margin: "0.5rem 0 0 36px",
+          margin: "8px 0 0 37px",
         }}
       >
         {chips.map(({ answer, label, quiet }) => {
@@ -112,9 +112,7 @@ export default function GaugeChips({ gauge, onAnswered }: Props) {
               disabled={isPending}
               style={{
                 border: "1.7px solid var(--hairline)",
-                backgroundColor: selected
-                  ? "var(--surface-self)"
-                  : "var(--surface-raised)",
+                backgroundColor: selected ? "var(--surface-self)" : "transparent",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",
@@ -150,12 +148,15 @@ export function GaugeTally({ line }: { line: string }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "7px",
-        marginTop: "8px",
-        fontSize: "var(--type-eyebrow)",
+        gap: "6px",
+        marginTop: 9,
+        paddingTop: 9,
+        borderTop: "1.4px solid var(--hairline)",
+        fontSize: "var(--type-label)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--placeholder)",
+        color: "var(--text-secondary)",
         fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
       }}
     >
       <i
@@ -164,7 +165,7 @@ export function GaugeTally({ line }: { line: string }) {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          backgroundColor: "var(--placeholder)",
+          backgroundColor: "var(--text-secondary)",
           flexShrink: 0,
         }}
       />
