@@ -215,6 +215,23 @@ export function proposalChipLabels(
   }
 }
 
+/** The proposal questions on the card notice and the detail screen (spec
+ *  decision 8). Plain voice, no em dashes, deterministic, and deliberately
+ *  impersonal: composed from stored rows at render, never stored, and never
+ *  naming the asker's constraint (the owner's objective-copy ruling: the
+ *  group answers the time, not the person). */
+export function proposalBandQuestion(
+  eventTitle: string,
+  proposedStartsAt: Date,
+  timeZone: string
+): string {
+  return `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?`
+}
+
+export function proposalNoticeQuestion(proposedStartsAt: Date, timeZone: string): string {
+  return `Move to ${formatTime(proposedStartsAt, timeZone)}?`
+}
+
 /**
  * The tally line for a consensus proposal: names for yeses, count for keeps,
  * countdown only when one more vote would settle it. Empty until someone votes.
