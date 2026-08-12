@@ -560,7 +560,7 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **Multi-day schedule copy joins every day with "&" (noticed 22 July 2026).** The Step 2 rhythm row composes multi-day schedules as "Mon & Wed & Fri at 8am" (`playback.ts` joins all day abbreviations with " & "), where §7's schedule-copy rule reads more like "Mon, Wed & Fri" (commas between items, ampersand before the last). Presentation only; the structured day data underneath is correct. Deferred to the end-of-build polish pass.
 
-- **Two create-next-app scaffolding gaps in `globals.css` (recorded 23 July 2026, from the docs-consolidation slice).** Neither is a decision anyone made; both are leftover scaffolding for the visual-polish pass to settle rather than rediscover, the same reasoning that put the missing step indicator in this register.
+- **Two create-next-app scaffolding gaps in `globals.css` (recorded 23 July 2026, from the docs-consolidation slice).** Neither is a decision anyone made; both are leftover scaffolding for the visual-polish pass to settle rather than rediscover, the same reasoning that put the missing step indicator in this register. ***Both closed 11 Aug 2026 (polish slice one): `:root` is unconditionally dark and declares `color-scheme: dark`, the media-query fork is gone, and the body applies Geist. The whole placeholder palette was replaced by the design system's tokens in the same slice.***
   - **Light-mode default.** `:root` sets a white background (`--background: #ffffff`) and only flips to dark under `@media (prefers-color-scheme: dark)`, while CLAUDE.md states dark is the default theme and the neutrals are authored dark-first. The product renders dark for any viewer whose OS is in dark mode, which masks the gap; a light-mode OS would expose it. The polish pass makes dark the actual default rather than a media-query branch.
   - **Body font is Arial, not Geist.** `body` sets `font-family: Arial, Helvetica, sans-serif` while `--font-sans` is wired to `var(--font-geist-sans)`; the intended Geist family is loaded but not applied to the body. Presentation only; settle in the polish pass.
 
@@ -568,7 +568,7 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **The polish pass tests mobile Safari on a real phone over the local network, not in a simulator (recorded 28 July 2026, from the change-request verification round).** Every "feel it on a real phone" item in this register (the chip wrap above, enlarged-text behavior, the dark theme) gets checked by opening the running dev server from a phone on the same Wi-Fi, at the Mac's local address on port 3000. Recorded so nobody re-reaches for an iOS simulator when the pass opens: this machine has no Xcode, a simulator install would cost roughly 40 GB against 35 GB free, and for a web product a real device running real mobile Safari is stricter evidence than the simulator that imitates it.
 
-- **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made. *Ruled 11 Aug 2026 (strip-placement decision record, in specs): the strip stays in place, dressed with separation geometry plus a 7% teal wash; the "screen's only teal" constraint in this item was knowingly bent by the owner who wrote it, and the carousel option is deferred post-MVP with its revisit trigger recorded. See the §11 visual-polish slice-one postscript.*
+- **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made. *Ruled 11 Aug 2026 (strip-placement decision record, in specs): the strip stays in place, dressed with separation geometry plus a 7% teal wash; the "screen's only teal" constraint in this item was knowingly bent by the owner who wrote it, and the carousel option is deferred post-MVP with its revisit trigger recorded. See the §11 visual-polish slice-one postscript.* ***Built 11 Aug 2026 (polish slice one): full bleed, 12px/20px padding on the feed's gutter rather than the card's, 14px of air below the card, and the tint-a wash. Whether it now reads as its own element is the owner's QA call, which is the deferred proof point the decision record named.***
 
 - **The add-to-calendar pill has no leading calendar glyph (recorded 11 August 2026, from the .ics-slice review).** The design source's `.ed-cal` rules in `docs/design/walkthrough-screens` (and screen 09) draw a small calendar icon left of the "Add to calendar" label inside the teal pill, with 9px of gap between icon and text; what shipped is label-only. Polish-pass candidate: add the 16px glyph and the gap, matching `.ed-cal`.
 
@@ -2140,3 +2140,127 @@ added two copy-pinning tests inside existing test files, its own message
 confirming 778; the file count held at 73. Nothing failed and nothing was
 skipped. The lint baseline carried from the share-readiness correction is
 fifteen errors on main, none of them this slice's to fix silently.
+
+### Visual-polish slice one: the product gets its real face (11-12 Aug 2026)
+
+The slice that turns a scaffolded-looking prototype into something that reads as
+designed. Spec: `docs/superpowers/specs/2026-08-11-visual-polish-1-design.md`;
+plan: `docs/superpowers/plans/2026-08-11-visual-polish-1.md`; the owner's
+placement and design-round rulings:
+`docs/superpowers/specs/2026-08-11-strip-placement-call-decision.md`. All three
+rode this branch from the start.
+
+**What shipped, in product terms.** The app now wears the design system rather
+than an approximation of it. Dark is the real default instead of a media-query
+branch, Geist is applied from the body down instead of Arial, and Orbit has its
+actual face: one shared mark component (lime planet, moon on an orbit path)
+replaced seven separate hand-drawn letter-"O" circles. On the group home, the
+header says who the group is (heading-weight name plus the designed "N members ·
+group info & invite link" subline, built for the first time), the carousel got
+its finished chrome with a real 22px peek and a dot that tracks the snapped card,
+the pending strip reads as its own full-bleed element carrying the owner's 7%
+teal wash, the feed marks its days in the group's timezone, the three chat voices
+match the boards, the event card carries its finished shell with the counts on
+their own steady line, and the composer is grounded by a scrim.
+
+**The premise that changed mid-slice, and it was the big one.** The plan assumed
+this slice would flip a light default, apply a font, and dress a screen. The
+investigation found something larger: the app's color tokens were never the
+design's. `globals.css` said so itself, in a comment calling its values
+"functional placeholders" pending exactly this pass, and they matched neither the
+handoff nor the walkthrough. The owner approved the round-two boards by eye,
+rendered in the real palette, so shipping any other values would have un-approved
+the design. The slice therefore adopted the design system's palette wholesale,
+names and values, and swept every consumer onto it. Consequence accepted on
+purpose: every screen outside the group home now renders in the new palette and
+typeface before its own polish slice, an interim mixed-fidelity state that slices
+two and three resolve.
+
+**The find that justified the whole review discipline: the design file has three
+stacked override blocks, not one.** `walkthrough.css` carries a wireframe base, a
+"DARK IDENTITY role overrides" block, a "CONTRAST + CONSISTENCY PASS", and a
+"REFINEMENT PASS (targeted)", and by plain cascade the last one wins. Every task
+brief in the plan was written against the first override block. A reviewer caught
+this on the composer, which triggered a full-cascade audit of the whole group
+home, which found four more misses: chips inside the pending panel carrying the
+feed's 37px indent when the panel's own rule says flush (visible at a glance),
+Orbit's bubble and the viewer's own bubble missing the hairline the contrast pass
+adds to raised surfaces, and the "Can't make it" border half a pixel thin. All
+fixed. The lesson worth keeping: a design handoff is a cascade, not a list of
+values, and reading only the block someone pointed you at is reading the wrong
+file.
+
+**A happy discovery inside that find.** The owner had overruled the board on the
+send button, ruling that sending a message is an action that genuinely matters
+and so keeps its teal. The refinement pass, the file's actual last word, already
+drew a two-state send button with an `.active` class. The owner's instinct and
+the design's final pass agreed; only the plan's reading of the board was wrong.
+
+**Decisions made along the way, recorded because they will otherwise resurface.**
+- The palette adoption is wholesale, names included, so slices two and three port
+  values without a translation table. The pending-surface slice had already had
+  to document an ad-hoc mapping, which was this debt surfacing once already.
+- Geist stays the product's one typeface. The boards render in Hanken Grotesk and
+  Inter, which are prototype fonts the app never loaded; weights and sizes port,
+  the family does not. Named as an owner question in the PR.
+- The group name wraps rather than clipping. The design's CSS says `nowrap`, but
+  it was drawn with one short placeholder name and the page root clips overflow,
+  so a long name or an enlarged text size had no graceful outcome. The standing
+  "layout grows with content, never clips" rule won, per "recorded decisions win
+  over the walkthrough."
+- Day dividers label older days as a three-letter weekday plus short date ("Mon,
+  Jul 27"); the boards only ever drew "Today".
+- The dots stay chrome rather than a control surface: swipe is the interaction,
+  and tapping a dot to jump was declined for now.
+- Nested fields moved to `--surface-base`. Collapsing three old surface tokens
+  into one `--surface-raised` made onboarding's inputs the same color as the
+  bubble holding them, so a field read as an outline drawn on a card. The design
+  already answers this by putting nested pills on the base surface.
+- The dead `#0a0a0a` literal was swept. It was the old `--surface-page`, left
+  behind as a hardcoded label color on ten teal buttons after the rename, since a
+  literal is invisible to a token grep. `--lime-ink` found its first consumer in
+  the same sweep.
+
+**Suite and verification.** Baseline at slice start: 73 files, 778 tests, all
+green. After: 77 files, 801 tests, all green, zero skipped. `tsc` clean. Lint held
+at the recorded 15-error main baseline with nothing added. Every task ran a
+browser check against the dev-test database as it landed, and the slice closes
+with a whole-screen side-by-side against the rendered design board.
+
+**Two tests worth naming, because both are cases of the project's own "a passing
+test is only evidence if it could have failed" rule biting.** The day-divider
+timezone tests were first written with fixtures in America/Chicago, which is this
+machine's own zone: a reviewer proved that a regression reading the viewer's zone
+instead of the group's produced byte-identical output, so the test could not fail
+for the bug it existed to catch. Re-fixtured to Asia/Tokyo and Pacific/Honolulu
+and proven by deliberately regressing the code, watching them fail, and
+restoring. The same class of hole then turned up in the MessageFeed render test
+and was closed the same way. Separately, the "Yesterday" label was computed by
+subtracting 24 hours from now, which is wrong for about an hour twice a year when
+those hours straddle a daylight-saving transition; a reviewer built failing
+inputs in both directions and it now steps back one calendar day in the group's
+own zone instead.
+
+**Debt this slice knowingly carries.**
+- Screens outside the group home wear the new palette and typeface without their
+  own polish pass. Deliberate; slices two and three resolve it.
+- The wizard has two bubble grammars: `Step3Share` renders through the shared
+  `OrbitBubble` and took the design's bottom-left notch, while `Step2Playback`
+  and `StepGapAsk` keep the old top-left one. Slice two.
+- The three chip components remain three near-identical copies. Deliberately not
+  refactored: that is a structural change outside this slice's lane.
+- `#f87171` stays untokenized as the error color, traced to before the palette
+  existed and outside the handoff's scope.
+- `--font-geist-mono` stays loaded and unused; a one-line cleanup for whichever
+  slice next touches `layout.tsx`.
+- A date-line zone that historically skipped a calendar day (Kiritimati 1994,
+  Samoa 2011) can still miss a "Yesterday" across that one transition. No product
+  reach; recorded rather than fixed.
+- Collapsing the pending strip after clearing its last item leaves a few pixels
+  of orphaned spacing, because the page's padding is computed server-side and
+  never re-evaluated. Narrow interaction path.
+- No test pins the `stripAbove` padding or the chip components' new
+  `indentPastAvatar` margin; both are style-only branches.
+
+**Deploy-time obligations: none.** No migration, no environment variable, no
+model call added.

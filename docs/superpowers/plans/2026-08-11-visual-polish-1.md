@@ -512,7 +512,11 @@ import { useRef, useState } from "react"
 // control surface (handoff item 02): swipe is the interaction.
 export function snappedIndex(scrollLeft: number, cardWidth: number, gap: number): number {
   const step = cardWidth + gap
-  if (step <= 0) return 0
+  if (step <= 0) return 0   // BUG, corrected at build time 11 Aug 2026: this guard
+                            // never fires while gap > 0, so a zero-width pre-layout
+                            // read returned 12 instead of 0. What shipped guards on
+                            // `cardWidth <= 0` before computing step. The test in this
+                            // task genuinely fails against the version written here.
   return Math.round(scrollLeft / step)
 }
 
