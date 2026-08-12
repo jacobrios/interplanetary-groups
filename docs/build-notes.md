@@ -2266,3 +2266,60 @@ own zone instead.
 
 **Deploy-time obligations: none.** No migration, no environment variable, no
 model call added.
+
+**Postscript, 12 August 2026, from the owner's QA run.** Three things, recorded
+the day they landed.
+
+*First, and it is a product-correctness finding rather than a polish one: the
+event card's RSVP pair reads as a dark pattern.* In the unanswered state "I'm in"
+is a solid teal button and "Can't make it" is an outline, so the card looks like
+the member has already said yes before they have touched anything. Answering
+"Can't make it" does not move the teal; the only thing that changes is a
+checkmark appearing. The owner's own comparison, and it is the right one: the
+gauge chips get this correct. All chips start visually equal, and choosing one
+adds a checkmark and a small fill shift, so which one you picked is unambiguous
+and nothing is pre-selected. The card instead colors one of two symmetrical
+answers, which reads as a recommendation. Named plainly because RSVP accuracy is
+this product's entire value proposition, and a control that leans on the answer
+corrupts the number the product exists to get right. Two notes on lineage, since
+neither is obvious. This is not new: the teal "I'm in" predates the polish pass.
+But this slice made the confusing half slightly worse, because the selected
+"Can't make it" used to carry a fill that the palette adoption had rendered
+identical to the card behind it, and the fix for that invisibility was to make it
+transparent, leaving the checkmark as the only selected signal. And there is a
+rule tension worth stating for whoever picks this up: CLAUDE.md says teal marks
+"an action that genuinely matters", but here it is not marking importance, it is
+marking one of two equally valid answers, which is a different job than the rule
+authorizes. Queued for its own brainstorm at the owner's call, not fixed here.
+
+*Second, the carousel-placement trigger fired, earlier than the record expected
+it to.* The strip-placement decision record deferred the carousel option
+post-MVP with a named revisit trigger: "the dressed strip still reading wrong
+after launch." Seeing it dressed on a real phone was enough. The owner's call is
+to retire the strip and render pending items as cards in the top carousel
+alongside confirmed events, distinguishing the two states in the card's own top
+right with a short label ("confirmed", "still waiting", exact copy unsettled).
+The two questions the record said would have to be answered fresh are now live
+and belong to that brainstorm: what "you're caught up" looks like with no panel
+to say it in, and whether mixing maybes into the confirmed-plans carousel dilutes
+the card region's one job. The switching-cost assessment from the pending-surface
+postscript still holds and is the reason this is not a rewrite: the derivation
+module, the vote actions, the chip components and their callbacks, and the shared
+Orbit bubble all carry over; the strip and panel components retire. Worth adding
+to that assessment now that the carousel itself has been rebuilt: the finished
+chrome from this slice (peek geometry, the scroll-derived active dot, the
+three-card cap) is exactly what a mixed carousel needs, so this slice's carousel
+work is not lost by the change, only its strip work is. The polish spent on the
+strip is knowingly written off; reverting it would cost more than leaving it.
+
+*Third, the five open questions this slice raised were all answered "fine as
+built":* Geist stays the product's one typeface, Orbit's header mark stays at
+28px rather than the board's 30, older day dividers keep the weekday-plus-date
+format, the undrawn selected-chip treatment stays as shipped, and the header
+keeps its centered name rather than the board's left alignment. Recorded so none
+of them reopens by default in slice two.
+
+*Still unanswered, and it needs a phone:* whether the three-chip gauge row's
+two-then-one wrap reads as an accident or as fine. It has been deferred since
+spark part one specifically to be felt on a real device rather than judged from a
+screenshot, and this QA run was the first real chance. It stays open.
