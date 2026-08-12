@@ -239,9 +239,16 @@ export default async function GroupPage({ params }: Props) {
       {/* ── Pinned event cards ─────────────────────────────────────────── */}
       {/* Multi-card: side padding moves onto CarouselRail so the rail can
           bleed past the screen edge for the peek. Single-card: padding stays
-          here, there is no rail to carry it. (Bottom padding changes again
-          in the pending-strip polish task.) */}
-      <div style={{ padding: cards.length > 1 ? "0.75rem 0 0" : "0.75rem 1rem 0", flexShrink: 0 }}>
+          here, there is no rail to carry it. Bottom padding is the pending
+          strip's "air above" (round4-base.css .gh-pinned.pd-above): 14px
+          when the strip renders below, so the gap above the strip reads
+          larger than any gap inside the card and the card visually closes
+          before the strip begins; 0 when there's no strip to separate from. */}
+      <div
+        style={{
+          padding: `0.75rem ${cards.length > 1 ? 0 : "1rem"} ${pending ? "14px" : 0}`,
+          flexShrink: 0,
+        }}>
         {cards.length > 0 ? (
           <EventCarousel
             events={cards}
@@ -296,6 +303,7 @@ export default async function GroupPage({ params }: Props) {
           proposals={proposals}
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
+          stripAbove={pending !== null}
         />
       </div>
     </div>

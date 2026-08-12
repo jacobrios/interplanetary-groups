@@ -44,6 +44,10 @@ interface Props {
   proposals: FeedProposal[]
   groupProposals: FeedGroupProposal[]
   viewerIsMember: boolean
+  /** Whether the pending strip renders above the feed (page.tsx), so the
+   * feed can carry the strip's own 6px of air below it (round4-base.css
+   * `.pd-host.pd-sep-host + .gh-feed { padding-top: 6px }`). */
+  stripAbove?: boolean
 }
 
 export default function GroupHome({
@@ -55,6 +59,7 @@ export default function GroupHome({
   proposals,
   groupProposals,
   viewerIsMember,
+  stripAbove,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -148,6 +153,7 @@ export default function GroupHome({
         proposals={proposals}
         groupProposals={groupProposals}
         viewerIsMember={viewerIsMember}
+        stripAbove={stripAbove}
       />
 
       {/* Pinned input. The page-level wall means only members ever render

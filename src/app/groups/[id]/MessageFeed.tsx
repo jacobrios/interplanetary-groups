@@ -57,6 +57,13 @@ interface Props {
   groupProposals?: FeedGroupProposal[]
   /** Whether the viewer is a member of this group, gating the vote chips. */
   viewerIsMember?: boolean
+  /**
+   * Whether the pending strip renders directly above this feed (page.tsx).
+   * Separation-treatment redesign (round4-base.css item 03): the strip
+   * carries its own air above and below hairlines, so the feed contributes
+   * the last 6px on its side rather than the strip growing its own margin.
+   */
+  stripAbove?: boolean
 }
 
 export default function MessageFeed({
@@ -66,6 +73,7 @@ export default function MessageFeed({
   proposals = [],
   groupProposals = [],
   viewerIsMember = false,
+  stripAbove = false,
 }: Props) {
   const gaugeByMessageId = new Map(gauges.map((g) => [g.orbitMessageId, g]))
   const proposalByMessageId = new Map(proposals.map((p) => [p.orbitMessageId, p]))
@@ -119,6 +127,14 @@ export default function MessageFeed({
         flexDirection: "column",
         gap: "0.75rem",
         padding: "1rem 1rem 0.5rem",
+        // The pending strip's own 6px of air below it (round4-base.css
+        // `.pd-host.pd-sep-host + .gh-feed { padding-top: 6px }`), so
+        // separation from the strip is carried by this plus the strip's
+        // bottom hairline, not by the strip. Below the bottom hairline, the
+        // feed's own centred day divider (Task 7) is feed furniture, not
+        // strip furniture. Undefined (not stripAbove) leaves the shorthand's
+        // 1rem top padding untouched when no strip renders above.
+        paddingTop: stripAbove ? 6 : undefined,
       }}
     >
       {messages.map((msg) => {

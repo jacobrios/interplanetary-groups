@@ -57,7 +57,7 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path
         d="M4.5 6.75L9 11.25L13.5 6.75"
-        stroke="var(--placeholder)"
+        stroke="var(--text-faint)"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -338,20 +338,25 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          // A <button> keeps shrink-to-fit intrinsic sizing even under
-          // display:flex (unlike a <div>), so margin alone left it
-          // content-width; width:100% (the first attempt) then overflowed
-          // past the margin instead. calc() against the margin is what
-          // actually yields the full-width row inset 16px each side.
-          width: "calc(100% - 2rem)",
-          margin: "0 1rem",
-          padding: "11px 2px",
+          gap: "11px",
+          // Separation-treatment redesign (round4-base.css items 03/03b): the
+          // interim strip was inset 16px, exactly the event card's own edges,
+          // which read as a card footer. Full bleed plus the feed's own 20px
+          // gutter (not the card's 16px) makes it a band belonging to the
+          // screen instead, matched by page.tsx's 14px of air above and
+          // MessageFeed's 6px of air below.
+          width: "100%",
+          margin: 0,
+          padding: "12px 20px",
           borderTop: "1px solid var(--hairline)",
           borderBottom: "1px solid var(--hairline)",
           borderLeft: "none",
           borderRight: "none",
-          background: "var(--surface-base)",
+          // tint-a from the decision record (round4-base.css .pd-strip.pd-sep.tint-a):
+          // a translucent wash of --action, not a fill. The owner compared it
+          // by eye against the stronger tint-b and picked this one; do not
+          // change the alpha.
+          backgroundColor: "rgba(24,188,203,.07)",
           cursor: "pointer",
           textAlign: "left",
           fontFamily: "inherit",
@@ -369,6 +374,7 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
+            fontVariantNumeric: "tabular-nums",
           }}
         >
           {showCaughtUpLabel ? (
