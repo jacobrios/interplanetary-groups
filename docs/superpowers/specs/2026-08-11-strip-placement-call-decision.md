@@ -89,3 +89,15 @@ Use after the share-readiness merge lands:
 > before any code lands. The QA script must include me re-judging the dressed strip against the
 > original complaint. Read the round-two triage entry in build-notes §11 and the feel-pass
 > register before planning, and use subagents for any codebase investigation.
+
+## Postscript, 12 Aug 2026
+
+The revisit trigger fired early: seeing the dressed strip on a real phone was
+enough, launch not required. The carousel option revived with its own design
+round and shipped as the card-state-grammar slice; the two questions this
+record said would need fresh answers were answered there (caught-up state:
+nothing, cards simply absent; subordination: structure plus the need-label
+system, never hue). The 7% teal wash retires with the strip it washed, so the
+teal-rule amendment recorded above is struck in CLAUDE.md and superseded by
+the 12 Aug amendment (teal never leans an open question). See
+docs/superpowers/specs/2026-08-12-card-state-grammar-design.md.

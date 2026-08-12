@@ -2330,4 +2330,179 @@ Slice branch `feat/card-state-grammar`, cut from main at 3e4c749. Spec and desig
 round in docs/superpowers/specs/ (2026-08-12-card-state-grammar-*). Test-suite
 baseline at slice start, before any code: 77 files / 801 tests, all passing,
 matching polish slice one's finishing number. No pre-existing failures to carry.
-(Entry completed when the slice lands.)
+
+**What the slice was, in one line.** Two changes to the group home's card
+region that turned out to be the same question wearing two hats: how a card
+tells you what state it is in. The event card's answer pair stopped leaning on
+"yes", and the ideas a group is still voting on moved out of a drawer and into
+the card region beside the real plans.
+
+**Why now: two findings from the owner's 12 Aug QA run, both recorded in the
+postscript directly above this entry.**
+
+*The first was a product-correctness finding rather than a polish one.* The
+event card's answer pair read as a dark pattern. Before the member touched
+anything, "I'm in" was a solid teal button and "Can't make it" was a plain
+outline, so the card looked as though they had already said yes. Answering
+"Can't make it" did not move the color; a small checkmark was the only thing
+that changed. That matters more in this product than in most, because RSVP
+accuracy is the whole value proposition: a control that leans on one answer
+corrupts the single number the product exists to get right.
+
+*The second was a trigger firing early.* The strip-placement record (11 Aug)
+had deferred the carousel option post-MVP behind a named trigger, "the dressed
+strip still reading wrong after launch". Seeing it dressed on a real phone was
+enough; launch never came into it. That record now carries a dated postscript
+saying so.
+
+**The fix for the first, and the rule it forced.** Unanswered, both answers now
+carry the same teal outline and neither is filled, so the teal marks the
+question instead of one of the answers. Answering fills whichever option the
+member chose, in teal, with a checkmark, and quiets the other. A filled "Can't
+make it" is honest rather than odd: it is the member's own settled answer, not
+a recommendation. Nothing here is told by color alone (outline, fill and
+checkmark each carry it), which is what keeps it readable for a red/green
+colorblind member. The group home's card and the event's own screen share one
+control, so both changed in the same move and cannot drift apart later.
+
+That forced an amendment to the standing teal rule, which had said teal marks
+"an action that genuinely matters". Here teal was not marking importance at
+all; it was marking one of two equally valid answers, which is a different job
+than the rule authorized. The amended rule now in CLAUDE.md: teal never leans
+an open question, and only an answer the member chose may hold the teal fill.
+The owner added the second half of it during the design review, that a label
+naming your own move is teal while a label naming other people's move stays
+grey, so scanning the card region for teal is scanning for what needs you. The
+cost accepted knowingly: an unanswered plan now says "this needs you" twice,
+once in its label and once in its borders. One message repeated was preferred
+over a special case that would grey the label only where the borders exist.
+
+Scoped deliberately, and worth stating because the two grammars now differ on
+purpose: the chips stay grey everywhere. Chips are the poll on a maybe; the
+answer pair is the ask on a real plan. The difference does honest work, because
+a plan waiting on you outranks a maybe waiting on you, and now it looks that
+way. The consequence, confirmed knowingly: a group home where everything is
+answered shows no teal at all until the member types something.
+
+**The fix for the second.** The strip, the panel it opened, the dimming behind
+it, and all of its caught-up machinery are gone. An idea the group is voting on
+is a card now, sitting in the top card region with the confirmed plans:
+
+- *Order.* One list, sorted purely by when the thing would happen, with a
+  same-instant tie going to the confirmed plan. The owner ruled against putting
+  confirmed plans first: the soonest item is the most actionable thing on the
+  screen precisely when it is still a maybe, and burying it behind a later
+  confirmed plan hides the vote it needs. The dilution worry (the product
+  reason this option originally lost) is answered by how the cards look rather
+  than by where they sit.
+- *How many.* Five cards, confirmed and pending together, up from three. This
+  is the owner's answer to what happens when the region fills, chosen instead
+  of guaranteeing slots to each kind: at five, the next confirmed plan only
+  falls off behind five earlier maybes, which real groups do not produce.
+  Anything past five is simply not in the region; chat still carries every
+  item, as it always did, and chat was always the primary surface.
+- *How a maybe stays a maybe.* An idea card is quieter by structure and never
+  by color: a flat shell, one hairline, no shadow, a smaller title, and no
+  chevron, since there is no detail screen behind an idea. Its title is the
+  activity plus a question mark ("Beers?"), the owner's call, because the mark
+  says "not settled yet" in one character, in Orbit's own warmth, and without
+  repeating what the label already says. Its when-line ends in a fixed "Place
+  TBD", also the owner's call, because an empty spot where a place should be
+  reads as a bug while "Place TBD" reads as a promise. That is constant copy,
+  not stored data, so the standing decision that no idea holds a venue before
+  it becomes a plan is untouched.
+- *What a card still needs.* A short label in each card's top right names the
+  card's highest outstanding need, the viewer's own before anyone else's:
+  needs your RSVP, then needs your vote, then needs other votes, then nothing
+  at all. A card that needs nothing goes bare, and the bare state reads as a
+  small reward. "Needs other votes" is the owner's wording, replacing the
+  design's "needs more votes", because it says whose move it is: you have done
+  your part.
+- *An open time-change vote.* It shows on its own plan's card as one recessed
+  line ("Time change proposed · Move to 8pm?") that opens the plan's screen,
+  where the vote itself lives, placed just above "Add to calendar" because it
+  changes the very time that button would save. This bends the pending-surface
+  slice's answer-in-place decision by exactly one tap, knowingly and by name:
+  chat still carries chips you can answer without going anywhere.
+- *Height.* Every card's shell now runs the full height of the region with its
+  answer row anchored at the bottom, so slack sits inside a card as breathing
+  room instead of below it as dead grey. This dissolved the taller-card problem
+  that had made the first proposal treatment (a full band across the card) too
+  expensive: a band on one card lengthened every card and shortened the chat
+  window underneath.
+- *Caught up.* The panel's "you're caught up" note retires with the panel it
+  lived in, and nothing replaces it. Cards need no empty state: the card
+  disappearing and the region simplifying are the feedback. Recorded here
+  because a deliberate silence and an oversight look identical later.
+
+**A copy ruling worth keeping as lineage, because it will be tempting to
+undo.** The design boards wrote the time-change question as "Sam can't do 7.
+Move Fri beers to 8pm?" The owner rejected it for two independent reasons.
+First, the product does not store why anyone asked for a change, so any reason
+in that sentence would be invented. Second, naming a person's constraint turns
+"what time works?" into "how do we accommodate Sam?", which produces rounds of
+people-pleasing instead of a clean answer about the time. Ask surfaces stay
+objective and impersonal, composed only from what is actually stored. Voter
+names still appear in tallies, which is different: a vote is a public action,
+and reporting who voted is transparency, not pressure. Chat's already-shipped
+ask still names the asker as plain attribution; softening that is the owner's
+optional future call, recorded and not done.
+
+**Where the build deliberately departs from the design boards, so a later
+rendered-versus-design check does not read these as misses.** Five places, each
+the owner's ruling: the boards cap the region at three cards and the recorded
+decision is five; the boards invent a counts-only tally voice and new chip
+words, and the product's shipped tally voice and shipped chip words win; the
+boards' "needs more votes" becomes "needs other votes"; the boards render every
+label in the same quiet grey, and the owner's teal-for-your-own-move rule
+supersedes that; and the boards' bare "Beers" becomes "Beers?". Adopted from
+the boards beyond what was asked for: the label ladder itself, the recessed
+anatomy of the proposal line, and the stretch-and-anchor rule for card height.
+Two design rounds fed the slice and both are committed on this branch:
+`docs/design/design_handoff_round5/` (the answer pair, the idea card, the mixed
+region) and `docs/design/design_handoff_round6/` (the proposal treatment and
+the height rule).
+
+**Suite and verification.** Baseline at slice start: 77 files, 801 tests, all
+green. After: 83 files, 835 tests, all green. The answer pair had no test
+coverage at all before this slice and now has its own, which closes a gap that
+existed while the control was shipping the wrong behavior. What retires with
+the strip: the strip's own tests and its gate helper's tests.
+
+**No model behavior was touched.** No prompt changed, no new model call, no
+marginal cost per group. The recognition bench is therefore not owed a run by
+this slice, stated so its absence from the PR reads as correct rather than
+skipped. Deploy-time obligations: none. No migration, no environment variable,
+no model call.
+
+**Walkthrough evidence: pending.** The multi-session browser walkthrough on the
+dev-test database is the next task in this slice and its evidence list will be
+appended here when it runs. Nothing in this entry should be read as a verified
+visual claim until that happens.
+
+**Debt this slice knowingly carries.**
+- *Hidden overflow has no count anywhere.* More than five items and the rest of
+  the maybes are not in the region at all, and the strip's old summary line
+  ("2 waiting on you") is gone with it. Accepted at five. Revisit triggers: a
+  real group regularly holding more than five live items at once, or the next
+  confirmed plan ever falling off the region behind five earlier maybes.
+- *A time-change vote on a plan whose card sits outside the top five is not
+  noticed from the card region.* Softened by the round-6 decision, since the
+  vote now also sits on the plan's own screen, so chat and that screen both
+  carry it; only the region's one-line notice is missed. Same acceptance, same
+  trigger as above.
+- *The group home now looks up more details per card than it used to,* because
+  the region holds five cards where it held three. The shape of the work was
+  already there and did not change; there is simply a little more of it, on a
+  screen with a handful of cards. Recorded rather than fixed, because nothing
+  gets worse by leaving it.
+- *One dead fallback left in the plan's own screen,* a leftover from before the
+  members-only wall existed: the screen still carries a "if there is no viewer"
+  path that the wall makes unreachable. Harmless, and named so a future reader
+  does not mistake it for a live case.
+- *The polish spent on the strip is written off knowingly.* Its separation
+  geometry and its teal wash were built one day and deleted the next; reverting
+  the palette work around them would have cost more than letting them go. The
+  large deletions in this slice's diff are intended.
+- *Inherited and unchanged:* Orbit's open day-question still has no surface
+  outside chat, and a wrong venue still has no fix path anywhere.
