@@ -93,7 +93,7 @@ export default function Step2Playback({
             width: 28,
             height: 28,
             borderRadius: "50%",
-            backgroundColor: "var(--color-lime)",
+            backgroundColor: "var(--lime)",
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
@@ -108,7 +108,7 @@ export default function Step2Playback({
         </div>
         <div
           style={{
-            backgroundColor: "var(--surface-orbit)",
+            backgroundColor: "var(--surface-raised)",
             borderRadius: "4px 16px 16px 16px",
             padding: "0.75rem 1rem",
             flex: 1,
@@ -141,8 +141,8 @@ export default function Step2Playback({
                 width: "100%",
                 marginTop: "0.25rem",
                 padding: "0.375rem 0.5rem",
-                backgroundColor: "var(--surface-input)",
-                border: "1px solid var(--border-subtle)",
+                backgroundColor: "var(--surface-raised)",
+                border: "1px solid var(--hairline)",
                 borderRadius: "0.375rem",
                 color: "var(--text-primary)",
                 fontSize: "var(--type-heading)",
@@ -193,8 +193,8 @@ export default function Step2Playback({
                       width: "100%",
                       marginTop: "0.25rem",
                       padding: "0.25rem 0.5rem",
-                      backgroundColor: "var(--surface-input)",
-                      border: "1px solid var(--border-subtle)",
+                      backgroundColor: "var(--surface-raised)",
+                      border: "1px solid var(--hairline)",
                       borderRadius: "0.375rem",
                       color: "var(--text-primary)",
                       fontSize: "var(--type-label)",
@@ -266,7 +266,7 @@ export default function Step2Playback({
         style={{
           width: "100%",
           padding: "0.75rem 1.5rem",
-          backgroundColor: isCreating ? "var(--color-teal-hover)" : "var(--color-teal)",
+          backgroundColor: isCreating ? "var(--action)" : "var(--action)",
           color: "#0a0a0a",
           fontSize: "var(--type-body)",
           fontWeight: 600,

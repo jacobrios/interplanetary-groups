@@ -19,7 +19,7 @@ export default function OrbitPause({ copy }: Props) {
           width: 28,
           height: 28,
           borderRadius: "50%",
-          backgroundColor: "var(--color-lime)",
+          backgroundColor: "var(--lime)",
           flexShrink: 0,
           display: "flex",
           alignItems: "center",

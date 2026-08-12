@@ -77,12 +77,12 @@ export default function Step1Describe({
             height: 0,
             borderLeft: "8px solid transparent",
             borderRight: "8px solid transparent",
-            borderBottom: "10px solid var(--surface-orbit)",
+            borderBottom: "10px solid var(--surface-raised)",
           }}
         />
         <div
           style={{
-            backgroundColor: "var(--surface-orbit)",
+            backgroundColor: "var(--surface-raised)",
             borderRadius: "16px",
             padding: "0.75rem 1rem",
           }}
@@ -126,8 +126,8 @@ export default function Step1Describe({
             style={{
               width: "100%",
               padding: "0.625rem 0.75rem",
-              backgroundColor: "var(--surface-input)",
-              border: "1px solid var(--border-subtle)",
+              backgroundColor: "var(--surface-raised)",
+              border: "1px solid var(--hairline)",
               borderRadius: "0.5rem",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
@@ -161,8 +161,8 @@ export default function Step1Describe({
             style={{
               width: "100%",
               padding: "0.625rem 0.75rem",
-              backgroundColor: "var(--surface-input)",
-              border: "1px solid var(--border-subtle)",
+              backgroundColor: "var(--surface-raised)",
+              border: "1px solid var(--hairline)",
               borderRadius: "0.5rem",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
@@ -186,7 +186,7 @@ export default function Step1Describe({
             style={{
               width: "100%",
               padding: "0.75rem 1.5rem",
-              backgroundColor: "var(--color-teal)",
+              backgroundColor: "var(--action)",
               color: "#0a0a0a",
               fontSize: "var(--type-body)",
               fontWeight: 600,

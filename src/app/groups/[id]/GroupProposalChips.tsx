@@ -96,10 +96,10 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
               value={answer}
               disabled={isPending}
               style={{
-                border: "1.7px solid var(--border-subtle)",
+                border: "1.7px solid var(--hairline)",
                 backgroundColor: selected
                   ? "var(--surface-self)"
-                  : "var(--surface-input)",
+                  : "var(--surface-raised)",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",
@@ -148,7 +148,7 @@ export function GroupProposalTally({ line }: { line: string }) {
         margin: "8px 0 0 36px",
         fontSize: "var(--type-eyebrow)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--text-placeholder)",
+        color: "var(--placeholder)",
         fontWeight: 600,
       }}
     >
@@ -158,7 +158,7 @@ export function GroupProposalTally({ line }: { line: string }) {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          backgroundColor: "var(--text-placeholder)",
+          backgroundColor: "var(--placeholder)",
           flexShrink: 0,
         }}
       />

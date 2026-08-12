@@ -27,7 +27,7 @@ export default function NotFound() {
           display: "block",
           width: "100%",
           padding: "0.75rem 1.5rem",
-          backgroundColor: "var(--color-teal)",
+          backgroundColor: "var(--action)",
           color: "#0a0a0a",
           fontSize: "var(--type-body)",
           fontWeight: 600,

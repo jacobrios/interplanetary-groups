@@ -50,7 +50,7 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
           color: "var(--text-secondary)",
           fontSize: "var(--type-label)",
           fontWeight: 600,
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--hairline)",
           borderRadius: "0.5rem",
           cursor: "pointer",
         }}
@@ -63,8 +63,8 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
   return (
     <div
       style={{
-        backgroundColor: "var(--surface-card)",
-        border: "1px solid var(--border-subtle)",
+        backgroundColor: "var(--surface-raised)",
+        border: "1px solid var(--hairline)",
         borderRadius: "0.75rem",
         padding: "1.25rem",
         display: "flex",
@@ -128,7 +128,7 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
             backgroundColor: "transparent",
             color: "var(--text-primary)",
             fontSize: "var(--type-label)",
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.5rem",
             cursor: isPending ? "not-allowed" : "pointer",
           }}

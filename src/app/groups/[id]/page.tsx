@@ -209,11 +209,10 @@ export default async function GroupPage({ params }: Props) {
       style={{
         height: "100dvh",
         overflow: "hidden",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -247,7 +246,7 @@ export default async function GroupPage({ params }: Props) {
               width: 28,
               height: 28,
               borderRadius: "50%",
-              backgroundColor: "var(--color-lime)",
+              backgroundColor: "var(--lime)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -305,8 +304,8 @@ export default async function GroupPage({ params }: Props) {
           /* No upcoming event — quiet empty state; the feed still renders */
           <div
             style={{
-              backgroundColor: "var(--surface-card)",
-              border: "1px solid var(--border-subtle)",
+              backgroundColor: "var(--surface-raised)",
+              border: "1px solid var(--hairline)",
               borderRadius: "0.75rem",
               padding: "1rem",
             }}

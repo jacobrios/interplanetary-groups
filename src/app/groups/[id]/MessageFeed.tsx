@@ -7,7 +7,7 @@
 // or an optimistically-extended version.
 //
 // Chat voice system per build-notes §7:
-// - Orbit: lime avatar (no name label), --surface-orbit fill.
+// - Orbit: lime avatar (no name label), --surface-raised fill.
 // - Other member: name label (no avatar), outlined low-fill bubble.
 // - Viewer (self): right-aligned, --surface-self (strongest neutral, not teal,
 //   not lime).
@@ -100,7 +100,7 @@ export default function MessageFeed({
           style={{
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
-            color: "var(--text-placeholder)",
+            color: "var(--placeholder)",
             textAlign: "center",
           }}
         >
@@ -221,8 +221,8 @@ export default function MessageFeed({
                 </p>
                 <div
                   style={{
-                    backgroundColor: "var(--surface-bubble-member)",
-                    border: "1px solid var(--border-subtle)",
+                    backgroundColor: "var(--surface-base)",
+                    border: "1px solid var(--hairline)",
                     borderRadius: "4px 16px 16px 16px",
                     padding: "0.5rem 0.75rem",
                   }}
@@ -247,7 +247,7 @@ export default function MessageFeed({
                 <div
                   style={{
                     backgroundColor: "var(--surface-self)",
-                    border: "1px solid var(--border-subtle)",
+                    border: "1px solid var(--hairline)",
                     borderRadius: "16px 4px 16px 16px",
                     padding: "0.5rem 0.75rem",
                   }}

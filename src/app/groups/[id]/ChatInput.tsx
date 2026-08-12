@@ -6,8 +6,8 @@
 // which passes down the value, the change handler, and the form action.
 //
 // Send arrow color per build-notes §7:
-// - Dim/inactive (--text-placeholder) when the input is empty.
-// - Teal (--color-teal) once the viewer has typed.
+// - Dim/inactive (--placeholder) when the input is empty.
+// - Teal (--action) once the viewer has typed.
 // This contextual teal coexists with the card's persistent "I'm in" teal
 // because a contextual action (only live while composing) is not a second
 // persistent primary — it does not violate one-primary-action-per-screen.
@@ -37,8 +37,8 @@ export default function ChatInput({
   return (
     <div
       style={{
-        borderTop: "1px solid var(--border-subtle)",
-        backgroundColor: "var(--surface-page)",
+        borderTop: "1px solid var(--hairline)",
+        backgroundColor: "var(--surface-base)",
         padding: "0.75rem 1rem",
         flexShrink: 0,
       }}
@@ -80,13 +80,13 @@ export default function ChatInput({
           style={{
             flex: 1,
             padding: "0.5rem 0.75rem",
-            backgroundColor: "var(--surface-input)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "1.5rem",
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
             outline: "none",
-            caretColor: "var(--color-teal)",
+            caretColor: "var(--action)",
           }}
         />
 
@@ -108,7 +108,7 @@ export default function ChatInput({
             flexShrink: 0,
             alignSelf: "center",
             transition: "color 0.15s ease",
-            color: hasText ? "var(--color-teal)" : "var(--text-placeholder)",
+            color: hasText ? "var(--action)" : "var(--placeholder)",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">

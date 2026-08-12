@@ -43,14 +43,13 @@ export default async function HomePage() {
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem 1.5rem",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -97,7 +96,7 @@ export default async function HomePage() {
             display: "block",
             width: "100%",
             padding: "0.75rem 1.5rem",
-            backgroundColor: "var(--color-teal)",
+            backgroundColor: "var(--action)",
             color: "#0a0a0a",
             fontSize: "var(--type-body)",
             fontWeight: 600,

@@ -94,7 +94,7 @@ export default function EventCarousel({ events, groupId, timeZone, viewerHasSess
                 width: 5,
                 height: 5,
                 borderRadius: "50%",
-                backgroundColor: "var(--text-placeholder)",
+                backgroundColor: "var(--placeholder)",
                 opacity: 0.5,
               }}
             />

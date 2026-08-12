@@ -19,14 +19,13 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem 1.5rem",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -86,8 +85,8 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
                 style={{
                   width: "100%",
                   padding: "0.625rem 0.75rem",
-                  backgroundColor: "var(--surface-input)",
-                  border: "1px solid var(--border-subtle)",
+                  backgroundColor: "var(--surface-raised)",
+                  border: "1px solid var(--hairline)",
                   borderRadius: "0.5rem",
                   color: "var(--text-primary)",
                   fontSize: "var(--type-body)",
@@ -129,7 +128,7 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
             style={{
               width: "100%",
               padding: "0.75rem 1.5rem",
-              backgroundColor: isPending ? "var(--color-teal-hover)" : "var(--color-teal)",
+              backgroundColor: isPending ? "var(--action)" : "var(--action)",
               color: "#0a0a0a",
               fontSize: "var(--type-body)",
               fontWeight: 600,

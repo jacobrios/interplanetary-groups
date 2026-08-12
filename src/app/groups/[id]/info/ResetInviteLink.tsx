@@ -56,7 +56,7 @@ export default function ResetInviteLink({ groupId }: Props) {
   return (
     <div
       style={{
-        border: "1px solid var(--border-subtle)",
+        border: "1px solid var(--hairline)",
         borderRadius: "0.5rem",
         padding: "0.75rem",
         display: "flex",
@@ -100,7 +100,7 @@ export default function ResetInviteLink({ groupId }: Props) {
             backgroundColor: "transparent",
             color: "var(--text-primary)",
             fontSize: "var(--type-label)",
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.5rem",
             cursor: isPending ? "not-allowed" : "pointer",
           }}

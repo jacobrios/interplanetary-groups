@@ -4,7 +4,7 @@
 // surface that speaks in Orbit's voice (the feed, and now the pending-surface
 // panel) renders the same avatar + bubble. Styles are copied verbatim from
 // the feed (build-notes §7 chat voice system: lime avatar, no name label,
-// --surface-orbit fill); this component moves pixels, it does not change
+// --surface-raised fill); this component moves pixels, it does not change
 // them.
 //
 // Presentational only, no hooks, so it needs no "use client" directive and
@@ -21,7 +21,7 @@ export function OrbitBubble({ children }: { children: ReactNode }) {
           width: 28,
           height: 28,
           borderRadius: "50%",
-          backgroundColor: "var(--color-lime)",
+          backgroundColor: "var(--lime)",
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
@@ -35,7 +35,7 @@ export function OrbitBubble({ children }: { children: ReactNode }) {
       </div>
       <div
         style={{
-          backgroundColor: "var(--surface-orbit)",
+          backgroundColor: "var(--surface-raised)",
           borderRadius: "4px 16px 16px 16px",
           padding: "0.5rem 0.75rem",
           maxWidth: "80%",

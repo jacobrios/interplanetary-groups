@@ -24,7 +24,7 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
         style={{
           width: "100%",
           padding: "0.75rem 1.5rem",
-          backgroundColor: "var(--color-teal)",
+          backgroundColor: "var(--action)",
           color: "#0a0a0a",
           fontSize: "var(--type-body)",
           fontWeight: 600,
@@ -44,7 +44,7 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
           backgroundColor: "transparent",
           color: "var(--text-primary)",
           fontSize: "var(--type-body)",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--hairline)",
           borderRadius: "0.5rem",
           textAlign: "center",
           textDecoration: "none",

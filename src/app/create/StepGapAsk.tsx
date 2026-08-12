@@ -68,7 +68,7 @@ function OrbitAvatar() {
         width: 28,
         height: 28,
         borderRadius: "50%",
-        backgroundColor: "var(--color-lime)",
+        backgroundColor: "var(--lime)",
         flexShrink: 0,
         display: "flex",
         alignItems: "center",
@@ -110,7 +110,7 @@ export default function StepGapAsk({
         <OrbitAvatar />
         <div
           style={{
-            backgroundColor: "var(--surface-orbit)",
+            backgroundColor: "var(--surface-raised)",
             borderRadius: "4px 16px 16px 16px",
             padding: "0.75rem 1rem",
             flex: 1,
@@ -141,7 +141,7 @@ export default function StepGapAsk({
           {/* The gapped row: known part plus the lime-underlined marker Orbit
               is pointing at. Lime here is the gap-prompt cue, not an action. */}
           <div style={{ marginBottom: gap.rhythms.length > 1 ? "0.5rem" : 0 }}>
-            <p style={{ ...rowLabelStyle, color: "var(--color-lime)" }}>{gapRow.label}</p>
+            <p style={{ ...rowLabelStyle, color: "var(--lime)" }}>{gapRow.label}</p>
             <p style={rowValueStyle}>
               {gapRow.known !== null && <>{gapRow.known} </>}
               <span
@@ -151,7 +151,7 @@ export default function StepGapAsk({
                   gap: "0.25rem",
                   fontStyle: "italic",
                   color: "var(--text-secondary)",
-                  borderBottom: "2px solid var(--color-lime)",
+                  borderBottom: "2px solid var(--lime)",
                   padding: "0 3px 1px",
                 }}
               >
@@ -197,7 +197,7 @@ export default function StepGapAsk({
         <OrbitAvatar />
         <div
           style={{
-            backgroundColor: "var(--surface-orbit)",
+            backgroundColor: "var(--surface-raised)",
             borderRadius: "4px 16px 16px 16px",
             padding: "0.75rem 1rem",
           }}
@@ -249,13 +249,13 @@ export default function StepGapAsk({
           style={{
             flex: 1,
             padding: "0.5rem 0.75rem",
-            backgroundColor: "var(--surface-input)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "1.5rem",
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
             outline: "none",
-            caretColor: "var(--color-teal)",
+            caretColor: "var(--action)",
           }}
         />
 
@@ -277,7 +277,7 @@ export default function StepGapAsk({
             flexShrink: 0,
             alignSelf: "center",
             transition: "color 0.15s ease",
-            color: hasText ? "var(--color-teal)" : "var(--text-placeholder)",
+            color: hasText ? "var(--action)" : "var(--placeholder)",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -303,7 +303,7 @@ export default function StepGapAsk({
               textAlign: "center",
               fontSize: "var(--type-eyebrow)",
               lineHeight: "var(--leading-normal)",
-              color: "var(--text-placeholder)",
+              color: "var(--placeholder)",
               margin: "0.375rem 0 0",
             }}
           >

@@ -7,10 +7,10 @@
 // standing yeses. Built from docs/design/pending-surface-handoff/ (README
 // sections 01-03, pending-surface.css as the measurement source of truth).
 //
-// Token mapping fixed by the brief: --surface-base -> var(--surface-page),
-// --hairline -> var(--border-subtle), --text-faint/--placeholder ->
-// var(--text-placeholder). No teal, no lime in this region (OrbitBubble
-// brings its own lime avatar, which is Orbit's mark, not an action).
+// Styled directly against the design system's own token names (no more
+// ad-hoc mapping to old app-local names, retired in the visual-polish sweep).
+// No teal, no lime in this region (OrbitBubble brings its own lime avatar,
+// which is Orbit's mark, not an action).
 //
 // Quiet by design: no entrance animation, no attention badge. The 180ms fade
 // the handoff mentions as a nice-to-have is skipped rather than reaching for
@@ -57,7 +57,7 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path
         d="M4.5 6.75L9 11.25L13.5 6.75"
-        stroke="var(--text-placeholder)"
+        stroke="var(--placeholder)"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -71,7 +71,7 @@ function ArrowIcon() {
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true" style={{ alignSelf: "center" }}>
       <path
         d="M2.5 7.5H12.5M12.5 7.5L8.5 3.5M12.5 7.5L8.5 11.5"
-        stroke="var(--text-placeholder)"
+        stroke="var(--placeholder)"
         strokeWidth="2.1"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -101,7 +101,7 @@ const eyebrowStyle: React.CSSProperties = {
   fontSize: "var(--type-eyebrow)",
   letterSpacing: ".14em",
   textTransform: "uppercase",
-  color: "var(--text-placeholder)",
+  color: "var(--placeholder)",
   fontWeight: 700,
   lineHeight: 1.35,
 }
@@ -115,7 +115,7 @@ function WaitingRow({
   onAnswered: (item: PendingItem, answer: string) => void
 }) {
   return (
-    <div style={{ padding: "10px 18px 11px", borderTop: "1px solid var(--border-subtle)" }}>
+    <div style={{ padding: "10px 18px 11px", borderTop: "1px solid var(--hairline)" }}>
       <div style={eyebrowStyle}>{item.kindLine}</div>
       <div
         style={{
@@ -156,12 +156,12 @@ function WaitingRow({
             fontSize: "var(--type-meta)",
           }}
         >
-          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-placeholder)" }}>
+          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--placeholder)" }}>
             NOW
           </span>
-          <span style={{ color: "var(--text-placeholder)", textDecoration: "line-through" }}>{item.nowLabel}</span>
+          <span style={{ color: "var(--placeholder)", textDecoration: "line-through" }}>{item.nowLabel}</span>
           <ArrowIcon />
-          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-placeholder)" }}>
+          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--placeholder)" }}>
             NEW
           </span>
           <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{item.newLabel}</span>
@@ -201,7 +201,7 @@ function StandingYesRow({
   onToggle: () => void
 }) {
   return (
-    <div style={{ padding: "8px 18px 10px", borderTop: "1px solid var(--border-subtle)" }}>
+    <div style={{ padding: "8px 18px 10px", borderTop: "1px solid var(--hairline)" }}>
       <div
         style={{
           fontSize: "var(--type-meta)",
@@ -215,7 +215,7 @@ function StandingYesRow({
       <div
         style={{
           fontSize: "var(--type-label)",
-          color: "var(--text-placeholder)",
+          color: "var(--placeholder)",
         }}
       >
         {item.kind === "gauge" ? item.whenLine : item.newLabel}
@@ -245,7 +245,7 @@ function StandingYesRow({
             color: "var(--text-secondary)",
             textDecoration: "underline",
             textUnderlineOffset: "3px",
-            textDecorationColor: "var(--border-subtle)",
+            textDecorationColor: "var(--hairline)",
             cursor: "pointer",
             background: "none",
             border: "none",
@@ -347,11 +347,11 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
           width: "calc(100% - 2rem)",
           margin: "0 1rem",
           padding: "11px 2px",
-          borderTop: "1px solid var(--border-subtle)",
-          borderBottom: "1px solid var(--border-subtle)",
+          borderTop: "1px solid var(--hairline)",
+          borderBottom: "1px solid var(--hairline)",
           borderLeft: "none",
           borderRight: "none",
-          background: "var(--surface-page)",
+          background: "var(--surface-base)",
           cursor: "pointer",
           textAlign: "left",
           fontFamily: "inherit",
@@ -421,9 +421,9 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
               left: 0,
               right: 0,
               zIndex: 30,
-              background: "var(--surface-page)",
+              background: "var(--surface-base)",
               borderRadius: "0 0 16px 16px",
-              borderBottom: "1px solid var(--border-subtle)",
+              borderBottom: "1px solid var(--hairline)",
               boxShadow: "0 22px 46px -14px rgba(0,0,0,.78)",
               maxHeight: "calc(100dvh - 240px)",
               overflowY: "auto",
@@ -456,7 +456,7 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
                   style={{
                     ...eyebrowStyle,
                     padding: "10px 18px 0",
-                    borderTop: "1px solid var(--border-subtle)",
+                    borderTop: "1px solid var(--hairline)",
                   }}
                 >
                   You&apos;re in on

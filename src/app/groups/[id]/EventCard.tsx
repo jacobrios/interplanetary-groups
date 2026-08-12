@@ -61,8 +61,8 @@ export default function EventCard({
   return (
     <div
       style={{
-        backgroundColor: "var(--surface-card)",
-        border: "1px solid var(--border-subtle)",
+        backgroundColor: "var(--surface-raised)",
+        border: "1px solid var(--hairline)",
         borderRadius: "0.75rem",
         overflow: "hidden",
         flexShrink: 0,
@@ -109,7 +109,7 @@ export default function EventCard({
       {viewerHasSession && (
         <div
           style={{
-            borderTop: "1px solid var(--border-subtle)",
+            borderTop: "1px solid var(--hairline)",
             padding: "0.75rem 1rem",
           }}
         >

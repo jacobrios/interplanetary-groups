@@ -75,11 +75,10 @@ export default async function GroupInfoPage({ params }: Props) {
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       <PageHeader>
@@ -115,7 +114,7 @@ export default async function GroupInfoPage({ params }: Props) {
               width: "4.5rem",
               height: "4.5rem",
               borderRadius: "50%",
-              backgroundColor: "var(--color-lime)",
+              backgroundColor: "var(--lime)",
               color: "#0a0a0a",
               display: "flex",
               alignItems: "center",
@@ -161,9 +160,9 @@ export default async function GroupInfoPage({ params }: Props) {
                 display: "flex",
                 alignItems: "center",
                 gap: "0.625rem",
-                border: "1px solid var(--border-subtle)",
+                border: "1px solid var(--hairline)",
                 borderRadius: "0.625rem",
-                backgroundColor: "var(--surface-input)",
+                backgroundColor: "var(--surface-raised)",
                 padding: "0.75rem",
               }}
             >
@@ -202,8 +201,8 @@ export default async function GroupInfoPage({ params }: Props) {
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}
         <div
           style={{
-            backgroundColor: "var(--surface-card)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.75rem",
             padding: "1.25rem",
             display: "flex",
@@ -223,7 +222,7 @@ export default async function GroupInfoPage({ params }: Props) {
                 {orderedMembers.map((m, i) => (
                   <span key={m.id}>
                     {i > 0 && (
-                      <span style={{ color: "var(--text-placeholder)" }}>{" · "}</span>
+                      <span style={{ color: "var(--placeholder)" }}>{" · "}</span>
                     )}
                     {m.name}
                   </span>

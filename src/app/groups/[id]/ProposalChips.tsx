@@ -84,10 +84,10 @@ export default function ProposalChips({ proposal }: Props) {
               value={answer}
               disabled={isPending}
               style={{
-                border: "1.7px solid var(--border-subtle)",
+                border: "1.7px solid var(--hairline)",
                 backgroundColor: selected
                   ? "var(--surface-self)"
-                  : "var(--surface-input)",
+                  : "var(--surface-raised)",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",

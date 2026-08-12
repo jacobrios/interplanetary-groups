@@ -46,7 +46,7 @@ export function WizardHeader({ step, onBack }: Props) {
           width: 36,
           height: 36,
           borderRadius: "50%",
-          backgroundColor: "var(--color-lime)",
+          backgroundColor: "var(--lime)",
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
