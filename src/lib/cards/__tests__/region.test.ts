@@ -32,6 +32,12 @@ describe("composeCardRegion", () => {
   it("returns empty for no input (the empty-state branch)", () => {
     expect(composeCardRegion([], [])).toEqual([])
   })
+
+  it("composes from ideas alone when there are no confirmed events yet", () => {
+    const out = composeCardRegion([], [idea("fri", 100), idea("sat", 200)])
+    expect(out.map((e) => e.kind)).toEqual(["idea", "idea"])
+    expect(out.map((e) => (e.kind === "idea" ? e.item : null))).toEqual(["fri", "sat"])
+  })
 })
 
 describe("eventNeedLabel (the dense-face ladder, spec decision 6)", () => {

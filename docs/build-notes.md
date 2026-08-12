@@ -2596,3 +2596,33 @@ at a 480px-wide layout, not a real device width.
   large deletions in this slice's diff are intended.
 - *Inherited and unchanged:* Orbit's open day-question still has no surface
   outside chat, and a wrong venue still has no fix path anywhere.
+
+**Postscript (12 Aug 2026, pre-merge review fix wave): the verification
+section overclaimed two of its test items, corrected here rather than in
+place.** The spec's verification section (item 3) listed "promotion moving
+an item from pending to confirmed" and "both empty-state branches" as pure-
+function tests this slice would add. Neither exists, and the independent
+whole-branch review caught it before merge. What is actually true, plainly:
+
+- *Promotion.* There is no unit test for a pending idea moving to a confirmed
+  event, because there is no pure function that makes that move. Promotion
+  happens by database write elsewhere (the gauge's event gets created), and
+  the card region simply stops being told about a promoted idea: the query
+  behind it already excludes any gauge that has produced its event. There was
+  nothing at the pure-function layer to pin. The behavior is real and was
+  seen working in the browser walkthrough above (the third yes converting the
+  idea card into a genuine event card, one Orbit announcement, nothing more),
+  so it is covered by that walkthrough and by nothing else.
+- *The empty-state branches.* One of the two was already covered before this
+  postscript: the composition helper returning nothing when there are no
+  events and no ideas at all. The fix wave added a second unit test next to
+  it, for the helper composing correctly from ideas alone when no event has
+  been confirmed yet, which pins real, checked behavior. What neither that
+  test nor the original walkthrough reaches is the group home page's own
+  choice of what to show in that moment (the quiet empty-state box versus the
+  card carousel): that branch lives in the server-rendered page, which this
+  repo cannot unit test, and every walkthrough pass to date staged at least
+  one confirmed event alongside the idea, so the ideas-only screen was never
+  actually looked at either. That specific view is covered by neither a test
+  nor a walkthrough and is carried forward as a genuine, named gap rather
+  than a passed check.
