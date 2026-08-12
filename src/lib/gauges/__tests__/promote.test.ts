@@ -246,6 +246,12 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
       },
     })
 
+    // Declared out here so the finally can always reach them: cleanup that
+    // lives in the try only runs when the assertions pass, which is exactly
+    // when cleanup matters least. Two failing runs during the share-readiness
+    // slice left four orphaned users behind in dev-test that way.
+    const extras: { id: string }[] = []
+
     try {
       const msg = await prisma.message.create({
         data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: user.id, body: "beers?" },
@@ -262,12 +268,14 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
 
       // Three yeses from one fixture user is impossible, so vote rows are
       // written directly with distinct ids.
-      const extras = await Promise.all(
-        [1, 2].map((n) =>
-          prisma.user.create({
-            data: { name: `[TEST] Venue Extra ${n}`, supabaseAuthId: `test-venue-extra-${n}-${Date.now()}` },
-          })
-        )
+      extras.push(
+        ...(await Promise.all(
+          [1, 2].map((n) =>
+            prisma.user.create({
+              data: { name: `[TEST] Venue Extra ${n}`, supabaseAuthId: `test-venue-extra-${n}-${Date.now()}` },
+            })
+          )
+        ))
       )
       await prisma.membership.createMany({
         data: extras.map((u) => ({ groupId: group.id, userId: u.id })),
@@ -287,12 +295,13 @@ describe("promoteGaugeToEvent, venue inheritance", () => {
       expect(event!.venues[0]?.name).toBe("Lucky Lab")
 
       await prisma.event.deleteMany({ where: { groupId: group.id } })
-      for (const u of extras) await prisma.user.delete({ where: { id: u.id } }).catch(() => {})
     } finally {
+      await prisma.event.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.message.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.membership.deleteMany({ where: { groupId: group.id } }).catch(() => {})
       await prisma.group.delete({ where: { id: group.id } }).catch(() => {})
       await prisma.user.delete({ where: { id: user.id } }).catch(() => {})
+      for (const u of extras) await prisma.user.delete({ where: { id: u.id } }).catch(() => {})
     }
   })
 
