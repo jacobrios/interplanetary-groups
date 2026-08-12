@@ -568,7 +568,7 @@ Items below are deliberate deferrals, not bugs. Each is recorded here so it is n
 
 - **The polish pass tests mobile Safari on a real phone over the local network, not in a simulator (recorded 28 July 2026, from the change-request verification round).** Every "feel it on a real phone" item in this register (the chip wrap above, enlarged-text behavior, the dark theme) gets checked by opening the running dev server from a phone on the same Wi-Fi, at the Mac's local address on port 3000. Recorded so nobody re-reaches for an iOS simulator when the pass opens: this machine has no Xcode, a simulator install would cost roughly 40 GB against 35 GB free, and for a web product a real device running real mobile Safari is stricter evidence than the simulator that imitates it.
 
-- **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made.
+- **The pending strip blends into its neighbors (owner note, 10 August 2026, from pending-surface QA).** On first open the strip read to the owner as part of the event details card above it rather than as its own element; it sits flat between the raised card and the chat with only hairline rules separating it, per the handoff's stay-junior treatment, and that quietness overshot into invisibility as a distinct thing. Polish-pass candidates: a slightly different surface tone, or some other treatment that separates it from both neighbors without promoting it above the card. The constraint that survives any fix: the card stays the only raised, bordered, shadowed object with the screen's only teal. Related and larger, recorded in §11's pending-surface postscript: the owner may revisit the strip's placement entirely after seeing the polish pass, in favor of pending items as cards in the top carousel; do not spend polish effort making the strip precious before that call is made. *Ruled 11 Aug 2026 (strip-placement decision record, in specs): the strip stays in place, dressed with separation geometry plus a 7% teal wash; the "screen's only teal" constraint in this item was knowingly bent by the owner who wrote it, and the carousel option is deferred post-MVP with its revisit trigger recorded. See the §11 visual-polish slice-one postscript.*
 
 - **The add-to-calendar pill has no leading calendar glyph (recorded 11 August 2026, from the .ics-slice review).** The design source's `.ed-cal` rules in `docs/design/walkthrough-screens` (and screen 09) draw a small calendar icon left of the "Add to calendar" label inside the teal pill, with 9px of gap between icon and text; what shipped is label-only. Polish-pass candidate: add the 16px glyph and the gap, matching `.ed-cal`.
 
@@ -2090,3 +2090,40 @@ of that downtime" is now satisfied.
   toward a promotion and gets an RSVP. Surfaced by review, recommendation
   queue rather than fix: the window is milliseconds, the product is a casual
   group coordinator, and removal already self-heals everywhere else.
+
+### Visual-polish slice one: the strip-placement call and the design rounds (11 Aug 2026)
+
+Postscript recording decisions settled outside the repo while the
+share-readiness slice held the checkout. The full decision record rides this
+branch as `docs/superpowers/specs/2026-08-11-strip-placement-call-decision.md`;
+this entry is the §11 lineage pointer it names. Settled in a parallel
+brainstorm, then carried through two Claude Design rounds to an approved
+handoff the same day. All of it is owner-ruled and closed; do not relitigate.
+
+The calls, in short: the pending strip stays where it is (the QA complaint was
+visibility, not placement; the carousel option is deferred post-MVP with its
+revisit trigger recorded, not deleted). The chosen treatment is separation
+geometry per handoff item 03 plus a 7% translucent wash of the action teal
+(`tint-a`, `rgba(24,188,203,.07)`; the stronger 13% `tint-b` was drawn,
+compared by eye, and not chosen). That wash knowingly bends the pending-surface
+QA note's "the card holds the screen's only teal" constraint, by the owner who
+wrote it; CLAUDE.md's teal rule carries the matching dated note, and the
+feel-pass register item carries a dated annotation. The front door keeps its
+shipped copy in the item-01 layout plus the handoff's invite note (deliberately
+not a button; the round-one claims list and second lede were cut). The carousel
+chrome is approved as drawn (active dot as a wider brighter pill, hue-free;
+22px undimmed peek; three-card cap; a single card stays bare). The finish layer
+is declined for MVP, with two salvaged functional fixes: tabular numerals on
+all tallies and the grounded-composer scrim; animations stay out entirely.
+`docs/design/design-polish-rd-2` is the sole build source (`finish-layer.css`
+never loads; load order per its README); `design-polish-rd-1` stays as lineage
+of the declined pilot and is not a build input. The open question of whether
+the dead-end screens and group-info founder states should join the design round
+resolved itself by events: the round completed without them, and they get
+tidied with existing tokens in this pass, no design round.
+
+Two record inconsistencies carried from the screen-inventory sweep, named so
+they are not rediscovered: the joining-arc-era note near the `.ed-cal`
+feel-pass items attributes those CSS rules to the PNG reference folder, but
+they live in the handoff bundles' walkthrough.css; and the wizard's OrbitPause
+loading state was never drawn by anyone, which nobody has ruled on yet.
