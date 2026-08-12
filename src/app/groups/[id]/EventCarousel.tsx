@@ -1,11 +1,10 @@
 // src/app/groups/[id]/EventCarousel.tsx
 //
-// The pinned card region when a group has more than one upcoming event, which
-// is exactly the condition the group-home slice deferred this for: a sparked
-// event sitting beside the standing one.
-//
-// One card renders bare, with no carousel chrome at all: dots under a single
-// card would be furniture implying something that is not there.
+// The pinned card region: a single, date-ordered list mingling confirmed
+// events and ideas still being gauged (card-state-grammar slice, spec
+// decision 5). One card renders bare, with no carousel chrome at all: dots
+// under a single card would be furniture implying something that is not
+// there.
 //
 // Scroll-snap rather than a JS carousel: the browser already does this well,
 // it degrades to a plain scroll everywhere, and it keeps the region free of
@@ -19,7 +18,10 @@
 // server-rendered content).
 
 import EventCard from "./EventCard"
+import IdeaCard from "./IdeaCard"
 import { CarouselRail } from "./CarouselRail"
+import type { RegionEntry } from "@/lib/cards/region"
+import type { IdeaItem, ProposalBandData } from "@/lib/pending/derive"
 import { RsvpStatus } from "@prisma/client"
 
 export interface EventCardData {
@@ -37,20 +39,21 @@ export interface EventCardData {
 }
 
 interface Props {
-  events: EventCardData[]
+  entries: RegionEntry<EventCardData, IdeaItem>[]
   groupId: string
   timeZone: string
   viewerHasSession: boolean
+  proposals: Map<string, ProposalBandData>
 }
 
-export default function EventCarousel({ events, groupId, timeZone, viewerHasSession }: Props) {
-  const single = events.length === 1
+export default function EventCarousel({ entries, groupId, timeZone, viewerHasSession, proposals }: Props) {
+  const single = entries.length === 1
 
   return (
-    <CarouselRail cardCount={events.length}>
-      {events.map((data) => (
+    <CarouselRail cardCount={entries.length}>
+      {entries.map((entry) => (
         <div
-          key={data.event.id}
+          key={entry.kind === "event" ? entry.data.event.id : entry.item.key}
           style={{
             // A peek of the next card is what tells people to swipe. One
             // card takes the full width, because there is nothing to peek at.
@@ -59,16 +62,21 @@ export default function EventCarousel({ events, groupId, timeZone, viewerHasSess
             scrollSnapAlign: "start",
           }}
         >
-          <EventCard
-            event={data.event}
-            groupId={groupId}
-            timeZone={timeZone}
-            inCount={data.inCount}
-            outCount={data.outCount}
-            pendingCount={data.pendingCount}
-            viewerStatus={data.viewerStatus}
-            viewerHasSession={viewerHasSession}
-          />
+          {entry.kind === "event" ? (
+            <EventCard
+              event={entry.data.event}
+              groupId={groupId}
+              timeZone={timeZone}
+              inCount={entry.data.inCount}
+              outCount={entry.data.outCount}
+              pendingCount={entry.data.pendingCount}
+              viewerStatus={entry.data.viewerStatus}
+              viewerHasSession={viewerHasSession}
+              proposal={proposals.get(entry.data.event.id) ?? null}
+            />
+          ) : (
+            <IdeaCard item={entry.item} />
+          )}
         </div>
       ))}
     </CarouselRail>
