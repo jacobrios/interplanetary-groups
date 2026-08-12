@@ -58,8 +58,8 @@ describe("RsvpControls", () => {
   })
 
   it("disables both options while a write is in flight", async () => {
-    let release: (v: unknown) => void = () => {}
-    rsvpMock.mockImplementationOnce(() => new Promise((r) => { release = r }))
+    let release: (v: {}) => void = () => {}
+    rsvpMock.mockImplementationOnce(() => new Promise<{}>((r) => { release = r }))
     render(<RsvpControls eventId="e1" currentStatus={null} compact />)
     fireEvent.click(screen.getByRole("button", { name: "I'm in" }))
     await waitFor(() =>
