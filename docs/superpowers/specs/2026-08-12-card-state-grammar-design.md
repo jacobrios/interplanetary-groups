@@ -14,8 +14,12 @@ once with the brainstorm rulings (the teal grammar, chronological order with a c
 the label system), and revised again after the Claude Design round returned: the handoff lives
 at `docs/design/design_handoff_round5/`, the describe-back ran, and the owner ruled on every
 difference it surfaced (all recorded below, with the deliberate departures from the boards
-listed in decision 13). The remaining gates, in order: the implementation plan, the owner's
-go, and the merge. Nothing is built yet.
+listed in decision 13). A fourth revision followed the round-6 alternatives round
+(`docs/design/design_handoff_round6/`, pulled through the design-project read path): the
+dense face is settled as decision 8 now records, with variant A take 1 plus the board-06
+mixed-height rule and the owner's objective-copy ruling. The remaining gates, in order: the
+implementation plan (revised to match round 6), the owner's go, and the merge. Nothing is
+built yet.
 
 ---
 
@@ -100,8 +104,8 @@ in the action teal; the one naming other people's move stays grey (decision 2):
 - Confirmed card with an open time-change proposal, the ladder (from the design round's
   boards, extended with the owner's copy): **NEEDS YOUR RSVP** (teal) until the viewer RSVPs,
   then **NEEDS YOUR VOTE** (teal) until they answer the proposal, then **NEEDS OTHER VOTES**
-  (grey) until the vote resolves and the band leaves. The label always names the card's
-  highest outstanding need, yours before anyone else's.
+  (grey) until the vote resolves. The label always names the card's highest outstanding
+  need, yours before anyone else's.
 
 The confirmed-versus-pending distinction rides on the wording (RSVP versus vote), the chrome
 brightness, and the tally style, never on hue alone. Labels are a carousel device only; the
@@ -126,35 +130,58 @@ green as the only signal; **no teal wash on any card** (a washed pending card wo
 maybe above a real plan, inverting the hierarchy the wash was retired with). Layout grows with
 content and never clips.
 
-### 8. A time-change proposal is a band on its event's own card, not a second card
+### 8. An open time-change vote: a one-line notice on the card, the vote on the detail screen
 
-The strip carried proposals as their own rows; in the carousel, the affected event already has
-a card, and two cards for one plan would corrupt the at-a-glance read worse than any label
-could repair. The proposal renders as a band on the confirmed event's card, per the round-5
-boards: recessed one step under the raised card (`--surface-base` behind a hairline top), a
-"TIME CHANGE" kind label, Orbit's question, the two shipped proposal chips, and that vote's
-own tally. The card stays a confirmed card (the plan is real; only its time is in question)
-and grows to hold the band. The label ladder for this dense face is in decision 6.
-Alternative considered and declined, and still declined: a separate "time change proposed"
-card, rejected for the duplicate-plan confusion (it also would not help, since the region is
-as tall as its tallest card either way).
+**Settled 12 Aug 2026 after the round-6 alternatives round** (`design_handoff_round6/`),
+where the owner and the build agent independently picked the same variant (A take 1) before
+comparing notes. Lineage: the round-5 full band was rejected for the tallest-card tax
+(every card region renders at its tallest card's height, so the band left blank space under
+every shorter card and a shorter chat window); round 6 drew three replacements.
 
-**REOPENED 12 Aug 2026, same day, before any code.** The height cost was first accepted
-knowingly; when the mechanics were replayed precisely (the region renders at its tallest
-card's height, so every shorter card sits above blank space while a vote is open, and the
-chat window loads shorter), the owner rejected that consequence, specifically the blank
-space under cards that do not need it. A second Claude Design round decides the treatment
-(prompt: `2026-08-12-dense-face-alternatives-design-prompt.md` beside this file), drawing
-three variants: a compact notice on the card with the full vote moving to the event detail
-screen (a knowing bend of the answer-in-place principle, one extra tap); a trimmed band
-(question and chips only, no kind label, no tally on the card); and one variant of the
-designer's own invention. Going in, the owner leans toward the compact notice; the other
-variants are drawn for completeness, so the round weights its attention accordingly. The round also answers the general mixed-height question, since an
-idea card is shorter than a confirmed card even with no vote open. The round-5 board 05 band
-anatomy stands only as the superseded baseline the variants are judged against. Decisions 6
-(the ladder), 9, and the rest of this spec are unaffected; the build is on hold at the
-owner's call until this settles, and the implementation plan's derive/band/carousel tasks
-get revised to match the outcome before execution.
+**On the card:** a recessed one-line footer (`.gh-propline`, ~40px): swap icon, "Time change
+proposed · **Move to 8pm?**", its own chevron. Structurally an attachment (full-bleed,
+recessed to `--surface-base`, hairline above), so it cannot read as metadata. Tapping it
+opens the event detail screen. The label ladder (decision 6) is unchanged and carries the
+teal signpost.
+
+**On the event detail screen:** a proposal section between the details card and Add to
+calendar, deliberately placed because it amends the time the calendar button would save:
+section label, Orbit's question, the two shipped chips, the names-voice tally. A vote there
+is the same server action and the same rows as a chip tap in chat.
+
+**The answer-in-place bend, taken knowingly:** from the card region the vote is one tap
+away, never zero. Chat still carries zero-tap chips, so nothing is lost from the primary
+surface. This is the named exception to the pending-surface answer-in-place decision.
+
+**The copy ruling, the owner's, with two independent reasons.** The boards' question copy
+("Sam can't do 7. Move Fri beers to 8pm?") is rejected twice over: the product does not
+store why someone asked, so the reason is an invented fact; and naming a person's constraint
+makes the ask personal, inviting the group to accommodate Sam rather than answer the time,
+which breeds rounds of people-pleasing instead of a clean vote. Ask surfaces stay objective
+and impersonal, composed deterministically from stored facts: the card notice's question is
+"Move to 8pm?", the detail question is "Move Friday beers to 8pm?", and the section label is
+"TIME CHANGE" (the board's "· FROM ORBIT" dropped as a provenance muddle; the ask came
+through Orbit from a member). Voter names still appear in tallies: votes are public actions,
+and transparency about votes is not pressure to accommodate a constraint. Chat's shipped ask
+("Sam wants beers Friday at 8pm instead of 7pm. Works for you?") is factual attribution,
+already shipped, and out of this slice's lane; softening it further is the owner's optional
+future call, recorded here and not done.
+
+**Board 06 adopted for the whole region, any card mix:** stretch the shell, anchor the ask.
+Every card's border runs the full region height, so slack lives inside a card's hairline as
+mid-card breathing room, never as dead background below it; card interiors are columns and
+each card's answer block anchors to a shared bottom baseline above the dots. Nothing is
+height-capped, nothing clips, and enlarged text simply raises the region. This also
+dissolves the general idea-card-versus-event-card height gap, the second half of the owner's
+complaint.
+
+**Declined, recorded:** variant B (the trimmed band: still the tallest-card tax, only
+discounted); variant C (one slot, one question: elegant, but a viewer who has not RSVP'd
+never meets the vote on the card, and it removes the answered RSVP pair from the card face,
+undoing shipped tap-to-change behavior and approved round-5 board 02; kept as a future
+direction if cards ever get busier); and, still, a separate proposal card (duplicate-plan
+confusion, and no height help anyway). Variant C's `--stroke` token reference is moot with C
+declined.
 
 ### 9. Viewer tailoring carries over, adapted to cards
 
@@ -270,20 +297,24 @@ numbers in the PR is read as correct rather than skipped.
    named in the PR: the unanswered card leaning on nothing, both borders equal; a "Can't make
    it" tap visibly moving the teal to the chosen answer; the label flipping from the teal
    "NEEDS YOUR VOTE" to the grey "NEEDS OTHER VOTES" on a chip yes, and disappearing on an
-   RSVP; the dense-face ladder walking all three rungs; a chip vote from a pending card
-   landing in chat's tally and vice versa (same action, same rows); a third yes from a card
-   chip creating the event, the card converting in place, chat announcing once; a decline
-   clearing the last pending card with nothing else firing; a proposal band on the event card
-   whose clearing vote moves the plan and resets RSVPs per the settled consensus rules; the
-   date order holding with confirmed and pending mingled.
+   RSVP; the ladder walking all three rungs on a card with an open vote; a chip vote from a
+   pending card landing in chat's tally and vice versa (same action, same rows); a third yes
+   from a card chip creating the event, the card converting in place, chat announcing once; a
+   decline clearing the last pending card with nothing else firing; the proposal notice line
+   on the event card opening the detail screen's proposal section, a vote there moving the
+   tally everywhere, and the clearing vote moving the plan and resetting RSVPs per the
+   settled consensus rules; the date order holding with confirmed and pending mingled; and
+   the board-06 rule holding: no dead background below any card, every card's shell at the
+   region's full height, the answer rows on a shared baseline.
 5. **Rendered-vs-design comparison** against the round-5 boards for every visual claim, per
    the no-claimed-match-without-comparison rule, with decision 13's five named departures
    treated as intended differences rather than misses.
 6. **Owner QA script**, proposed unprompted with the PR, ten minutes or less, run on a real
    phone, and it must include re-judging both originating complaints: "does the card still
    lean toward yes before you have answered?" and "do the maybes read clearly subordinate to
-   the real plans?", plus the two judgments only a human can make there: whether the dense
-   face's height feels workable in the flesh (decision 8), and whether the label copy reads
+   the real plans?", plus the three judgments only a human can make there: whether the
+   stretched region reads as calm rather than padded (board 06, decision 8), whether the
+   proposal notice line is discoverable enough on the card, and whether the label copy reads
    right at a glance.
 
 ---
@@ -294,11 +325,13 @@ numbers in the PR is read as correct rather than skipped.
   pending from the region entirely, and the strip's summary count is gone. Accepted at cap
   five; revisit triggers: a real group regularly holding more than five simultaneous items, or
   a next confirmed plan ever falling off behind five earlier maybes. Home: post-MVP.
-- **A proposal on an event outside the top five cards is invisible outside chat.** Same
+- **A proposal on an event whose card is outside the top five is not noticed from the card
+  region.** Softened from the earlier wording by round 6: the vote is now also on the event
+  detail screen, so chat and detail both carry it; only the region's notice is missed. Same
   acceptance, same trigger.
-- **Mixed-height cards leave dead space below shorter ones**, since the rail stretches to the
-  tallest card. Cosmetic; handed to the design round, and accepted if the round does not
-  solve it.
+- ~~**Mixed-height cards leave dead space below shorter ones.**~~ Resolved by design before
+  build: the board-06 stretch-and-anchor rule (decision 8) moves the slack inside every
+  card's border. Struck 12 Aug 2026, not deleted, per append-only rules.
 - **The written-off strip polish** (separation geometry, the wash) is knowingly discarded;
   already recorded in the 12 Aug postscript, restated here so the PR diff's deletions read as
   intended.

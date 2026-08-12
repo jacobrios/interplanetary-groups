@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The event card's RSVP pair becomes an honest ask-and-answer control, and the pending strip retires in favor of pending ideas as subordinate cards in the top carousel, with time-change proposals riding their event's own card as a band.
+**Goal:** The event card's RSVP pair becomes an honest ask-and-answer control, and the pending strip retires in favor of pending ideas as subordinate cards in the top carousel; an open time-change vote surfaces as a one-line notice on its event's card with the vote itself on the event detail screen, and the whole region adopts the round-6 stretch-and-anchor height rule (spec decision 8, settled after the round-6 alternatives round).
 
-**Architecture:** One shared choice-grammar module (`src/components/choice.tsx`) replaces four near-duplicate style blocks; a pure region module (`src/lib/cards/region.ts`) owns ordering, the cap of five, and the need-label ladder; `src/lib/pending/derive.ts` is trimmed to idea items plus a new proposal-band derivation. Presentation follows `docs/design/design_handoff_round5/` with the five owner-ruled departures listed in the spec's decision 13.
+**Architecture:** One shared choice-grammar module (`src/components/choice.tsx`) replaces four near-duplicate style blocks; a pure region module (`src/lib/cards/region.ts`) owns ordering, the cap of five, and the need-label ladder; `src/lib/pending/derive.ts` is trimmed to idea items plus a new proposal-band derivation. Presentation follows `docs/design/design_handoff_round5/` (boards 01-04, 06) and `docs/design/design_handoff_round6/` (variant A take 1, board 06 mixed heights), with the owner-ruled departures in the spec's decisions 8 and 13, notably the objective proposal copy composed from stored facts.
 
 **Tech Stack:** Next.js 16 App Router (server components + client islands), Prisma enums, Vitest with per-file jsdom + @testing-library/react.
 
@@ -918,9 +918,11 @@ git commit -m "Rebuild the three chip components on the shared choice grammar"
 - Produces:
   - `interface IdeaItem { key: string; title: string; whenLine: string; sortMs: number; chips: FeedGauge }`
   - `deriveIdeaItems(input: { liveGauges: LiveGauge[]; viewerId: string; memberIds: Set<string>; timeZone: string }): IdeaItem[]` (declined viewers' gauges dropped; all others returned, viewer's answer inside `chips.viewerAnswer`; sorted soonest first)
-  - `interface ProposalBandData { eventId: string; question: string; chips: FeedGroupProposal }`
+  - `interface ProposalBandData { eventId: string; question: string; notice: string; chips: FeedGroupProposal }` (`question` is the detail-screen sentence, `notice` the card line's short question)
   - `deriveProposalBands(input: { liveProposals: LiveProposal[]; viewerId: string; memberIds: Set<string>; memberCount: number; timeZone: string }): Map<string, ProposalBandData>` keyed by eventId; GROUP kind only; NOT viewer-filtered (a KEEP voter still sees the band on the plan's card, their chip selected; only the label logic cares who answered)
   - `proposalBandQuestion(eventTitle: string, proposedStartsAt: Date, timeZone: string): string` returning `` `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?` ``
+  - `proposalNoticeQuestion(proposedStartsAt: Date, timeZone: string): string` returning `` `Move to ${formatTime(proposedStartsAt, timeZone)}?` ``
+  - Both are the owner's objective-copy ruling (spec decision 8): composed from stored facts, no asker constraint, no invented reason.
 
 - [ ] **Step 1: Rewrite the tests first**
 
@@ -940,9 +942,10 @@ describe("deriveProposalBands", () => {
     expect(band).toBeDefined()
     expect(band!.chips.viewerAnswer).toBe("KEEP")
   })
-  it("composes the question from the event title and the proposed time", () => {
+  it("composes the objective question and notice from stored facts alone", () => {
     const band = deriveProposalBands({ liveProposals: [proposalFixture()], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ }).get(proposalFixture().event.id)
     expect(band!.question).toBe("Move Friday beers to 8pm?")
+    expect(band!.notice).toBe("Move to 8pm?")
   })
   it("ignores non-GROUP proposals", () => {
     const bands = deriveProposalBands({ liveProposals: [proposalFixture({ kind: "ASKER" })], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ })
@@ -963,15 +966,21 @@ Expected: FAIL on the new names.
 Add to `src/lib/orbit/change-copy.ts`, directly under `proposalChipLabels`:
 
 ```ts
-/** The proposal band's one-line question on the event card (spec decision 8).
- *  Plain voice, no em dashes, and deterministic: composed from stored rows at
- *  render, never stored itself. */
+/** The proposal questions on the card notice and the detail screen (spec
+ *  decision 8). Plain voice, no em dashes, deterministic, and deliberately
+ *  impersonal: composed from stored rows at render, never stored, and never
+ *  naming the asker's constraint (the owner's objective-copy ruling: the
+ *  group answers the time, not the person). */
 export function proposalBandQuestion(
   eventTitle: string,
   proposedStartsAt: Date,
   timeZone: string
 ): string {
   return `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?`
+}
+
+export function proposalNoticeQuestion(proposedStartsAt: Date, timeZone: string): string {
+  return `Move to ${formatTime(proposedStartsAt, timeZone)}?`
 }
 ```
 
@@ -1054,6 +1063,7 @@ export function deriveProposalBands(input: {
     bands.set(p.event.id, {
       eventId: p.event.id,
       question: proposalBandQuestion(p.event.title, p.proposedStartsAt, input.timeZone),
+      notice: proposalNoticeQuestion(p.proposedStartsAt, input.timeZone),
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
@@ -1087,21 +1097,25 @@ git commit -m "Derive idea items and proposal bands for the card region"
 
 ---
 
-### Task 7: IdeaCard, ProposalBand, and the EventCard integration
+### Task 7: IdeaCard, the proposal notice, the detail-screen vote, and the stretch rule
 
 **Files:**
 - Create: `src/app/groups/[id]/IdeaCard.tsx`
-- Create: `src/app/groups/[id]/ProposalBand.tsx`
+- Create: `src/app/events/[id]/ProposalSection.tsx`
 - Modify: `src/app/groups/[id]/EventCard.tsx`
+- Modify: `src/app/events/[id]/page.tsx` (fetch the event's open GROUP proposal, render the section between the details card and the Add to calendar button)
+- Modify: `src/app/actions/proposal-vote.ts` (also revalidate the event's detail path on success, since votes now happen there)
 - Test: `src/app/groups/[id]/__tests__/IdeaCard.test.tsx`
 - Test: `src/app/groups/[id]/__tests__/EventCard.test.tsx`
+- Test: `src/app/events/[id]/__tests__/ProposalSection.test.tsx`
 
 **Interfaces:**
 - Consumes: `IdeaItem`, `ProposalBandData` (Task 6), `ideaNeedLabel`, `eventNeedLabel` (Task 3), `NeedLabel`, `TallyLine`, chips with `rowMargin` (Task 5), `RsvpControls` (Task 4).
 - Produces:
   - `IdeaCard({ item }: { item: IdeaItem })` default export.
-  - `ProposalBand({ band }: { band: ProposalBandData })` default export.
-  - `EventCard` props gain `proposal?: ProposalBandData | null` (default null); everything else unchanged.
+  - `ProposalSection({ band }: { band: ProposalBandData })` default export (event-detail server component).
+  - `EventCard` props gain `proposal?: ProposalBandData | null` (default null); it renders the need-label ladder and, when a proposal exists, the footer notice line linking to `/events/[id]`; it never renders chips for the proposal.
+  - Both cards implement the board-06 stretch: card root `height: "100%"`, column flex; padded interior `flex: "1 1 auto"`, column flex; the answer block wrapped in a div with `marginTop: "auto"`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1161,6 +1175,14 @@ describe("IdeaCard", () => {
     expect(screen.getByText("Beers?")).toBeDefined()
     expect(screen.queryByText("Beers??")).toBeNull()
   })
+  it("stretches: column shell with the ask block bottom-anchored (board 06)", () => {
+    const { container } = render(<IdeaCard item={ITEM} />)
+    const root = container.firstElementChild as HTMLElement
+    expect(root.style.height).toBe("100%")
+    expect(root.style.flexDirection).toBe("column")
+    const ask = container.querySelector("[data-ask]") as HTMLElement
+    expect(ask.style.marginTop).toBe("auto")
+  })
 })
 ```
 
@@ -1174,7 +1196,6 @@ import EventCard from "../EventCard"
 import type { ProposalBandData } from "@/lib/pending/derive"
 
 vi.mock("@/app/actions/rsvp", () => ({ rsvpAction: vi.fn(async () => ({})) }))
-vi.mock("@/app/actions/proposal-vote", () => ({ proposalVoteAction: vi.fn(async () => ({})) }))
 
 afterEach(cleanup)
 
@@ -1189,6 +1210,7 @@ const EVENT = {
 const BAND: ProposalBandData = {
   eventId: "e1",
   question: "Move Friday beers to 8pm?",
+  notice: "Move to 8pm?",
   chips: {
     id: "p1",
     orbitMessageId: "m1",
@@ -1214,7 +1236,7 @@ function renderCard(overrides: Partial<Parameters<typeof EventCard>[0]> = {}) {
   )
 }
 
-describe("EventCard need label and band", () => {
+describe("EventCard need label and proposal notice", () => {
   it("unanswered, no proposal: NEEDS YOUR RSVP in teal", () => {
     renderCard()
     expect(screen.getByText("Needs your RSVP").style.color).toBe("var(--action)")
@@ -1231,78 +1253,71 @@ describe("EventCard need label and band", () => {
     renderCard({ viewerStatus: "IN", proposal: { ...BAND, chips: { ...BAND.chips, viewerAnswer: "KEEP" } } })
     expect(screen.getByText("Needs other votes").style.color).toBe("var(--text-secondary)")
   })
-  it("renders the band: kind label, question, chips, tally", () => {
+  it("renders the notice line as a link to the event, with the objective question", () => {
     renderCard({ proposal: BAND })
+    const line = screen.getByText("Move to 8pm?").closest("a") as HTMLAnchorElement
+    expect(line.getAttribute("href")).toBe("/events/e1")
+    expect(screen.getByText(/Time change proposed/)).toBeDefined()
+  })
+  it("never renders proposal chips on the card", () => {
+    renderCard({ proposal: BAND })
+    expect(screen.queryByRole("button", { name: "8pm works" })).toBeNull()
+  })
+  it("no notice renders when there is no open proposal", () => {
+    renderCard()
+    expect(screen.queryByText(/Time change proposed/)).toBeNull()
+  })
+})
+```
+
+`src/app/events/[id]/__tests__/ProposalSection.test.tsx`:
+
+```tsx
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { cleanup, render, screen } from "@testing-library/react"
+import ProposalSection from "../ProposalSection"
+import type { ProposalBandData } from "@/lib/pending/derive"
+
+vi.mock("@/app/actions/proposal-vote", () => ({ proposalVoteAction: vi.fn(async () => ({})) }))
+
+afterEach(cleanup)
+
+const BAND: ProposalBandData = {
+  eventId: "e1",
+  question: "Move Friday beers to 8pm?",
+  notice: "Move to 8pm?",
+  chips: {
+    id: "p1",
+    orbitMessageId: "m1",
+    labels: { yes: "8pm works", keep: "Keep 7pm" },
+    tallyLine: "Maya & Rowan want 8pm so far · one more makes it happen",
+    viewerAnswer: null,
+  },
+}
+
+describe("ProposalSection", () => {
+  it("renders the section label, the objective question, the shipped chips, and the tally", () => {
+    render(<ProposalSection band={BAND} />)
     expect(screen.getByText("Time change")).toBeDefined()
     expect(screen.getByText("Move Friday beers to 8pm?")).toBeDefined()
     expect(screen.getByRole("button", { name: "8pm works" })).toBeDefined()
     expect(screen.getByRole("button", { name: "Keep 7pm" })).toBeDefined()
-    expect(screen.getByText("Sam says yes")).toBeDefined()
+    expect(screen.getByText("Maya & Rowan want 8pm so far · one more makes it happen")).toBeDefined()
   })
-  it("no band renders when there is no open proposal", () => {
-    renderCard()
-    expect(screen.queryByText("Time change")).toBeNull()
+  it("marks the viewer's standing vote", () => {
+    render(<ProposalSection band={{ ...BAND, chips: { ...BAND.chips, viewerAnswer: "YES" } }} />)
+    expect(screen.getByRole("button", { name: "✓ 8pm works" })).toBeDefined()
   })
 })
 ```
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `npx vitest run "src/app/groups/[id]/__tests__/IdeaCard.test.tsx" "src/app/groups/[id]/__tests__/EventCard.test.tsx"`
-Expected: FAIL (IdeaCard missing; EventCard has no `proposal` prop or label).
+Run: `npx vitest run "src/app/groups/[id]/__tests__/IdeaCard.test.tsx" "src/app/groups/[id]/__tests__/EventCard.test.tsx" "src/app/events/[id]/__tests__/ProposalSection.test.tsx"`
+Expected: FAIL (missing components, missing props).
 
 - [ ] **Step 3: Implement**
-
-`src/app/groups/[id]/ProposalBand.tsx`:
-
-```tsx
-// src/app/groups/[id]/ProposalBand.tsx
-// An open time-change vote riding on its event's own card (spec decision 8):
-// one plan, one card, the question sitting on the object it is about.
-// Recessed a step under the raised card, per the round-5 handoff (06).
-import GroupProposalChips from "./GroupProposalChips"
-import type { ProposalBandData } from "@/lib/pending/derive"
-
-export default function ProposalBand({ band }: { band: ProposalBandData }) {
-  return (
-    <div
-      style={{
-        borderTop: "1px solid var(--hairline)",
-        backgroundColor: "var(--surface-base)",
-        padding: "11px 15px 13px",
-      }}
-    >
-      <p
-        style={{
-          fontSize: "var(--type-eyebrow)",
-          lineHeight: 1.35,
-          letterSpacing: ".14em",
-          textTransform: "uppercase",
-          fontWeight: 700,
-          color: "var(--text-faint)",
-        }}
-      >
-        Time change
-      </p>
-      <p
-        style={{
-          fontSize: "var(--type-meta)",
-          lineHeight: "var(--leading-normal)",
-          fontWeight: 600,
-          color: "var(--text-primary)",
-          marginTop: 4,
-          textWrap: "pretty",
-        }}
-      >
-        {band.question}
-      </p>
-      {/* Shipped chips and tally, flush left; the band's vote never borrows
-          the RSVP's teal. */}
-      <GroupProposalChips proposal={band.chips} indentPastAvatar={false} rowMargin="9px 0 0" />
-    </div>
-  )
-}
-```
 
 `src/app/groups/[id]/IdeaCard.tsx`:
 
@@ -1313,7 +1328,9 @@ export default function ProposalBand({ band }: { band: ProposalBandData }) {
 // --surface-base, a single hairline, no shadow, body-size title, no chevron
 // (there is no detail screen behind an idea). The title carries a question
 // mark, a maybe and not a plan; "Place TBD" is fixed copy, kept by the owner
-// because an empty spot where a place should be reads as a bug.
+// because an empty spot where a place should be reads as a bug. The shell
+// stretches to the region's height and the ask block anchors to the bottom
+// baseline (board 06, spec decision 8), so slack reads as mid-card air.
 import GaugeChips from "./GaugeChips"
 import { NeedLabel } from "@/components/NeedLabel"
 import { TallyLine } from "@/components/choice"
@@ -1330,9 +1347,19 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
         borderRadius: "14px",
         overflow: "hidden",
         flexShrink: 0,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <div style={{ padding: "14px 15px 13px" }}>
+      <div
+        style={{
+          padding: "14px 15px 13px",
+          flex: "1 1 auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <NeedLabel value={ideaNeedLabel(item.chips.viewerAnswer)} />
         <p
           style={{
@@ -1355,18 +1382,75 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
         >
           {item.whenLine} · Place TBD
         </p>
-        <GaugeChips gauge={item.chips} indentPastAvatar={false} rowMargin="11px 0 0" />
-        <TallyLine line={item.chips.tallyLine} marginTop={10} />
+        <div data-ask style={{ marginTop: "auto", paddingTop: "0.55em" }}>
+          <GaugeChips gauge={item.chips} indentPastAvatar={false} rowMargin="11px 0 0" />
+          <TallyLine line={item.chips.tallyLine} marginTop={10} />
+        </div>
       </div>
     </div>
   )
 }
 ```
 
+`src/app/events/[id]/ProposalSection.tsx`:
+
+```tsx
+// src/app/events/[id]/ProposalSection.tsx
+// The open time-change vote, on the plan it is about (spec decision 8,
+// round-6 variant A): placed by the caller between the details card and the
+// Add to calendar button, because it amends the time the calendar would
+// save. The question is deterministic and deliberately impersonal: the
+// group answers the time, never the asker's circumstances.
+import GroupProposalChips from "@/app/groups/[id]/GroupProposalChips"
+import type { ProposalBandData } from "@/lib/pending/derive"
+
+export default function ProposalSection({ band }: { band: ProposalBandData }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--surface-raised)",
+        border: "1px solid var(--hairline)",
+        borderRadius: "14px",
+        padding: "14px 15px 15px",
+      }}
+    >
+      <p
+        style={{
+          fontSize: "var(--type-eyebrow)",
+          lineHeight: 1.35,
+          letterSpacing: ".14em",
+          textTransform: "uppercase",
+          fontWeight: 700,
+          color: "var(--text-faint)",
+        }}
+      >
+        Time change
+      </p>
+      <p
+        style={{
+          fontSize: "var(--type-body)",
+          lineHeight: "var(--leading-normal)",
+          fontWeight: 600,
+          color: "var(--text-primary)",
+          marginTop: 7,
+          textWrap: "pretty",
+        }}
+      >
+        {band.question}
+      </p>
+      <GroupProposalChips proposal={band.chips} indentPastAvatar={false} rowMargin="10px 0 0" />
+    </div>
+  )
+}
+```
+
+(Match the section shell to the detail screen's existing card idiom when integrating: read the neighboring cards in `src/app/events/[id]/page.tsx` and reuse their exact shell styles if they differ from the above; the board's intent is "a shipped detail-screen card", not a new shell.)
+
 `src/app/groups/[id]/EventCard.tsx` changes:
-1. Imports: `RsvpControls` from `@/components/RsvpControls` (done in Task 4); add `import ProposalBand from "./ProposalBand"`, `import { NeedLabel } from "@/components/NeedLabel"`, `import { eventNeedLabel } from "@/lib/cards/region"`, `import type { ProposalBandData } from "@/lib/pending/derive"`.
+1. Add imports: `import { NeedLabel } from "@/components/NeedLabel"`, `import { eventNeedLabel } from "@/lib/cards/region"`, `import type { ProposalBandData } from "@/lib/pending/derive"`.
 2. Props: add `proposal?: ProposalBandData | null` (destructure with `proposal = null`).
-3. At the top of the padded div, before the `<Link>`, insert:
+3. Board-06 stretch on the shell: card root gains `height: "100%", display: "flex", flexDirection: "column"`; the padded div gains `flex: "1 1 auto", display: "flex", flexDirection: "column"`; wrap the RSVP block in `<div data-ask style={{ marginTop: "auto", paddingTop: "0.95em" }}>` (replacing its current `marginTop: "0.95em"` wrapper).
+4. At the top of the padded div, before the `<Link>`:
 
 ```tsx
 {viewerHasSession && (
@@ -1379,24 +1463,47 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
 )}
 ```
 
-4. After the padded div's closing tag, still inside the card root (whose `overflow: hidden` squares the band's edges against the card radius), insert:
+5. After the padded div's closing tag, still inside the card root (whose `overflow: hidden` squares the line against the card radius), the footer notice:
 
 ```tsx
-{viewerHasSession && proposal && <ProposalBand band={proposal} />}
+{viewerHasSession && proposal && (
+  <Link
+    href={`/events/${event.id}`}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 9,
+      borderTop: "1px solid var(--hairline)",
+      backgroundColor: "var(--surface-base)",
+      padding: "10px 15px",
+      textDecoration: "none",
+    }}
+  >
+    <svg viewBox="0 0 24 24" style={{ width: 15, height: 15, flexShrink: 0 }} fill="none" stroke="var(--text-secondary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14" /></svg>
+    <span style={{ flex: "1 1 auto", minWidth: 0, fontSize: "var(--type-label)", lineHeight: "var(--leading-normal)", fontWeight: 600, color: "var(--text-secondary)" }}>
+      Time change proposed · <b style={{ color: "var(--text-primary)", fontWeight: 700 }}>{proposal.notice}</b>
+    </span>
+    <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, flexShrink: 0 }} fill="none" stroke="var(--text-faint)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+  </Link>
+)}
 ```
 
-5. Update the file-header comment: the teal-primary/outlined-secondary description is superseded by the ask-and-answer grammar; point at spec decisions 1-3.
+6. Update the file-header comment: the teal-primary/outlined-secondary description is superseded by the ask-and-answer grammar and the notice line; point at spec decisions 1-3 and 8.
+
+`src/app/events/[id]/page.tsx` changes: fetch the event's open GROUP proposal (reuse the group-scoped live-proposals read the group home uses, filtered to this event id, with the page's existing membership context), build the band via `deriveProposalBands` keyed lookup, and render `<ProposalSection band={band} />` between the details card and the Add to calendar button when a band exists.
+
+`src/app/actions/proposal-vote.ts` change: on a successful vote, additionally `revalidatePath` the event's detail route (the proposal row carries its event id), so a vote cast on the detail screen re-renders in place. Keep the existing group-home revalidation.
 
 - [ ] **Step 4: Run the new tests, then the whole suite**
 
-Run: `npx vitest run "src/app/groups/[id]/__tests__"` then `npx vitest run`
+Run: `npx vitest run "src/app/groups/[id]/__tests__" "src/app/events/[id]/__tests__"` then `npx vitest run`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Add IdeaCard and the proposal band, wire the card's need label"
+git commit -m "Add IdeaCard, the proposal notice and detail vote, and the stretch rule"
 ```
 
 ---
@@ -1420,7 +1527,10 @@ git commit -m "Add IdeaCard and the proposal band, wire the card's need label"
 
 - [ ] **Step 1: Rewrite EventCarousel**
 
-Keep the server-component + CarouselRail split and the single-card bare rule; the map becomes:
+Keep the server-component + CarouselRail split and the single-card bare rule. The board-06
+stretch needs the wrapper divs to keep flex's default `align-items: stretch` (they already
+do) and the card roots' `height: 100%` from Task 7; nothing in the rail itself changes for
+it. The map becomes:
 
 ```tsx
 export default function EventCarousel({ entries, groupId, timeZone, viewerHasSession, proposals }: Props) {
@@ -1576,9 +1686,10 @@ Dev server via the browser preview (never Bash). Multi-session: three browser se
 4. Chip yes on the card: label flips grey "NEEDS OTHER VOTES", chat tally matches the card tally (same rows).
 5. Third yes from a card chip: event created, card converts in place, chat announces once.
 6. Decline clearing the viewer's last idea card: the card leaves, nothing else fires (no caught-up note anywhere).
-7. The dense face: band with "TIME CHANGE", question, shipped chip copy ("8pm works" / "Keep 7pm"), its own tally; the label ladder walking RSVP → vote → other votes as the viewer answers each.
-8. The proposal clearing the bar: plan moves, RSVPs reset, band leaves, card label returns to "NEEDS YOUR RSVP" for a reset viewer.
-Also: event detail page shows the same pair grammar with no label; the rendered screens compared side by side against `round5-design-reference.html` (served statically via the existing `design-static` launch config), with the spec's five named departures as the only differences.
+7. The proposal flow end to end: the notice line ("Time change proposed · Move to 8pm?") on the event's card, structurally an attachment, tapping through to the detail screen; the proposal section sitting between the details card and Add to calendar with the objective question, shipped chip copy ("8pm works" / "Keep 7pm"), and the names tally; a vote there updating chat's tally and the card's label (same rows); the label ladder walking RSVP → vote → other votes as the viewer answers each.
+8. The proposal clearing the bar: plan moves, RSVPs reset, the notice and section leave, the card label returns to "NEEDS YOUR RSVP" for a reset viewer.
+9. The board-06 rule: with a short idea card beside a taller confirmed card, no dead background below either; both shells run the region's full height; the answer rows sit on a shared baseline above the dots.
+Also: event detail page shows the same pair grammar with no label; the rendered screens compared side by side against `round5-design-reference.html` (boards 01-04, 06) and `round6-design-reference.html` (boards 01, 03, 06), served statically via the existing `design-static` launch config, with the departures named in spec decisions 8 and 13 as the only differences.
 
 - [ ] **Step 3: Write the evidence into §11 and commit**
 
@@ -1589,7 +1700,7 @@ git commit -m "Record the card-state-grammar walkthrough evidence"
 
 - [ ] **Step 4: Open the PR per the handoff checklist**
 
-Follow `~/.claude/checklists/pr-handoff.md` in full. The PR body must carry: the product framing; baseline and after test counts; the review report section (what the independent read-only review found, fixed, and deliberately did not fix); open questions for the owner (include: the label copy judgment and the dense-face height judgment, both deferred to the owner's phone); every touch outside the plan's named files; the five board departures; and the QA script (ten minutes or less, on the owner's phone, including the two re-judgments from the spec's Part 3 item 6). State plainly that no migration, environment variable, or model call was added. Open the PR and STOP; never merge.
+Follow `~/.claude/checklists/pr-handoff.md` in full. The PR body must carry: the product framing; baseline and after test counts; the review report section (what the independent read-only review found, fixed, and deliberately did not fix); open questions for the owner (include, all deferred to the owner's phone: the label copy judgment, whether the stretched region reads as calm rather than padded, and whether the proposal notice line is discoverable enough); every touch outside the plan's named files; the board departures named in spec decisions 8 and 13; and the QA script (ten minutes or less, on the owner's phone, including the re-judgments from the spec's Part 3 item 6). State plainly that no migration, environment variable, or model call was added. Open the PR and STOP; never merge.
 
 ---
 
