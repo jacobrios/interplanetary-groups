@@ -2323,3 +2323,11 @@ of them reopens by default in slice two.
 two-then-one wrap reads as an accident or as fine. It has been deferred since
 spark part one specifically to be felt on a real device rather than judged from a
 screenshot, and this QA run was the first real chance. It stays open.
+
+## §11 entry: card state grammar (opened 12 Aug 2026)
+
+Slice branch `feat/card-state-grammar`, cut from main at 3e4c749. Spec and design
+round in docs/superpowers/specs/ (2026-08-12-card-state-grammar-*). Test-suite
+baseline at slice start, before any code: 77 files / 801 tests, all passing,
+matching polish slice one's finishing number. No pre-existing failures to carry.
+(Entry completed when the slice lands.)
