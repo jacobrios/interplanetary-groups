@@ -66,9 +66,10 @@ export async function rsvpAction(
   // would be swallowed if placed inside the catch block.
   revalidatePath(`/events/${eventId}`)
 
-  // When the RSVP is submitted from the home-screen compact card, groupId is
-  // included in the form data so both the detail page and the home page
-  // revalidate.  The detail-page caller omits groupId, so this is additive.
+  // Both callers (the home-screen compact card and the event detail page)
+  // include groupId in the form data, since the group home's own card
+  // carries this same RSVP state and would otherwise go stale until its next
+  // natural revalidation.
   const groupId = (formData.get("groupId") as string | null)?.trim() ?? ""
   if (groupId) {
     revalidatePath(`/groups/${groupId}`)

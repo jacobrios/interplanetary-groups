@@ -4,7 +4,8 @@
 //
 // Layout:
 //   Header: Orbit logo (home button) · group title + chevron (→ group info)
-//   Pinned event cards, soonest first, in a peek-and-dots carousel (up to 3)
+//   Pinned card region, soonest first, mingling confirmed events and ideas
+//   still being gauged, in a peek-and-dots carousel (up to CARD_REGION_CAP)
 //   Chat feed (own scroll region, --type-body 17px, never shrunk)
 //   Pinned message input
 //
@@ -27,8 +28,8 @@ import { deriveRoster } from "@/lib/events/roster"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { buildTallyLine, chipLabels } from "@/lib/orbit/spark-copy"
 import { findLiveProposals } from "@/lib/proposals/read"
-import { changeChipLabels, proposalChipLabels, buildProposalTallyLine } from "@/lib/orbit/change-copy"
-import { oneMoreClearsIt } from "@/lib/proposals/consensus"
+import { changeChipLabels } from "@/lib/orbit/change-copy"
+import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import EventCarousel from "./EventCarousel"
 import type { EventCardData } from "./EventCarousel"
 import GroupHome from "./GroupHome"
@@ -37,8 +38,8 @@ import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import PageHeader from "@/components/PageHeader"
-import { derivePending, pendingStripWillRender } from "@/lib/pending/derive"
-import { PendingStrip } from "./PendingStrip"
+import { deriveIdeaItems, deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
+import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 
 interface Props {
@@ -67,11 +68,12 @@ export default async function GroupPage({ params }: Props) {
   if (!viewerIsMember) return <MembersOnlyWall />
 
   // ── Upcoming events + rosters ─────────────────────────────────────────────
-  // Up to three upcoming cards. The carousel comes live here because a sparked
-  // event beside the standing one is exactly the two-or-more condition the
-  // group-home slice deferred it for. Three is a display cap, not a rule: a
-  // fourth upcoming event is possible and simply waits its turn.
-  const upcomingEvents = await findUpcomingEvents(group.id, new Date(), 3)
+  // Up to CARD_REGION_CAP upcoming cards. The carousel comes live here
+  // because a sparked event beside the standing one is exactly the
+  // two-or-more condition the group-home slice deferred it for. Five is a
+  // display cap combined with ideas (card-state-grammar spec decision 5),
+  // not a rule: a sixth item simply waits its turn in chat.
+  const upcomingEvents = await findUpcomingEvents(group.id, new Date(), CARD_REGION_CAP)
 
   const allMembers = group.memberships.map((m) => m.user)
   // Current members only, same source as the info page's tally: a removed
@@ -161,55 +163,39 @@ export default async function GroupPage({ params }: Props) {
   const groupProposals: FeedGroupProposal[] = liveProposals
     .filter((p) => p.kind === "GROUP")
     .map((p) => {
-      const memberVotes = p.votes.filter((v) => memberIds.has(v.userId))
-      const yesVoters = memberVotes.filter((v) => v.answer === "YES")
-      const consensusInput = {
-        yesVoterIds: yesVoters.map((v) => v.userId),
-        keepVoterIds: memberVotes.filter((v) => v.answer === "KEEP").map((v) => v.userId),
-        currentInUserIds: p.event.rsvps
-          .filter((r) => r.status === "IN" && memberIds.has(r.userId))
-          .map((r) => r.userId),
-        memberCount: group.memberships.length,
-      }
-      return {
-        id: p.id,
-        orbitMessageId: p.orbitMessageId,
-        labels: proposalChipLabels(p.proposedStartsAt, p.priorStartsAt, group.timeZone),
-        tallyLine: buildProposalTallyLine(
-          yesVoters.map((v) => v.user.name),
-          consensusInput.keepVoterIds.length,
-          oneMoreClearsIt(consensusInput)
-        ),
-        // Unfiltered, the gauge precedent: the viewer's own chip must reflect
-        // what they chose, member or not.
-        viewerAnswer: p.votes.find((v) => v.userId === viewer?.id)?.answer ?? null,
-      }
-    })
-
-  // ── Pending surface ──────────────────────────────────────────────────────
-  // A second window onto liveGauges/liveProposals, not a second query: pure
-  // derivation of this viewer's own waiting-on-you and standing-yes sets.
-  const pending = viewer
-    ? derivePending({
-        liveGauges,
-        liveProposals,
-        viewerId: viewer.id,
+      // Shared with the card region's own bands (lib/pending/derive.ts) via
+      // deriveGroupProposalTally, so the chat feed and the event card's
+      // detail screen can never disagree about the same proposal's tally.
+      const tally = deriveGroupProposalTally({
+        proposal: p,
+        viewerId: viewer?.id ?? null,
         memberIds,
         memberCount: group.memberships.length,
         timeZone: group.timeZone,
       })
-    : null
+      return {
+        id: p.id,
+        orbitMessageId: p.orbitMessageId,
+        labels: tally.labels,
+        tallyLine: tally.tallyLine,
+        viewerAnswer: tally.viewerAnswer,
+      }
+    })
 
-  // Whether PendingStrip will actually render a band, not merely whether a
-  // `pending` object exists: derivePending returns a non-null object with
-  // empty arrays for every signed-in viewer whenever nothing is being
-  // gauged (the ordinary quiet state of a group, not a rare one), and
-  // PendingStrip itself returns null in that state. The layout spacing
-  // below (the card's air-above padding, the feed's reduced top padding)
-  // must agree with PendingStrip's own render gate exactly, so both call
-  // this one shared predicate (fix-wave 1, visual-polish task 6) rather
-  // than page.tsx keeping a second, looser condition of its own.
-  const stripRenders = pending !== null && pendingStripWillRender(pending)
+  // ── Card region: ideas + moved-time bands ────────────────────────────────
+  // A second window onto liveGauges/liveProposals, not a second query: pure
+  // derivation of this viewer's own idea cards and the moved-time bands each
+  // event card's footer notice needs (card-state-grammar slice).
+  const ideas = viewer
+    ? deriveIdeaItems({ liveGauges, viewerId: viewer.id, memberIds, timeZone: group.timeZone })
+    : []
+  const proposalBands = viewer
+    ? deriveProposalBands({ liveProposals, viewerId: viewer.id, memberIds, memberCount, timeZone: group.timeZone })
+    : new Map<string, ProposalBandData>()
+  const entries = composeCardRegion(
+    cards.map((c) => ({ sortMs: c.event.startsAt.getTime(), data: c })),
+    ideas.map((i) => ({ sortMs: i.sortMs, item: i }))
+  )
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
@@ -247,28 +233,26 @@ export default async function GroupPage({ params }: Props) {
         <GroupHomeHeader groupId={group.id} groupName={group.name} memberCount={memberCount} />
       </PageHeader>
 
-      {/* ── Pinned event cards ─────────────────────────────────────────── */}
+      {/* ── Pinned card region ─────────────────────────────────────────── */}
       {/* Multi-card: side padding moves onto CarouselRail so the rail can
           bleed past the screen edge for the peek. Single-card: padding stays
-          here, there is no rail to carry it. Bottom padding is the pending
-          strip's "air above" (round4-base.css .gh-pinned.pd-above): 14px
-          when the strip renders below, so the gap above the strip reads
-          larger than any gap inside the card and the card visually closes
-          before the strip begins; 0 when there's no strip to separate from. */}
+          here, there is no rail to carry it. The strip's "air above" is gone
+          along with the strip itself. */}
       <div
         style={{
-          padding: `0.75rem ${cards.length > 1 ? 0 : "1rem"} ${stripRenders ? "14px" : 0}`,
+          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0`,
           flexShrink: 0,
         }}>
-        {cards.length > 0 ? (
+        {entries.length > 0 ? (
           <EventCarousel
-            events={cards}
+            entries={entries}
             groupId={group.id}
             timeZone={group.timeZone}
             viewerHasSession={viewer !== null}
+            proposals={proposalBands}
           />
         ) : (
-          /* No upcoming event — quiet empty state; the feed still renders */
+          /* No upcoming event or idea — quiet empty state; the feed still renders */
           <div
             style={{
               backgroundColor: "var(--surface-raised)",
@@ -289,8 +273,6 @@ export default async function GroupPage({ params }: Props) {
           </div>
         )}
       </div>
-
-      {pending ? <PendingStrip pending={pending} /> : null}
 
       {/* ── Chat feed + pinned input (client island) ───────────────────── */}
       {/* The chat section fills remaining viewport height.  The feed is its
@@ -315,7 +297,6 @@ export default async function GroupPage({ params }: Props) {
           proposals={proposals}
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
-          stripAbove={stripRenders}
         />
       </div>
     </div>

@@ -4,13 +4,13 @@
 // The three one-tap answers under Orbit's gauge message, and the quiet tally
 // line that sits inside the bubble above them.
 //
-// Styling per docs/design/orbit-suggestion-chips-spec.html: a wrapping row of
-// neutral outlined pills, indented under the bubble, --type-label at weight
-// 600.  Never lime (Orbit's cue, not an action) and never teal-filled: teal
-// marks a genuine action weight, not a single-per-screen count (CLAUDE.md
-// §color, amended 27 July 2026), and since the strip-placement call (11 Aug
-// 2026) the pending strip also carries a translucent teal wash on this
-// screen.
+// Styling comes from the shared choice grammar (src/components/choice.tsx):
+// ChoiceChip renders the wrapping row's pills, ChipRow the row itself,
+// ErrorLine the error string. Never lime (Orbit's cue, not an action) and
+// never teal-filled: teal marks a genuine action weight, not a
+// single-per-screen count (CLAUDE.md §color, amended 27 July 2026), and
+// since the strip-placement call (11 Aug 2026) the pending strip also
+// carries a translucent teal wash on this screen.
 //
 // Emphasis is carried by text brightness, not by a second border colour: the
 // spec sheet's two border tokens are the same hex, so all three chips share
@@ -28,6 +28,7 @@
 import { useOptimistic, useTransition, useState } from "react"
 import { GaugeAnswer } from "@prisma/client"
 import { gaugeVoteAction } from "@/app/actions/gauge-vote"
+import { ChoiceChip, ChipRow, ErrorLine, TallyLine } from "@/components/choice"
 
 /** Structurally matches ChipLabels in lib/orbit/spark-copy.ts, which composes them. */
 export interface FeedGaugeLabels {
@@ -57,9 +58,11 @@ interface Props {
    * value so nothing in the chat feed changes.
    */
   indentPastAvatar?: boolean
+  /** Card surfaces (IdeaCard, ProposalBand) pass an explicit margin; feed callers leave it unset. */
+  rowMargin?: string
 }
 
-export default function GaugeChips({ gauge, onAnswered, indentPastAvatar = true }: Props) {
+export default function GaugeChips({ gauge, onAnswered, indentPastAvatar = true, rowMargin }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(gauge.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -84,64 +87,30 @@ export default function GaugeChips({ gauge, onAnswered, indentPastAvatar = true 
     { answer: GaugeAnswer.NOT_THAT_DAY, label: gauge.labels.notThatDay, quiet: true },
   ]
 
+  // Wrapping row, indented past Orbit's avatar so the chips read as part of
+  // its message rather than as a new speaker. Flush left instead on a
+  // surface with no avatar (indentPastAvatar={false}), or a card surface's
+  // own explicit rowMargin.
+  const rowMarginValue = rowMargin ?? (indentPastAvatar ? "8px 0 0 37px" : "9px 0 0")
+  const errorMarginLeft = indentPastAvatar && !rowMargin ? 36 : 0
+
   return (
     <form action={handle}>
       <input type="hidden" name="gaugeId" value={gauge.id} />
-
-      {errorMsg && (
-        <p
-          style={{
-            fontSize: "var(--type-meta)",
-            lineHeight: "var(--leading-normal)",
-            color: "#f87171",
-            margin: indentPastAvatar ? "0.5rem 0 0 36px" : "0.5rem 0 0",
-          }}
-        >
-          {errorMsg}
-        </p>
-      )}
-
-      {/* Wrapping row, indented past Orbit's avatar so the chips read as part
-          of its message rather than as a new speaker. Flush left instead on
-          a surface with no avatar (indentPastAvatar={false}). */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "7px",
-          margin: indentPastAvatar ? "8px 0 0 37px" : "9px 0 0",
-        }}
-      >
-        {chips.map(({ answer, label, quiet }) => {
-          const selected = optimisticAnswer === answer
-          return (
-            <button
-              key={answer}
-              type="submit"
-              name="answer"
-              value={answer}
-              disabled={isPending}
-              style={{
-                border: "1.7px solid var(--hairline)",
-                backgroundColor: selected ? "var(--surface-self)" : "transparent",
-                borderRadius: "20px",
-                padding: "8px 12px",
-                fontSize: "var(--type-label)",
-                fontWeight: 600,
-                fontFamily: "inherit",
-                // Brightness, not hue: the yes chip stays full strength and the
-                // other two sit back. A chosen chip comes forward whichever it is.
-                color:
-                  quiet && !selected ? "var(--text-secondary)" : "var(--text-primary)",
-                whiteSpace: "nowrap",
-                cursor: isPending ? "default" : "pointer",
-              }}
-            >
-              {selected ? `✓ ${label}` : label}
-            </button>
-          )
-        })}
-      </div>
+      <ErrorLine msg={errorMsg} marginLeft={errorMarginLeft} />
+      <ChipRow margin={rowMarginValue}>
+        {chips.map(({ answer, label, quiet }) => (
+          <ChoiceChip
+            key={answer}
+            name="answer"
+            value={answer}
+            label={label}
+            selected={optimisticAnswer === answer}
+            quiet={quiet}
+            disabled={isPending}
+          />
+        ))}
+      </ChipRow>
     </form>
   )
 }
@@ -152,35 +121,5 @@ export default function GaugeChips({ gauge, onAnswered, indentPastAvatar = true 
  * imply.
  */
 export function GaugeTally({ line }: { line: string }) {
-  if (!line) return null
-
-  return (
-    <span
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "6px",
-        marginTop: 9,
-        paddingTop: 9,
-        borderTop: "1.4px solid var(--hairline)",
-        fontSize: "var(--type-label)",
-        lineHeight: "var(--leading-normal)",
-        color: "var(--text-secondary)",
-        fontWeight: 600,
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      <i
-        aria-hidden="true"
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          backgroundColor: "var(--text-secondary)",
-          flexShrink: 0,
-        }}
-      />
-      {line}
-    </span>
-  )
+  return <TallyLine line={line} />
 }

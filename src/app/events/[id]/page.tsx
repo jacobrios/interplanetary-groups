@@ -4,12 +4,15 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { deriveRoster } from "@/lib/events/roster"
 import { formatEventDate } from "@/lib/events/format"
-import RsvpControls from "./RsvpControls"
+import RsvpControls from "@/components/RsvpControls"
 import RosterAvatar from "./RosterAvatar"
 import AddToCalendarButton from "./AddToCalendarButton"
+import ProposalSection from "./ProposalSection"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { findLiveProposals } from "@/lib/proposals/read"
+import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -64,6 +67,29 @@ export default async function EventPage({ params }: Props) {
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
 
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, event.group.timeZone)
+
+  // ─── Open time-change vote, if any ─────────────────────────────────────
+  // Same group-scoped read the group home uses (src/lib/proposals/read.ts),
+  // filtered to this event by the derivation's own keyed map — never a
+  // second, event-scoped query path to keep in sync with the home's.
+  const liveProposals = await findLiveProposals(event.group.id, new Date())
+  const memberIds = new Set(event.group.memberships.map((m) => m.userId))
+  // Non-null in practice: the members-only wall above already returned for a
+  // null viewer, since isMember requires viewer !== null. TS can't see that
+  // narrowing across the boolean, so this narrows on `viewer` itself instead
+  // of trusting isMember, the same way the group home guards deriveIdeaItems
+  // and deriveProposalBands (src/app/groups/[id]/page.tsx): no empty-string
+  // sentinel can flow into the derivation.
+  const proposalBands = viewer
+    ? deriveProposalBands({
+        liveProposals,
+        viewerId: viewer.id,
+        memberIds,
+        memberCount: event.group.memberships.length,
+        timeZone: event.group.timeZone,
+      })
+    : new Map<string, ProposalBandData>()
+  const proposalBand = proposalBands.get(event.id) ?? null
 
   return (
     <main
@@ -128,7 +154,11 @@ export default async function EventPage({ params }: Props) {
           {/* Activity label — optional free-text tag */}
           {event.activityLabel && <MetaRow label="Activity" value={event.activityLabel} />}
 
-          {/* RSVP controls — only when the viewer has a session */}
+          {/* RSVP controls — only when the viewer has a session. groupId is
+              passed so rsvpAction revalidates the group home too, matching
+              the home-card caller (EventCard.tsx): a member who RSVPs here
+              and taps back should see the card's need label already settled,
+              not the pre-tap "Needs your RSVP" from a stale render. */}
           {viewer && (
             <>
               <hr
@@ -138,10 +168,18 @@ export default async function EventPage({ params }: Props) {
                   margin: "0.125rem 0",
                 }}
               />
-              <RsvpControls eventId={event.id} currentStatus={viewerStatus} />
+              <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
             </>
           )}
         </div>
+
+        {/* ── Open time-change vote ─────────────────────────────────────── */}
+        {/* Placed here, ahead of "Add to calendar", because a vote here
+            amends the very time that button would save: the calendar file
+            should never be built from a plan the group might be about to
+            move. The compact card's footer notice (EventCard.tsx) links
+            here; this is where the actual chips live. */}
+        {proposalBand && <ProposalSection band={proposalBand} />}
 
         {/* ── Add to calendar ────────────────────────────────────────── */}
         {/* The screen's own primary action, its own region: teal, separate

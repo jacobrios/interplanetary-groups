@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Round 5 · Card Region · Interplanetary Groups</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="walkthrough.css" />
+<link rel="stylesheet" href="pending-surface.css" />
+<link rel="stylesheet" href="round4-base.css" />
+<link rel="stylesheet" href="round5-cards.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.sec-head { max-width: 78ch; margin: 72px 0 0; }
+.sec-head .k { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: #2b2b2b; font-weight: 700; }
+.sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -.015em; color: #111214; margin: 8px 0 0; }
+.sec-head p { font-size: 14px; line-height: 1.62; color: #23242a; margin: 10px 0 0; text-wrap: pretty; }
+.iso-list { display: flex; flex-direction: column; gap: 28px; margin-top: 26px; }
+.iso { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.iso-frame { width: 390px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 14px; overflow: hidden; }
+.iso-notes { flex: 1 1 320px; min-width: 300px; max-width: 48ch; padding-top: 1px; }
+.iso-notes h3 { font-family: var(--display); font-weight: 800; font-size: 17px; color: #101114; margin: 0 0 7px; }
+.iso-notes p { font-size: 13.5px; line-height: 1.62; color: #23242a; margin: 0 0 8px; text-wrap: pretty; }
+.iso-notes ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.6; color: #23242a; }
+.iso-notes li { margin: 4px 0; }
+.iso-notes b { color: #0d0e11; }
+.iso-notes code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.r5-region { width: 390px; background: var(--surface-base); overflow: hidden; padding: 16px 16px 16px; }
+.r5-region.rail-host { padding-left: 0; padding-right: 0; }
+.r5-region .stack + .stack { margin-top: 14px; }
+.rules { margin-top: 64px; max-width: 80ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 0 0 10px; letter-spacing: -.01em; }
+.rules ul { margin: 0 0 14px; padding-left: 18px; }
+.rules li { margin: 5px 0; }
+.rules b { color: #0d0e11; }
+.rules code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+  <p class="board-eyebrow">Interplanetary Groups · round 5</p>
+  <h1 class="board-title">The card region: honest asks, ideas as cards</h1>
+  <p class="board-sub">Two changes to the group home's top carousel and nothing else. The RSVP pair stops presuming a yes: while unanswered, both options are transparent with the action teal on both borders, so the teal marks the question, not an answer. And the pending strip retires: interest gauges and time-change proposals become cards in the carousel, mingled with confirmed events in date order, clearly subordinate by brightness and structure. Geist everywhere. No animation.</p>
+
+  <!-- ============ 01 · UNANSWERED RSVP ============ -->
+  <div class="sec-head">
+    <p class="k">Board 01</p>
+    <h2>Confirmed card, before the viewer answers</h2>
+    <p>The ask-and-answer pair. Neither option is filled, both carry the teal border, and the label in the top right names what the card needs. Everything else is the shipped card.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="01 unanswered rsvp">
+        <div class="r5-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl">Needs your RSVP</span></div>
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                  <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                  <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim ask">
+                <div class="in">I'm in</div>
+                <div class="out">Can't make it</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>The teal marks the ask, not an answer</h3>
+        <ul>
+          <li><b>Both options</b>: transparent fill, <code>1.5px solid var(--action)</code> border, <code>--text-primary</code> label at weight 600. Visually equal; the pair leans toward neither side.</li>
+          <li><b>No checkmark</b> until an answer exists. The check is a state marker, not decoration.</li>
+          <li><b>Label</b> <code>.gh-need</code>: 13px uppercase eyebrow, <code>--text-secondary</code>, top right. It names what the card still needs and disappears once it needs nothing.</li>
+          <li>Title, day and time, venue, counts line, chevron, hairline above the pair: shipped card, untouched.</li>
+          <li>Buttons keep <code>min-width: 10.2em</code> and wrap into a stack when they cannot sit side by side.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 02 · ANSWERED STATES ============ -->
+  <div class="sec-head">
+    <p class="k">Board 02</p>
+    <h2>Both answered states</h2>
+    <p>The chosen side fills with the action teal, takes ink text and a checkmark; the other side drops to a quiet hairline outline. Either side can be the chosen one. A settled card goes bare: no label.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="02 answered rsvp both ways">
+        <div class="r5-region">
+          <div class="stack">
+            <div class="gh-evcard compact">
+              <div class="gh-evpad">
+                <div class="gh-crow">
+                  <div class="gh-cmid">
+                    <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                    <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                    <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </div>
+                <div class="gh-rsvp slim done">
+                  <div class="in pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                  <div class="out other">Can't make it</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="gh-evcard compact">
+              <div class="gh-evpad">
+                <div class="gh-crow">
+                  <div class="gh-cmid">
+                    <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                    <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                    <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">2 Out</span><span class="seg">4 TBD</span></div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </div>
+                <div class="gh-rsvp slim done">
+                  <div class="in other">I'm in</div>
+                  <div class="out pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>Can't make it</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>One treatment, either side</h3>
+        <ul>
+          <li><b>Chosen</b> <code>.pick</code>: fill <code>--action</code>, text <code>--action-ink</code> weight 700, checkmark at 1.05em. Same recipe whether the answer was yes or no; the check plus the fill carry the state, never hue alone.</li>
+          <li><b>Not chosen</b> <code>.other</code>: transparent, <code>1.5px solid var(--hairline)</code>, <code>--text-secondary</code>. Still tappable to change your answer.</li>
+          <li><b>No top-right label.</b> The card needs nothing from you now.</li>
+          <li>Counts line reflects the answer (4 In after a yes, 2 Out after a no).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 · PENDING IDEA CARD ============ -->
+  <div class="sec-head">
+    <p class="k">Board 03</p>
+    <h2>Pending idea card, before the viewer votes</h2>
+    <p>The pending strip's cargo, promoted into the carousel as its own card. Subordinate to a confirmed card by brightness and structure: flat on <code>--surface-base</code>, a single hairline, no shadow, plain-weight title. The gauge chips are the shipped chips, verbatim.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="03 pending idea unvoted">
+        <div class="r5-region">
+          <div class="gh-evcard idea">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl">Needs your vote</span></div>
+              <div class="gh-idtitle">Beers</div>
+              <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+              <div class="pd-tally"><span class="seg">2 in</span><span class="seg">1 next time</span><span class="seg wait">5 waiting</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>An idea, not a plan</h3>
+        <ul>
+          <li><b>Shell</b> <code>.gh-evcard.idea</code>: <code>--surface-base</code> fill, <code>1px solid var(--hairline)</code>, no shadow, same 14px radius and rail geometry. Next to a confirmed card it is visibly a step down, in any colour-vision profile and in greyscale.</li>
+          <li><b>Title</b> at <code>--type-body</code> weight 700 in the UI face, not the display heading: structure says "smaller thing", the 13px floor is never approached.</li>
+          <li><b>Chips</b>: <code>.gh-qr</code> / <code>.gh-qrchip</code> exactly as shipped in the chat feed. Grey chip grammar, emojis and all. Never teal.</li>
+          <li><b>Tally</b> below the chips in the shipped tally voice, <code>--type-label</code> weight 700, tabular numerals, the waiting count dimmer because it is not an answer.</li>
+          <li>No chevron: there is no detail screen behind an idea.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 · PENDING AFTER YES ============ -->
+  <div class="sec-head">
+    <p class="k">Board 04</p>
+    <h2>Pending card after the viewer's yes</h2>
+    <p>The viewer has answered; the group hasn't. The label flips to what the card still needs, the chosen chip takes the shipped selected state, the tally counts the new yes.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="04 pending idea voted">
+        <div class="r5-region">
+          <div class="gh-evcard idea">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl">Needs more votes</span></div>
+              <div class="gh-idtitle">Beers</div>
+              <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip sel"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-11" /></svg>🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+              <div class="pd-tally"><span class="seg">3 in</span><span class="seg">1 next time</span><span class="seg wait">4 waiting</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Your answer is held, the ask stays open</h3>
+        <ul>
+          <li><b>Label</b>: "NEEDS MORE VOTES". Still present because the card still needs something, just not from you.</li>
+          <li><b>Chosen chip</b> <code>.gh-qrchip.sel</code>: checkmark plus the grey fill shift, <code>--surface-raised</code> → <code>--surface-self</code>, text at full strength. No teal; the chips keep their shipped grammar.</li>
+          <li><b>Tally</b> counts it: 2 in → 3 in, 5 waiting → 4 waiting.</li>
+          <li>The unchosen chips stay tappable to change the answer.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 05 · DENSE FACE ============ -->
+  <div class="sec-head">
+    <p class="k">Board 05</p>
+    <h2>The dense face: confirmed card with an open proposal</h2>
+    <p>One card, two live questions. The card's own RSVP pair stays where it always is; the time-change vote rides below it in a recessed band with its own kind label, question, chips and tally. The card grows; it never clips and never splits in two.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="05 dense face">
+        <div class="r5-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl">Needs your RSVP</span></div>
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Friday beers</div>
+                  <div class="gh-cmeta"><span class="seg">Fri Jun 19</span><span class="seg">7:00 PM</span><span class="seg">Barcade</span></div>
+                  <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim ask">
+                <div class="in">I'm in</div>
+                <div class="out">Can't make it</div>
+              </div>
+            </div>
+            <div class="gh-propband">
+              <div class="pkind">Time change</div>
+              <div class="pq">Move Fri beers to 8pm?</div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🔄 Switch to 8</div>
+                <div class="gh-qrchip quiet">🕗 Keep 7</div>
+              </div>
+              <div class="pd-tally"><span class="seg">2 for 8pm</span><span class="seg">1 for 7pm</span><span class="seg wait">6 waiting</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Two questions, one object</h3>
+        <ul>
+          <li><b>Precedence</b>: the top-right label belongs to the RSVP. Once the RSVP is settled the label flips to "NEEDS YOUR VOTE" for the proposal; when both are settled it goes bare.</li>
+          <li><b>Band</b> <code>.gh-propband</code>: recessed to <code>--surface-base</code> under the raised card, hairline above, full card width. Down the hierarchy, like the old strip, but inside the object it belongs to.</li>
+          <li><b>Kind label</b> "TIME CHANGE" at 13px <code>--text-faint</code>; the question at <code>--type-meta</code> weight 600 in Orbit's plain voice.</li>
+          <li><b>Proposal chips and tally</b>: the shipped grammar, unchanged. The band's vote never borrows the RSVP's teal.</li>
+          <li><b>Growth</b>: every row wraps; at enlarged text the RSVP pair stacks and the band follows it down. Nothing is height-capped.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 06 · MIXED CAROUSEL ============ -->
+  <div class="sec-head">
+    <p class="k">Board 06</p>
+    <h2>The mixed carousel</h2>
+    <p>Pure date order, whatever the kind: the pending Fri idea sits first, the confirmed Sat event peeks second. Shipped peek geometry and dots, untouched. A maybe never reads as a plan.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="06 mixed carousel">
+        <div class="r5-region rail-host">
+          <div class="gh-pinned peek">
+            <div class="gh-rail peek">
+              <div class="gh-evcard idea">
+                <div class="gh-evpad">
+                  <div class="gh-need"><span class="lbl">Needs your vote</span></div>
+                  <div class="gh-idtitle">Beers</div>
+                  <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                  <div class="gh-qr">
+                    <div class="gh-qrchip">🍻 I'm in</div>
+                    <div class="gh-qrchip quiet">🙏 Next time</div>
+                    <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                  </div>
+                  <div class="pd-tally"><span class="seg">2 in</span><span class="seg">1 next time</span><span class="seg wait">5 waiting</span></div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-need"><span class="lbl">Needs your RSVP</span></div>
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                      <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                      <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim ask">
+                    <div class="in">I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-dots"><i class="on"></i><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Date order, not status order</h3>
+        <ul>
+          <li><b>Order</b>: ascending by date, kinds mingled. Fri's idea before Sat's event because Fri comes first, not because it matters more.</li>
+          <li><b>At a glance</b>: the flat hairline shell against the raised, shadowed confirmed card says maybe vs plan without a single hue. The peeking card is never dimmed or masked.</li>
+          <li><b>Chrome</b>: shipped Round 4 geometry, verbatim. 342px cards, 22px peek, one 6px dot per card, active dot a 17×6 <code>--text-primary</code> pill.</li>
+          <li><b>Cap</b>: three cards still. Ideas count toward the cap; overflow lives in the feed as before.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RULES ============ -->
+  <div class="rules">
+    <h2>Binding rules, unchanged from the system</h2>
+    <ul>
+      <li><b>Teal exactly twice</b>: both borders of an unanswered RSVP pair, the chosen option's fill after. Never on chips, never a wash on any card, never decorative. Lime stays Orbit's mark and is never an action.</li>
+      <li><b>Status never by hue alone</b>, never red vs green. Checkmarks, labels and brightness carry every state on this board.</li>
+      <li><b>Labels</b> name what the card still needs and vanish when it needs nothing: NEEDS YOUR RSVP · NEEDS YOUR VOTE · NEEDS MORE VOTES. 13px floor, uppercase, <code>--text-secondary</code>.</li>
+      <li><b>Nothing below 13px.</b> Titles at heading (confirmed) or body (idea), buttons at label, metadata at meta, eyebrows at the floor.</li>
+      <li><b>Growth</b>: cards grow with content and never clip; the RSVP pair stacks when it cannot sit side by side; assume enlarged device text.</li>
+      <li><b>Out of scope</b>: feed, composer, header, empty state, event detail (it inherits the RSVP treatment automatically and carries no label), every other screen. The pending strip and panel retire with this round.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

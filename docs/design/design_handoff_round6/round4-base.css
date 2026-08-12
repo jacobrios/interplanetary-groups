@@ -1,0 +1,80 @@
+/* Round 4 · BASE FIXES — front door, carousel chrome, pending-strip separation.
+   Loads AFTER walkthrough.css + pending-surface.css. Adds no new tokens.
+   Contains NO finish-layer styling: that lives in finish-layer.css and can be
+   dropped without losing anything here. */
+
+/* =====================================================================
+   01 · FRONT DOOR (/)  ·  prefix .fd-
+   No session, not in a group: the pitch and one teal action.
+   ===================================================================== */
+.fd-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 4px 24px 0; }
+.fd-mark { width: 104px; height: 104px; margin: 6px 0 0 -9px; flex: 0 0 auto; }
+.fd-mark svg { width: 100%; height: 100%; display: block; }
+.fd-eyebrow { font-size: var(--type-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--text-faint); font-weight: 700; margin: 16px 0 0; }
+.fd-head { font-family: var(--display); font-weight: 800; font-size: var(--type-display); line-height: var(--leading-tight); letter-spacing: -.015em; color: var(--text-primary); margin: 9px 0 0; text-wrap: balance; }
+.fd-lede { font-size: var(--type-body); line-height: var(--leading-normal); color: var(--text-secondary); margin: 12px 0 0; text-wrap: pretty; }
+.fd-copy { margin-top: auto; flex: 0 0 auto; }
+.fd-foot { flex: 0 0 auto; padding: 22px 0 4px; }
+.fd-cta {
+  display: flex; align-items: center; justify-content: center; gap: .5em;
+  min-height: 52px; padding: .5em 1.2em; border-radius: 28px;
+  background: var(--action); color: var(--action-ink);
+  font-size: var(--type-body); line-height: var(--leading-normal); font-weight: 700; cursor: pointer;
+}
+.fd-cta svg { width: 1.05em; height: 1.05em; flex: 0 0 auto; fill: none; stroke: var(--action-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.fd-note { font-size: var(--type-eyebrow); line-height: var(--leading-normal); color: var(--text-faint); text-align: center; margin: 12px 0 0; }
+
+/* =====================================================================
+   02 · CAROUSEL CHROME  ·  pinned event region, up to three cards
+   Scroll-snap row, soonest first. Peek = the next card's own edge, clipped
+   by the screen. Dots get a real active state (width + brightness, no hue).
+   ===================================================================== */
+.gh-rail { overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: 16px; scrollbar-width: none; -ms-overflow-style: none; }
+.gh-rail::-webkit-scrollbar { display: none; }
+.gh-rail > .gh-evcard { scroll-snap-align: start; }
+
+/* multi-card: the track runs to both screen edges, its own 16px padding
+   holds the gutter, so a snapped card sits at 16px and the next card shows
+   a 22px sliver. Single card keeps .gh-pinned's plain 16px inset. */
+.gh-pinned.peek { padding-left: 0; padding-right: 0; }
+.gh-rail.peek { padding: 0 16px; }
+.gh-rail.peek > .gh-evcard,
+.gh-rail.peek > .gh-evcard:first-child { flex: 0 0 calc(100% - 16px); }
+
+.gh-dots { gap: 6px; padding: 11px 0 0; }
+.gh-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--hairline); }
+.gh-dots i.on { width: 17px; background: var(--text-primary); }
+
+/* =====================================================================
+   03 · PENDING STRIP · SEPARATION TREATMENT  ·  add .pd-sep to .pd-strip
+   The interim strip was inset 16px, i.e. exactly the event card's own
+   edges, which read as a card footer. Full-bleed rules + the feed's 20px
+   gutter make it a band belonging to the screen. Still no fill, no radius,
+   no shadow: it does not outrank the card.
+   ===================================================================== */
+.gh-pinned.pd-above { padding-bottom: 14px; }        /* real air below the card */
+.pd-strip.pd-sep { margin: 0; padding: 12px 20px; gap: 11px; }
+.pd-host.pd-sep-host + .gh-feed { padding-top: 6px; }
+
+/* MOCK ONLY · static stand-ins for two scroll positions on the board.
+   Not production: the real row scrolls. overflow:visible hands the clipping
+   back to the screen so the card behind can show its sliver. */
+.gh-rail.at2, .gh-rail.at3 { overflow: visible; }
+.gh-rail.at2 { transform: translateX(-352px); }
+.gh-rail.at3 { transform: translateX(-688px); }
+
+/* =====================================================================
+   ADOPTED FROM THE DECLINED FINISH-LAYER PILOT · now part of the base
+   ===================================================================== */
+.gh-statusline, .pd-striptxt, .gh-msg .gtally { font-variant-numeric: tabular-nums; }
+.gh-pin { background-image: linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0)); }
+
+/* =====================================================================
+   03b · PENDING STRIP · QUIET TEAL BAND (two strengths, pick one)
+   A translucent wash of --action over the dark band, not a fill. Geometry,
+   hairlines, icon, chevron and one-line height are untouched; the counts
+   stay the only bright text; the label still carries the meaning, so the
+   band survives greyscale.
+   ===================================================================== */
+.pd-strip.pd-sep.tint-a { background-color: rgba(24,188,203,.07); }   /* ≈ #1d2931 over base */
+.pd-strip.pd-sep.tint-b { background-color: rgba(24,188,203,.13); }   /* ≈ #23343d over base */

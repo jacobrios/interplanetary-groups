@@ -1,18 +1,18 @@
 // src/lib/pending/__tests__/derive.test.ts
 //
-// Pure, DB-free tests for the pending-set derivation. Fixtures are plain
+// Pure, DB-free tests for the card-region derivations. Fixtures are plain
 // objects cast to the row types the real reads (findLiveGauges,
 // findLiveProposals) would produce; nothing here touches Prisma or the
 // network.
 
 import { describe, expect, it } from "vitest"
-import { derivePending, pendingStripWillRender } from "@/lib/pending/derive"
+import { deriveIdeaItems, deriveProposalBands } from "@/lib/pending/derive"
 import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
 
 const TZ = "America/Chicago"
 const VIEWER = "user-viewer"
-const MEMBERS = new Set([VIEWER, "user-maya", "user-jesse", "user-sam"])
+const memberIds = new Set([VIEWER, "user-maya", "user-jesse", "user-sam"])
 
 function gauge(over: Partial<LiveGauge> = {}): LiveGauge {
   return {
@@ -32,7 +32,7 @@ function vote(userId: string, answer: string, name = userId) {
   return { userId, answer, user: { id: userId, name } } as LiveGauge["votes"][number]
 }
 
-function proposal(over: Partial<LiveProposal> = {}): LiveProposal {
+function proposalFixture(over: Partial<LiveProposal> = {}): LiveProposal {
   return {
     id: "p1", groupId: "grp", eventId: "e1", askerUserId: "user-sam",
     sourceMessageId: "sm1", orbitMessageId: "opm1",
@@ -56,79 +56,93 @@ function pvote(userId: string, answer: string, name = userId) {
   return { userId, answer, user: { id: userId, name } } as LiveProposal["votes"][number]
 }
 
-describe("derivePending", () => {
-  it("puts an unanswered gauge in waiting with kind line, title, when line", () => {
-    const out = derivePending({ liveGauges: [gauge()], liveProposals: [],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting).toHaveLength(1)
-    const item = out.waiting[0]
-    expect(item.kind).toBe("gauge")
-    expect(item.kindLine).toBe("New idea · from Maya")
+describe("deriveIdeaItems", () => {
+  it("puts an unanswered gauge in the list with title and when line", () => {
+    const out = deriveIdeaItems({ liveGauges: [gauge()], viewerId: VIEWER, memberIds, timeZone: TZ })
+    expect(out).toHaveLength(1)
+    const item = out[0]
     expect(item.title).toBe("bouldering at the new east side gym")
-    if (item.kind === "gauge") {
-      expect(item.whenLine).toBe("Sat 10am")
-    }
+    expect(item.whenLine).toBe("Sat 10am")
+    expect(item.chips.viewerAnswer).toBeNull()
   })
 
-  it("drops the from-segment for an Orbit guess gauge", () => {
-    const out = derivePending({ liveGauges: [gauge({ sourceMessageId: null, sourceMessage: null } as never)],
-      liveProposals: [], viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting[0].kindLine).toBe("New idea")
-  })
-
-  it("a viewer IN vote moves the gauge to standingYes; OUT and NOT_THAT_DAY exclude it", () => {
+  it("a viewer IN vote stays present with viewerAnswer IN; OUT and NOT_THAT_DAY drop the item", () => {
     const inG = gauge({ id: "g-in", votes: [vote(VIEWER, "IN")] } as never)
     const outG = gauge({ id: "g-out", votes: [vote(VIEWER, "OUT")] } as never)
     const dayG = gauge({ id: "g-day", votes: [vote(VIEWER, "NOT_THAT_DAY")] } as never)
-    const out = derivePending({ liveGauges: [inG, outG, dayG], liveProposals: [],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting).toHaveLength(0)
-    expect(out.standingYes.map((i) => i.key)).toEqual(["g-in"])
+    const out = deriveIdeaItems({ liveGauges: [inG, outG, dayG], viewerId: VIEWER, memberIds, timeZone: TZ })
+    expect(out.map((i) => i.key)).toEqual(["g-in"])
+    expect(out[0].chips.viewerAnswer).toBe("IN")
   })
 
   it("tally line matches the feed's grammar: member-filtered names via buildTallyLine", () => {
     const g = gauge({ votes: [vote("user-maya", "IN", "Maya"), vote("outsider", "IN", "Ghost")] } as never)
-    const out = derivePending({ liveGauges: [g], liveProposals: [],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting[0].chips.tallyLine).toContain("Maya")
-    expect(out.waiting[0].chips.tallyLine).not.toContain("Ghost")
+    const out = deriveIdeaItems({ liveGauges: [g], viewerId: VIEWER, memberIds, timeZone: TZ })
+    expect(out[0].chips.tallyLine).toContain("Maya")
+    expect(out[0].chips.tallyLine).not.toContain("Ghost")
   })
 
   it("viewer answer is read from unfiltered votes, mirroring the feed", () => {
     const g = gauge({ votes: [vote(VIEWER, "IN")] } as never)
-    const out = derivePending({ liveGauges: [g], liveProposals: [],
-      viewerId: VIEWER, memberIds: new Set(["user-maya"]), memberCount: 1, timeZone: TZ })
-    // The viewer's own vote splits the item into standingYes even though the
-    // viewer is not in memberIds: viewerAnswer is read from unfiltered rows.
-    expect(out.standingYes).toHaveLength(1)
+    const out = deriveIdeaItems({
+      liveGauges: [g], viewerId: VIEWER, memberIds: new Set(["user-maya"]), timeZone: TZ,
+    })
+    // The viewer's own vote still surfaces even though the viewer is not in
+    // memberIds: viewerAnswer is read from unfiltered rows.
+    expect(out).toHaveLength(1)
+    expect(out[0].chips.viewerAnswer).toBe("IN")
   })
 
-  it("GROUP proposals split by YES/KEEP/none; VERIFY proposals never appear", () => {
-    const waiting = proposal({ id: "p-open" })
-    const yes = proposal({ id: "p-yes", votes: [pvote(VIEWER, "YES")] } as never)
-    const keep = proposal({ id: "p-keep", votes: [pvote(VIEWER, "KEEP")] } as never)
-    const verify = proposal({ id: "p-verify", kind: "VERIFY" } as never)
-    const out = derivePending({ liveGauges: [], liveProposals: [waiting, yes, keep, verify],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting.map((i) => i.key)).toEqual(["p-open"])
-    expect(out.standingYes.map((i) => i.key)).toEqual(["p-yes"])
+  it("sorts soonest first", () => {
+    const early = gauge({ id: "g-early", proposedDate: new Date("2026-08-12T05:00:00.000Z") } as never)
+    const late = gauge({ id: "g-late", proposedDate: new Date("2026-08-20T05:00:00.000Z") } as never)
+    const mid = gauge({ id: "g-mid", proposedDate: new Date("2026-08-15T05:00:00.000Z") } as never)
+    const out = deriveIdeaItems({ liveGauges: [mid, late, early], viewerId: VIEWER, memberIds, timeZone: TZ })
+    expect(out.map((i) => i.key)).toEqual(["g-early", "g-mid", "g-late"])
   })
 
-  it("proposal rows carry now/new labels and the feed's proposal tally", () => {
-    const p = proposal({}) // priorStartsAt Mon 8am local, proposedStartsAt Mon 9am local
-    const out = derivePending({ liveGauges: [], liveProposals: [p],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    const item = out.waiting[0]
-    expect(item.kind).toBe("proposal")
-    expect(item.kindLine).toBe("Time change · from Sam")
-    if (item.kind === "proposal") {
-      expect(item.nowLabel).toBe("Mon 8am")
-      expect(item.newLabel).toBe("Mon 9am")
-    }
+  it("whenLine falls back to the weekday alone when proposedTime is null", () => {
+    const g = gauge({ proposedTime: null } as never)
+    const out = deriveIdeaItems({ liveGauges: [g], viewerId: VIEWER, memberIds, timeZone: TZ })
+    expect(out[0].whenLine).toBe("Sat")
+  })
+})
+
+describe("deriveProposalBands", () => {
+  it("keys the band by event id and keeps KEEP voters' bands visible", () => {
+    const bands = deriveProposalBands({
+      liveProposals: [proposalFixture({ votes: [pvote(VIEWER, "KEEP")] } as never)],
+      viewerId: VIEWER,
+      memberIds,
+      memberCount: 4,
+      timeZone: TZ,
+    })
+    const band = bands.get(proposalFixture().event.id)
+    expect(band).toBeDefined()
+    expect(band!.chips.viewerAnswer).toBe("KEEP")
+  })
+
+  it("composes the objective question and notice from stored facts alone", () => {
+    const band = deriveProposalBands({
+      liveProposals: [proposalFixture()], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+    }).get(proposalFixture().event.id)
+    expect(band!.question).toBe("Move Monday morning climb to 9am?")
+    expect(band!.notice).toBe("Move to 9am?")
+  })
+
+  it("ignores non-GROUP proposals", () => {
+    const bands = deriveProposalBands({
+      liveProposals: [proposalFixture({ kind: "VERIFY" } as never)],
+      viewerId: VIEWER,
+      memberIds,
+      memberCount: 4,
+      timeZone: TZ,
+    })
+    expect(bands.size).toBe(0)
   })
 
   it("a member IN rsvp feeds oneMoreClearsIt through to the proposal tally", () => {
-    const p = proposal({
+    const p = proposalFixture({
       votes: [pvote("user-maya", "YES", "Maya"), pvote("user-jesse", "YES", "Jesse")],
       event: {
         id: "e1", title: "Monday morning climb",
@@ -136,65 +150,9 @@ describe("derivePending", () => {
         rsvps: [{ userId: "user-sam", status: "IN" }],
       },
     } as never)
-    const out = derivePending({ liveGauges: [], liveProposals: [p],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting[0].chips.tallyLine).toContain("one more")
-  })
-
-  it("both groups sort soonest first across kinds", () => {
-    const early = gauge({ id: "g-early", proposedDate: new Date("2026-08-12T05:00:00.000Z") } as never)
-    const late = proposal({ id: "p-late", event: {
-      id: "e2", title: "Late plan",
-      startsAt: new Date("2026-08-20T13:00:00.000Z"),
-      rsvps: [],
-    } } as never)
-    const mid = gauge({ id: "g-mid", proposedDate: new Date("2026-08-15T05:00:00.000Z") } as never)
-    const out = derivePending({ liveGauges: [mid, early], liveProposals: [late],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting.map((i) => i.key)).toEqual(["g-early", "g-mid", "p-late"])
-  })
-
-  it("whenLine falls back to the weekday alone when proposedTime is null", () => {
-    const g = gauge({ proposedTime: null } as never)
-    const out = derivePending({ liveGauges: [g], liveProposals: [],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    const item = out.waiting[0]
-    if (item.kind === "gauge") {
-      expect(item.whenLine).toBe("Sat")
-    }
-  })
-})
-
-describe("pendingStripWillRender", () => {
-  // Fix-wave 1 (visual-polish task 6 review): derivePending returns a
-  // non-null PendingData with empty arrays for any signed-in viewer
-  // whenever nothing is being gauged -- the ordinary quiet state of a
-  // group, not a rare one. page.tsx used to test `pending !== null`, which
-  // is true in that ordinary state too, so the strip's air-above padding
-  // and the feed's reduced top padding rendered with no band between them.
-  // This predicate is the single source of truth both page.tsx and
-  // PendingStrip.tsx now call, so that mistake can't recur independently
-  // in either place.
-  it("is false for the real derivePending output when nothing is waiting and nothing is standing", () => {
-    const out = derivePending({ liveGauges: [], liveProposals: [],
-      viewerId: VIEWER, memberIds: MEMBERS, memberCount: 4, timeZone: TZ })
-    expect(out.waiting).toHaveLength(0)
-    expect(out.standingYes).toHaveLength(0)
-    // This is the exact bug: `out` is a real, non-null PendingData, so a
-    // page-level check of `pending !== null` would wrongly claim a strip is
-    // coming. The predicate must say no.
-    expect(pendingStripWillRender(out)).toBe(false)
-  })
-
-  it("is true when there's a waiting item, even with no standing yes", () => {
-    expect(pendingStripWillRender({ waiting: [{} as never], standingYes: [] })).toBe(true)
-  })
-
-  it("is true when there's a standing yes, even with nothing waiting", () => {
-    expect(pendingStripWillRender({ waiting: [], standingYes: [{} as never] })).toBe(true)
-  })
-
-  it("is false only when both arrays are empty", () => {
-    expect(pendingStripWillRender({ waiting: [], standingYes: [] })).toBe(false)
+    const bands = deriveProposalBands({
+      liveProposals: [p], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+    })
+    expect(bands.get("e1")!.chips.tallyLine).toContain("one more")
   })
 })

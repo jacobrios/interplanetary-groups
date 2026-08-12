@@ -10,15 +10,17 @@
 // exactly like GaugeChips does (never a fresh null the way ProposalChips
 // starts, since ProposalChips only ever fires once before it vanishes).
 //
-// Styling and behavior otherwise mirror GaugeChips: neutral outlined pills,
-// never lime, never teal-filled, emphasis by text brightness, chosen chip
-// marked with a checkmark prefix (never colour alone), optimistic flip
-// reverted by the transition if the write fails, error string rendered above
-// the chips and never posted to the feed as a message.
+// Styling comes from the shared choice grammar (src/components/choice.tsx),
+// same as GaugeChips: neutral outlined pills, never lime, never teal-filled,
+// emphasis by text brightness, chosen chip marked with a checkmark prefix
+// (never colour alone), optimistic flip reverted by the transition if the
+// write fails, error string rendered above the chips and never posted to
+// the feed as a message.
 
 import { useOptimistic, useTransition, useState } from "react"
 import { ProposalVoteAnswer } from "@prisma/client"
 import { proposalVoteAction } from "@/app/actions/proposal-vote"
+import { ChoiceChip, ChipRow, ErrorLine, TallyLine } from "@/components/choice"
 
 export interface FeedGroupProposal {
   id: string
@@ -41,9 +43,16 @@ interface Props {
    * the feed's indented value so nothing in the chat feed changes.
    */
   indentPastAvatar?: boolean
+  /** Card surfaces (IdeaCard, ProposalBand) pass an explicit margin; feed callers leave it unset. */
+  rowMargin?: string
 }
 
-export default function GroupProposalChips({ proposal, onAnswered, indentPastAvatar = true }: Props) {
+export default function GroupProposalChips({
+  proposal,
+  onAnswered,
+  indentPastAvatar = true,
+  rowMargin,
+}: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(proposal.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -67,72 +76,37 @@ export default function GroupProposalChips({ proposal, onAnswered, indentPastAva
     { answer: ProposalVoteAnswer.KEEP, label: proposal.labels.keep, quiet: true },
   ]
 
+  // Wrapping row, indented past Orbit's avatar so the chips read as part of
+  // its message rather than as a new speaker. Flush left instead on a
+  // surface with no avatar (indentPastAvatar={false}), or a card surface's
+  // own explicit rowMargin.
+  const rowMarginValue = rowMargin ?? (indentPastAvatar ? "8px 0 0 37px" : "9px 0 0")
+  const errorMarginLeft = indentPastAvatar && !rowMargin ? 36 : 0
+
   return (
     <form action={handle}>
       <input type="hidden" name="proposalId" value={proposal.id} />
-
-      {errorMsg && (
-        <p
-          style={{
-            fontSize: "var(--type-meta)",
-            lineHeight: "var(--leading-normal)",
-            color: "#f87171",
-            margin: indentPastAvatar ? "0.5rem 0 0 36px" : "0.5rem 0 0",
-          }}
-        >
-          {errorMsg}
-        </p>
-      )}
-
-      {/* Wrapping row, indented past Orbit's avatar so the chips read as part
-          of its message rather than as a new speaker. Flush left instead on
-          a surface with no avatar (indentPastAvatar={false}). */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "7px",
-          margin: indentPastAvatar ? "8px 0 0 37px" : "9px 0 0",
-        }}
-      >
-        {chips.map(({ answer, label, quiet }) => {
-          const selected = optimisticAnswer === answer
-          return (
-            <button
-              key={answer}
-              type="submit"
-              name="answer"
-              value={answer}
-              disabled={isPending}
-              style={{
-                border: "1.7px solid var(--hairline)",
-                backgroundColor: selected ? "var(--surface-self)" : "transparent",
-                borderRadius: "20px",
-                padding: "8px 12px",
-                fontSize: "var(--type-label)",
-                fontWeight: 600,
-                fontFamily: "inherit",
-                // Brightness, not hue: the yes chip stays full strength and the
-                // keep chip sits back. A chosen chip comes forward whichever
-                // it is.
-                color:
-                  quiet && !selected ? "var(--text-secondary)" : "var(--text-primary)",
-                whiteSpace: "nowrap",
-                cursor: isPending ? "default" : "pointer",
-              }}
-            >
-              {selected ? `✓ ${label}` : label}
-            </button>
-          )
-        })}
-      </div>
+      <ErrorLine msg={errorMsg} marginLeft={errorMarginLeft} />
+      <ChipRow margin={rowMarginValue}>
+        {chips.map(({ answer, label, quiet }) => (
+          <ChoiceChip
+            key={answer}
+            name="answer"
+            value={answer}
+            label={label}
+            selected={optimisticAnswer === answer}
+            quiet={quiet}
+            disabled={isPending}
+          />
+        ))}
+      </ChipRow>
 
       {/* Where things stand, below the chips (mirrors GaugeTally inside the
           bubble; here it sits under the row since the chips, not a bubble,
           are what it's reporting on). Exported separately so MessageFeed can
           render it alone for a non-member, who gets the tally as feed history
           but no vote of their own. */}
-      <GroupProposalTally line={proposal.tallyLine} indentPastAvatar={indentPastAvatar} />
+      <GroupProposalTally line={proposal.tallyLine} indentPastAvatar={rowMargin ? false : indentPastAvatar} />
     </form>
   )
 }
@@ -151,41 +125,5 @@ export function GroupProposalTally({
   /** See the same-named prop on GroupProposalChips: keeps this tally's indent matching its chip row's. */
   indentPastAvatar?: boolean
 }) {
-  if (!line) return null
-
-  return (
-    <span
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "6px",
-        // Recorded deviation (build-notes §11): this tally sits below the
-        // chip row rather than inside a bubble like GaugeTally, so it keeps
-        // its own left-indent (37px, matching the chip row) in addition to
-        // the shared hairline treatment below. Flush left instead when the
-        // chip row itself is flush (indentPastAvatar={false}).
-        marginTop: 9,
-        marginLeft: indentPastAvatar ? 37 : 0,
-        paddingTop: 9,
-        borderTop: "1.4px solid var(--hairline)",
-        fontSize: "var(--type-label)",
-        lineHeight: "var(--leading-normal)",
-        color: "var(--text-secondary)",
-        fontWeight: 600,
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      <i
-        aria-hidden="true"
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          backgroundColor: "var(--text-secondary)",
-          flexShrink: 0,
-        }}
-      />
-      {line}
-    </span>
-  )
+  return <TallyLine line={line} marginLeft={indentPastAvatar ? 37 : 0} />
 }
