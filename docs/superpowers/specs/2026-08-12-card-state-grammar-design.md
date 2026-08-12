@@ -8,12 +8,14 @@ was proposed: the 12 Aug QA postscript at the end of build-notes §11 (which rec
 changes and their lineage), the strip-placement decision record (11 Aug), and the
 pending-surface postscript (10 Aug) whose switching-cost assessment still holds.
 
-**Status: decisions settled with the owner in the 12 Aug brainstorm exchange.** This file was
-first committed as the pre-conversation draft; this revision carries the owner's rulings from
-that exchange (the teal grammar, chronological order with a cap of five, the label system).
-The remaining gates, in order: the Claude Design round (prompt committed beside this file as
-`2026-08-12-card-state-grammar-design-prompt.md`), the implementation plan, the owner's go,
-and the merge. Nothing is built yet.
+**Status: fully settled with the owner, 12 Aug 2026, across the live brainstorm exchange and
+the post-handoff review.** This file was first committed as the pre-conversation draft, revised
+once with the brainstorm rulings (the teal grammar, chronological order with a cap of five,
+the label system), and revised again after the Claude Design round returned: the handoff lives
+at `docs/design/design_handoff_round5/`, the describe-back ran, and the owner ruled on every
+difference it surfaced (all recorded below, with the deliberate departures from the boards
+listed in decision 13). The remaining gates, in order: the implementation plan, the owner's
+go, and the merge. Nothing is built yet.
 
 ---
 
@@ -37,8 +39,16 @@ border versus fill versus checkmark, never hue alone.
 Proposed CLAUDE.md wording: **teal never leans an open question. When a control offers two or
 more equally valid answers, the options carry equal weight while open: both quiet (the gauge
 chips) or both carrying the same teal mark (the RSVP pair's borders, marking the ask itself).
-Only an answer the member chose may hold the teal fill.** Every other teal in the app survives
-unchanged: "Add to calendar", the onboarding CTAs, the share button, and the composer send are
+Only an answer the member chose may hold the teal fill. A need label naming something the
+viewer must do (NEEDS YOUR RSVP, NEEDS YOUR VOTE) renders in the action teal; a label naming
+someone else's move (NEEDS OTHER VOTES) stays quiet grey, so scanning the card region for teal
+is scanning for your own to-dos.** The teal-label half was the owner's idea in the
+post-handoff review, adopted because the words already carry the your-versus-other
+distinction, making the color reinforcement rather than the only signal; the cost accepted
+knowingly is that an unanswered confirmed card says "this needs you" twice (teal label above
+teal borders), one message repeated rather than two competing, preferred over a special case
+that greys the label only where borders exist. Every other teal in the app survives unchanged:
+"Add to calendar", the onboarding CTAs, the share button, and the composer send are
 invitations to act in one direction. The strip's 7% wash amendment is struck (dated, per
 append-only rules) when the strip retires.
 
@@ -78,41 +88,61 @@ region; chat still carries every item, which was always the primary surface.
 
 A short uppercase eyebrow label in the card's top right (at or above the 13px floor), present
 only while the card needs something, gone when it needs nothing, so a fully settled card goes
-bare and the bare state reads as a small reward:
+bare and the bare state reads as a small reward. Labels naming a need from the viewer render
+in the action teal; the one naming other people's move stays grey (decision 2):
 
-- Pending card, viewer has not voted: **"Needs your vote"**
-- Pending card, viewer voted yes: **"Needs more votes"** (a declined viewer sees no card)
-- Confirmed card, viewer has not RSVP'd: **"Needs your RSVP"**
-- Confirmed card, viewer has answered: **no label**
+- Pending card, viewer has not voted: **"NEEDS YOUR VOTE"** (teal)
+- Pending card, viewer voted yes: **"NEEDS OTHER VOTES"** (grey; a declined viewer sees no
+  card). The owner's copy, replacing the draft's "needs more votes", because it says whose
+  move it is: you have done your part.
+- Confirmed card, viewer has not RSVP'd: **"NEEDS YOUR RSVP"** (teal)
+- Confirmed card, viewer has answered, no open proposal: **no label**
+- Confirmed card with an open time-change proposal, the ladder (from the design round's
+  boards, extended with the owner's copy): **NEEDS YOUR RSVP** (teal) until the viewer RSVPs,
+  then **NEEDS YOUR VOTE** (teal) until they answer the proposal, then **NEEDS OTHER VOTES**
+  (grey) until the vote resolves and the band leaves. The label always names the card's
+  highest outstanding need, yours before anyone else's.
 
 The confirmed-versus-pending distinction rides on the wording (RSVP versus vote), the chrome
-brightness, and the tally style, never on hue. Labels are a carousel device only; the event
-detail screen inherits the pair treatment but carries no label. Final copy stays the owner's
-call on the rendered board.
+brightness, and the tally style, never on hue alone. Labels are a carousel device only; the
+event detail screen inherits the pair treatment but carries no label.
 
 ### 7. Pending cards are subordinate by structure and label, never by hue
 
-A pending gauge card carries: the label above; a title composing the activity plus proposed
-day and time through the existing deterministic format helpers; the same three gauge chips as
-chat (same component, same server action, same tally, per the settled answer-in-place
-decision); and the live tally in the product's one tally voice. Subordination constraints
-binding on the design round: the pending card reads quieter than the confirmed card by
-brightness and structure (for example a flatter, hairline-only shell); never hue alone, never
-red or green as the only signal; **no teal wash on any card** (a washed pending card would
-rank a maybe above a real plan, inverting the hierarchy the wash was retired with). Layout
-grows with content and never clips.
+A pending gauge card carries: the label above; a title composing **the activity plus a
+question mark** ("Beers?"), the owner's post-handoff call, because the mark says "not settled
+yet" in one character, in Orbit's own warmth, without duplicating the label's job (the
+considered "Pending -" prefix was declined as a fourth state marker in colder language); a
+when-line of the proposed day and time through the existing deterministic format helpers,
+followed by a fixed **"Place TBD"** segment, kept by the owner because an empty spot where a
+place should be reads as a bug while "Place TBD" says a venue is coming (it is constant copy,
+not stored data, so the no-venue-until-promotion decision is untouched); the same three gauge
+chips as chat (same component, same server action, per the settled answer-in-place decision);
+and the live tally in the product's one tally voice. Subordination constraints, drawn and
+approved in the round-5 boards: the pending card reads quieter than the confirmed card by
+brightness and structure (flat `--surface-base` shell, single hairline, no shadow, body-size
+title, no chevron since no detail screen exists behind an idea); never hue alone, never red or
+green as the only signal; **no teal wash on any card** (a washed pending card would rank a
+maybe above a real plan, inverting the hierarchy the wash was retired with). Layout grows with
+content and never clips.
 
 ### 8. A time-change proposal is a band on its event's own card, not a second card
 
 The strip carried proposals as their own rows; in the carousel, the affected event already has
 a card, and two cards for one plan would corrupt the at-a-glance read worse than any label
-could repair. The proposal renders as a band on the confirmed event's card: the question, the
-two proposal chips, and the live tally, all the existing shared components. The card stays a
-confirmed card (the plan is real; only its time is in question) and grows to hold the band.
-The dense face this creates (a card holding its own RSVP pair, possibly a "Needs your RSVP"
-label, and an open proposal band at once) is a named problem handed to the design round.
+could repair. The proposal renders as a band on the confirmed event's card, per the round-5
+boards: recessed one step under the raised card (`--surface-base` behind a hairline top), a
+"TIME CHANGE" kind label, Orbit's question, the two shipped proposal chips, and that vote's
+own tally. The card stays a confirmed card (the plan is real; only its time is in question)
+and grows to hold the band. The label ladder for this dense face is in decision 6.
 Alternative considered and declined: a separate "time change proposed" card, rejected for the
-duplicate-plan confusion.
+duplicate-plan confusion. **Height, raised by the owner and accepted knowingly for MVP:** the
+dense face makes the pinned card region tall, which shrinks the chat feed's visible window
+(the feed is its own scroll region, so nothing overlaps or hides; you see fewer messages
+until the vote resolves and the band leaves). Accepted because the state is rare and
+self-resolving, and the alternatives run into the grows-never-clips rule and the parked
+condense-after-RSVP question. The owner judges the felt height on a real phone in the QA
+script; a bad verdict there is data for a targeted fix, not grounds to pre-solve it now.
 
 ### 9. Viewer tailoring carries over, adapted to cards
 
@@ -149,17 +179,35 @@ copies will drift, and the shared folder is the only place the repo can honestly
 RSVP pair component also moves out of the event-detail folder it is flagged as mis-homed in,
 since it is being rewritten anyway.
 
-### 13. The Claude Design round, and what it must draw
+### 13. The Claude Design round: complete, and where the build deliberately departs from it
 
-The strip-placement record said a placement change needs its own design round, since the
-handoff drew the strip and not cards. The prompt is committed beside this spec. The round must
-draw six boards: the confirmed card unanswered (teal-bordered pair, "Needs your RSVP"); the
-confirmed card in both answered states (teal-filled choice, no label); the pending card
-unanswered ("Needs your vote", quiet chips, tally); the pending card after the viewer's yes
-("Needs more votes", selected chip); the dense face (confirmed card with an open proposal
-band); and the mixed carousel in date order showing subordination at a glance. The chip
-grammar, the carousel chrome, and the card shell are shipped and settled and are not up for
-redraw. The empty-state box, chat, and the event detail screen are out of the round's scope.
+The round ran 12 Aug against the committed prompt and returned the six boards as a real
+handoff: `docs/design/design_handoff_round5/` (README with measurements and state model,
+`round5-cards.css` as the source of truth for every new value, the shipped base CSS, and a
+plain-markup reference of all six boards). The describe-back ran against the full source plus
+rendered checks of boards 01 and 02; the handoff is high fidelity, and its gauge chip strings
+match the shipped copy character for character. `round5-cards.css` values are ported into the
+codebase's components, never loaded as a file, per the handoff's own instruction.
+
+**The build departs from the boards in five named places, each ruled by the owner, so the
+rendered-versus-design comparison at verification must treat these as intended:**
+
+1. **Cap:** the boards say three cards; the recorded decision is five. Five wins.
+2. **Tally and proposal-chip strings:** the boards show a counts-only tally voice ("2 in · 1
+   next time · 5 waiting") and invented proposal chips ("🔄 Switch to 8"). The product has one
+   recorded tally voice (names plus "one more makes it happen") and shipped proposal copy
+   ("8pm works" / "Keep 7pm"). Shipped words win; the boards' tally placement below the chips
+   and tabular numerals are adopted.
+3. **Label copy:** the boards' "NEEDS MORE VOTES" becomes the owner's "NEEDS OTHER VOTES".
+4. **Label color:** the boards render all labels `--text-secondary`; the owner's teal-label
+   rule (decision 2) supersedes them for the needs-you labels.
+5. **Pending title:** the boards' bare "Beers" becomes "Beers?" (decision 7).
+
+Adopted from the boards beyond the prompt: the label-precedence ladder on the dense face
+(decision 6) and the recessed band anatomy (decision 8). "Place TBD" on the pending when-line
+was questioned in the describe-back and kept by the owner (decision 7). The chip grammar, the
+carousel chrome, and the card shell remain shipped and settled; the empty-state box, chat, and
+the event detail screen were out of the round's scope.
 
 ---
 
@@ -201,25 +249,30 @@ numbers in the PR is read as correct rather than skipped.
 3. **Pure-function tests on the carousel composition and the label logic**: pure date order
    with ties to the confirmed plan; the combined cap of five; a viewer's decline dropping the
    card; promotion moving an item from pending to confirmed; a proposal attaching to its event
-   rather than composing as its own item; both empty-state branches; and all four label states
-   (needs your vote, needs more votes, needs your RSVP, bare). The existing derivation tests
-   carry over; the strip's own tests and the strip-gate helper's tests retire with their
-   components.
+   rather than composing as its own item; both empty-state branches; every rung of the label
+   ladder (NEEDS YOUR RSVP, NEEDS YOUR VOTE, NEEDS OTHER VOTES, bare) including the dense-face
+   precedence and the teal-versus-grey classification; and the pending title composing as
+   activity plus question mark. The existing derivation tests carry over; the strip's own
+   tests and the strip-gate helper's tests retire with their components.
 4. **Browser walkthrough on dev-test, multi-session**, evidence captured as screenshots and
    named in the PR: the unanswered card leaning on nothing, both borders equal; a "Can't make
-   it" tap visibly moving the teal to the chosen answer; the label flipping from "Needs your
-   vote" to "Needs more votes" on a chip yes, and disappearing on an RSVP; a chip vote from a
-   pending card landing in chat's tally and vice versa (same action, same rows); a third yes
-   from a card chip creating the event, the card converting in place, chat announcing once; a
-   decline clearing the last pending card with nothing else firing; a proposal band on the
-   event card whose clearing vote moves the plan and resets RSVPs per the settled consensus
-   rules; the date order holding with confirmed and pending mingled.
-5. **Rendered-vs-design comparison** against the design round's board for every visual claim,
-   per the no-claimed-match-without-comparison rule.
+   it" tap visibly moving the teal to the chosen answer; the label flipping from the teal
+   "NEEDS YOUR VOTE" to the grey "NEEDS OTHER VOTES" on a chip yes, and disappearing on an
+   RSVP; the dense-face ladder walking all three rungs; a chip vote from a pending card
+   landing in chat's tally and vice versa (same action, same rows); a third yes from a card
+   chip creating the event, the card converting in place, chat announcing once; a decline
+   clearing the last pending card with nothing else firing; a proposal band on the event card
+   whose clearing vote moves the plan and resets RSVPs per the settled consensus rules; the
+   date order holding with confirmed and pending mingled.
+5. **Rendered-vs-design comparison** against the round-5 boards for every visual claim, per
+   the no-claimed-match-without-comparison rule, with decision 13's five named departures
+   treated as intended differences rather than misses.
 6. **Owner QA script**, proposed unprompted with the PR, ten minutes or less, run on a real
    phone, and it must include re-judging both originating complaints: "does the card still
    lean toward yes before you have answered?" and "do the maybes read clearly subordinate to
-   the real plans?", plus the label copy call, which is a judgment only a human should make.
+   the real plans?", plus the two judgments only a human can make there: whether the dense
+   face's height feels workable in the flesh (decision 8), and whether the label copy reads
+   right at a glance.
 
 ---
 
