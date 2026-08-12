@@ -8,8 +8,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
 import RsvpControls from "../RsvpControls"
+import type { RsvpState } from "@/app/actions/rsvp"
 
-const rsvpMock = vi.fn(async (..._args: unknown[]) => ({}))
+const rsvpMock = vi.fn(async (..._args: unknown[]): Promise<RsvpState> => ({}))
 vi.mock("@/app/actions/rsvp", () => ({
   rsvpAction: (...args: unknown[]) => rsvpMock(...args),
 }))
@@ -58,8 +59,8 @@ describe("RsvpControls", () => {
   })
 
   it("disables both options while a write is in flight", async () => {
-    let release: (v: {}) => void = () => {}
-    rsvpMock.mockImplementationOnce(() => new Promise<{}>((r) => { release = r }))
+    let release: (v: RsvpState) => void = () => {}
+    rsvpMock.mockImplementationOnce(() => new Promise<RsvpState>((r) => { release = r }))
     render(<RsvpControls eventId="e1" currentStatus={null} compact />)
     fireEvent.click(screen.getByRole("button", { name: "I'm in" }))
     await waitFor(() =>
