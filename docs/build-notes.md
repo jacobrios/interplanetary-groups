@@ -2127,3 +2127,16 @@ they are not rediscovered: the joining-arc-era note near the `.ed-cal`
 feel-pass items attributes those CSS rules to the PNG reference folder, but
 they live in the handoff bundles' walkthrough.css; and the wizard's OrbitPause
 loading state was never drawn by anyone, which nobody has ruled on yet.
+
+### Visual-polish slice one: slice start (11 Aug 2026)
+
+Slice started from main at 77d0148, on branch `feat/visual-polish-1`. Suite
+baseline before any code: 73 files, 778 tests, all green, zero skipped. This
+is two tests above the share-readiness entry's recorded finishing number of
+73 files, 776 tests; the difference is accounted for and is not a
+pre-existing failure. Commit `dfbf4cb` ("Fix the share-readiness review
+findings") landed on that branch after its entry's count was recorded and
+added two copy-pinning tests inside existing test files, its own message
+confirming 778; the file count held at 73. Nothing failed and nothing was
+skipped. The lint baseline carried from the share-readiness correction is
+fifteen errors on main, none of them this slice's to fix silently.
