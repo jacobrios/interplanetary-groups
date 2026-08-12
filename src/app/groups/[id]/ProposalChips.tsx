@@ -5,14 +5,16 @@
 // the asker (the page composes proposal DTOs for the asker alone; the server
 // action enforces the same rule).
 //
-// Styling and behavior mirror GaugeChips: neutral outlined pills, never lime,
-// never teal-filled, emphasis by text brightness, chosen chip marked with a
-// checkmark prefix, optimistic flip reverted by the transition if the write
-// fails. Resolution removes the proposal server-side, so on success the chips
-// vanish with the next render and the question stays as plain history.
+// Styling comes from the shared choice grammar (src/components/choice.tsx),
+// same as GaugeChips: neutral outlined pills, never lime, never teal-filled,
+// emphasis by text brightness, chosen chip marked with a checkmark prefix,
+// optimistic flip reverted by the transition if the write fails. Resolution
+// removes the proposal server-side, so on success the chips vanish with the
+// next render and the question stays as plain history.
 
 import { useOptimistic, useTransition, useState } from "react"
 import { proposalAnswerAction } from "@/app/actions/proposal-answer"
+import { ChoiceChip, ChipRow, ErrorLine } from "@/components/choice"
 
 export interface FeedProposal {
   id: string
@@ -52,56 +54,20 @@ export default function ProposalChips({ proposal }: Props) {
   return (
     <form action={handle}>
       <input type="hidden" name="proposalId" value={proposal.id} />
-
-      {errorMsg && (
-        <p
-          style={{
-            fontSize: "var(--type-meta)",
-            lineHeight: "var(--leading-normal)",
-            color: "#f87171",
-            margin: "0.5rem 0 0 36px",
-          }}
-        >
-          {errorMsg}
-        </p>
-      )}
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "7px",
-          margin: "8px 0 0 37px",
-        }}
-      >
-        {chips.map(({ answer, label, quiet }) => {
-          const selected = optimisticAnswer === answer
-          return (
-            <button
-              key={answer}
-              type="submit"
-              name="answer"
-              value={answer}
-              disabled={isPending}
-              style={{
-                border: "1.7px solid var(--hairline)",
-                backgroundColor: selected ? "var(--surface-self)" : "transparent",
-                borderRadius: "20px",
-                padding: "8px 12px",
-                fontSize: "var(--type-label)",
-                fontWeight: 600,
-                fontFamily: "inherit",
-                color:
-                  quiet && !selected ? "var(--text-secondary)" : "var(--text-primary)",
-                whiteSpace: "nowrap",
-                cursor: isPending ? "default" : "pointer",
-              }}
-            >
-              {selected ? `✓ ${label}` : label}
-            </button>
-          )
-        })}
-      </div>
+      <ErrorLine msg={errorMsg} marginLeft={36} />
+      <ChipRow margin="8px 0 0 37px">
+        {chips.map(({ answer, label, quiet }) => (
+          <ChoiceChip
+            key={answer}
+            name="answer"
+            value={answer}
+            label={label}
+            selected={optimisticAnswer === answer}
+            quiet={quiet}
+            disabled={isPending}
+          />
+        ))}
+      </ChipRow>
     </form>
   )
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest"
 import { cleanup, render, screen } from "@testing-library/react"
-import { ChoiceChip, ChipRow, TallyLine, RsvpOption } from "../choice"
+import { ChoiceChip, ChipRow, TallyLine, ErrorLine, RsvpOption } from "../choice"
 
 afterEach(cleanup)
 
@@ -29,6 +29,22 @@ describe("ChoiceChip", () => {
   })
 })
 
+describe("ChipRow", () => {
+  it("applies the given margin and lays children out in a wrapping row", () => {
+    render(
+      <ChipRow margin="8px 0 0 37px">
+        <span>one</span>
+        <span>two</span>
+      </ChipRow>
+    )
+    const row = screen.getByText("one").parentElement as HTMLElement
+    expect(row.style.margin).toBe("8px 0px 0px 37px")
+    expect(row.style.display).toBe("flex")
+    expect(row.style.flexWrap).toBe("wrap")
+    expect(screen.getByText("two")).toBeDefined()
+  })
+})
+
 describe("TallyLine", () => {
   it("renders nothing for an empty line", () => {
     const { container } = render(<TallyLine line="" />)
@@ -37,6 +53,17 @@ describe("TallyLine", () => {
   it("renders the line when present", () => {
     render(<TallyLine line="Rowan is in so far · one more makes it happen" />)
     expect(screen.getByText("Rowan is in so far · one more makes it happen")).toBeDefined()
+  })
+})
+
+describe("ErrorLine", () => {
+  it("renders nothing for a null message", () => {
+    const { container } = render(<ErrorLine msg={null} />)
+    expect(container.innerHTML).toBe("")
+  })
+  it("renders the message when present", () => {
+    render(<ErrorLine msg="The plan already changed, take a look up top." />)
+    expect(screen.getByText("The plan already changed, take a look up top.")).toBeDefined()
   })
 })
 
