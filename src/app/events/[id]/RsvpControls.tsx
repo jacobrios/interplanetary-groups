@@ -75,6 +75,12 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
   // pass (see build-notes §11, visual-polish task 9 fix round 1).
   const btnRadius = compact ? "24px" : "0.5rem"
   const rowGap = compact ? "0.6em" : "0.625rem"
+  // "Can't make it" border width is a compact-only (home card) design value
+  // too (walkthrough.css REFINEMENT PASS, `.gh-rsvp .out`: 1.5px, an
+  // "unmissable secondary peer"); event detail keeps its original 1px until
+  // its own fidelity pass (see build-notes §11, visual-polish task 9 fix
+  // round 1, same reasoning as btnRadius/rowGap above).
+  const outBorderWidth = compact ? "1.5px" : "1px"
 
   return (
     <form action={handle}>
@@ -138,7 +144,7 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
             color: "var(--text-primary)",
             fontSize: "var(--type-label)",
             fontWeight: optimisticStatus === RsvpStatus.OUT ? 600 : 400,
-            border: "1px solid var(--hairline)",
+            border: `${outBorderWidth} solid var(--hairline)`,
             borderRadius: btnRadius,
             cursor: isPending ? "not-allowed" : "pointer",
           }}

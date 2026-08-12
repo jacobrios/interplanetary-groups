@@ -171,7 +171,11 @@ function WaitingRow({
 
       {item.kind === "gauge" ? (
         <>
-          <GaugeChips gauge={item.chips} onAnswered={(a: GaugeAnswer) => onAnswered(item, a)} />
+          <GaugeChips
+            gauge={item.chips}
+            onAnswered={(a: GaugeAnswer) => onAnswered(item, a)}
+            indentPastAvatar={false}
+          />
           {/* Spec gap fix: GaugeChips renders no tally of its own (in the feed
               MessageFeed puts GaugeTally inside Orbit's bubble instead), so
               the panel row wires it in directly, below the chips. The
@@ -185,7 +189,11 @@ function WaitingRow({
           <GaugeTally line={item.chips.tallyLine} />
         </>
       ) : (
-        <GroupProposalChips proposal={item.chips} onAnswered={(a: ProposalVoteAnswer) => onAnswered(item, a)} />
+        <GroupProposalChips
+          proposal={item.chips}
+          onAnswered={(a: ProposalVoteAnswer) => onAnswered(item, a)}
+          indentPastAvatar={false}
+        />
       )}
     </div>
   )
@@ -260,11 +268,11 @@ function StandingYesRow({
       {open &&
         (item.kind === "gauge" ? (
           <>
-            <GaugeChips gauge={item.chips} />
+            <GaugeChips gauge={item.chips} indentPastAvatar={false} />
             <GaugeTally line={item.chips.tallyLine} />
           </>
         ) : (
-          <GroupProposalChips proposal={item.chips} />
+          <GroupProposalChips proposal={item.chips} indentPastAvatar={false} />
         ))}
     </div>
   )

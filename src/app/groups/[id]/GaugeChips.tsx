@@ -47,9 +47,17 @@ export interface FeedGauge {
 interface Props {
   gauge: FeedGauge
   onAnswered?: (answer: GaugeAnswer) => void
+  /**
+   * Whether this chip row sits under Orbit's avatar and should indent past
+   * it (the feed). False renders flush left instead, for surfaces with no
+   * avatar to align under (the pending panel — pending-surface.css's
+   * `.pd-row .gh-qr` override, `9px 0 0`). Defaults to the feed's indented
+   * value so nothing in the chat feed changes.
+   */
+  indentPastAvatar?: boolean
 }
 
-export default function GaugeChips({ gauge, onAnswered }: Props) {
+export default function GaugeChips({ gauge, onAnswered, indentPastAvatar = true }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(gauge.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -84,7 +92,7 @@ export default function GaugeChips({ gauge, onAnswered }: Props) {
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
             color: "#f87171",
-            margin: "0.5rem 0 0 36px",
+            margin: indentPastAvatar ? "0.5rem 0 0 36px" : "0.5rem 0 0",
           }}
         >
           {errorMsg}
@@ -92,13 +100,14 @@ export default function GaugeChips({ gauge, onAnswered }: Props) {
       )}
 
       {/* Wrapping row, indented past Orbit's avatar so the chips read as part
-          of its message rather than as a new speaker. */}
+          of its message rather than as a new speaker. Flush left instead on
+          a surface with no avatar (indentPastAvatar={false}). */}
       <div
         style={{
           display: "flex",
           flexWrap: "wrap",
           gap: "7px",
-          margin: "8px 0 0 37px",
+          margin: indentPastAvatar ? "8px 0 0 37px" : "9px 0 0",
         }}
       >
         {chips.map(({ answer, label, quiet }) => {

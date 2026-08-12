@@ -308,12 +308,20 @@ export default function MessageFeed({
                   </div>
                 )}
 
-                {/* Self (viewer): right-aligned, strongest neutral fill, no border */}
+                {/* Self (viewer): right-aligned, strongest neutral fill. The
+                    hairline border here is deliberate, not a stray leftover:
+                    walkthrough.css's later "CONTRAST + CONSISTENCY PASS"
+                    (around line 622) adds `1px solid var(--hairline)` to
+                    every raised chat surface including `.gh-self .smsg`,
+                    overriding an earlier "no border" rule by plain cascade
+                    order. Do not remove it again on the strength of the
+                    earlier block; the later block is the one that wins. */}
                 {isSelf && (
                   <div style={{ maxWidth: "93%" }}>
                     <div
                       style={{
                         backgroundColor: "var(--surface-self)",
+                        border: "1px solid var(--hairline)",
                         borderRadius: "16px 16px 5px 16px",
                         padding: "11px 14px",
                       }}

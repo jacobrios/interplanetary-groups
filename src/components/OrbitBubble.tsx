@@ -28,6 +28,7 @@ export function OrbitBubble({ children }: { children: ReactNode }) {
       <div
         style={{
           backgroundColor: "var(--surface-raised)",
+          border: "1px solid var(--hairline)",
           borderRadius: "16px 16px 16px 5px",
           padding: "12px 14px",
           fontSize: "var(--type-body)",
