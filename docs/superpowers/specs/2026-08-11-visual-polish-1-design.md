@@ -44,6 +44,14 @@ Everything in the strip-placement decision record, plus these, settled at planni
 - **No animation anywhere in this round**, including removing the two existing micro-transitions
   on the group home (optimistic-message opacity, send-arrow color); states still change, they
   just change instantly.
+- **The send button keeps its teal (owner ruling, 11 Aug 2026, overriding the board).** The
+  round-two board drew the composer's send as a permanently neutral filled circle, on the
+  argument that composing is not the primary action. The owner ruled that sending a message is
+  an action that genuinely matters, which is exactly what teal means in this product. Built as
+  the board's 40px circle with a two-state fill: neutral (`--surface-self`) while the input is
+  empty, teal (`--action` with an `--action-ink` arrow) the moment there is text, switching
+  instantly. Recorded here because it is the one place this slice deliberately departs from the
+  approved handoff; do not "correct" it back to the board.
 - **The group home header name moves to `--type-heading`** (CLAUDE.md's role mapping already says
   home header at heading; the shipped body-size header was the deviation), and gains the designed
   subline "N members · group info & invite link" with a real derived member count.

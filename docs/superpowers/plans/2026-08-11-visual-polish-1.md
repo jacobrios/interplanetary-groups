@@ -875,11 +875,18 @@ git commit -m "The event card takes its finished shell, with counts on their own
 - Consumes: tokens.
 - Produces: nothing new.
 
-Target values (walkthrough.css `.gh-pin` / `.gh-input` / `.gh-send` with late overrides, plus the kept move from the declined pilot in round4-base.css): wrapper `padding: "12px 16px 4px"`, `backgroundColor: "var(--surface-base)"`, `backgroundImage: "linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0))"` (the grounded-composer scrim — the feed now ends instead of sliding bare under the input), **no top hairline** (the scrim replaces it). Input pill: `background: var(--surface-raised)`, `border: "1px solid var(--hairline)"`, `borderRadius: 26`, `padding: "7px 7px 7px 16px)"` — note this is the row's padding; the send button sits inside the pill row at its right edge — `caretColor: "var(--text-primary)"`. Send button: `40×40` circle, `background: var(--surface-self)`, arrow `stroke: var(--text-secondary)` **always** — composing is not the primary action in the approved design, so the has-text teal state and its `transition: "color 0.15s ease"` are removed together.
+Target values (walkthrough.css `.gh-pin` / `.gh-input` / `.gh-send` with late overrides, plus the kept move from the declined pilot in round4-base.css): wrapper `padding: "12px 16px 4px"`, `backgroundColor: "var(--surface-base)"`, `backgroundImage: "linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0))"` (the grounded-composer scrim — the feed now ends instead of sliding bare under the input), **no top hairline** (the scrim replaces it). Input pill: `background: var(--surface-raised)`, `border: "1px solid var(--hairline)"`, `borderRadius: 26`, `padding: "7px 7px 7px 16px"` — this is the row's padding; the send button sits inside the pill row at its right edge — `caretColor: "var(--text-primary)"`.
+
+**Send button, owner ruling 11 Aug 2026 (overrides the board on this one point, do not "correct" it back).** The board drew the send as permanently neutral on the argument that composing is not the primary action. The owner ruled the opposite: sending a message IS an action that genuinely matters, so it keeps its teal. Build the board's geometry with a two-state fill:
+
+- Always: `40×40` circle, `borderRadius: "50%"`, flex-centered, `flexShrink: 0`.
+- Empty input: `backgroundColor: "var(--surface-self)"`, arrow `stroke: "var(--text-secondary)"`.
+- Has text: `backgroundColor: "var(--action)"`, arrow `stroke: "var(--action-ink)"`.
+- The state switches instantly: delete `transition: "color 0.15s ease"` (`ChatInput.tsx:111`) and add no replacement. No-animation still governs; only the fade is removed, not the state change.
 
 - [ ] **Step 1: Apply the values above in `ChatInput.tsx`** (keep the disabled/pending behavior and `OrbitDownNote` placement untouched).
 - [ ] **Step 2: Full suite + typecheck** — clean and green.
-- [ ] **Step 3: Rendered check** — feed scrolls into a soft darkening above the composer, neutral filled send circle, no teal flash while typing.
+- [ ] **Step 3: Rendered check** — feed scrolls into a soft darkening above the composer; send circle is neutral when the input is empty and teal-filled with a dark arrow the moment there is text, with no fade between the two.
 - [ ] **Step 4: Commit**
 
 ```bash
