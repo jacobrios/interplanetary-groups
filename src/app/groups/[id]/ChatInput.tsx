@@ -5,9 +5,13 @@
 // All state (optimistic messages, transition, error) lives in GroupHome,
 // which passes down the value, the change handler, and the form action.
 //
-// Send arrow color per build-notes §7:
-// - Dim/inactive (--placeholder) when the input is empty.
-// - Teal (--action) once the viewer has typed.
+// Send button per build-notes §7 (owner ruling 11 Aug 2026, visual-polish
+// slice, task 10): the design board drew the send as permanently neutral,
+// arguing composing isn't the primary action. The owner overrode that:
+// sending IS an action that matters, so the circle fills teal once there's
+// text to send.
+// - Empty: neutral fill (--surface-self), dim arrow (--text-secondary).
+// - Has text: teal fill (--action), dark arrow (--action-ink).
 // This contextual teal coexists with the card's persistent "I'm in" teal
 // because a contextual action (only live while composing) is not a second
 // persistent primary — it does not violate one-primary-action-per-screen.
@@ -37,9 +41,9 @@ export default function ChatInput({
   return (
     <div
       style={{
-        borderTop: "1px solid var(--hairline)",
         backgroundColor: "var(--surface-base)",
-        padding: "0.75rem 1rem",
+        backgroundImage: "linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0))",
+        padding: "12px 16px 4px",
         flexShrink: 0,
       }}
     >
@@ -61,7 +65,15 @@ export default function ChatInput({
           e.preventDefault()
           onSubmit(new FormData(e.currentTarget))
         }}
-        style={{ display: "flex", gap: "0.5rem" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.625rem",
+          backgroundColor: "var(--surface-raised)",
+          border: "1px solid var(--hairline)",
+          borderRadius: 26,
+          padding: "7px 7px 7px 16px",
+        }}
       >
         <input type="hidden" name="groupId" value={groupId} />
 
@@ -79,36 +91,33 @@ export default function ChatInput({
           disabled={isPending}
           style={{
             flex: 1,
-            padding: "0.5rem 0.75rem",
-            backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "1.5rem",
+            padding: 0,
+            backgroundColor: "transparent",
+            border: "none",
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
             outline: "none",
-            caretColor: "var(--action)",
+            caretColor: "var(--text-primary)",
           }}
         />
 
-        {/* Send arrow: dim when empty, teal when the viewer has typed */}
+        {/* Send circle: neutral fill when empty, teal fill the moment there's text */}
         <button
           type="submit"
           disabled={!hasText || isPending}
           aria-label="Send message"
           style={{
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             borderRadius: "50%",
             border: "none",
-            backgroundColor: "transparent",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: hasText && !isPending ? "pointer" : "default",
             flexShrink: 0,
-            alignSelf: "center",
-            transition: "color 0.15s ease",
-            color: hasText ? "var(--action)" : "var(--placeholder)",
+            backgroundColor: hasText ? "var(--action)" : "var(--surface-self)",
+            color: hasText ? "var(--action-ink)" : "var(--text-secondary)",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
