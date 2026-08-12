@@ -32,6 +32,8 @@ import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import ChatInput from "./ChatInput"
+import OrbitDownNote from "./OrbitDownNote"
+import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
 interface Props {
   groupId: string
@@ -77,6 +79,11 @@ export default function GroupHome({
   // answers. It fails quietly rather than wrongly.
   const [, startDetection] = useTransition()
 
+  // The one thing the sender is told besides their own message: Orbit could
+  // not read it (credits or trouble). Nothing is stored, nothing enters the
+  // feed; a page reload drops it just like the condition it describes.
+  const [orbitDown, setOrbitDown] = useState<ModelFailureReason | null>(null)
+
   function handleSubmit(formData: FormData) {
     const body = (formData.get("body") as string | null)?.trim() ?? ""
     if (!body || !viewerId || !viewerName) return
@@ -111,7 +118,12 @@ export default function GroupHome({
           // The action is soft on the server; this catch covers the trip
           // itself. Going offline in the beat after sending must leave the
           // message standing, not surface an error boundary.
-          await detectIntentAction(messageId).catch(() => {})
+          const result = await detectIntentAction(messageId).catch(() => null)
+          // The one thing the sender is told: Orbit could not read the
+          // message (credits or trouble). Any successful detection clears a
+          // stale note; a repeat failure keeps it current.
+          if (result?.status === "unavailable") setOrbitDown(result.reason)
+          else if (result) setOrbitDown(null)
         })
       }
     })
@@ -144,14 +156,17 @@ export default function GroupHome({
           canPost still checks the session because a member row without a
           session cannot author anything. */}
       {canPost && (
-        <ChatInput
-          groupId={groupId}
-          value={inputValue}
-          onChange={setInputValue}
-          onSubmit={handleSubmit}
-          isPending={isPending}
-          errorMsg={errorMsg}
-        />
+        <>
+          {orbitDown && <OrbitDownNote reason={orbitDown} />}
+          <ChatInput
+            groupId={groupId}
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={handleSubmit}
+            isPending={isPending}
+            errorMsg={errorMsg}
+          />
+        </>
       )}
     </div>
   )

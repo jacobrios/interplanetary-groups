@@ -16,6 +16,8 @@ import { moveEventTime } from "@/lib/events/move"
 import { createChangeProposal, createGroupProposal } from "@/lib/proposals/create"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { detectIntentClaim, normalizeIntent } from "@/lib/orbit/spark"
+import { ModelUnavailableError } from "@/lib/orbit/model-errors"
+import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import { planChange, type ChangeTarget } from "@/lib/orbit/change-plan"
 import { planDayComment } from "@/lib/orbit/day-comment-plan"
 import { recordDayComment } from "@/lib/gauges/day-comment"
@@ -33,9 +35,9 @@ import {
   sparkStartInstant,
 } from "@/lib/orbit/spark-copy"
 
-export type DetectIntentResult = {
-  status: "gauged" | "changed" | "asked" | "replied" | "quiet"
-}
+export type DetectIntentResult =
+  | { status: "gauged" | "changed" | "asked" | "replied" | "quiet" }
+  | { status: "unavailable"; reason: ModelFailureReason }
 
 /**
  * Server action: read one member message and act on what it is. A fresh idea
@@ -369,6 +371,12 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       }
     }
   } catch (err) {
+    if (err instanceof ModelUnavailableError) {
+      // The one failure the sender is told about: their message stands, and
+      // Orbit says honestly why it might miss things (spec decisions 5-7).
+      console.error("[detect-intent] model unavailable:", err)
+      return { status: "unavailable", reason: err.reason }
+    }
     // Soft by design: the member's message stands, and nothing is said.
     console.error("[detect-intent] detection failed", err)
     return { status: "quiet" }
