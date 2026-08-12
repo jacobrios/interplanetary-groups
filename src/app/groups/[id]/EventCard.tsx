@@ -15,12 +15,9 @@
 //   amended to match on 27 July 2026 (build-notes §11, spark part two).
 // - The card stays pinned at the top; condensed-after-RSVP is deliberately
 //   not built (see build-notes §7 open question and §11).
-//
-// Tech debt: RsvpControls lives under events/[id]/ but is shared here;
-// noted for future relocation to a shared dir.
 
 import Link from "next/link"
-import RsvpControls from "@/app/events/[id]/RsvpControls"
+import RsvpControls from "@/components/RsvpControls"
 import { formatEventDate } from "@/lib/events/format"
 import { formatCounts } from "@/lib/events/roster"
 import { RsvpStatus } from "@prisma/client"
