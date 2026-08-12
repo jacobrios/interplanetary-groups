@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Round 4 · Interplanetary Groups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="walkthrough.css" />
+<link rel="stylesheet" href="pending-surface.css" />
+<link rel="stylesheet" href="round4-base.css" />
+<link rel="stylesheet" href="finish-layer.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.bd-num, .bd-ttl { color: #101114; }
+.bd-cap { color: #23242a; }
+.bd-frame { height: 844px; border: 1px solid #3a3d49; }
+.board { gap: 56px 40px; margin-top: 30px; }
+.sec-head { max-width: 78ch; margin: 78px 0 0; }
+.sec-head .k { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: #2b2b2b; font-weight: 700; }
+.sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -.015em; color: #111214; margin: 8px 0 0; }
+.sec-head p { font-size: 14px; line-height: 1.62; color: #23242a; margin: 10px 0 0; text-wrap: pretty; }
+.iso-list { display: flex; flex-direction: column; gap: 28px; margin-top: 28px; }
+.iso { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.iso-frame { width: 390px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 14px; overflow: hidden; }
+.iso-notes { flex: 1 1 320px; min-width: 300px; max-width: 48ch; padding-top: 1px; }
+.iso-notes h3 { font-family: var(--display); font-weight: 800; font-size: 17px; color: #101114; margin: 0 0 7px; }
+.iso-notes p { font-size: 13.5px; line-height: 1.62; color: #23242a; margin: 0 0 8px; text-wrap: pretty; }
+.iso-notes ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.6; color: #23242a; }
+.iso-notes li { margin: 4px 0; }
+.iso-notes b { color: #0d0e11; }
+.iso-notes code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.r4-region { width: 390px; background: var(--surface-base); overflow: hidden; padding: 14px 0 4px; }
+.r4-region.tall { padding-bottom: 0; }
+.notes-cols { display: flex; flex-wrap: wrap; gap: 26px 44px; margin-top: 26px; }
+.notes-cols > div { flex: 1 1 340px; min-width: 300px; max-width: 46ch; }
+.rules { margin-top: 66px; max-width: 80ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 0 0 10px; letter-spacing: -.01em; }
+.rules ul { margin: 0 0 14px; padding-left: 18px; }
+.rules li { margin: 5px 0; }
+.rules b { color: #0d0e11; }
+.rules code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+  <p class="board-eyebrow">Interplanetary Groups · round 4</p>
+  <h1 class="board-title">Front door, carousel chrome, strip separation, finish layer</h1>
+  <p class="board-sub">Four items. Three are missing screens or states; the fourth is a finish-layer pilot on the group home, drawn against the plain version. Dark-first, existing type scale, teal for actions that matter, lime for Orbit alone, status by brightness plus label, no animation anywhere.</p>
+
+  <!-- ============================ 01 · FRONT DOOR ============================ -->
+  <div class="sec-head">
+    <p class="k">Item 01</p>
+    <h2>The front door</h2>
+    <p>What a visitor with no session sees at <code>/</code>. It says what Orbit is, why the thing you create is a group rather than an event, and offers one action. Anyone already in a group is routed straight past it, so there is no returning-user state and no second screen behind this one.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="01 front door">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="fd-body">
+            <div class="fd-mark" data-orbit></div>
+            <p class="fd-eyebrow">Interplanetary Groups</p>
+            <h1 class="fd-head">Start a group. Orbit takes the planning from there.</h1>
+            <p class="fd-lede">Orbit is the member of your group who handles logistics. It floats ideas, finds out who is in, and turns the ones people want into real plans.</p>
+            <ul class="fd-list">
+              <li><span class="n">01</span><div class="c"><div class="t">You make a group, not an event</div><div class="d">The group is the part that lasts. Plans come and go inside it.</div></div></li>
+              <li><span class="n">02</span><div class="c"><div class="t">Orbit reads the room</div><div class="d">It asks who is interested and only sets something up once enough people say yes.</div></div></li>
+              <li><span class="n">03</span><div class="c"><div class="t">One thread for all of it</div><div class="d">Chat, answers and the next plan sit in the same place.</div></div></li>
+            </ul>
+            <div class="fd-foot">
+              <div class="fd-cta">Start your group <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div>
+              <p class="fd-note">Already invited? Open the link you were sent.</p>
+            </div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>What carries the pitch</h3>
+        <p>Orbit's mark is the only brand moment and the only lime on the screen. It sits at 104px in the corner rather than centred, so the screen opens as a statement instead of a splash.</p>
+        <ul>
+          <li><b>Headline</b> <code>--type-display</code> 28px, Hanken 800, tight leading. <b>Lede</b> <code>--type-body</code> at <code>--text-secondary</code>.</li>
+          <li><b>Three claims</b> as hairline-ruled rows, numbers in the display face at <code>--text-faint</code>. Titles <code>--type-body</code> 600 primary, lines <code>--type-meta</code> secondary. Rows grow with translated copy; nothing is height-capped.</li>
+          <li><b>One teal action</b>, full width, 52px minimum. Nothing else on the screen is teal.</li>
+          <li><b>The invite note</b> is 13px <code>--text-faint</code> text, deliberately not a second button: people with a link arrive on the join screen, not here.</li>
+          <li>No nav, no footer, no scroll. The whole pitch fits one screen at default text size and reflows down the page at larger sizes.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ 02 · CAROUSEL CHROME ============================ -->
+  <div class="sec-head">
+    <p class="k">Item 02</p>
+    <h2>Carousel chrome</h2>
+    <p>Up to three pinned cards, soonest first, in a scroll-snap row. The finished chrome is the dot state, the peek, and the single-card case. Each card keeps its own teal primary, unchanged.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region">
+          <div class="gh-pinned peek">
+            <div class="gh-rail peek">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                      <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                      <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Belay clinic</div>
+                      <div class="gh-cmeta"><span class="seg">Tue Jun 23</span><span class="seg">6:30 PM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">2 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-dots"><i class="on"></i><i></i><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>A · three cards, first card showing</h3>
+        <p>The snapped card sits at the 16px gutter. The next card's own border and radius show as a <b>22px sliver</b> against the screen edge, at full strength: dimming or fading it would read as disabled rather than as next.</p>
+        <ul>
+          <li>Track spans the full width; its own <code>padding: 0 16px</code> holds the gutter, so the row can scroll past the edge instead of stopping inside a padded box.</li>
+          <li><code>scroll-snap-type: x mandatory</code>, cards <code>scroll-snap-align: start</code>, <code>scroll-padding-left: 16px</code>. Card width <code>calc(100% - 16px)</code> of the padded track.</li>
+          <li><b>Active dot</b> 17 &times; 6 pill at <code>--text-primary</code>; <b>inactive</b> 6 &times; 6 round at <code>--hairline</code>. Width plus brightness, never hue, so the state survives greyscale.</li>
+          <li>Dots are chrome, not a control surface: tapping them is optional, swiping is the interaction. No transition on the state change.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region">
+          <div class="gh-pinned peek">
+            <div class="gh-rail peek at2">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                      <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                      <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Belay clinic</div>
+                      <div class="gh-cmeta"><span class="seg">Tue Jun 23</span><span class="seg">6:30 PM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">2 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-dots"><i></i><i class="on"></i><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>B · middle card showing</h3>
+        <p>Start-snapping puts the card you are reading against the left gutter, so the sliver behind you (6px) is thinner than the one ahead (22px). That asymmetry is useful: the thick edge is where the row continues.</p>
+        <ul>
+          <li>The peeking card is never a partial layout. It is the same card, clipped by the screen, so no line of type is cut mid-word inside a visible box.</li>
+          <li>Dot two active. One dot per card, always, up to the three-card cap.</li>
+          <li>Cards keep their full padding, border and shadow while peeking; the region's overflow does the hiding.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region">
+          <div class="gh-pinned peek">
+            <div class="gh-rail peek at3">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                      <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                      <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Belay clinic</div>
+                      <div class="gh-cmeta"><span class="seg">Tue Jun 23</span><span class="seg">6:30 PM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">2 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-dots"><i></i><i></i><i class="on"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>C · last card showing</h3>
+        <p>At the end of the row the scroll runs out, so the last card lands flush against the right gutter with 22px of the previous card behind it. Nothing overscrolls into empty space and there is no bounce-back.</p>
+        <ul>
+          <li>Reached by the scroll end rather than a snap position, which is why this card sits slightly right of the 16px gutter and the sliver stays on the left.</li>
+          <li>Three cards is the cap. A fourth event does not appear in the pinned region; it lives in the feed and on the event list.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region">
+          <div class="gh-pinned">
+            <div class="gh-rail">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>D · one card, bare</h3>
+        <p>Unchanged from today, and deliberately so: one card, 16px on both sides, no dots and no peek. A single dot would be chrome describing nothing.</p>
+        <ul>
+          <li>The card drops the <code>.peek</code> modifier and returns to full width, so it is 16px wider than a card in the multi-card row.</li>
+          <li>Dots render only when there are two or three cards. The snap and overflow properties can stay on the track; with one card they have nothing to do.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ 03 · PENDING STRIP ============================ -->
+  <div class="sec-head">
+    <p class="k">Item 03</p>
+    <h2>Pending strip · separation treatment</h2>
+    <p>The strip stays one line and stays junior. What changes is that it now reads as its own band across the screen rather than as the event card's footer. The event card remains the only raised, bordered, shadowed object, and keeps the screen's only teal.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region tall">
+          <div class="gh-pinned" style="padding-bottom:2px">
+            <div class="gh-rail">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pd-host">
+            <div class="pd-strip">
+              <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+              <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+              <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+          </div>
+          <div class="gh-feed">
+            <div class="gh-day">Today</div>
+            <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+            <div class="gh-human" style="margin-bottom:16px"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Before · what overshot</h3>
+        <p>Staying junior was right; the execution read as attachment. The strip is inset 16px, which is <b>exactly the event card's own left and right edges</b>, sits 2px below it, and shares its background. On first open the eye groups it with the card and reads a four-line card with a footer.</p>
+        <ul>
+          <li>Matching gutters is the strongest grouping cue on the screen, stronger than the hairline that was meant to divide them.</li>
+          <li>The top hairline lands where a card's internal divider would land, so it reads as a rule inside an object rather than between two.</li>
+          <li>It is also inconsistent with itself: the expanded panel is already full-bleed, so opening the strip changes its width.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="iso">
+      <div class="iso-frame">
+        <div class="r4-region tall">
+          <div class="gh-pinned pd-above">
+            <div class="gh-rail">
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Monday morning climb</div>
+                      <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                      <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-rsvp slim">
+                    <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                    <div class="out">Can't make it</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pd-host pd-sep-host">
+            <div class="pd-strip pd-sep">
+              <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+              <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+              <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+            </div>
+          </div>
+          <div class="gh-feed">
+            <div class="gh-day">Today</div>
+            <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Monday is set. Four of you are in, and I'll remind everyone Sunday night.</div></div>
+            <div class="gh-human" style="margin-bottom:16px"><div class="hname">Jesse</div><div class="hmsg">perfect, bringing the good shoes 🧗</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>After · a band, not a footer</h3>
+        <p>Three changes, none of them a promotion. The strip is still flat, still one line, still hairline-ruled, and still holds no teal.</p>
+        <ul>
+          <li><b>Full bleed.</b> Rules run edge to edge, <code>margin: 0</code>, so the strip no longer traces the card's silhouette. Nothing on this screen is card-shaped and full-width at once, so the band cannot be mistaken for part of an object.</li>
+          <li><b>Feed gutter, not card gutter.</b> Contents sit at 20px, aligned with the chat below it, which places the strip with its lower neighbour rather than its upper one. Alignment does the grouping that the hairline could not.</li>
+          <li><b>Air above.</b> The card region's bottom padding goes 2px to 14px. The gap above the strip is now larger than any gap inside the card, so the card closes before the strip begins.</li>
+          <li>Separation from the feed below is carried by the bottom rule plus the feed's own centred day divider, which is unmistakably feed furniture.</li>
+          <li>Unchanged: one line collapsed, clock icon and chevron, counts as the only bright text, no badge, no pulse, no colour change, absent entirely when nothing is pending. Expanding still overlays the feed; the panel's internals are as drawn.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ 04 · FINISH LAYER ============================ -->
+  <div class="sec-head">
+    <p class="k">Item 04</p>
+    <h2>Finish-layer pilot · group home</h2>
+    <p>The group home as it ships today, with items 02 and 03 folded in, drawn twice: plain, then with the finish layer applied. The finish layer is a separate stylesheet scoped to one class on the screen root. Removing it leaves the two fixes untouched, so it can be adopted or declined on its own.</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">04a</span><span class="bd-ttl">Plain · base with items 02 + 03</span></div>
+      <div class="bd-frame" data-screen-label="04a group home plain">
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek pd-above">
+              <div class="gh-rail peek">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                        <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                        <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">5 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Belay clinic</div>
+                        <div class="gh-cmeta"><span class="seg">Tue Jun 23</span><span class="seg">6:30 PM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">2 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i><i></i></div>
+            </div>
+            <div class="pd-host pd-sep-host">
+              <div class="pd-strip pd-sep">
+                <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+                <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+                <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Anyone in for beers this Friday? Three yeses and I'll set it up.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">Flat tokens only: one card fill, one shadow, one strip band, no wash. This is what ships if the finish layer is declined, and it is the version items 02 and 03 are signed off against.</p>
+    </div>
+
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">04b</span><span class="bd-ttl">Finish layer applied</span></div>
+      <div class="bd-frame" data-screen-label="04b group home finish layer">
+        <div class="phone fx">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek pd-above">
+              <div class="gh-rail peek">
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                        <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                        <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">5 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Belay clinic</div>
+                        <div class="gh-cmeta"><span class="seg">Tue Jun 23</span><span class="seg">6:30 PM</span><span class="seg">The climbing gym</span></div>
+                        <div class="gh-statusline"><span class="seg">2 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-rsvp slim">
+                      <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i><i></i></div>
+            </div>
+            <div class="pd-host pd-sep-host">
+              <div class="pd-strip pd-sep">
+                <svg class="pd-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 1.8" /></svg>
+                <span class="pd-striptxt"><span class="seg"><span class="n">2</span> waiting on you</span><span class="seg"><span class="n">1</span> you're in on</span></span>
+                <svg class="pd-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Anyone in for beers this Friday? Three yeses and I'll set it up.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">Same markup, same tokens, same measurements. The only difference is the <code style="font-family:'JetBrains Mono',monospace;font-size:12px">.fx</code> class on the screen root, which turns on one stylesheet of eight surface treatments. No layout moves, no type changes, no motion.</p>
+    </div>
+  </div>
+
+  <div class="notes-cols">
+    <div class="iso-notes">
+      <h3>The eight moves</h3>
+      <ul>
+        <li><b>1 · Depth wash.</b> A radial top vignette on the screen background, 340px tall, peaking at 11% light. Grain sits on top of it at 5% so the ramp is dithered and cannot band on an OLED panel.</li>
+        <li><b>2 · Surface tones.</b> Three steps instead of one: the card lifted by a 5% top-down white gradient, the strip recessed with a 42% black band, the feed left on <code>--surface-base</code>. Regions now separate without any new borders.</li>
+        <li><b>3 · Two-layer card shadow.</b> A 1px contact shadow at 55% plus a soft 30px cast at 68%, so the card reads as sitting on the screen rather than stamped into it. It stays the only shadowed object.</li>
+        <li><b>4 · Teal primary.</b> A 22% top-lit gradient and a 34% inner top stroke on the fill. The teal itself is untouched, so contrast against <code>--action-ink</code> is unchanged.</li>
+        <li><b>5 · Lime glow.</b> A 9px, 30% lime drop-shadow on Orbit's mark in the header and on every Orbit bubble. Reserved for the mark; it never appears on an action, a status, or a chip.</li>
+        <li><b>6 · Eyebrow tracking.</b> Uppercase day dividers open to .2em.</li>
+        <li><b>7 · Tabular tallies.</b> Counts in the card status line, the strip and Orbit's gauge line switch to tabular figures, so numbers stop shifting as they update.</li>
+        <li><b>8 · Grounded composer.</b> A 34% black rise under the pinned input, so the feed ends rather than sliding under it.</li>
+      </ul>
+    </div>
+    <div class="iso-notes">
+      <h3>What it deliberately does not do</h3>
+      <ul>
+        <li><b>No motion.</b> No transitions, no entrance, no shimmer, no parallax. Every value here is static.</li>
+        <li><b>No new hue.</b> The wash is a desaturated blue-grey at 11%, not a brand tint. Teal and lime keep their exact token values.</li>
+        <li><b>No new meaning.</b> Nothing in the finish layer carries status. Brightness and label still do that, and greyscaling the screen loses nothing.</li>
+        <li><b>No layout change.</b> Not one measurement, padding or type size differs between 04a and 04b, so adopting or declining the layer cannot reflow anything.</li>
+        <li><b>No promotion of the strip.</b> The recessed band pushes the strip further down the hierarchy, not up. The card is still the only raised, bordered, shadowed object with teal on it.</li>
+      </ul>
+      <p><b>Judging it:</b> add or remove <code>.fx</code> on the screen root, or drop <code>finish-layer.css</code> from the build. Items 02 and 03 live in <code>round4-base.css</code> and are unaffected either way.</p>
+    </div>
+  </div>
+
+  <div class="rules">
+    <h2>Handoff notes</h2>
+    <ul>
+      <li><b>New files.</b> <code>round4/round4-base.css</code> holds items 01, 02, 03. <code>round4/finish-layer.css</code> holds item 04, every rule scoped to <code>.fx</code>. Load order: <code>walkthrough.css</code>, <code>pending-surface.css</code>, <code>round4-base.css</code>, <code>finish-layer.css</code>.</li>
+      <li><b>No new tokens.</b> Every colour, size and leading comes from the existing set. The finish layer adds only black and white alphas over those tokens, plus one 11% blue-grey wash.</li>
+      <li><b>Overridden from earlier files.</b> <code>.gh-dots</code> (active state), <code>.gh-rail.peek</code> and <code>.gh-pinned.peek</code> (track and card widths), and <code>.pd-strip</code> via the additive <code>.pd-sep</code> class. Nothing else in the shipped CSS is touched, and the strip's own interim rules stay valid for anything not carrying <code>.pd-sep</code>.</li>
+      <li><b>Type scale.</b> Front-door copy uses display, body, meta and eyebrow only; the 13px eyebrow floor holds. All sizes stay rem-based, so OS text size still scales them.</li>
+      <li><b>Colour independence.</b> Dot state is width plus brightness. Card status stays a bright count with a word label. Nothing added in this round encodes meaning in hue.</li>
+      <li><b>Growth.</b> The front-door rows, card titles, strip line and tallies all wrap. The carousel caps at three cards; a fourth event never enters the pinned region.</li>
+      <li><b>Assets.</b> Orbit's mark is the existing avatar component (<code>orbit-mark.js</code> here). All other icons are inline stroked paths in this file: arrow, chevron, clock, check.</li>
+      <li><b>These files are design references</b> built in HTML, not production code. Port the measurements and the structure into the app's own components.</li>
+    </ul>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#15161e"/>
+    <circle cx="50" cy="38" r="15" fill="#a4ef4e"/>
+    <rect x="26" y="62" width="48" height="7" rx="3.5" fill="#18bccb"/>
+    <rect x="26" y="75" width="34" height="5" rx="2.5" fill="#454c5e"/>
+  </svg>
+</template>
+
+<script src="orbit-mark.js"></script>
+<script>document.querySelectorAll('[data-orbit]').forEach(function (el) { el.innerHTML = window.OrbitMark.svg(72); });</script>
+</body>
+</html>

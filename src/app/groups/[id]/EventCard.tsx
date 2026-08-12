@@ -61,66 +61,83 @@ export default function EventCard({
   return (
     <div
       style={{
-        backgroundColor: "var(--surface-card)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "0.75rem",
+        backgroundColor: "var(--surface-raised)",
+        border: "1.7px solid var(--hairline)",
+        borderRadius: "14px",
+        boxShadow: "0 1px 3px rgba(0,0,0,.35)",
         overflow: "hidden",
         flexShrink: 0,
       }}
     >
-      {/* Card body — tappable link to the event detail page */}
-      <Link
-        href={`/events/${event.id}`}
-        style={{
-          display: "block",
-          padding: "1rem 1rem 0.75rem",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
-        {/* Event title */}
-        <p
+      {/* Card body — single padded region (.gh-evpad) holding the tappable
+          title/metadata/status link plus the RSVP row below it. RsvpControls
+          renders <button> elements, so it cannot nest inside the <Link> —
+          both live in this shared padded wrapper instead, which is also why
+          there is no separate footer band or hairline between them. */}
+      <div style={{ padding: "14px 15px 13px" }}>
+        <Link
+          href={`/events/${event.id}`}
           style={{
-            fontSize: "var(--type-heading)",
-            lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            marginBottom: "0.375rem",
+            display: "block",
+            textDecoration: "none",
+            color: "inherit",
           }}
         >
-          {event.title}
-        </p>
+          {/* Event title */}
+          <p
+            style={{
+              fontSize: "var(--type-heading)",
+              lineHeight: "var(--leading-tight)",
+              fontWeight: 800,
+              letterSpacing: "-.01em",
+              color: "var(--text-primary)",
+              textWrap: "balance",
+            }}
+          >
+            {event.title}
+          </p>
 
-        {/* Metadata row: date · venue · counts */}
-        <p
-          style={{
-            fontSize: "var(--type-meta)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {dateLabel}
-          {venueLabel && <span> · {venueLabel}</span>}
-          <span> · {countsLabel}</span>
-        </p>
-      </Link>
+          {/* Metadata row: date · venue */}
+          <p
+            style={{
+              fontSize: "var(--type-meta)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-secondary)",
+              marginTop: "0.5em",
+            }}
+          >
+            {dateLabel}
+            {venueLabel && <span> · {venueLabel}</span>}
+          </p>
 
-      {/* RSVP controls — only for authenticated viewers */}
-      {viewerHasSession && (
-        <div
-          style={{
-            borderTop: "1px solid var(--border-subtle)",
-            padding: "0.75rem 1rem",
-          }}
-        >
-          <RsvpControls
-            eventId={event.id}
-            currentStatus={viewerStatus}
-            compact
-            groupId={groupId}
-          />
-        </div>
-      )}
+          {/* Status line: counts, on their own steady row so a tally update
+              never reflows the metadata above it. */}
+          <p
+            style={{
+              fontSize: "var(--type-label)",
+              lineHeight: "var(--leading-normal)",
+              fontWeight: 700,
+              color: "var(--text-secondary)",
+              marginTop: "0.55em",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {countsLabel}
+          </p>
+        </Link>
+
+        {/* RSVP controls — only for authenticated viewers */}
+        {viewerHasSession && (
+          <div style={{ marginTop: "0.95em" }}>
+            <RsvpControls
+              eventId={event.id}
+              currentStatus={viewerStatus}
+              compact
+              groupId={groupId}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

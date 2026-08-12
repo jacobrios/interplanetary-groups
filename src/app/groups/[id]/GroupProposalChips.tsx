@@ -33,9 +33,17 @@ export interface FeedGroupProposal {
 interface Props {
   proposal: FeedGroupProposal
   onAnswered?: (answer: ProposalVoteAnswer) => void
+  /**
+   * Whether this chip row (and its tally line) sits under Orbit's avatar and
+   * should indent past it (the feed). False renders both flush left instead,
+   * for surfaces with no avatar to align under (the pending panel —
+   * pending-surface.css's `.pd-row .gh-qr` override, `9px 0 0`). Defaults to
+   * the feed's indented value so nothing in the chat feed changes.
+   */
+  indentPastAvatar?: boolean
 }
 
-export default function GroupProposalChips({ proposal, onAnswered }: Props) {
+export default function GroupProposalChips({ proposal, onAnswered, indentPastAvatar = true }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(proposal.viewerAnswer)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -69,7 +77,7 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
             color: "#f87171",
-            margin: "0.5rem 0 0 36px",
+            margin: indentPastAvatar ? "0.5rem 0 0 36px" : "0.5rem 0 0",
           }}
         >
           {errorMsg}
@@ -77,13 +85,14 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
       )}
 
       {/* Wrapping row, indented past Orbit's avatar so the chips read as part
-          of its message rather than as a new speaker. */}
+          of its message rather than as a new speaker. Flush left instead on
+          a surface with no avatar (indentPastAvatar={false}). */}
       <div
         style={{
           display: "flex",
           flexWrap: "wrap",
           gap: "7px",
-          margin: "0.5rem 0 0 36px",
+          margin: indentPastAvatar ? "8px 0 0 37px" : "9px 0 0",
         }}
       >
         {chips.map(({ answer, label, quiet }) => {
@@ -96,10 +105,8 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
               value={answer}
               disabled={isPending}
               style={{
-                border: "1.7px solid var(--border-subtle)",
-                backgroundColor: selected
-                  ? "var(--surface-self)"
-                  : "var(--surface-input)",
+                border: "1.7px solid var(--hairline)",
+                backgroundColor: selected ? "var(--surface-self)" : "transparent",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",
@@ -125,7 +132,7 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
           are what it's reporting on). Exported separately so MessageFeed can
           render it alone for a non-member, who gets the tally as feed history
           but no vote of their own. */}
-      <GroupProposalTally line={proposal.tallyLine} />
+      <GroupProposalTally line={proposal.tallyLine} indentPastAvatar={indentPastAvatar} />
     </form>
   )
 }
@@ -136,7 +143,14 @@ export default function GroupProposalChips({ proposal, onAnswered }: Props) {
  * its own for a non-member (tally is feed history for everyone; the vote
  * itself is member-gated).
  */
-export function GroupProposalTally({ line }: { line: string }) {
+export function GroupProposalTally({
+  line,
+  indentPastAvatar = true,
+}: {
+  line: string
+  /** See the same-named prop on GroupProposalChips: keeps this tally's indent matching its chip row's. */
+  indentPastAvatar?: boolean
+}) {
   if (!line) return null
 
   return (
@@ -144,12 +158,21 @@ export function GroupProposalTally({ line }: { line: string }) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "7px",
-        margin: "8px 0 0 36px",
-        fontSize: "var(--type-eyebrow)",
+        gap: "6px",
+        // Recorded deviation (build-notes §11): this tally sits below the
+        // chip row rather than inside a bubble like GaugeTally, so it keeps
+        // its own left-indent (37px, matching the chip row) in addition to
+        // the shared hairline treatment below. Flush left instead when the
+        // chip row itself is flush (indentPastAvatar={false}).
+        marginTop: 9,
+        marginLeft: indentPastAvatar ? 37 : 0,
+        paddingTop: 9,
+        borderTop: "1.4px solid var(--hairline)",
+        fontSize: "var(--type-label)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--text-placeholder)",
+        color: "var(--text-secondary)",
         fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
       }}
     >
       <i
@@ -158,7 +181,7 @@ export function GroupProposalTally({ line }: { line: string }) {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          backgroundColor: "var(--text-placeholder)",
+          backgroundColor: "var(--text-secondary)",
           flexShrink: 0,
         }}
       />

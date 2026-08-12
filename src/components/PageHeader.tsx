@@ -29,12 +29,12 @@ export default function PageHeader({
         display: "flex",
         alignItems: "center",
         padding: "0.875rem 1rem",
-        borderBottom: "1px solid var(--border-subtle)",
+        borderBottom: "1px solid var(--hairline)",
         flexShrink: 0,
         position: "sticky",
         top: 0,
         zIndex: 10,
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
       }}
     >
       {children}

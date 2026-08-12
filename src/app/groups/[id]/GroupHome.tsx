@@ -40,10 +40,17 @@ interface Props {
   initialMessages: FeedMessage[]
   viewerId: string | null
   viewerName: string | null
+  /** The group's own IANA timezone, threaded to MessageFeed for day dividers
+   * that render in group time, never the viewer's (CLAUDE.md time rules). */
+  timeZone: string
   gauges: FeedGauge[]
   proposals: FeedProposal[]
   groupProposals: FeedGroupProposal[]
   viewerIsMember: boolean
+  /** Whether the pending strip renders above the feed (page.tsx), so the
+   * feed can carry the strip's own 6px of air below it (round4-base.css
+   * `.pd-host.pd-sep-host + .gh-feed { padding-top: 6px }`). */
+  stripAbove?: boolean
 }
 
 export default function GroupHome({
@@ -51,10 +58,12 @@ export default function GroupHome({
   initialMessages,
   viewerId,
   viewerName,
+  timeZone,
   gauges,
   proposals,
   groupProposals,
   viewerIsMember,
+  stripAbove,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -144,10 +153,12 @@ export default function GroupHome({
       <MessageFeed
         messages={optimisticMessages}
         viewerId={viewerId}
+        timeZone={timeZone}
         gauges={gauges}
         proposals={proposals}
         groupProposals={groupProposals}
         viewerIsMember={viewerIsMember}
+        stripAbove={stripAbove}
       />
 
       {/* Pinned input. The page-level wall means only members ever render

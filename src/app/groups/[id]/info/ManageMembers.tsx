@@ -53,7 +53,7 @@ export default function ManageMembers({ groupId, founderId, members }: Props) {
       <span>
         {members.map((m, i) => (
           <span key={m.id}>
-            {i > 0 && <span style={{ color: "var(--text-placeholder)" }}>{" · "}</span>}
+            {i > 0 && <span style={{ color: "var(--placeholder)" }}>{" · "}</span>}
             {m.name}
           </span>
         ))}
@@ -117,7 +117,7 @@ export default function ManageMembers({ groupId, founderId, members }: Props) {
           {confirmingId === m.id && (
             <div
               style={{
-                border: "1px solid var(--border-subtle)",
+                border: "1px solid var(--hairline)",
                 borderRadius: "0.5rem",
                 padding: "0.75rem",
                 display: "flex",
@@ -162,7 +162,7 @@ export default function ManageMembers({ groupId, founderId, members }: Props) {
                     backgroundColor: "transparent",
                     color: "var(--text-primary)",
                     fontSize: "var(--type-label)",
-                    border: "1px solid var(--border-subtle)",
+                    border: "1px solid var(--hairline)",
                     borderRadius: "0.5rem",
                     cursor: isPending ? "not-allowed" : "pointer",
                   }}

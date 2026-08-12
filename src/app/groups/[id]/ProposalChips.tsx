@@ -71,7 +71,7 @@ export default function ProposalChips({ proposal }: Props) {
           display: "flex",
           flexWrap: "wrap",
           gap: "7px",
-          margin: "0.5rem 0 0 36px",
+          margin: "8px 0 0 37px",
         }}
       >
         {chips.map(({ answer, label, quiet }) => {
@@ -84,10 +84,8 @@ export default function ProposalChips({ proposal }: Props) {
               value={answer}
               disabled={isPending}
               style={{
-                border: "1.7px solid var(--border-subtle)",
-                backgroundColor: selected
-                  ? "var(--surface-self)"
-                  : "var(--surface-input)",
+                border: "1.7px solid var(--hairline)",
+                backgroundColor: selected ? "var(--surface-self)" : "transparent",
                 borderRadius: "20px",
                 padding: "8px 12px",
                 fontSize: "var(--type-label)",

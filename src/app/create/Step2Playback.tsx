@@ -12,6 +12,7 @@ import { useState } from "react"
 import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
+import { OrbitMark } from "@/components/OrbitMark"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -87,28 +88,12 @@ export default function Step2Playback({
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* Feed-style Orbit bubble: lime avatar, muted fill, no name label. */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        <div
-          aria-label="Orbit"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            backgroundColor: "var(--color-lime)",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.6875rem",
-            fontWeight: 700,
-            color: "#0a0a0a",
-            marginTop: "0.25rem",
-          }}
-        >
-          O
-        </div>
+        <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
+          <OrbitMark size={28} />
+        </span>
         <div
           style={{
-            backgroundColor: "var(--surface-orbit)",
+            backgroundColor: "var(--surface-raised)",
             borderRadius: "4px 16px 16px 16px",
             padding: "0.75rem 1rem",
             flex: 1,
@@ -141,8 +126,8 @@ export default function Step2Playback({
                 width: "100%",
                 marginTop: "0.25rem",
                 padding: "0.375rem 0.5rem",
-                backgroundColor: "var(--surface-input)",
-                border: "1px solid var(--border-subtle)",
+                backgroundColor: "var(--surface-base)",
+                border: "1px solid var(--hairline)",
                 borderRadius: "0.375rem",
                 color: "var(--text-primary)",
                 fontSize: "var(--type-heading)",
@@ -193,8 +178,8 @@ export default function Step2Playback({
                       width: "100%",
                       marginTop: "0.25rem",
                       padding: "0.25rem 0.5rem",
-                      backgroundColor: "var(--surface-input)",
-                      border: "1px solid var(--border-subtle)",
+                      backgroundColor: "var(--surface-base)",
+                      border: "1px solid var(--hairline)",
                       borderRadius: "0.375rem",
                       color: "var(--text-primary)",
                       fontSize: "var(--type-label)",
@@ -266,8 +251,14 @@ export default function Step2Playback({
         style={{
           width: "100%",
           padding: "0.75rem 1.5rem",
-          backgroundColor: isCreating ? "var(--color-teal-hover)" : "var(--color-teal)",
-          color: "#0a0a0a",
+          backgroundColor: "var(--action)",
+          // In-flight feedback: the old palette shifted the fill to a
+          // second teal while pending; the new palette has no second
+          // teal, so this dims instead, matching MessageFeed's optimistic-
+          // message idiom (0.65, greyscale-safe, no new token). No
+          // transition: this slice is no-animation, so the change is instant.
+          opacity: isCreating ? 0.65 : 1,
+          color: "var(--action-ink)",
           fontSize: "var(--type-body)",
           fontWeight: 600,
           border: "none",

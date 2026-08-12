@@ -69,11 +69,10 @@ export default async function EventPage({ params }: Props) {
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       {/* Back to the group this event belongs to (walkthrough screen 09).
@@ -110,8 +109,8 @@ export default async function EventPage({ params }: Props) {
         {/* ── Event details card ─────────────────────────────────────── */}
         <div
           style={{
-            backgroundColor: "var(--surface-card)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.75rem",
             padding: "1.25rem",
             display: "flex",
@@ -135,7 +134,7 @@ export default async function EventPage({ params }: Props) {
               <hr
                 style={{
                   border: "none",
-                  borderTop: "1px solid var(--border-subtle)",
+                  borderTop: "1px solid var(--hairline)",
                   margin: "0.125rem 0",
                 }}
               />
@@ -159,8 +158,8 @@ export default async function EventPage({ params }: Props) {
             + checkmark on the IN header — never by color alone (§7 a11y rule). */}
         <div
           style={{
-            backgroundColor: "var(--surface-card)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.75rem",
             padding: "1.25rem",
             display: "flex",

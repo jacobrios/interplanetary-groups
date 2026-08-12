@@ -36,8 +36,8 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       <div
         style={{
-          backgroundColor: "var(--surface-card)",
-          border: "1px solid var(--border-subtle)",
+          backgroundColor: "var(--surface-raised)",
+          border: "1px solid var(--hairline)",
           borderRadius: "0.875rem",
           padding: "0.875rem 1rem 1rem",
           marginBottom: "1.5rem",
@@ -50,7 +50,7 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
             fontWeight: 700,
             margin: 0,
             paddingBottom: "0.5rem",
-            borderBottom: "1px solid var(--border-subtle)",
+            borderBottom: "1px solid var(--hairline)",
           }}
         >
           {groupName}
@@ -73,9 +73,9 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            border: "1px solid var(--border-subtle)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.625rem",
-            backgroundColor: "var(--surface-input)",
+            backgroundColor: "var(--surface-base)",
             padding: "0.6875rem 0.75rem",
             marginBottom: "0.75rem",
           }}
@@ -134,7 +134,7 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
           justifyContent: "center",
           gap: "0.5rem",
           backgroundColor: "transparent",
-          border: "1px solid var(--border-subtle)",
+          border: "1px solid var(--hairline)",
           borderRadius: "1.75rem",
           color: "var(--text-primary)",
           fontSize: "var(--type-body)",

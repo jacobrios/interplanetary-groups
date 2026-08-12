@@ -1,11 +1,10 @@
 // The onboarding wizard's header (handoff S2Header): Orbit's avatar and name
 // with "Step N of 3" beneath, and a back chevron only where back is real.
-// The avatar is the product's letter-O placeholder, same as OrbitBubble; the
-// real mascot face is queued for the visual-polish pass (spec decision).
 
 "use client"
 
 import Chevron from "./Chevron"
+import { OrbitMark } from "@/components/OrbitMark"
 
 interface Props {
   step: 1 | 2 | 3
@@ -40,24 +39,10 @@ export function WizardHeader({ step, onBack }: Props) {
           <Chevron direction="left" />
         </button>
       )}
-      <div
-        aria-label="Orbit"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          backgroundColor: "var(--color-lime)",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.875rem",
-          fontWeight: 700,
-          color: "#0a0a0a",
-        }}
-      >
-        O
-      </div>
+      {/* label={null}: the visible "Orbit" text sits right next to the mark,
+          so the default accessible label would make a screen reader announce
+          it twice. Same precedent as OrbitNoteScreen. */}
+      <OrbitMark size={36} label={null} />
       <div>
         <p
           style={{

@@ -10,6 +10,7 @@
 // copy, so neither caller's wording can leak into the other's.
 
 import Link from "next/link"
+import { OrbitMark } from "@/components/OrbitMark"
 
 interface Props {
   eyebrow: string
@@ -23,14 +24,13 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem 1.5rem",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -58,8 +58,8 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
             walkthrough screen 09. */}
         <div
           style={{
-            backgroundColor: "var(--surface-card)",
-            border: "1px solid var(--border-subtle)",
+            backgroundColor: "var(--surface-raised)",
+            border: "1px solid var(--hairline)",
             borderRadius: "0.75rem",
             padding: "1.25rem",
             display: "flex",
@@ -68,24 +68,7 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                backgroundColor: "var(--color-lime)",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.5rem",
-                fontWeight: 700,
-                color: "#0a0a0a",
-              }}
-            >
-              O
-            </span>
+            <OrbitMark size={20} label={null} />
             <span
               style={{
                 fontSize: "var(--type-eyebrow)",

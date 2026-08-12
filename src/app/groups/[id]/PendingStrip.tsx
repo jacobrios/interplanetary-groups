@@ -7,10 +7,10 @@
 // standing yeses. Built from docs/design/pending-surface-handoff/ (README
 // sections 01-03, pending-surface.css as the measurement source of truth).
 //
-// Token mapping fixed by the brief: --surface-base -> var(--surface-page),
-// --hairline -> var(--border-subtle), --text-faint/--placeholder ->
-// var(--text-placeholder). No teal, no lime in this region (OrbitBubble
-// brings its own lime avatar, which is Orbit's mark, not an action).
+// Styled directly against the design system's own token names (no more
+// ad-hoc mapping to old app-local names, retired in the visual-polish sweep).
+// No teal, no lime in this region (OrbitBubble brings its own lime avatar,
+// which is Orbit's mark, not an action).
 //
 // Quiet by design: no entrance animation, no attention badge. The 180ms fade
 // the handoff mentions as a nice-to-have is skipped rather than reaching for
@@ -19,6 +19,7 @@
 import { useState } from "react"
 import type { GaugeAnswer, ProposalVoteAnswer } from "@prisma/client"
 import type { PendingData, PendingItem } from "@/lib/pending/derive"
+import { pendingStripWillRender } from "@/lib/pending/derive"
 import GaugeChips, { GaugeTally } from "@/app/groups/[id]/GaugeChips"
 import GroupProposalChips from "@/app/groups/[id]/GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
@@ -57,7 +58,7 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path
         d="M4.5 6.75L9 11.25L13.5 6.75"
-        stroke="var(--text-placeholder)"
+        stroke="var(--text-faint)"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -71,7 +72,7 @@ function ArrowIcon() {
     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true" style={{ alignSelf: "center" }}>
       <path
         d="M2.5 7.5H12.5M12.5 7.5L8.5 3.5M12.5 7.5L8.5 11.5"
-        stroke="var(--text-placeholder)"
+        stroke="var(--placeholder)"
         strokeWidth="2.1"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -101,7 +102,7 @@ const eyebrowStyle: React.CSSProperties = {
   fontSize: "var(--type-eyebrow)",
   letterSpacing: ".14em",
   textTransform: "uppercase",
-  color: "var(--text-placeholder)",
+  color: "var(--placeholder)",
   fontWeight: 700,
   lineHeight: 1.35,
 }
@@ -115,7 +116,7 @@ function WaitingRow({
   onAnswered: (item: PendingItem, answer: string) => void
 }) {
   return (
-    <div style={{ padding: "10px 18px 11px", borderTop: "1px solid var(--border-subtle)" }}>
+    <div style={{ padding: "10px 18px 11px", borderTop: "1px solid var(--hairline)" }}>
       <div style={eyebrowStyle}>{item.kindLine}</div>
       <div
         style={{
@@ -156,12 +157,12 @@ function WaitingRow({
             fontSize: "var(--type-meta)",
           }}
         >
-          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-placeholder)" }}>
+          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--placeholder)" }}>
             NOW
           </span>
-          <span style={{ color: "var(--text-placeholder)", textDecoration: "line-through" }}>{item.nowLabel}</span>
+          <span style={{ color: "var(--placeholder)", textDecoration: "line-through" }}>{item.nowLabel}</span>
           <ArrowIcon />
-          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--text-placeholder)" }}>
+          <span style={{ fontSize: "var(--type-eyebrow)", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 700, color: "var(--placeholder)" }}>
             NEW
           </span>
           <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{item.newLabel}</span>
@@ -170,7 +171,11 @@ function WaitingRow({
 
       {item.kind === "gauge" ? (
         <>
-          <GaugeChips gauge={item.chips} onAnswered={(a: GaugeAnswer) => onAnswered(item, a)} />
+          <GaugeChips
+            gauge={item.chips}
+            onAnswered={(a: GaugeAnswer) => onAnswered(item, a)}
+            indentPastAvatar={false}
+          />
           {/* Spec gap fix: GaugeChips renders no tally of its own (in the feed
               MessageFeed puts GaugeTally inside Orbit's bubble instead), so
               the panel row wires it in directly, below the chips. The
@@ -184,7 +189,11 @@ function WaitingRow({
           <GaugeTally line={item.chips.tallyLine} />
         </>
       ) : (
-        <GroupProposalChips proposal={item.chips} onAnswered={(a: ProposalVoteAnswer) => onAnswered(item, a)} />
+        <GroupProposalChips
+          proposal={item.chips}
+          onAnswered={(a: ProposalVoteAnswer) => onAnswered(item, a)}
+          indentPastAvatar={false}
+        />
       )}
     </div>
   )
@@ -201,7 +210,7 @@ function StandingYesRow({
   onToggle: () => void
 }) {
   return (
-    <div style={{ padding: "8px 18px 10px", borderTop: "1px solid var(--border-subtle)" }}>
+    <div style={{ padding: "8px 18px 10px", borderTop: "1px solid var(--hairline)" }}>
       <div
         style={{
           fontSize: "var(--type-meta)",
@@ -215,7 +224,7 @@ function StandingYesRow({
       <div
         style={{
           fontSize: "var(--type-label)",
-          color: "var(--text-placeholder)",
+          color: "var(--placeholder)",
         }}
       >
         {item.kind === "gauge" ? item.whenLine : item.newLabel}
@@ -245,7 +254,7 @@ function StandingYesRow({
             color: "var(--text-secondary)",
             textDecoration: "underline",
             textUnderlineOffset: "3px",
-            textDecorationColor: "var(--border-subtle)",
+            textDecorationColor: "var(--hairline)",
             cursor: "pointer",
             background: "none",
             border: "none",
@@ -259,11 +268,11 @@ function StandingYesRow({
       {open &&
         (item.kind === "gauge" ? (
           <>
-            <GaugeChips gauge={item.chips} />
+            <GaugeChips gauge={item.chips} indentPastAvatar={false} />
             <GaugeTally line={item.chips.tallyLine} />
           </>
         ) : (
-          <GroupProposalChips proposal={item.chips} />
+          <GroupProposalChips proposal={item.chips} indentPastAvatar={false} />
         ))}
     </div>
   )
@@ -294,7 +303,15 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
     setCaughtUp(false)
   }
 
-  if (effectiveWaiting.length === 0 && standingYes.length === 0 && !caughtUp) {
+  // The shared predicate (src/lib/pending/derive.ts) is the same one
+  // page.tsx calls to decide whether to leave room for this band. On a
+  // fresh mount effectiveWaiting === waiting and caughtUp is false, so this
+  // reduces exactly to pendingStripWillRender(pending); the caughtUp
+  // fallback keeps the one-time goodbye visible for the render after the
+  // last item's decline, which page.tsx's SSR-once layout never needs to
+  // see because `waiting` was non-empty at load time (that non-emptiness is
+  // what page.tsx already accounted for).
+  if (!pendingStripWillRender({ waiting: effectiveWaiting, standingYes }) && !caughtUp) {
     return null
   }
 
@@ -338,20 +355,25 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          // A <button> keeps shrink-to-fit intrinsic sizing even under
-          // display:flex (unlike a <div>), so margin alone left it
-          // content-width; width:100% (the first attempt) then overflowed
-          // past the margin instead. calc() against the margin is what
-          // actually yields the full-width row inset 16px each side.
-          width: "calc(100% - 2rem)",
-          margin: "0 1rem",
-          padding: "11px 2px",
-          borderTop: "1px solid var(--border-subtle)",
-          borderBottom: "1px solid var(--border-subtle)",
+          gap: "11px",
+          // Separation-treatment redesign (round4-base.css items 03/03b): the
+          // interim strip was inset 16px, exactly the event card's own edges,
+          // which read as a card footer. Full bleed plus the feed's own 20px
+          // gutter (not the card's 16px) makes it a band belonging to the
+          // screen instead, matched by page.tsx's 14px of air above and
+          // MessageFeed's 6px of air below.
+          width: "100%",
+          margin: 0,
+          padding: "12px 20px",
+          borderTop: "1px solid var(--hairline)",
+          borderBottom: "1px solid var(--hairline)",
           borderLeft: "none",
           borderRight: "none",
-          background: "var(--surface-page)",
+          // tint-a from the decision record (round4-base.css .pd-strip.pd-sep.tint-a):
+          // a translucent wash of --action, not a fill. The owner compared it
+          // by eye against the stronger tint-b and picked this one; do not
+          // change the alpha.
+          backgroundColor: "rgba(24,188,203,.07)",
           cursor: "pointer",
           textAlign: "left",
           fontFamily: "inherit",
@@ -369,6 +391,7 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
+            fontVariantNumeric: "tabular-nums",
           }}
         >
           {showCaughtUpLabel ? (
@@ -421,9 +444,9 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
               left: 0,
               right: 0,
               zIndex: 30,
-              background: "var(--surface-page)",
+              background: "var(--surface-base)",
               borderRadius: "0 0 16px 16px",
-              borderBottom: "1px solid var(--border-subtle)",
+              borderBottom: "1px solid var(--hairline)",
               boxShadow: "0 22px 46px -14px rgba(0,0,0,.78)",
               maxHeight: "calc(100dvh - 240px)",
               overflowY: "auto",
@@ -456,7 +479,7 @@ export function PendingStrip({ pending }: { pending: PendingData }) {
                   style={{
                     ...eyebrowStyle,
                     padding: "10px 18px 0",
-                    borderTop: "1px solid var(--border-subtle)",
+                    borderTop: "1px solid var(--hairline)",
                   }}
                 >
                   You&apos;re in on

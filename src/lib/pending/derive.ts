@@ -40,6 +40,32 @@ export interface PendingData {
   standingYes: PendingItem[] // gauge IN / proposal YES, soonest first
 }
 
+/**
+ * Whether a visible strip band belongs on screen for this data: the single
+ * source of truth PendingStrip's own render gate and page.tsx's layout
+ * spacing both call, so the two can never independently drift out of
+ * agreement (fix-wave 1, visual-polish task 6). `derivePending` returns a
+ * non-null `PendingData` with empty arrays for any signed-in viewer, even
+ * when nothing is waiting on them and they hold no standing yes; that is
+ * the ordinary quiet state of a group whenever nothing is being gauged, not
+ * a rare edge case. Testing `PendingData !== null` (the page's original,
+ * wrong check) is therefore true in that ordinary state too, which is what
+ * let the strip's air-above padding and the feed's reduced top padding
+ * render with no band between them. This predicate names the real
+ * condition instead: does this data have anything to show.
+ *
+ * PendingStrip additionally tracks session-local state (declined items,
+ * the one-time "caught up" goodbye) that this predicate cannot see and
+ * does not need to: that state always starts empty/false on every fresh
+ * mount, so on first paint PendingStrip.tsx's own render gate reduces to
+ * exactly this predicate applied to its live `{ waiting, standingYes }`
+ * pair (raw on mount, session-filtered thereafter) -- see the call site
+ * there for how it stays true through a session, not just at load.
+ */
+export function pendingStripWillRender(pending: Pick<PendingData, "waiting" | "standingYes">): boolean {
+  return pending.waiting.length > 0 || pending.standingYes.length > 0
+}
+
 export interface PendingInputs {
   liveGauges: LiveGauge[]
   liveProposals: LiveProposal[] // caller passes ALL; derive filters kind === "GROUP"

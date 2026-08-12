@@ -13,8 +13,10 @@
 //
 // Deliberately deferred per §11:
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
-// - Carousel active-dot state (interim chrome; no design handoff yet)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
+//
+// The carousel's peek geometry and active dot are finished chrome per the
+// visual-polish Claude Design handoff (round4-base.css); see CarouselRail.tsx.
 
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
@@ -34,11 +36,10 @@ import type { FeedMessage } from "./MessageFeed"
 import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
-import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
-import Chevron from "@/components/Chevron"
-import { derivePending } from "@/lib/pending/derive"
+import { derivePending, pendingStripWillRender } from "@/lib/pending/derive"
 import { PendingStrip } from "./PendingStrip"
+import { GroupHomeHeader } from "./GroupHomeHeader"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -73,6 +74,10 @@ export default async function GroupPage({ params }: Props) {
   const upcomingEvents = await findUpcomingEvents(group.id, new Date(), 3)
 
   const allMembers = group.memberships.map((m) => m.user)
+  // Current members only, same source as the info page's tally: a removed
+  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
+  // already-fetched include never needs a second query to stay accurate.
+  const memberCount = group.memberships.length
   const cards: EventCardData[] = await Promise.all(
     upcomingEvents.map(async (event) => {
       const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id } })
@@ -195,6 +200,17 @@ export default async function GroupPage({ params }: Props) {
       })
     : null
 
+  // Whether PendingStrip will actually render a band, not merely whether a
+  // `pending` object exists: derivePending returns a non-null object with
+  // empty arrays for every signed-in viewer whenever nothing is being
+  // gauged (the ordinary quiet state of a group, not a rare one), and
+  // PendingStrip itself returns null in that state. The layout spacing
+  // below (the card's air-above padding, the feed's reduced top padding)
+  // must agree with PendingStrip's own render gate exactly, so both call
+  // this one shared predicate (fix-wave 1, visual-polish task 6) rather
+  // than page.tsx keeping a second, looser condition of its own.
+  const stripRenders = pending !== null && pendingStripWillRender(pending)
+
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
     authorType: msg.authorType,
@@ -209,11 +225,10 @@ export default async function GroupPage({ params }: Props) {
       style={{
         height: "100dvh",
         overflow: "hidden",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -222,78 +237,29 @@ export default async function GroupPage({ params }: Props) {
           link). The logo is a real link as of the navigation slice, now
           that "/" exists to send it to.
 
-          The three children sit in their own space-between row rather than
-          PageHeader arranging them: PageHeader owns the bar's rules and
-          nothing about content, which is what keeps it from ever growing an
-          opinion about this title chevron.
-
-          Still unbuilt and owned by the visual-polish pass: Orbit's real
-          avatar (a letter-O circle stands in) and the subline reading
-          "N members · group info & invite link" drawn on screens 06 to 08. */}
+          The content is its own component (GroupHomeHeader, visual-polish
+          Task 4) rather than PageHeader arranging it: PageHeader owns the
+          bar's rules and nothing about content, which is what keeps it from
+          ever growing an opinion about this title chevron. GroupHomeHeader
+          carries the heading-weight name, Orbit's real avatar, and the
+          designed "N members · group info & invite link" subline. */}
       <PageHeader>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-          }}
-        >
-          {/* Orbit logo — the home button (multi-group home is a fast-follow) */}
-          <Link
-            href="/"
-            aria-label="Home"
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              backgroundColor: "var(--color-lime)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "0.6875rem",
-              fontWeight: 700,
-              color: "#0a0a0a",
-              letterSpacing: "-0.01em",
-              textDecoration: "none",
-              flexShrink: 0,
-            }}
-          >
-            O
-          </Link>
-
-          {/* Group title + chevron → group info */}
-          <Link
-            href={`/groups/${group.id}/info`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.25rem",
-              textDecoration: "none",
-              color: "var(--text-primary)",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "var(--type-body)",
-                fontWeight: 600,
-                lineHeight: "var(--leading-tight)",
-              }}
-            >
-              {group.name}
-            </span>
-            <span style={{ color: "var(--text-secondary)", display: "flex" }}>
-              <Chevron direction="right" />
-            </span>
-          </Link>
-
-          {/* Right-side spacer to visually balance the logo */}
-          <div style={{ width: 28, flexShrink: 0 }} aria-hidden="true" />
-        </div>
+        <GroupHomeHeader groupId={group.id} groupName={group.name} memberCount={memberCount} />
       </PageHeader>
 
       {/* ── Pinned event cards ─────────────────────────────────────────── */}
-      <div style={{ padding: "0.75rem 1rem 0", flexShrink: 0 }}>
+      {/* Multi-card: side padding moves onto CarouselRail so the rail can
+          bleed past the screen edge for the peek. Single-card: padding stays
+          here, there is no rail to carry it. Bottom padding is the pending
+          strip's "air above" (round4-base.css .gh-pinned.pd-above): 14px
+          when the strip renders below, so the gap above the strip reads
+          larger than any gap inside the card and the card visually closes
+          before the strip begins; 0 when there's no strip to separate from. */}
+      <div
+        style={{
+          padding: `0.75rem ${cards.length > 1 ? 0 : "1rem"} ${stripRenders ? "14px" : 0}`,
+          flexShrink: 0,
+        }}>
         {cards.length > 0 ? (
           <EventCarousel
             events={cards}
@@ -305,8 +271,8 @@ export default async function GroupPage({ params }: Props) {
           /* No upcoming event — quiet empty state; the feed still renders */
           <div
             style={{
-              backgroundColor: "var(--surface-card)",
-              border: "1px solid var(--border-subtle)",
+              backgroundColor: "var(--surface-raised)",
+              border: "1px solid var(--hairline)",
               borderRadius: "0.75rem",
               padding: "1rem",
             }}
@@ -344,10 +310,12 @@ export default async function GroupPage({ params }: Props) {
           initialMessages={messages}
           viewerId={viewer?.id ?? null}
           viewerName={viewer?.name ?? null}
+          timeZone={group.timeZone}
           gauges={gauges}
           proposals={proposals}
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
+          stripAbove={stripRenders}
         />
       </div>
     </div>

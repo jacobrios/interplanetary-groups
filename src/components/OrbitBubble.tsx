@@ -4,41 +4,38 @@
 // surface that speaks in Orbit's voice (the feed, and now the pending-surface
 // panel) renders the same avatar + bubble. Styles are copied verbatim from
 // the feed (build-notes §7 chat voice system: lime avatar, no name label,
-// --surface-orbit fill); this component moves pixels, it does not change
-// them.
+// --surface-raised fill). Originally just relocated pixels verbatim; the
+// visual-polish slice since changed its notch, padding, gap, border and max
+// width, so it is no longer a pixel-for-pixel copy of the feed's inline
+// version, just the same voice-system rules applied here.
 //
 // Presentational only, no hooks, so it needs no "use client" directive and
 // stays server-compatible.
 
 import type { ReactNode } from "react"
+import { OrbitMark } from "@/components/OrbitMark"
 
 export function OrbitBubble({ children }: { children: ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
-      <div
-        aria-label="Orbit"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          backgroundColor: "var(--color-lime)",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.6875rem",
-          fontWeight: 700,
-          color: "#0a0a0a",
-        }}
-      >
-        O
-      </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        gap: "9px",
+        marginTop: "12px",
+        maxWidth: "93%",
+      }}
+    >
+      <OrbitMark size={28} />
       <div
         style={{
-          backgroundColor: "var(--surface-orbit)",
-          borderRadius: "4px 16px 16px 16px",
-          padding: "0.5rem 0.75rem",
-          maxWidth: "80%",
+          backgroundColor: "var(--surface-raised)",
+          border: "1px solid var(--hairline)",
+          borderRadius: "16px 16px 16px 5px",
+          padding: "12px 14px",
+          fontSize: "var(--type-body)",
+          lineHeight: "var(--leading-normal)",
+          color: "var(--text-primary)",
         }}
       >
         {children}

@@ -19,7 +19,7 @@ interface Props {
  */
 export default function RosterAvatar({ name, size = 32 }: Props) {
   const hue = nameToHue(name)
-  // Muted saturation, mid-dark lightness — readable on --surface-card (#141414).
+  // Muted saturation, mid-dark lightness — readable on --surface-raised (#262b37).
   const bg = `hsl(${hue}, 32%, 38%)`
 
   const initials = name

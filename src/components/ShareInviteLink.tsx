@@ -45,8 +45,8 @@ export default function ShareInviteLink({ inviteToken, groupName }: Props) {
       style={{
         width: "100%",
         padding: "0.75rem 1.5rem",
-        backgroundColor: "var(--color-teal)",
-        color: "#0a0a0a",
+        backgroundColor: "var(--action)",
+        color: "var(--action-ink)",
         fontSize: "var(--type-body)",
         fontWeight: 600,
         border: "none",

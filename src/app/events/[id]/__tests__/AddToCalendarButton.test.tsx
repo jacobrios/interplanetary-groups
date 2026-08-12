@@ -10,6 +10,6 @@ describe("AddToCalendarButton", () => {
     render(<AddToCalendarButton eventId="evt42" />)
     const link = screen.getByRole("link", { name: "Add to calendar" })
     expect(link.getAttribute("href")).toBe("/events/evt42/calendar.ics")
-    expect((link as HTMLElement).style.backgroundColor).toBe("var(--color-teal)")
+    expect((link as HTMLElement).style.backgroundColor).toBe("var(--action)")
   })
 })

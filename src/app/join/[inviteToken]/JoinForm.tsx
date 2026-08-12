@@ -19,14 +19,13 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
     <main
       style={{
         minHeight: "100dvh",
-        backgroundColor: "var(--surface-page)",
+        backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         padding: "2rem 1.5rem",
-        fontFamily: "var(--font-geist-sans, system-ui, sans-serif)",
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -86,8 +85,8 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
                 style={{
                   width: "100%",
                   padding: "0.625rem 0.75rem",
-                  backgroundColor: "var(--surface-input)",
-                  border: "1px solid var(--border-subtle)",
+                  backgroundColor: "var(--surface-raised)",
+                  border: "1px solid var(--hairline)",
                   borderRadius: "0.5rem",
                   color: "var(--text-primary)",
                   fontSize: "var(--type-body)",
@@ -129,8 +128,14 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
             style={{
               width: "100%",
               padding: "0.75rem 1.5rem",
-              backgroundColor: isPending ? "var(--color-teal-hover)" : "var(--color-teal)",
-              color: "#0a0a0a",
+              backgroundColor: "var(--action)",
+              // In-flight feedback: the old palette shifted the fill to a
+              // second teal while pending; the new palette has no second
+              // teal, so this dims instead, matching MessageFeed's optimistic-
+              // message idiom (0.65, greyscale-safe, no new token). No
+              // transition: this slice is no-animation, so the change is instant.
+              opacity: isPending ? 0.65 : 1,
+              color: "var(--action-ink)",
               fontSize: "var(--type-body)",
               fontWeight: 600,
               border: "none",
