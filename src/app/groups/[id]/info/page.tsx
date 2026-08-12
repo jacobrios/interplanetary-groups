@@ -162,7 +162,13 @@ export default async function GroupInfoPage({ params }: Props) {
                 gap: "0.625rem",
                 border: "1px solid var(--hairline)",
                 borderRadius: "0.625rem",
-                backgroundColor: "var(--surface-raised)",
+                // walkthrough.css names this pill in the same selector as
+                // Step 3's invite-link pill (`.s3-link, .gi-linkrow`), so the
+                // design treats them as one element; both now read on
+                // --surface-base to match, even though this one already sat
+                // directly on the page (not nested in a raised card) and so
+                // didn't reproduce the fix-wave-1 collapse bug on its own.
+                backgroundColor: "var(--surface-base)",
                 padding: "0.75rem",
               }}
             >
