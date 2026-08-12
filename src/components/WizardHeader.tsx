@@ -39,7 +39,10 @@ export function WizardHeader({ step, onBack }: Props) {
           <Chevron direction="left" />
         </button>
       )}
-      <OrbitMark size={36} />
+      {/* label={null}: the visible "Orbit" text sits right next to the mark,
+          so the default accessible label would make a screen reader announce
+          it twice. Same precedent as OrbitNoteScreen. */}
+      <OrbitMark size={36} label={null} />
       <div>
         <p
           style={{

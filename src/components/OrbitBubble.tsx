@@ -4,8 +4,10 @@
 // surface that speaks in Orbit's voice (the feed, and now the pending-surface
 // panel) renders the same avatar + bubble. Styles are copied verbatim from
 // the feed (build-notes §7 chat voice system: lime avatar, no name label,
-// --surface-raised fill); this component moves pixels, it does not change
-// them.
+// --surface-raised fill). Originally just relocated pixels verbatim; the
+// visual-polish slice since changed its notch, padding, gap, border and max
+// width, so it is no longer a pixel-for-pixel copy of the feed's inline
+// version, just the same voice-system rules applied here.
 //
 // Presentational only, no hooks, so it needs no "use client" directive and
 // stays server-compatible.

@@ -75,7 +75,7 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
             gap: "0.5rem",
             border: "1px solid var(--hairline)",
             borderRadius: "0.625rem",
-            backgroundColor: "var(--surface-raised)",
+            backgroundColor: "var(--surface-base)",
             padding: "0.6875rem 0.75rem",
             marginBottom: "0.75rem",
           }}

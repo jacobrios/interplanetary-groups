@@ -115,7 +115,7 @@ export default async function GroupInfoPage({ params }: Props) {
               height: "4.5rem",
               borderRadius: "50%",
               backgroundColor: "var(--lime)",
-              color: "#0a0a0a",
+              color: "var(--lime-ink)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

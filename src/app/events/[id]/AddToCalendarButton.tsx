@@ -17,7 +17,7 @@ export default function AddToCalendarButton({ eventId }: { eventId: string }) {
         minHeight: "2.75rem",
         padding: "0.75rem 1.5rem",
         backgroundColor: "var(--action)",
-        color: "#0a0a0a",
+        color: "var(--action-ink)",
         borderRadius: "1.375rem",
         fontSize: "var(--type-label)",
         fontWeight: 600,

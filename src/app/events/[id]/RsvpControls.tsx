@@ -139,8 +139,12 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
           style={{
             flex: 1,
             padding: btnPadding,
-            backgroundColor:
-              optimisticStatus === RsvpStatus.OUT ? "var(--surface-raised)" : "transparent",
+            // The selected fill is transparent unconditionally (walkthrough.css
+            // REFINEMENT PASS, `.gh-rsvp .out`): --surface-raised is now the
+            // same color as the card this button sits on, so a filled selected
+            // state read as zero signal. The checkmark prefix and the weight
+            // jump to 600 below still carry the selected state.
+            backgroundColor: "transparent",
             color: "var(--text-primary)",
             fontSize: "var(--type-label)",
             fontWeight: optimisticStatus === RsvpStatus.OUT ? 600 : 400,

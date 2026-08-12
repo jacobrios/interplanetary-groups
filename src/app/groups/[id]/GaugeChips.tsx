@@ -6,9 +6,11 @@
 //
 // Styling per docs/design/orbit-suggestion-chips-spec.html: a wrapping row of
 // neutral outlined pills, indented under the bubble, --type-label at weight
-// 600.  Never lime (Orbit's cue, not an action) and never teal-filled (teal is
-// the one primary action per screen, which on this screen is the event card's
-// "I'm in").
+// 600.  Never lime (Orbit's cue, not an action) and never teal-filled: teal
+// marks a genuine action weight, not a single-per-screen count (CLAUDE.md
+// §color, amended 27 July 2026), and since the strip-placement call (11 Aug
+// 2026) the pending strip also carries a translucent teal wash on this
+// screen.
 //
 // Emphasis is carried by text brightness, not by a second border colour: the
 // spec sheet's two border tokens are the same hex, so all three chips share

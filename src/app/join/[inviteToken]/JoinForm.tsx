@@ -135,7 +135,7 @@ export default function JoinForm({ groupName, inviteToken, currentName }: Props)
               // message idiom (0.65, greyscale-safe, no new token). No
               // transition: this slice is no-animation, so the change is instant.
               opacity: isPending ? 0.65 : 1,
-              color: "#0a0a0a",
+              color: "var(--action-ink)",
               fontSize: "var(--type-body)",
               fontWeight: 600,
               border: "none",

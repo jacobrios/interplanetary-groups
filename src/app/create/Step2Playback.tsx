@@ -126,7 +126,7 @@ export default function Step2Playback({
                 width: "100%",
                 marginTop: "0.25rem",
                 padding: "0.375rem 0.5rem",
-                backgroundColor: "var(--surface-raised)",
+                backgroundColor: "var(--surface-base)",
                 border: "1px solid var(--hairline)",
                 borderRadius: "0.375rem",
                 color: "var(--text-primary)",
@@ -178,7 +178,7 @@ export default function Step2Playback({
                       width: "100%",
                       marginTop: "0.25rem",
                       padding: "0.25rem 0.5rem",
-                      backgroundColor: "var(--surface-raised)",
+                      backgroundColor: "var(--surface-base)",
                       border: "1px solid var(--hairline)",
                       borderRadius: "0.375rem",
                       color: "var(--text-primary)",
@@ -258,7 +258,7 @@ export default function Step2Playback({
           // message idiom (0.65, greyscale-safe, no new token). No
           // transition: this slice is no-animation, so the change is instant.
           opacity: isCreating ? 0.65 : 1,
-          color: "#0a0a0a",
+          color: "var(--action-ink)",
           fontSize: "var(--type-body)",
           fontWeight: 600,
           border: "none",

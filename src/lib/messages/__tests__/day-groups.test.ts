@@ -108,7 +108,7 @@ describe("groupMessagesByDay", () => {
     it("spring-forward day: 12:30am CDT Mar 9 2026, message from 10am CST Mar 8", () => {
       const now = new Date("2026-03-09T05:30:00Z") // 12:30am Mon 9 Mar, Chicago (CDT, just sprang forward)
       const groups = groupMessagesByDay(
-        [msg("a", "2026-03-08T16:00:00Z")], // 10:00am Sun 8 Mar, Chicago (CST, pre-transition)
+        [msg("a", "2026-03-08T16:00:00Z")], // 11:00am Sun 8 Mar, Chicago (CDT, after the transition)
         tz,
         now
       )

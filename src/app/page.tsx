@@ -97,7 +97,7 @@ export default async function HomePage() {
             width: "100%",
             padding: "0.75rem 1.5rem",
             backgroundColor: "var(--action)",
-            color: "#0a0a0a",
+            color: "var(--action-ink)",
             fontSize: "var(--type-body)",
             fontWeight: 600,
             borderRadius: "0.5rem",

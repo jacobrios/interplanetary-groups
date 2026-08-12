@@ -35,3 +35,37 @@ describe("MessageFeed system messages", () => {
     expect(line.style.fontSize).toBe("var(--type-meta)")
   })
 })
+
+describe("MessageFeed day dividers render in the group's own timezone", () => {
+  it("groups a message by the group's timeZone prop, not the viewer's local zone", () => {
+    // jsdom has no scrollIntoView; the feed calls it on mount.
+    Element.prototype.scrollIntoView = vi.fn()
+
+    // 2020-01-01T23:30:00Z is still Jan 1 in UTC, but already 08:30 the next
+    // morning in Tokyo (UTC+9) — Thu Jan 2. A component that grouped by the
+    // viewer's local zone (or by UTC) would print "Wed, Jan 1"; only reading
+    // the group's own Asia/Tokyo zone prints "Thu, Jan 2". The date is fixed
+    // and far from "now" on purpose, so the divider always falls to the
+    // weekday/month/day format rather than "Today"/"Yesterday", regardless
+    // of the date the suite happens to run on.
+    render(
+      <MessageFeed
+        viewerId={null}
+        timeZone="Asia/Tokyo"
+        messages={[
+          {
+            id: "m-1",
+            authorType: MessageAuthor.MEMBER,
+            authorId: "u-1",
+            authorName: "Jesse",
+            body: "hey",
+            createdAt: new Date("2020-01-01T23:30:00Z"),
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText("Thu, Jan 2")).toBeTruthy()
+    expect(screen.queryByText("Wed, Jan 1")).toBeNull()
+  })
+})
