@@ -20,6 +20,7 @@ import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
+import { OrbitMark } from "@/components/OrbitMark"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
@@ -62,25 +63,9 @@ const rowValueStyle: React.CSSProperties = {
 
 function OrbitAvatar() {
   return (
-    <div
-      aria-label="Orbit"
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        backgroundColor: "var(--lime)",
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: "0.6875rem",
-        fontWeight: 700,
-        color: "#0a0a0a",
-        marginTop: "0.25rem",
-      }}
-    >
-      O
-    </div>
+    <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
+      <OrbitMark size={28} />
+    </span>
   )
 }
 

@@ -12,6 +12,7 @@ import { useState } from "react"
 import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
+import { OrbitMark } from "@/components/OrbitMark"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -87,25 +88,9 @@ export default function Step2Playback({
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* Feed-style Orbit bubble: lime avatar, muted fill, no name label. */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        <div
-          aria-label="Orbit"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: "50%",
-            backgroundColor: "var(--lime)",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.6875rem",
-            fontWeight: 700,
-            color: "#0a0a0a",
-            marginTop: "0.25rem",
-          }}
-        >
-          O
-        </div>
+        <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
+          <OrbitMark size={28} />
+        </span>
         <div
           style={{
             backgroundColor: "var(--surface-raised)",

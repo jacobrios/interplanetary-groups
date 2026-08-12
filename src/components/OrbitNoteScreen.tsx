@@ -10,6 +10,7 @@
 // copy, so neither caller's wording can leak into the other's.
 
 import Link from "next/link"
+import { OrbitMark } from "@/components/OrbitMark"
 
 interface Props {
   eyebrow: string
@@ -67,24 +68,7 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span
-              aria-hidden="true"
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                backgroundColor: "var(--lime)",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.5rem",
-                fontWeight: 700,
-                color: "#0a0a0a",
-              }}
-            >
-              O
-            </span>
+            <OrbitMark size={20} label={null} />
             <span
               style={{
                 fontSize: "var(--type-eyebrow)",

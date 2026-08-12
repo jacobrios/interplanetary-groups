@@ -6,6 +6,8 @@
 
 "use client"
 
+import { OrbitMark } from "@/components/OrbitMark"
+
 interface Props {
   copy: string
 }
@@ -13,24 +15,7 @@ interface Props {
 export default function OrbitPause({ copy }: Props) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minHeight: "2.75rem" }}>
-      <div
-        aria-hidden
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          backgroundColor: "var(--lime)",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.6875rem",
-          fontWeight: 700,
-          color: "#0a0a0a",
-        }}
-      >
-        O
-      </div>
+      <OrbitMark size={28} label={null} />
       <p
         role="status"
         style={{

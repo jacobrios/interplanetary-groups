@@ -37,6 +37,7 @@ import type { FeedGroupProposal } from "./GroupProposalChips"
 import Link from "next/link"
 import PageHeader from "@/components/PageHeader"
 import Chevron from "@/components/Chevron"
+import { OrbitMark } from "@/components/OrbitMark"
 import { derivePending } from "@/lib/pending/derive"
 import { PendingStrip } from "./PendingStrip"
 
@@ -243,22 +244,14 @@ export default async function GroupPage({ params }: Props) {
             href="/"
             aria-label="Home"
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              backgroundColor: "var(--lime)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "0.6875rem",
-              fontWeight: 700,
-              color: "#0a0a0a",
-              letterSpacing: "-0.01em",
               textDecoration: "none",
               flexShrink: 0,
             }}
           >
-            O
+            <OrbitMark size={28} label={null} />
           </Link>
 
           {/* Group title + chevron → group info */}

@@ -11,28 +11,12 @@
 // stays server-compatible.
 
 import type { ReactNode } from "react"
+import { OrbitMark } from "@/components/OrbitMark"
 
 export function OrbitBubble({ children }: { children: ReactNode }) {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
-      <div
-        aria-label="Orbit"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          backgroundColor: "var(--lime)",
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "0.6875rem",
-          fontWeight: 700,
-          color: "#0a0a0a",
-        }}
-      >
-        O
-      </div>
+      <OrbitMark size={28} />
       <div
         style={{
           backgroundColor: "var(--surface-raised)",
