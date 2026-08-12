@@ -13,8 +13,9 @@ interface RemoveMemberInput {
  * never trusted (spec decision 6).
  *
  * Removal is not a lock (spec decision 8): the removed member's history
- * stays, and until the access-control slice they can still view the group.
- * Remove-then-reset is the designed keep-them-out path (spec decision 9).
+ * stays, but everything about the group going forward is closed to them,
+ * the same wall a stranger meets. Remove-then-reset is the designed
+ * keep-them-out path (spec decision 9).
  */
 export async function removeMember({
   supabaseAuthId,

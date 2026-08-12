@@ -6,6 +6,7 @@ import { GaugeAnswer } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
+import { isGroupMember } from "@/lib/auth/membership"
 import { castVote } from "@/lib/gauges/vote"
 import { promoteGaugeToEvent } from "@/lib/gauges/promote"
 import { isGaugeLive } from "@/lib/orbit/spark-copy"
@@ -26,9 +27,13 @@ const ANSWERS: string[] = [GaugeAnswer.IN, GaugeAnswer.OUT, GaugeAnswer.NOT_THAT
  * write, so a client-passed id is never trusted. No anonymous session is
  * minted; the chips are not rendered for a viewer without one.
  *
- * Voting is membership-gated (share-readiness slice): castVote refuses a
- * non-member inside its transaction, because an IN here can be the tap that
- * creates a real event for the whole group.
+ * Voting is membership-gated (share-readiness slice), checked twice: a plain
+ * check right here, right after the gauge is fetched and before the liveness
+ * and already-created checks, so a non-member is refused before learning
+ * anything about the gauge's state; and again inside castVote's own
+ * transaction at write time, atomic with the vote, because an IN here can be
+ * the tap that creates a real event for the whole group and that guarantee
+ * must hold even if membership changed in the moment between the two checks.
  */
 export async function gaugeVoteAction(
   _prevState: GaugeVoteState,
@@ -63,6 +68,19 @@ export async function gaugeVoteAction(
 
   if (!gauge) {
     return { errors: { general: "That question is gone. Please refresh and try again." } }
+  }
+
+  const dbUser = await prisma.user.findUnique({ where: { supabaseAuthId: user.id } })
+  if (!dbUser) {
+    return { errors: { general: "You need to be signed in to answer." } }
+  }
+
+  // Membership, checked here first so a non-member is refused before
+  // learning anything about the gauge's state (defense in depth: castVote
+  // below re-checks this atomically inside its own transaction at write
+  // time, which is the guarantee that actually has to hold).
+  if (!(await isGroupMember(dbUser.id, gauge.group.id))) {
+    return { errors: { general: "Only members can vote on this." } }
   }
 
   // Once the gauge has closed (two hours before the proposed start, usually

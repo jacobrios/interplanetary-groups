@@ -19,9 +19,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { ExtractionError, ModelUnavailableError, classifyModelCallError } from "./model-errors"
 
-export { ExtractionError, ModelUnavailableError } from "./model-errors"
-export type { ModelFailureReason } from "./model-errors"
-
 const MODEL = "claude-haiku-4-5"
 
 // All fields required; "not stated" is null, never absent — this forces the

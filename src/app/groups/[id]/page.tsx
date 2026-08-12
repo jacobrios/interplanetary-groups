@@ -106,9 +106,12 @@ export default async function GroupPage({ params }: Props) {
   const liveGauges = await findLiveGauges(group.id, new Date())
 
   // Names are shown only for members, the same way deriveRoster only ever
-  // displays members' RSVPs.  Voting itself is not membership-gated (that is
-  // the standing access-control gap), but a name rendered inside a group's
-  // feed should belong to that group.
+  // displays members' RSVPs. This filter is about who appears in the tally,
+  // not about who may vote: castVote already refuses a non-member's write
+  // server-side (share-readiness slice), and promotion filters to members
+  // too. Removing this filter would not open a hole, it would just let a
+  // stale or removed member's name show up in a feed they no longer belong
+  // to.
   const memberIds = new Set(group.memberships.map((m) => m.userId))
 
   // A bumped gauge gets a second FeedGauge entry sharing its id but pointing

@@ -1972,8 +1972,12 @@ who loses their session (cleared cookies, a new device) meets the wall until
 the email arc ships, and their way back in is the invite link.
 
 **Decisions worth keeping, none relitigated after the spec.**
-- The wall reveals nothing about the group, deliberately. A leaked URL should
-  not confirm that a group exists, who is in it, or what it is called.
+- The wall reveals nothing about the group's name, members, or contents,
+  deliberately. Whether a group exists at all is still distinguishable: an
+  unknown id 404s to the branded not-found screen and a real group shows the
+  wall. That is the deliberate tradeoff, not an oversight, because a member
+  who mistypes a URL deserves the not-found screen rather than a wall that
+  looks identical to a group that is really there.
 - The wall doubles as the path in. There is no request-to-join flow, because
   the invite link is the product's only door and always has been.
 - Server refusal is not made redundant by the wall. A removed member's stale
@@ -2061,8 +2065,10 @@ place is not an option.** Earlier entries describe "one pre-existing lint
 error" in `OnboardingWizard.tsx`. The real baseline on main is fifteen errors:
 that one, one in `ResetInviteLink.tsx`, and thirteen inside the
 `docs/design/*.jsx` handoff files, which are design artifacts rather than
-product source. None of them sit in a file this branch touched. Future slices
-should compare against fifteen, not one.
+product source. The `OnboardingWizard.tsx` error is pre-existing and sits in
+a region of that file this branch did not touch (this branch does edit
+`OnboardingWizard.tsx` elsewhere, for the unavailable-copy wiring). Future
+slices should compare against fifteen, not one.
 
 **Deploy-time obligations: none.** No migration, no new environment variable,
 no new model call, nothing added to the pre-deploy checklist. Checklist item

@@ -73,6 +73,16 @@ export async function proposalVoteAction(
     return { errors: { general: "That question is gone." } }
   }
 
+  // Membership, via the shared check every gate now uses, checked right
+  // after the proposal is confirmed to exist and before any other state
+  // check, so a non-member is refused before learning whether the proposal
+  // is settled or stale. (Historically this was the product's only
+  // membership-gated write; the share-readiness slice made it the rule
+  // rather than the exception.)
+  if (!(await isGroupMember(user.id, proposal.groupId))) {
+    return { errors: { general: "Only members can vote on this." } }
+  }
+
   if (proposal.answer !== null) {
     return { errors: { general: "That one's settled." } }
   }
@@ -84,13 +94,6 @@ export async function proposalVoteAction(
     proposal.priorStartsAt.getTime() !== proposal.event.startsAt.getTime()
   ) {
     return { errors: { general: STALE_PROPOSAL_ERROR } }
-  }
-
-  // Membership, via the shared check every gate now uses. (Historically this
-  // was the product's only membership-gated write; the share-readiness slice
-  // made it the rule rather than the exception.)
-  if (!(await isGroupMember(user.id, proposal.groupId))) {
-    return { errors: { general: "Only members can vote on this." } }
   }
 
   try {

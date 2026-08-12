@@ -21,6 +21,10 @@ export interface RsvpState {
  * would create a row disconnected from any group roster and misrepresent
  * the "who's coming" picture. The page omits the RSVP control for unauthenticated
  * viewers, so this path should only be hit in error or direct-POST cases.
+ *
+ * Membership-gated too (share-readiness slice): setRsvp throws NOT_A_MEMBER
+ * for a session that has one but isn't in this event's group, and this
+ * action surfaces that as an honest refusal rather than a generic error.
  */
 export async function rsvpAction(
   _prevState: RsvpState,

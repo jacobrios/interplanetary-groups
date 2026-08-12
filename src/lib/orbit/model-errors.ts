@@ -3,9 +3,12 @@
 // The one place a failed model call is read (spec decision 5): the reason
 // Orbit shows is never false. "credits" only when the provider genuinely
 // reports a dry balance; "trouble" for anything where the service, not the
-// founder and not our request shape, is the problem; a plain ExtractionError
-// for our own malformed requests and local surprises, which keep today's
-// generic retry copy.
+// founder and not our request shape, is the problem, which also covers a
+// missing ANTHROPIC_API_KEY: from the founder's chair Orbit genuinely cannot
+// think, the same experience as an outage, so extract.ts throws
+// ModelUnavailableError("trouble") for it rather than a plain
+// ExtractionError; a plain ExtractionError is for our own malformed requests
+// and local surprises, which keep today's generic retry copy.
 //
 // Client components must import ModelFailureReason with `import type` only:
 // this module imports the Anthropic SDK, which must never enter a client
