@@ -2381,7 +2381,7 @@ Scoped deliberately, and worth stating because the two grammars now differ on
 purpose: the chips stay grey everywhere. Chips are the poll on a maybe; the
 answer pair is the ask on a real plan. The difference does honest work, because
 a plan waiting on you outranks a maybe waiting on you, and now it looks that
-way. The consequence, confirmed knowingly: a group home where everything is
+way. The consequence, accepted knowingly: a group home where everything is
 answered shows no teal at all until the member types something.
 
 **The fix for the second.** The strip, the panel it opened, the dimming behind
@@ -2462,6 +2462,17 @@ Two design rounds fed the slice and both are committed on this branch:
 `docs/design/design_handoff_round5/` (the answer pair, the idea card, the mixed
 region) and `docs/design/design_handoff_round6/` (the proposal treatment and
 the height rule).
+
+**One structural decision, recorded because §11 is its only permanent home.**
+Four near-identical copies of the same tap-to-answer control were shipping side
+by side, and restyling the answer pair would have made a fifth. This slice
+replaced all four with one shared control, so the same control now behaves the
+same way everywhere it appears and the copies cannot drift apart. The product
+reason: this slice is about a state grammar staying coherent, and one control is
+how a grammar stays one; four hand-kept copies drift the first time somebody
+remembers to change three of them. The answer pair moved into the product's
+shared set in the same move, out of the one screen it had been flagged as
+misfiled under, which is also what let it be tested at all.
 
 **Suite and verification.** Baseline at slice start: 77 files, 801 tests, all
 green. After: 83 files, 835 tests, all green. The answer pair had no test
