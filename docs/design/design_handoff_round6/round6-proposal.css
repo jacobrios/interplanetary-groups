@@ -1,0 +1,78 @@
+/* Round 6 · PROPOSAL ON A CARD — replaces round-5 board 05 only.
+   Loads AFTER walkthrough.css + pending-surface.css + round4-base.css + round5-cards.css.
+   Adds no new tokens. Also carries the post-round-5 label/tally rulings and the
+   mixed-height region fix. */
+
+/* =====================================================================
+   POST-ROUND-5 RULINGS (supersede the round-5 boards)
+   Labels naming the viewer's own move render in the action teal; labels
+   waiting on others stay --text-secondary. Copy: NEEDS YOUR RSVP ·
+   NEEDS YOUR VOTE (teal, .you) · NEEDS OTHER VOTES (secondary, exact copy).
+   ===================================================================== */
+.gh-need .lbl.you { color: var(--action); }
+
+/* Tally lines read in the product's names voice, never counts-only. */
+.gh-vtally { font-size: var(--type-label); line-height: var(--leading-normal); font-weight: 600; color: var(--text-secondary); margin-top: 9px; text-wrap: pretty; }
+.gh-vtally b { color: var(--text-primary); font-weight: 700; }
+
+/* Viewer's settled RSVP as a counts-line segment (used by variant C,
+   where the answered pair leaves the card face). */
+.gh-statusline .you { color: var(--text-primary); display: inline-flex; align-items: center; gap: 4px; }
+.gh-statusline .you svg { width: 12px; height: 12px; stroke: var(--text-primary); stroke-width: 2.7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* =====================================================================
+   VARIANT A · COMPACT NOTICE, VOTE ON THE DETAIL SCREEN
+   Take 1 (.gh-propline): one recessed footer line. Full card width,
+   hairline above, --surface-base under the raised card, its own chevron.
+   Structurally an attachment, not a metadata row: nothing in the meta
+   cluster is full-bleed, recessed, or chevroned.
+   ===================================================================== */
+.gh-propline { display: flex; align-items: center; gap: 9px; border-top: 1px solid var(--hairline); background: var(--surface-base); padding: 10px 15px; cursor: pointer; }
+.gh-propline .sw { width: 15px; height: 15px; flex: 0 0 auto; stroke: var(--text-secondary); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gh-propline .t { flex: 1 1 auto; min-width: 0; font-size: var(--type-label); line-height: var(--leading-normal); font-weight: 600; color: var(--text-secondary); }
+.gh-propline .t b { color: var(--text-primary); font-weight: 700; }
+.gh-propline .ch { width: 16px; height: 16px; flex: 0 0 auto; stroke: var(--text-faint); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Take 2: the shift line inside the card body, reusing the shipped
+   .pd-shift grammar (label + struck old + arrow + bold new). The strike,
+   arrow and PROPOSED label make it unmistakably not a metadata seg. */
+.gh-evpad .pd-shift { margin-top: .45em; }
+
+/* Event detail · proposal section (variant A's second half).
+   An .ed-card between the details card and Add to calendar. */
+.ed-prop .pq { font-size: var(--type-body); line-height: var(--leading-normal); font-weight: 600; color: var(--text-primary); margin-top: 7px; text-wrap: pretty; }
+.ed-prop .gh-qr { margin: 10px 0 0; }
+.ed-prop .gh-vtally { margin-top: 10px; }
+
+/* =====================================================================
+   VARIANT B · TRIMMED BAND (.gh-propband.trim)
+   The round-5 band cut to its essentials: question + the two chips.
+   No kind label, no tally on the card (tally lives in chat + detail).
+   ===================================================================== */
+.gh-propband.trim { padding: 10px 15px 12px; }
+.gh-propband.trim .pq { margin-top: 0; }
+
+/* =====================================================================
+   VARIANT C · ONE SLOT, ONE QUESTION (.gh-slotq)
+   The card's bottom slot hosts exactly one open ask. While the RSVP is
+   unanswered the slot is the RSVP pair (unchanged). Once the viewer
+   answers, the settled pair leaves the face — the answer moves into the
+   counts line ("You're in ✓") — and the slot shows the proposal question
+   + chips in the same position, at roughly the same height. Changing
+   your RSVP lives on the detail screen, as it already does today.
+   ===================================================================== */
+.gh-slotq { margin-top: .85em; padding-top: .85em; border-top: 1.4px solid var(--stroke); }
+.gh-slotq .pq { font-size: var(--type-meta); line-height: var(--leading-normal); font-weight: 600; color: var(--text-primary); text-wrap: pretty; }
+.gh-slotq .gh-qr { margin: 9px 0 0; }
+
+/* =====================================================================
+   MIXED CARD HEIGHTS · region answer
+   The rail keeps flex's natural stretch: every card's SHELL runs the full
+   region height, so leftover space lives inside a card's border instead
+   of as dead background below it. Interiors become columns and the ask
+   block (.gh-ask: RSVP pair, or chips + tally) anchors to the bottom, so
+   every card's answer row lands on a shared baseline above the dots.
+   ===================================================================== */
+.gh-rail > .gh-evcard { display: flex; flex-direction: column; }
+.gh-rail > .gh-evcard > .gh-evpad { flex: 1 1 auto; display: flex; flex-direction: column; }
+.gh-ask { margin-top: auto; }

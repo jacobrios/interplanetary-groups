@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Round 6 · Proposal on a Card · Interplanetary Groups</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="walkthrough.css" />
+<link rel="stylesheet" href="pending-surface.css" />
+<link rel="stylesheet" href="round4-base.css" />
+<link rel="stylesheet" href="round5-cards.css" />
+<link rel="stylesheet" href="round6-proposal.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.sec-head { max-width: 78ch; margin: 72px 0 0; }
+.sec-head .k { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: #2b2b2b; font-weight: 700; }
+.sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -.015em; color: #111214; margin: 8px 0 0; }
+.sec-head p { font-size: 14px; line-height: 1.62; color: #23242a; margin: 10px 0 0; text-wrap: pretty; }
+.iso-list { display: flex; flex-direction: column; gap: 28px; margin-top: 26px; }
+.iso { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.iso-frame { width: 390px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 14px; overflow: hidden; }
+.iso-notes { flex: 1 1 320px; min-width: 300px; max-width: 48ch; padding-top: 1px; }
+.iso-notes h3 { font-family: var(--display); font-weight: 800; font-size: 17px; color: #101114; margin: 0 0 7px; }
+.iso-notes p { font-size: 13.5px; line-height: 1.62; color: #23242a; margin: 0 0 8px; text-wrap: pretty; }
+.iso-notes ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.6; color: #23242a; }
+.iso-notes li { margin: 4px 0; }
+.iso-notes b { color: #0d0e11; }
+.iso-notes code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.r6-region { width: 390px; background: var(--surface-base); overflow: hidden; padding: 16px; }
+.r6-region.rail-host { padding-left: 0; padding-right: 0; }
+.frame-tag { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: #2b2b2b; margin: 0 2px 8px; }
+.pair { display: flex; flex-direction: column; flex: 0 0 auto; }
+.rules { margin-top: 64px; max-width: 80ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 0 0 10px; letter-spacing: -.01em; }
+.rules ul { margin: 0 0 14px; padding-left: 18px; }
+.rules li { margin: 5px 0; }
+.rules b { color: #0d0e11; }
+.rules code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+  <p class="board-eyebrow">Interplanetary Groups · round 6</p>
+  <h1 class="board-title">Proposal on a card, without the tallest-card tax</h1>
+  <p class="board-sub">Round-5 board 05 is rejected: its full proposal band made one card much taller than the rest, and the region renders at the height of its tallest card, so every other card sat over dead space. Three replacements, each keeping one plan on one card, no truncation, no internal scroll. Variant A (the owner's lean, two takes) moves the vote to the detail screen and leaves a one-line notice. Variant B trims the band to its essentials. Variant C never shows two answer rows at once. Board 06 answers the mixed-height question for the whole region. Post-round-5 rulings applied throughout: teal need-labels for the viewer's own move, NEEDS OTHER VOTES copy, question-mark idea titles, names-voice tallies, shipped proposal chip copy.</p>
+
+  <!-- ============ 01 · VARIANT A TAKE 1 ============ -->
+  <div class="sec-head">
+    <p class="k">Board 01 · Variant A · take 1</p>
+    <h2>The footer notice</h2>
+    <p>One recessed line at the foot of the card; the vote itself lives on the event detail screen (board 03). State shown: the viewer has RSVP'd yes, so the label has moved down the ladder to NEEDS YOUR VOTE.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="01 variant A take 1 footer notice">
+        <div class="r6-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Friday beers</div>
+                  <div class="gh-cmeta"><span class="seg">Fri Jun 19</span><span class="seg">7:00 PM</span><span class="seg">Barcade</span></div>
+                  <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim done">
+                <div class="in pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                <div class="out other">Can't make it</div>
+              </div>
+            </div>
+            <div class="gh-propline">
+              <svg class="sw" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14" /></svg>
+              <span class="t">Time change proposed · <b>Move to 8pm?</b></span>
+              <svg class="ch" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>An attachment, not a metadata row</h3>
+        <ul>
+          <li><b>Height cost ≈ 40px</b>, one line. The card stays within a small margin of its siblings.</li>
+          <li><b>Why it cannot read as metadata</b>: it is full card width, recessed to <code>--surface-base</code> under the raised card, separated by a hairline, prefixed by the swap icon and closed by its own chevron. No metadata seg has any of those.</li>
+          <li><b>Copy</b>: "Time change proposed" at <code>--text-secondary</code>; the question <b>"Move to 8pm?"</b> bold at <code>--text-primary</code>. <code>--type-label</code>, wraps at enlarged text.</li>
+          <li><b>Tap</b>: the line opens the detail screen's proposal section. The chips are one tap away, never zero; that is the trade.</li>
+          <li><b>Label ladder</b>: NEEDS YOUR RSVP (teal) until the viewer RSVPs, then NEEDS YOUR VOTE (teal, shown), then NEEDS OTHER VOTES (<code>--text-secondary</code>).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 02 · VARIANT A TAKE 2 ============ -->
+  <div class="sec-head">
+    <p class="k">Board 02 · Variant A · take 2</p>
+    <h2>The shift line</h2>
+    <p>Same idea, but the notice sits in the card body as the shipped time-change grammar: PROPOSED label, struck old time, arrow, bold new time with the question mark. Zero new components.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="02 variant A take 2 shift line">
+        <div class="r6-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Friday beers</div>
+                  <div class="gh-cmeta"><span class="seg">Fri Jun 19</span><span class="seg">7:00 PM</span><span class="seg">Barcade</span></div>
+                  <div class="pd-shift"><span class="lbl">Proposed</span><span class="old">7:00 PM</span><svg class="arw" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M13 6l6 6-6 6" /></svg><span class="new">8pm?</span></div>
+                  <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim done">
+                <div class="in pick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg>I'm in</div>
+                <div class="out other">Can't make it</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>The shipped grammar does the disambiguation</h3>
+        <ul>
+          <li><b>Height cost ≈ 25px</b>, the smallest of any take that still shows the proposal on the card.</li>
+          <li><b>Reuses <code>.pd-shift</code> verbatim</b> from the pending surface: PROPOSED eyebrow at <code>--text-faint</code>, old time struck at <code>--text-faint</code>, arrow, new time bold at <code>--text-primary</code> with the question mark carrying "not decided".</li>
+          <li><b>Why it cannot read as metadata</b>: metadata segs never strike, never carry an arrow or an eyebrow label. It sits between the meta line and the counts line, inside the cluster it amends.</li>
+          <li><b>Weakness, stated</b>: no chevron of its own; the whole card body opens detail, and the teal NEEDS YOUR VOTE label is what says a move is waiting. Take 1 signposts harder; take 2 is quieter and shorter.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 · VARIANT A DETAIL SCREEN ============ -->
+  <div class="sec-head">
+    <p class="k">Board 03 · Variant A · second half</p>
+    <h2>The vote, on the event detail screen</h2>
+    <p>The proposal section sits directly under the details card, above Add to calendar, because it amends the time the calendar button would save. Everything else is the shipped detail screen.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="03 variant A event detail proposal">
+        <div class="phone" style="height:auto">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="ed-scroll" style="padding-bottom:22px">
+            <div class="ed-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M15 6l-6 6 6 6" /></svg> Climbing Crew</div>
+            <div class="ed-card" style="margin-top:10px">
+              <div class="ed-pad">
+                <div class="ed-title">Friday beers</div>
+                <div class="ed-meta" style="margin-top:10px">
+                  <div class="ed-mrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg> Fri Jun 19 · 7:00 PM</div>
+                  <div class="ed-mrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.1 7-11a7 7 0 10-14 0c0 5.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.6" /></svg> Barcade</div>
+                </div>
+              </div>
+              <div class="ed-band footer">
+                <span class="yin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-11" /></svg> You're in</span>
+                <span class="chg">Change</span>
+              </div>
+            </div>
+            <div class="ed-card ed-prop" style="margin-top:12px">
+              <div class="ed-rgroup">
+                <span class="ed-seclabel">Time change · from Orbit</span>
+                <div class="pq">Sam can't do 7. Move Fri beers to 8pm?</div>
+                <div class="gh-qr" style="margin-left:0">
+                  <div class="gh-qrchip">🔄 8pm works</div>
+                  <div class="gh-qrchip quiet">🕗 Keep 7pm</div>
+                </div>
+                <div class="gh-vtally"><b>Maya &amp; Rowan</b> want 8pm so far · one more makes it happen</div>
+              </div>
+            </div>
+            <div class="ed-cal" style="margin-top:11px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 9h16M8 3v4M16 3v4" /></svg> Add to calendar</div>
+            <div class="ed-card" style="margin-top:16px">
+              <div class="ed-rgroup">
+                <span class="ed-seclabel"><svg class="rost-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 13l4 4 10-11" /></svg>In · 4</span>
+                <div class="ed-people">
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">You</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Jesse</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Maya</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Rowan</span></div>
+                </div>
+              </div>
+              <div class="ed-rgroup">
+                <span class="ed-seclabel">Out · 1</span>
+                <div class="ed-people dim out">
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Devon</span></div>
+                </div>
+              </div>
+              <div class="ed-rgroup">
+                <span class="ed-seclabel">Haven't replied · 4</span>
+                <div class="ed-people dim pending">
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Sam</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Priya</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Theo</span></div>
+                  <div class="ed-person"><span class="ed-av"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.4" /><path d="M4.8 19.4c1.5-3.1 4.1-4.7 7.2-4.7s5.7 1.6 7.2 4.7" /></svg></span><span class="nm">Noor</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Placed where it amends</h3>
+        <ul>
+          <li><b>Position</b>: between the details card and Add to calendar. The proposal is about the time; you should meet it before the button that saves the time.</li>
+          <li><b>Section</b>: a shipped <code>.ed-card</code> with an <code>.ed-seclabel</code> ("TIME CHANGE · FROM ORBIT"), Orbit's question at <code>--type-body</code> weight 600, the two shipped chips with the shipped copy, and the names-voice tally.</li>
+          <li><b>Chips</b>: <code>🔄 8pm works</code> / <code>🕗 Keep 7pm</code> — grey grammar, verbatim, never teal.</li>
+          <li><b>Tally</b>: "Maya &amp; Rowan want 8pm so far · one more makes it happen". Names bright, the rest <code>--text-secondary</code>.</li>
+          <li>The detail screen carries no need-label, as shipped; this section is the RSVP band's peer, not a card in a carousel.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 · VARIANT B ============ -->
+  <div class="sec-head">
+    <p class="k">Board 04 · Variant B</p>
+    <h2>The trimmed band, next to a normal card</h2>
+    <p>The vote stays on the card, cut to the question and the two chips. No kind label, no tally line; the tally lives in chat and on the detail screen. Both cards at the same scale so the remaining difference is honest.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="pair">
+        <p class="frame-tag">With open vote</p>
+        <div class="iso-frame" data-screen-label="04a variant B trimmed band">
+          <div class="r6-region">
+            <div class="gh-evcard compact">
+              <div class="gh-evpad">
+                <div class="gh-need"><span class="lbl you">Needs your RSVP</span></div>
+                <div class="gh-crow">
+                  <div class="gh-cmid">
+                    <div class="gh-ctitle">Friday beers</div>
+                    <div class="gh-cmeta"><span class="seg">Fri Jun 19</span><span class="seg">7:00 PM</span><span class="seg">Barcade</span></div>
+                    <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </div>
+                <div class="gh-rsvp slim ask">
+                  <div class="in">I'm in</div>
+                  <div class="out">Can't make it</div>
+                </div>
+              </div>
+              <div class="gh-propband trim">
+                <div class="pq">Move Fri beers to 8pm?</div>
+                <div class="gh-qr">
+                  <div class="gh-qrchip">🔄 8pm works</div>
+                  <div class="gh-qrchip quiet">🕗 Keep 7pm</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="frame-tag">Normal card, same scale</p>
+        <div class="iso-frame" data-screen-label="04b normal card for comparison">
+          <div class="r6-region">
+            <div class="gh-evcard compact">
+              <div class="gh-evpad">
+                <div class="gh-need"><span class="lbl you">Needs your RSVP</span></div>
+                <div class="gh-crow">
+                  <div class="gh-cmid">
+                    <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                    <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                    <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </div>
+                <div class="gh-rsvp slim ask">
+                  <div class="in">I'm in</div>
+                  <div class="out">Can't make it</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>The honest residue</h3>
+        <ul>
+          <li><b>Height cost ≈ 90px</b>: one question line plus one chip row plus the band's padding. Better than round 5's ≈ 130px, still the tallest thing in any mixed set by a visible step.</li>
+          <li><b>What was cut</b>: the TIME CHANGE kind label (the question mark and the chips already say "open vote") and the tally line (it lives in Orbit's chat bubble and on the detail screen).</li>
+          <li><b>What stays</b>: recessed <code>--surface-base</code> band, hairline above, shipped chips with shipped copy, zero taps to vote.</li>
+          <li><b>Both questions visible at once</b> — the only variant that keeps that. The price is the height; board 06's stretch rule absorbs what remains.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 05 · VARIANT C ============ -->
+  <div class="sec-head">
+    <p class="k">Board 05 · Variant C</p>
+    <h2>One slot, one question</h2>
+    <p>Our invention: the card's bottom slot hosts exactly one open ask at a time. Until you RSVP, it is the RSVP pair. Once you answer, your answer folds into the counts line and the slot shows the proposal in the same position. The smallest honest residue of any on-card vote.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="05 variant C slot swap">
+        <div class="r6-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Friday beers</div>
+                  <div class="gh-cmeta"><span class="seg">Fri Jun 19</span><span class="seg">7:00 PM</span><span class="seg">Barcade</span></div>
+                  <div class="gh-statusline"><span class="seg you"><svg viewBox="0 0 24 24"><path d="M5 13l4 4 10-11" /></svg>You're in</span><span class="seg">4 In</span><span class="seg">1 Out</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-slotq">
+                <div class="pq">Sam can't do 7. Move Fri beers to 8pm?</div>
+                <div class="gh-qr">
+                  <div class="gh-qrchip">🔄 8pm works</div>
+                  <div class="gh-qrchip quiet">🕗 Keep 7pm</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>The card asks one thing at a time</h3>
+        <ul>
+          <li><b>Height cost ≈ 25–30px</b>, honestly measured: the question line + chip row run slightly taller than the 44px RSVP pair they replace. The card never carries two answer rows at once, so an open vote costs about one text line, the same residue as take A2 and a third of variant B's.</li>
+          <li><b>Sequence = the label ladder</b>, made physical: NEEDS YOUR RSVP shows the pair; answering flips the label to NEEDS YOUR VOTE and swaps the slot to the proposal; voting flips it to NEEDS OTHER VOTES and the slot empties (tally stays in chat and detail).</li>
+          <li><b>Your RSVP stays visible</b>: a "You're in ✓" segment leads the counts line, check plus words, never hue. Changing it lives on the detail screen's You're in / Change band, which already exists.</li>
+          <li><b>Weakness, stated</b>: while the RSVP is unanswered the proposal is only signalled by the shift in the label ladder and by chat; and swapping content between visits is a between-visits change, though never a height change.</li>
+          <li>No animation: the swap is a state render, nothing moves on screen.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 06 · MIXED HEIGHTS ============ -->
+  <div class="sec-head">
+    <p class="k">Board 06 · Region answer</p>
+    <h2>Mixed heights: the shell absorbs the difference</h2>
+    <p>Answering the secondary question once for the whole region: cards stretch to the region's height, and each card's ask block anchors to the bottom edge. Leftover space lives inside a card's border, where it reads as breathing room, not below it as dead background.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame" data-screen-label="06 mixed heights stretch">
+        <div class="r6-region rail-host">
+          <div class="gh-pinned peek">
+            <div class="gh-rail peek">
+              <div class="gh-evcard idea">
+                <div class="gh-evpad">
+                  <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                  <div class="gh-idtitle">Beers?</div>
+                  <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                  <div class="gh-ask">
+                    <div class="gh-qr">
+                      <div class="gh-qrchip">🍻 I'm in</div>
+                      <div class="gh-qrchip quiet">🙏 Next time</div>
+                      <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                    </div>
+                    <div class="gh-vtally"><b>Rowan &amp; Devon</b> are in so far · one more makes it happen</div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-evcard compact">
+                <div class="gh-evpad">
+                  <div class="gh-need"><span class="lbl you">Needs your RSVP</span></div>
+                  <div class="gh-crow">
+                    <div class="gh-cmid">
+                      <div class="gh-ctitle">Bouldering at Mesa Rock</div>
+                      <div class="gh-cmeta"><span class="seg">Sat Jun 20</span><span class="seg">10:00 AM</span><span class="seg">Mesa Rock</span></div>
+                      <div class="gh-statusline"><span class="seg">3 In</span><span class="seg">1 Out</span><span class="seg">5 TBD</span></div>
+                    </div>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                  </div>
+                  <div class="gh-ask">
+                    <div class="gh-rsvp slim ask">
+                      <div class="in">I'm in</div>
+                      <div class="out">Can't make it</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-dots"><i class="on"></i><i></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Stretch the shell, anchor the ask</h3>
+        <ul>
+          <li><b>Rule 1</b>: the rail keeps flex stretch — every card's border runs the full region height. The idea card's hairline shell now contains its own slack.</li>
+          <li><b>Rule 2</b>: card interiors are columns and the ask block (<code>.gh-ask</code>: the RSVP pair, or the chips + tally) takes <code>margin-top: auto</code>, so every card's answer row lands on a shared baseline just above the dots. The slack sits between the idea's title and its chips, mid-card, where whitespace reads as calm rather than absence.</li>
+          <li><b>No content stretches</b>, nothing is height-capped, nothing clips; at enlarged text the tallest card simply sets a taller region.</li>
+          <li><b>Compounding</b>: variant C keeps every confirmed card within a text line of its siblings, so the stretch this rule absorbs is small; A adds one line; B leans on it hardest.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RULES ============ -->
+  <div class="rules">
+    <h2>Rulings carried through every board</h2>
+    <ul>
+      <li><b>Need labels</b>: the viewer's own move renders in the action teal (NEEDS YOUR RSVP, NEEDS YOUR VOTE); NEEDS OTHER VOTES, exact copy, stays <code>--text-secondary</code>. The label still vanishes when the card needs nothing.</li>
+      <li><b>Ladder on a card with an open vote</b>: NEEDS YOUR RSVP → NEEDS YOUR VOTE → NEEDS OTHER VOTES.</li>
+      <li><b>Pending idea titles carry the question mark</b>: "Beers?".</li>
+      <li><b>Proposal chips</b>: shipped copy, "8pm works" / "Keep 7pm", grey grammar, never teal.</li>
+      <li><b>Tallies in the names voice</b>, never counts-only: "Rowan &amp; Devon are in so far · one more makes it happen".</li>
+      <li><b>Unchanged</b>: existing tokens only; Geist; teal never on chips, never a wash, never decorative; lime is Orbit's alone; status never by hue alone, never red vs green; 13px floor; layout grows and never clips; no animation; one plan, one card.</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>
