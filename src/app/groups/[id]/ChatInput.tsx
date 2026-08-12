@@ -6,12 +6,19 @@
 // which passes down the value, the change handler, and the form action.
 //
 // Send button per build-notes §7 (owner ruling 11 Aug 2026, visual-polish
-// slice, task 10): the design board drew the send as permanently neutral,
-// arguing composing isn't the primary action. The owner overrode that:
-// sending IS an action that matters, so the circle fills teal once there's
-// text to send.
-// - Empty: neutral fill (--surface-self), dim arrow (--text-secondary).
-// - Has text: teal fill (--action), dark arrow (--action-ink).
+// slice, task 10, corrected in fix round 1): sending IS an action that
+// matters, so the circle fills teal once there's text to send. This was
+// first built against walkthrough.css's DARK IDENTITY block, which reads as
+// permanently neutral in isolation, but the file's LAST word on .gh-send is
+// its "REFINEMENT PASS" block (~line 691), which already encodes this same
+// two-state teal via an .active class — the board's final pass and the
+// owner's ruling agree. Values match that block exactly:
+// - Empty: raised fill (--surface-raised), 1px hairline border, faint arrow
+//   (--text-faint).
+// - Has text: teal fill (--action), border turns teal too (--action),
+//   dark arrow (--action-ink).
+// The border is 1px in both states (only its color switches) so the circle
+// can't change size when the state flips.
 // This contextual teal coexists with the card's persistent "I'm in" teal
 // because a contextual action (only live while composing) is not a second
 // persistent primary — it does not violate one-primary-action-per-screen.
@@ -101,7 +108,9 @@ export default function ChatInput({
           }}
         />
 
-        {/* Send circle: neutral fill when empty, teal fill the moment there's text */}
+        {/* Send circle: neutral fill when empty, teal fill the moment there's text.
+            Border stays 1px in both states (only its color switches) so the
+            circle can never change size between them. */}
         <button
           type="submit"
           disabled={!hasText || isPending}
@@ -110,14 +119,14 @@ export default function ChatInput({
             width: 40,
             height: 40,
             borderRadius: "50%",
-            border: "none",
+            border: hasText ? "1px solid var(--action)" : "1px solid var(--hairline)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: hasText && !isPending ? "pointer" : "default",
             flexShrink: 0,
-            backgroundColor: hasText ? "var(--action)" : "var(--surface-self)",
-            color: hasText ? "var(--action-ink)" : "var(--text-secondary)",
+            backgroundColor: hasText ? "var(--action)" : "var(--surface-raised)",
+            color: hasText ? "var(--action-ink)" : "var(--text-faint)",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
