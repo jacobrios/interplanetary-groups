@@ -2892,3 +2892,20 @@ message and exiting 0, which is correct on that path because it lets go rather t
 nine files the drift check compares are byte-identical to the template, and the check runs
 silent. The template change was committed and pushed to the `~/.claude` backup in the same
 session, with its own dated postscript in that template's README.
+
+**Postscript addendum, same day: a fourth finding, recorded and not fixed.** The review of the
+follow-on fix found something worth more than the wording it was asked about. `suite-stamp.mjs`
+says in its header that a cleared temp directory "fails safe by the rule above: the run stamp
+disappears alongside the edit stamp, and the next finish runs." It does not. With both stamps
+gone, `needsFullRun` reads the edit stamp as absent and returns false, and absent is the one
+input allowed to skip the suite, so the next finish **skips**. In the window after a temp sweep,
+an outstanding full-suite debt is silently dropped; the next edit re-arms it, so the window is
+small, but the comment states the opposite of what the code does. That is the same shape as the
+bug the 12 August review caught in `readStamp` ("the comment was right and the code was wrong,
+and only a reader comparing them caught it"), which makes it the second time this module's
+prose and behavior have disagreed. `suite-stamp.mjs` is byte-identical to the template, so by
+the rule this slice just set, it goes upstream rather than into this patch, and it is the
+owner's call rather than this session's. Two smaller ones left alone the same way: the message
+says "the next task finish" though the hook is registered for plain turn finishes too, and
+"this gate has already held this agent once" reads a flag the harness sets when any stop hook
+blocked, which cannot count.
