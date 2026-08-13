@@ -2816,3 +2816,44 @@ a cross-project edit. Left as a comment in `project-root.mjs` rather than built,
 cross-project edits are rare, they require the owner's explicit yes under the standing rules,
 and widening this hook's notion of "which project" is not a change to make inside a
 performance fix.
+
+### Micro-PR, 13 Aug 2026: the gate stops calling a runner that never ran a failure
+
+Three hook files adopted verbatim from `~/.claude/templates/project-safety-nets/`, closing the
+drift the session-start check had been reporting. The substance is one distinction the old
+wording collapsed: both test hooks read any nonzero exit as "the tests failed," but a runner
+that never starts also exits nonzero, so an exit code meaning *no result* was being read out
+loud as *a bad result*. The template's wording says "did not come back clean" and tells the
+reader to check whether the runner started. `project-root.mjs` gained the template's eight-line
+note recording a third measured way that hook can fail silently: rooted in a different project,
+it runs that project's suite and reports it green as verification of an edit here.
+
+**The decision worth keeping is not the wording, it is what happens to a finding inside adopted
+text.** The independent review found three problems in these files, and none was fixed. All
+three are present in the template byte for byte, so fixing any of them here would recreate the
+drift this change closes, and the template lives outside this repo, where a write needs the
+owner's explicit yes. They were reported upward instead. Recorded so the next adoption does not
+relitigate it: **a finding in template-inherited text is escalated to the template, never
+patched locally.** Byte-identity is the whole mechanism, and a locally-improved copy is
+indistinguishable from an un-adopted one to the drift check that has to police it.
+
+The three, so they are not lost: `project-root.mjs` now points at "the npm note in README.md",
+which exists in the template's README and not in this repo's, so the pointer dangles here, and
+the paragraph's "a project that adapted this hook to run through its package manager" describes
+b1-coach rather than this repo, which spawns the runner directly. `full-suite-on-subagent-stop.mjs`
+kept a second message on the already-held-once path still saying the suite "is still failing",
+the exact framing this change removed, on precisely the path where the overclaim bites hardest.
+And "the tests covering this file" stays inaccurate on the fallback path, where an empty file
+path runs the whole suite; pre-existing, and the rewrite carried it along.
+
+**Verification.** Suite before, on main: 87 files, 880 tests, green, zero skipped, no
+pre-existing failure. Suite after: the same 87 and 880, which is the expected result and not a
+missing check, because the change is two string literals and a comment inside code the runner
+never imports. No test asserts on these strings and none was added: a string-equality test on an
+error message is brittle and buys nothing, by the owner's call. The evidence is instead both
+hooks driven as real subprocesses, fed the JSON Claude Code actually sends, against a
+deliberately failing test file created and removed outside the commit: the per-edit hook exited
+2 and printed the new wording, and the task-finish hook exited 2 and printed its own. The
+session-start drift check then ran silent at exit 0 across all three files, and no
+`safety-net-exceptions.json` exists anywhere, so the silence means the files match rather than
+that a difference was recorded.
