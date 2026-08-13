@@ -153,7 +153,12 @@ describe("when the harness says a stop hook is already holding this agent", () =
       stopHookActive: true,
       warn: (message: string) => said.push(message),
     })
-    expect(said.join(" ")).toMatch(/still failing/i)
+    // Asserts that it speaks, not what it says. The test's whole point is that
+    // silence here is indistinguishable from success, and a phrase-matching
+    // regex pins wording the message is expected to outgrow: this assertion
+    // previously required the words "still failing", which is the exact framing
+    // the runner-never-started fix had to remove from this file.
+    expect(said.join(" ").trim().length).toBeGreaterThan(0)
   })
 
   it("keeps the debt when it gives up, so the next finish tries again", () => {

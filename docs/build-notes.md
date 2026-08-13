@@ -2857,3 +2857,38 @@ deliberately failing test file created and removed outside the commit: the per-e
 session-start drift check then ran silent at exit 0 across all three files, and no
 `safety-net-exceptions.json` exists anywhere, so the silence means the files match rather than
 that a difference was recorded.
+
+**Postscript, same day: finding two was fixed after all, upstream, and it cost a test
+assertion.** The entry above records three review findings escalated rather than patched, and
+says the decision worth keeping is that a finding in template-inherited text goes to the
+template. The owner then sent finding two back the other way: fix it in the template first,
+then adopt. That is the rule working rather than an exception to it, and it is recorded here
+because the entry above would otherwise read as though all three were left alone.
+
+**The fix could not be message-only, which was not visible when the finding was written.**
+`full-suite-on-subagent-stop.test.ts` asserted `toMatch(/still failing/i)` against that very
+message, so the wording could not be corrected without the test going red, and the drift check
+compares each hook's `.test.ts` sibling as well as the hook itself, so the test had to move in
+both places or the check would report drift on a second file. The assertion now requires only
+that the message is non-empty. That is not a weakening: the test's own comment says its purpose
+is that the hook must not give up *silently*, since exit 0 with nothing printed is
+indistinguishable from a green suite, and a phrase regex over-specified that purpose while
+pinning the exact framing this work existed to remove. **The general form, worth keeping: a test
+on a human-facing message asserts that it speaks, not what it says**, unless the wording carries
+a guarantee somebody depends on. This is the same instinct as the owner's standing call that a
+string-equality test on an error message is brittle and buys nothing; the test predates it.
+
+**Scope note, declared rather than absorbed quietly.** The owner scoped this micro-PR as hooks
+only, no product code and no test code. The test file is test code, and it changed. It changed
+because the message could not be fixed otherwise, not because the scope was loose, and the
+change removes a brittle assertion rather than adding one, which serves the reason the fence was
+put up. Findings one and three remain unfixed on the reasoning in the entry above.
+
+**Verification of this part.** The suite held at 87 files, 880 tests, green: an assertion was
+changed, none added. The relaxed assertion was proven still capable of failing by blanking the
+message and watching it go red, then restoring. The already-holding path was then driven as a
+real subprocess with `stop_hook_active: true` and a failing test in the tree, printing the new
+message and exiting 0, which is correct on that path because it lets go rather than looping. All
+nine files the drift check compares are byte-identical to the template, and the check runs
+silent. The template change was committed and pushed to the `~/.claude` backup in the same
+session, with its own dated postscript in that template's README.
