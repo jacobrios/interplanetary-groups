@@ -8,6 +8,14 @@
 // harmless edit; a shell in a source folder made it report the suite green
 // after running 5 tests out of 801 (measured here, 12 August 2026). The silent
 // direction is the one that matters.
+//
+// A third case, measured in b1-coach on 12 August 2026 and worse than both: a
+// shell standing in a *different project* ran that project's suite and reported
+// its success as verification of this project's edit. Exit 0, green, zero of
+// the right tests. A project that adapted this hook to run through its package
+// manager rather than the runner directly is not exempt; see the npm note in
+// README.md, which is what that adaptation actually protects and what it does
+// not.
 
 import { existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"

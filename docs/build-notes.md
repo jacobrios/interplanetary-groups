@@ -2816,3 +2816,96 @@ a cross-project edit. Left as a comment in `project-root.mjs` rather than built,
 cross-project edits are rare, they require the owner's explicit yes under the standing rules,
 and widening this hook's notion of "which project" is not a change to make inside a
 performance fix.
+
+### Micro-PR, 13 Aug 2026: the gate stops calling a runner that never ran a failure
+
+Three hook files adopted verbatim from `~/.claude/templates/project-safety-nets/`, closing the
+drift the session-start check had been reporting. The substance is one distinction the old
+wording collapsed: both test hooks read any nonzero exit as "the tests failed," but a runner
+that never starts also exits nonzero, so an exit code meaning *no result* was being read out
+loud as *a bad result*. The template's wording says "did not come back clean" and tells the
+reader to check whether the runner started. `project-root.mjs` gained the template's eight-line
+note recording a third measured way that hook can fail silently: rooted in a different project,
+it runs that project's suite and reports it green as verification of an edit here.
+
+**The decision worth keeping is not the wording, it is what happens to a finding inside adopted
+text.** The independent review found three problems in these files, and none was fixed. All
+three are present in the template byte for byte, so fixing any of them here would recreate the
+drift this change closes, and the template lives outside this repo, where a write needs the
+owner's explicit yes. They were reported upward instead. Recorded so the next adoption does not
+relitigate it: **a finding in template-inherited text is escalated to the template, never
+patched locally.** Byte-identity is the whole mechanism, and a locally-improved copy is
+indistinguishable from an un-adopted one to the drift check that has to police it.
+
+The three, so they are not lost: `project-root.mjs` now points at "the npm note in README.md",
+which exists in the template's README and not in this repo's, so the pointer dangles here, and
+the paragraph's "a project that adapted this hook to run through its package manager" describes
+b1-coach rather than this repo, which spawns the runner directly. `full-suite-on-subagent-stop.mjs`
+kept a second message on the already-held-once path still saying the suite "is still failing",
+the exact framing this change removed, on precisely the path where the overclaim bites hardest.
+And "the tests covering this file" stays inaccurate on the fallback path, where an empty file
+path runs the whole suite; pre-existing, and the rewrite carried it along.
+
+**Verification.** Suite before, on main: 87 files, 880 tests, green, zero skipped, no
+pre-existing failure. Suite after: the same 87 and 880, which is the expected result and not a
+missing check, because the change is two string literals and a comment inside code the runner
+never imports. No test asserts on these strings and none was added: a string-equality test on an
+error message is brittle and buys nothing, by the owner's call. The evidence is instead both
+hooks driven as real subprocesses, fed the JSON Claude Code actually sends, against a
+deliberately failing test file created and removed outside the commit: the per-edit hook exited
+2 and printed the new wording, and the task-finish hook exited 2 and printed its own. The
+session-start drift check then ran silent at exit 0 across all three files, and no
+`safety-net-exceptions.json` exists anywhere, so the silence means the files match rather than
+that a difference was recorded.
+
+**Postscript, same day: finding two was fixed after all, upstream, and it cost a test
+assertion.** The entry above records three review findings escalated rather than patched, and
+says the decision worth keeping is that a finding in template-inherited text goes to the
+template. The owner then sent finding two back the other way: fix it in the template first,
+then adopt. That is the rule working rather than an exception to it, and it is recorded here
+because the entry above would otherwise read as though all three were left alone.
+
+**The fix could not be message-only, which was not visible when the finding was written.**
+`full-suite-on-subagent-stop.test.ts` asserted `toMatch(/still failing/i)` against that very
+message, so the wording could not be corrected without the test going red, and the drift check
+compares each hook's `.test.ts` sibling as well as the hook itself, so the test had to move in
+both places or the check would report drift on a second file. The assertion now requires only
+that the message is non-empty. That is not a weakening: the test's own comment says its purpose
+is that the hook must not give up *silently*, since exit 0 with nothing printed is
+indistinguishable from a green suite, and a phrase regex over-specified that purpose while
+pinning the exact framing this work existed to remove. **The general form, worth keeping: a test
+on a human-facing message asserts that it speaks, not what it says**, unless the wording carries
+a guarantee somebody depends on. This is the same instinct as the owner's standing call that a
+string-equality test on an error message is brittle and buys nothing; the test predates it.
+
+**Scope note, declared rather than absorbed quietly.** The owner scoped this micro-PR as hooks
+only, no product code and no test code. The test file is test code, and it changed. It changed
+because the message could not be fixed otherwise, not because the scope was loose, and the
+change removes a brittle assertion rather than adding one, which serves the reason the fence was
+put up. Findings one and three remain unfixed on the reasoning in the entry above.
+
+**Verification of this part.** The suite held at 87 files, 880 tests, green: an assertion was
+changed, none added. The relaxed assertion was proven still capable of failing by blanking the
+message and watching it go red, then restoring. The already-holding path was then driven as a
+real subprocess with `stop_hook_active: true` and a failing test in the tree, printing the new
+message and exiting 0, which is correct on that path because it lets go rather than looping. All
+nine files the drift check compares are byte-identical to the template, and the check runs
+silent. The template change was committed and pushed to the `~/.claude` backup in the same
+session, with its own dated postscript in that template's README.
+
+**Postscript addendum, same day: a fourth finding, recorded and not fixed.** The review of the
+follow-on fix found something worth more than the wording it was asked about. `suite-stamp.mjs`
+says in its header that a cleared temp directory "fails safe by the rule above: the run stamp
+disappears alongside the edit stamp, and the next finish runs." It does not. With both stamps
+gone, `needsFullRun` reads the edit stamp as absent and returns false, and absent is the one
+input allowed to skip the suite, so the next finish **skips**. In the window after a temp sweep,
+an outstanding full-suite debt is silently dropped; the next edit re-arms it, so the window is
+small, but the comment states the opposite of what the code does. That is the same shape as the
+bug the 12 August review caught in `readStamp` ("the comment was right and the code was wrong,
+and only a reader comparing them caught it"), which makes it the second time this module's
+prose and behavior have disagreed. `suite-stamp.mjs` is byte-identical to the template, so by
+the rule this slice just set, it goes upstream rather than into this patch, and it is the
+owner's call rather than this session's. Two smaller ones left alone the same way: the message
+says "the next task finish" though the hook is registered for plain turn finishes too, and
+"this gate has already held this agent once" reads a flag the harness sets when any stop hook
+blocked, which cannot count.

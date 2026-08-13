@@ -83,8 +83,10 @@ function main() {
 
     if (code !== 0) {
       console.error(
-        "The tests covering this file failed after the edit. Fix them before " +
-          "continuing; the full suite runs when this task finishes."
+        "The tests covering this file did not come back clean after the edit. " +
+          "Fix them before continuing; the full suite runs when this task " +
+          "finishes. If nothing looks broken, check that the runner started at " +
+          "all: this same message covers the runner failing to run."
       )
     }
 

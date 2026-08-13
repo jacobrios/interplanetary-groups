@@ -75,9 +75,11 @@ export function runStop({
   // ordinary use, since the suite is database-backed and has flaked before.
   if (stopHookActive) {
     warn(
-      "The full suite is still failing, and this gate has already held this " +
-        "agent once, so it is letting go rather than looping. The suite is " +
-        "still red and the next task finish will run it again."
+      "The full suite still did not come back clean, and this gate has already " +
+        "held this agent once, so it is letting go rather than looping. The " +
+        "debt stays on the stamp and the next task finish will run it again. " +
+        "If nothing looks broken, check that the runner started at all: this " +
+        "same message covers the runner failing to run."
     )
     return 0
   }
@@ -103,8 +105,10 @@ function main() {
 
     if (code !== 0) {
       console.error(
-        "The full suite failed. The narrow per-edit runs did not cover this, " +
-          "which is what this gate is for. Fix it before finishing the task."
+        "The full suite did not come back clean. The narrow per-edit runs did " +
+          "not cover this, which is what this gate is for. Fix it before " +
+          "finishing the task. If nothing looks broken, check that the runner " +
+          "started at all: this same message covers the runner failing to run."
       )
     }
 
