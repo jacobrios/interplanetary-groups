@@ -172,6 +172,7 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 - Photo avatars.
 - **(Process, not product) Extract a user-level `~/.claude/CLAUDE.md` at project end.** Lift the portable rules out of this project's CLAUDE.md and §9 process notes into a machine-wide config that applies to every future project: the build-agent working rules (the Karpathy-derived clauses, calibrated to "prescriptive on the what, open on the how"), the Claude Code setup checklist (hooks, Superpowers flow, subagent reviewer, commit-at-verified-states), the code-quality bar (production-readable, built for engineer review), the two verification rules from the timezone slice ("claims about behavior need artifacts, not assertions" and "a passing test is only evidence if it could have failed"), and the communication preferences (no em or en dashes, confidence tags, one terminal command per fenced block). Project-specific things (the seven-model schema, Supabase-auth-only, Orbit) stay at the project level. Test for each rule: "would this be true on my next project too?", and move the yes ones up.
   - **Done (23 July 2026), and the workflow it assumed changed with it.** The user-level `~/.claude/CLAUDE.md` now exists and owns the portable rules: the core operating principles, the ask-and-flag working rules, the slice-and-branch discipline, the setup checklist and safety nets, the two verification rules, and the communication preferences (no dashes, confidence tags). One rule changed on the way up rather than moving unchanged: the old Markdown-only self-merge exception is gone; the user-level rule is now "open a pull request and stop" for every PR, documentation-only ones included. The project CLAUDE.md was rewritten in the same slice (its own §11 entry) to stop restating any of these and to carry only what is true of this project; the "would this be true on my next project too?" test is what sorted them. Do not run this extraction again; it is complete.
+- **(Process, not product) Get the test suite off the remote database. Queued 12 Aug 2026, with triggers rather than a date.** Nearly every test round-trips to the remote dev-test Supabase, so each one costs seconds instead of being instant; the vitest config's own comment records 4.2 to 5.4 seconds per database test, and the whole suite is 83 seconds. The fix is to give the tests a database on this machine. Measured value, *after* the 12 Aug hook split below took suite runs from once per edit to once per task: roughly 20 to 30 minutes a slice, not hours, which is why it is queued rather than next. Two triggers, either one fires it: the suite crossing about three minutes, or the first test failure that cannot be reproduced, since a shared remote database is the likeliest cause once two sessions run at once. Three things need settling before any code, which is what makes it a brainstorm rather than a task: where the test database lives (an installed Postgres or an in-process one; this machine has neither Docker nor Postgres today), whether the suite keeps using a real database at all given the standing rule that tests build their own fixtures from empty, and the collision with "two databases, never crossed" and the `db:which` guard, both written for exactly two. That last one is amended first, because it is the one unrecoverable mistake in the project.
 
 ## 9. Engineering process
 
@@ -2671,3 +2672,147 @@ record belongs on the branch, inside the pull request being reviewed, so a merge
 be met with "this needs one commit first" rather than acted on and annotated afterwards. The
 cost this time was small, one extra docs-only pull request; the cost when it is not small is a
 finding that exists in a conversation nobody can search.
+
+## §11 entry: the test gate splits in two (12 Aug 2026)
+
+*A micro-PR, not a slice. Recorded here because it changes how every future slice is verified,
+which is exactly the kind of decision a future reader will ask "why was it done this way" about.*
+
+**What prompted it.** The owner reported that execution runs had gone from about an hour and a
+half to between two and four hours over two days, and asked whether a process change had caused
+it. Measured from the session transcripts, per code-file edit round trip: 9 to 15 seconds across
+21 to 28 July, 38 seconds on 4 Aug, 57 on 10 Aug, 90 on 11 Aug, 85 on 12 Aug. Total time spent
+waiting on edits: about 0.25 hours a day in late July against 5.6 hours on 12 Aug. The cause was
+not a process change. The post-edit hook ran the whole suite after every non-docs edit, the suite
+grew from 45 files to 84 as the product grew, and it is network-bound against the remote dev-test
+database, so it went from about 12 seconds to 83. Two hypotheses were tested and rejected with
+evidence: same-session execution (coordinator context averaged 259 to 284k tokens in late July
+against 267 to 296k now, flat) and slice size (7 to 16 tasks throughout, no trend).
+
+**The decision: narrow per edit, whole per task.** The post-edit hook now runs only the tests that
+reach the edited file. The full suite moved to a new SubagentStop hook, so it runs once when a
+task's agent finishes rather than once per edit, which is roughly 20 runs a slice instead of 200.
+
+**What was settled along the way, in the order the questions came up.**
+
+- **A read-only agent finishes free.** The two hooks share a stamp: the per-edit hook marks that a
+  source file changed, the stop hook runs the suite only when a change is waiting. A reviewer or
+  explorer that edited nothing has nothing unverified behind it. This was the owner pulling a
+  "later, if it bites" refinement forward, and it roughly halves the per-task column.
+- **Every ambiguous case resolves toward running.** Missing state, unreadable state, and a
+  same-millisecond tie all run. The one case that correctly skips is "no edit was ever recorded."
+  The rule is that losing the state can only ever cost a redundant run, never a skipped one.
+- **The run is stamped with the time it started, not the time it finished.** An edit landing while
+  the suite was running is not covered by that run, and the finish time would swallow it.
+- **The stamp lives in the system temp directory, keyed by a hash of the project path.** Nothing
+  enters the repo, so there is no .gitignore to keep in step, and a cleared temp directory fails
+  safe by the rule above.
+- **An edit whose narrow run failed is still marked.** Narrow is not proof either way.
+- **A garbled tool call falls back to the whole suite.** The old hook always ran everything, so an
+  unreadable payload degraded safely for free; narrowing takes that away, so it is now explicit.
+- **The stop hook does not block twice.** When the harness reports a stop hook is already holding
+  the agent, a second block risks a loop it cannot escape. The debt stays on the stamp and the PR
+  gate is the backstop, since the suite's before and after numbers go in the PR body regardless.
+
+**Two things found on the way, both worth more than the speedup.**
+
+*The project's copy of the post-edit hook still had the working-directory bug.* The user-level
+template was corrected earlier the same day; this repo's copy was not, so the runner rooted itself
+wherever the session's shell was standing. Standing in a source folder, it ran the tests under
+that folder, passed, and reported the suite green having run 5 of 801. A gate that reports success
+without doing its job is worse than no gate. Folded into this change, and the fix now lives in a
+shared `project-root.mjs` because both hooks need it.
+
+*The first draft of the tests drove the live gate instead of a fake one.* `CLAUDE_PROJECT_DIR` is
+set inside the running session, so the temp-project cases resolved to this repo and read and wrote
+the real stamp. The failure was loud (results inverted) rather than silent, and the fix is that
+every case pins that variable to its own throwaway project. Worth recording because the same trap
+is waiting for any future test of a hook that reads the environment.
+
+**Verification.** Suite before, on main: 84 files, 842 tests, green. After: 87 files, 873 tests,
+green, `tsc` clean, lint held at the recorded 15-error main baseline with nothing added and no
+problems in the new files. All 31 new tests were watched failing first, for the right reason.
+Both hooks were then driven end to end exactly as the harness drives them, against this repo:
+a real source-file edit ran 2 files and 17 tests in 4.2 seconds where it used to run 83; a
+subagent finish with that edit waiting ran all 87 files in 83 seconds and cleared the debt; a
+second finish with nothing waiting exited in 0.2 seconds without running anything.
+
+**One flake, named rather than smoothed over.** The first baseline run on main came back with 8
+failures across 6 files, and did not reproduce: three subsequent full runs were green. The
+failing run also took 122 seconds against the usual 68 to 83, which points at contention on the
+shared remote dev-test database rather than at the code. It is left here undiagnosed on purpose,
+as the first observed instance of the risk that the queued §8 database item exists to remove.
+
+**Debt this opens, deliberately.** A narrow run cannot see a break in a file the edited one never
+imports; the task-boundary full run is what covers that, so a break now surfaces at the end of a
+task rather than at the end of an edit. Parallel agents share one stamp, which is safe because the
+comparison is monotonic (a later finish always runs when an edit followed the last run) but does
+mean two agents finishing together can both run the suite. Outside this repo and not done here:
+the user-level template still carries the whole-suite version, and the user-level rule still reads
+"automated hooks run tests after every file edit," which this makes narrower than the truth.
+
+### Postscript, 12 Aug 2026: what the independent review found
+
+Five things, one of them the gate failing for a whole class of work. Recorded in full
+because the entry above would otherwise read as though the first version was sound.
+
+**The gate did not cover main-session edits at all.** The first version registered only
+`SubagentStop`, so the whole suite ran when a *task's agent* finished. An edit made by the
+coordinator in the main session got its narrow run and then nothing: no full-suite run was
+ever triggered by that turn ending. That is not a rare path here. Micro-PRs, one-line fixes
+and post-review corrections all happen outside a task agent, and this very micro-PR was
+written that way, so every edit in it had only the narrow run until the review said so. The
+hook is now registered for `Stop` as well as `SubagentStop`. The cost is paid only by turns
+that changed code, because a turn that edited nothing still exits in about a fifth of a
+second. The requirement in the entry above was written as "caught at the end of the task,"
+which quietly assumed every edit belongs to a task; it should have read "the end of the task
+or turn," and that wording error is what the implementation faithfully reproduced.
+
+**An unreadable stamp counted as no stamp, and skipped.** `readStamp` collapsed every read
+failure into "absent," and absent is the single input allowed to skip the suite. A stamp
+present but unreadable therefore read as "nothing was ever edited" and the gate would have
+gone green permanently. Now only `ENOENT` means absent; every other error means run. The
+module's header had claimed this behavior since it was written, which is worth noting on its
+own: the comment was right and the code was wrong, and only a reader comparing them caught it.
+
+**A stamp that could not be written killed both halves at once.** `markEdited` was uncaught,
+so a failure to write exited 1 rather than 2, which the harness shows the human while the
+agent carries on unaware, and the narrow run never happened either. It is now caught, and a
+failed write widens that edit to the whole suite immediately, since the end-of-task run will
+never learn the edit happened.
+
+**Giving up quietly looked exactly like passing.** When the harness reports a stop hook is
+already holding an agent, this hook declines to block a second time, which is still the right
+call. It did that silently, and exit 0 with nothing printed is indistinguishable from a green
+suite to both the agent and the human. It now says so on stderr.
+
+**What the narrow run actually selects, measured rather than assumed.** The entry above
+described the gap as "a break in a file the edited one never imports," which understates it.
+Measured in this repo: `src/lib/events/ics.ts` selects 2 files and 17 tests, a component
+selects its 9 dependents, a test file edited directly does run itself, and
+`prisma/schema.prisma`, `src/app/globals.css` and any not-yet-existing file select **nothing
+at all**, which `--passWithNoTests` turns into a green exit. Whole categories of file get no
+per-edit signal, `schema.prisma` among them, and that file is deliberately left editable by
+`protect-paths.mjs` and has the largest blast radius in the repo. This is covered by the
+task-or-turn run and not otherwise, which is precisely why the missing `Stop` registration
+mattered more than it first appeared: a schema edit in the main session had no automated
+verification whatsoever. Special-casing known-global files straight to the whole suite was
+considered and declined for now, because the turn boundary already covers them and a list of
+special files is a thing that goes stale silently.
+
+Also fixed, smaller: the project root is normalized before it is hashed, since two spellings
+of one directory produce two stamp keys and that fails toward skipping; the fallback branch
+returned an unnormalized path; the tests left about twenty temporary directories behind per
+run; and the QA script now prints every hook's exit code and ends with a step that drives a
+deliberately failing test to show a real exit 2, because the old script demonstrated speed
+while never once demonstrating that a failure comes back. One assumption was also promoted
+from faked to tested: an integration test now shells out to the real runner and asserts that
+`related` genuinely selects a source file's tests, so a future upgrade changing those
+semantics cannot pass every unit test while the gate quietly covers nothing.
+
+Not accepted, with reasoning: the reviewer suggested climbing from the edited file's own
+directory before consulting the session's project directory, which would be more correct for
+a cross-project edit. Left as a comment in `project-root.mjs` rather than built, because
+cross-project edits are rare, they require the owner's explicit yes under the standing rules,
+and widening this hook's notion of "which project" is not a change to make inside a
+performance fix.
