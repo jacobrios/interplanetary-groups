@@ -1,6 +1,22 @@
 #!/usr/bin/env node
-// SubagentStop hook: run the whole suite once, when a task's agent finishes,
-// and only when an edit is waiting for it.
+// SubagentStop and Stop hook: run the whole suite once, when a task's agent or
+// the main session's turn finishes, and only when an edit is waiting for it.
+//
+// Registered for BOTH events, and the file keeps its name for the event that
+// prompted it. SubagentStop alone was the first version, and it left every edit
+// made outside a task agent with no full-suite run at all: a narrow run and
+// then nothing, which is a real class of work here (micro-PRs, one-line fixes,
+// post-review corrections). Found by PR #64's own review. A turn that edited
+// nothing still exits in about a fifth of a second, so the cost of covering
+// both is only paid by turns that changed code.
+//
+// The 600-second timeout in settings.json is deliberate. A timed-out PostToolUse
+// hook is visible, because the human sees the warning; a timed-out stop hook is
+// invisible and self-perpetuating, since the run never finishes, the stamp is
+// never cleared, and every later finish times out identically. The gate would
+// be dead with no symptom. The suite is 83 seconds today and the queued §8
+// database item names three minutes as its own trigger, so the ceiling is set
+// far above both rather than near either.
 //
 // This is the other half of the split made on 12 August 2026. The per-edit hook
 // runs only the tests that reach the edited file, which is fast but cannot see
@@ -33,6 +49,7 @@ export function runStop({
   spawn = defaultSpawn,
   now = Date.now,
   stopHookActive = false,
+  warn = console.error,
 }) {
   const root = resolveProjectRoot(shellCwd)
   if (!needsFullRun(root)) return 0
@@ -52,7 +69,18 @@ export function runStop({
   // Blocking again risks a loop it cannot escape, so the debt stays on the
   // stamp and the PR gate becomes the backstop: the suite's before and after
   // numbers go in the PR body either way.
-  if (stopHookActive) return 0
+  //
+  // Said out loud rather than returned quietly. Exit 0 with nothing printed is
+  // indistinguishable from a green suite, and this path is reachable in
+  // ordinary use, since the suite is database-backed and has flaked before.
+  if (stopHookActive) {
+    warn(
+      "The full suite is still failing, and this gate has already held this " +
+        "agent once, so it is letting go rather than looping. The suite is " +
+        "still red and the next task finish will run it again."
+    )
+    return 0
+  }
 
   return 2
 }

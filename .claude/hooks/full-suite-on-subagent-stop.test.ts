@@ -39,7 +39,7 @@ function project() {
   writeFileSync(join(root, "package.json"), "{}")
   process.env.CLAUDE_PROJECT_DIR = root
   const { edited, ran } = stampPaths(root)
-  cleanup.push(edited, ran)
+  cleanup.push(edited, ran, root)
   return root
 }
 
@@ -64,7 +64,7 @@ const savedEnv = process.env.CLAUDE_PROJECT_DIR
 afterEach(() => {
   if (savedEnv === undefined) delete process.env.CLAUDE_PROJECT_DIR
   else process.env.CLAUDE_PROJECT_DIR = savedEnv
-  for (const f of cleanup.splice(0)) rmSync(f, { force: true })
+  for (const f of cleanup.splice(0)) rmSync(f, { recursive: true, force: true })
 })
 
 describe("when no edit is waiting", () => {
@@ -137,6 +137,35 @@ describe("when the harness says a stop hook is already holding this agent", () =
       stopHookActive: true,
     })
     expect(code).toBe(0)
+  })
+
+  it("says so out loud, because giving up quietly looks the same as passing", () => {
+    // Exit 0 with nothing printed is indistinguishable from a green suite, to
+    // the agent and to the human both. This path is reachable in ordinary use:
+    // the suite is database-backed and has already flaked once.
+    const root = project()
+    markEdited(root, 1_000)
+    const said: string[] = []
+    runStop({
+      shellCwd: root,
+      spawn: fakeRunner(1).spawn,
+      now: clock(2_000),
+      stopHookActive: true,
+      warn: (message: string) => said.push(message),
+    })
+    expect(said.join(" ")).toMatch(/still failing/i)
+  })
+
+  it("keeps the debt when it gives up, so the next finish tries again", () => {
+    const root = project()
+    markEdited(root, 1_000)
+    runStop({
+      shellCwd: root,
+      spawn: fakeRunner(1).spawn,
+      now: clock(2_000),
+      stopHookActive: true,
+    })
+    expect(needsFullRun(root)).toBe(true)
   })
 })
 

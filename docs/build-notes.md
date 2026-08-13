@@ -2750,3 +2750,69 @@ comparison is monotonic (a later finish always runs when an edit followed the la
 mean two agents finishing together can both run the suite. Outside this repo and not done here:
 the user-level template still carries the whole-suite version, and the user-level rule still reads
 "automated hooks run tests after every file edit," which this makes narrower than the truth.
+
+### Postscript, 12 Aug 2026: what the independent review found
+
+Five things, one of them the gate failing for a whole class of work. Recorded in full
+because the entry above would otherwise read as though the first version was sound.
+
+**The gate did not cover main-session edits at all.** The first version registered only
+`SubagentStop`, so the whole suite ran when a *task's agent* finished. An edit made by the
+coordinator in the main session got its narrow run and then nothing: no full-suite run was
+ever triggered by that turn ending. That is not a rare path here. Micro-PRs, one-line fixes
+and post-review corrections all happen outside a task agent, and this very micro-PR was
+written that way, so every edit in it had only the narrow run until the review said so. The
+hook is now registered for `Stop` as well as `SubagentStop`. The cost is paid only by turns
+that changed code, because a turn that edited nothing still exits in about a fifth of a
+second. The requirement in the entry above was written as "caught at the end of the task,"
+which quietly assumed every edit belongs to a task; it should have read "the end of the task
+or turn," and that wording error is what the implementation faithfully reproduced.
+
+**An unreadable stamp counted as no stamp, and skipped.** `readStamp` collapsed every read
+failure into "absent," and absent is the single input allowed to skip the suite. A stamp
+present but unreadable therefore read as "nothing was ever edited" and the gate would have
+gone green permanently. Now only `ENOENT` means absent; every other error means run. The
+module's header had claimed this behavior since it was written, which is worth noting on its
+own: the comment was right and the code was wrong, and only a reader comparing them caught it.
+
+**A stamp that could not be written killed both halves at once.** `markEdited` was uncaught,
+so a failure to write exited 1 rather than 2, which the harness shows the human while the
+agent carries on unaware, and the narrow run never happened either. It is now caught, and a
+failed write widens that edit to the whole suite immediately, since the end-of-task run will
+never learn the edit happened.
+
+**Giving up quietly looked exactly like passing.** When the harness reports a stop hook is
+already holding an agent, this hook declines to block a second time, which is still the right
+call. It did that silently, and exit 0 with nothing printed is indistinguishable from a green
+suite to both the agent and the human. It now says so on stderr.
+
+**What the narrow run actually selects, measured rather than assumed.** The entry above
+described the gap as "a break in a file the edited one never imports," which understates it.
+Measured in this repo: `src/lib/events/ics.ts` selects 2 files and 17 tests, a component
+selects its 9 dependents, a test file edited directly does run itself, and
+`prisma/schema.prisma`, `src/app/globals.css` and any not-yet-existing file select **nothing
+at all**, which `--passWithNoTests` turns into a green exit. Whole categories of file get no
+per-edit signal, `schema.prisma` among them, and that file is deliberately left editable by
+`protect-paths.mjs` and has the largest blast radius in the repo. This is covered by the
+task-or-turn run and not otherwise, which is precisely why the missing `Stop` registration
+mattered more than it first appeared: a schema edit in the main session had no automated
+verification whatsoever. Special-casing known-global files straight to the whole suite was
+considered and declined for now, because the turn boundary already covers them and a list of
+special files is a thing that goes stale silently.
+
+Also fixed, smaller: the project root is normalized before it is hashed, since two spellings
+of one directory produce two stamp keys and that fails toward skipping; the fallback branch
+returned an unnormalized path; the tests left about twenty temporary directories behind per
+run; and the QA script now prints every hook's exit code and ends with a step that drives a
+deliberately failing test to show a real exit 2, because the old script demonstrated speed
+while never once demonstrating that a failure comes back. One assumption was also promoted
+from faked to tested: an integration test now shells out to the real runner and asserts that
+`related` genuinely selects a source file's tests, so a future upgrade changing those
+semantics cannot pass every unit test while the gate quietly covers nothing.
+
+Not accepted, with reasoning: the reviewer suggested climbing from the edited file's own
+directory before consulting the session's project directory, which would be more correct for
+a cross-project edit. Left as a comment in `project-root.mjs` rather than built, because
+cross-project edits are rare, they require the owner's explicit yes under the standing rules,
+and widening this hook's notion of "which project" is not a change to make inside a
+performance fix.

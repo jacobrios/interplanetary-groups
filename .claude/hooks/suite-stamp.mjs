@@ -18,28 +18,53 @@
 // run stamp disappears alongside the edit stamp, and the next finish runs.
 
 import { createHash } from "node:crypto"
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 
 const STAMP_DIR = join(tmpdir(), "claude-suite-stamps")
 
-/** Where this project's two stamps live. Exported so tests can corrupt them. */
+/**
+ * Where this project's two stamps live. Exported so tests can corrupt them.
+ *
+ * The path is normalized before it is hashed, because the two hooks can reach
+ * the same project by different spellings (a trailing slash, /tmp against
+ * /private/tmp) and a different spelling is a different key. Note which way
+ * that fails: the edit hook keys as A, the stop hook keys as B, finds no edit
+ * stamp, and SKIPS. That is the unsafe direction, so it is worth the realpath.
+ */
 export function stampPaths(root) {
-  const key = createHash("sha256").update(String(root)).digest("hex").slice(0, 16)
+  const absolute = resolve(String(root))
+  let canonical
+  try {
+    canonical = realpathSync(absolute)
+  } catch {
+    canonical = absolute // not on disk yet; the resolved spelling is the best we have
+  }
+  const key = createHash("sha256").update(canonical).digest("hex").slice(0, 16)
   return {
     edited: join(STAMP_DIR, `${key}.edited`),
     ran: join(STAMP_DIR, `${key}.ran`),
   }
 }
 
-/** The stamp's time, null when absent, NaN when present but not a number. */
+/**
+ * The stamp's time. null ONLY when the file genuinely is not there; NaN when it
+ * exists and cannot be trusted.
+ *
+ * The distinction is the whole invariant. "Absent" is the one input allowed to
+ * skip the suite, so every other read failure (a permissions problem, a
+ * directory where a file should be, too many open files) has to land on NaN
+ * instead. Collapsing them all into null, which this did until PR #64's review
+ * caught it, means an unreadable stamp silently reads as "nothing was ever
+ * edited" and the gate goes permanently green.
+ */
 function readStamp(file) {
   let raw
   try {
     raw = readFileSync(file, "utf8").trim()
-  } catch {
-    return null
+  } catch (err) {
+    return err && err.code === "ENOENT" ? null : NaN
   }
   if (!raw) return NaN
   const at = Number(raw)

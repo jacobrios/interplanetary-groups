@@ -15,7 +15,7 @@
 // clock, so a slow machine, a busy machine, and a machine in another timezone
 // all produce the same result.
 
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
+import { chmodSync, mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
@@ -88,6 +88,17 @@ describe("when the stamp itself cannot be trusted", () => {
     recordFullRun(root, 2_000)
     writeFileSync(stampPaths(root).ran, "not a number")
     expect(needsFullRun(root)).toBe(true)
+  })
+
+  it("is owed a run when the edit stamp exists but cannot be read", () => {
+    // The one input allowed to skip is "absent". A stamp that is there and
+    // unreadable must not be mistaken for one that was never written, or the
+    // gate reads "nothing was ever edited" forever.
+    const root = track(project())
+    markEdited(root, 1_000)
+    chmodSync(stampPaths(root).edited, 0o000)
+    expect(needsFullRun(root)).toBe(true)
+    chmodSync(stampPaths(root).edited, 0o600) // so afterEach can remove it
   })
 
   it("is owed a run when the recorded edit is unreadable", () => {

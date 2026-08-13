@@ -29,7 +29,12 @@ function defaultSpawn(cwd, args) {
  * The whole decision an edit triggers, with the child process injectable so the
  * tests do not have to run a test suite from inside a test suite.
  */
-export function runEdit({ filePath, shellCwd, spawn = defaultSpawn }) {
+export function runEdit({
+  filePath,
+  shellCwd,
+  spawn = defaultSpawn,
+  mark = markEdited,
+}) {
   const path = String(filePath || "")
   if (path.toLowerCase().endsWith(".md")) return 0
 
@@ -38,12 +43,24 @@ export function runEdit({ filePath, shellCwd, spawn = defaultSpawn }) {
   // Marked before the run, and regardless of how the run goes. A narrow pass is
   // not proof the suite is green, and a narrow failure leaves the edit no less
   // unverified, so both owe the full suite a look at the end of the task.
-  markEdited(root)
+  //
+  // If the mark cannot be written, the end-of-task run will never learn this
+  // edit happened, so the narrow run would be the only verification it ever
+  // got. Widen to the whole suite instead of narrowing, and never let the throw
+  // escape: an uncaught one exits 1, which the harness shows the human while
+  // the agent carries on unaware.
+  let stamped = true
+  try {
+    mark(root)
+  } catch {
+    stamped = false
+  }
 
   // With no path there is nothing to narrow to, so fall back to everything.
-  const args = path
-    ? ["vitest", "related", "--run", "--passWithNoTests", path]
-    : ["vitest", "run"]
+  const args =
+    path && stamped
+      ? ["vitest", "related", "--run", "--passWithNoTests", path]
+      : ["vitest", "run"]
 
   return spawn(root, args) === 0 ? 0 : 2
 }

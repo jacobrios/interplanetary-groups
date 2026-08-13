@@ -19,14 +19,22 @@ import { dirname, join, resolve } from "node:path"
  * .git because it is what a Node test runner actually needs above it.
  */
 export function resolveProjectRoot(shellCwd) {
+  // Known limit, deliberate for now: the session's directory wins over where
+  // the edited file actually lives. A session opened in project A that edits a
+  // file in project B (which the user-level rules permit, with a yes) would run
+  // A's tests for B's edit. Climbing from the file's own directory first would
+  // be strictly more correct and still fix the bug above; not done here because
+  // cross-project edits are rare and this is not the change to widen.
   const fromEnv = process.env.CLAUDE_PROJECT_DIR
-  if (fromEnv && existsSync(fromEnv)) return fromEnv
+  if (fromEnv && existsSync(fromEnv)) return resolve(fromEnv)
 
-  const start = shellCwd || process.cwd()
-  let dir = resolve(start)
+  const start = resolve(shellCwd || process.cwd())
+  let dir = start
   while (dirname(dir) !== dir) {
     if (existsSync(join(dir, "package.json"))) return dir
     dir = dirname(dir)
   }
+  // Normalized, not the raw argument: two spellings of one directory hash to
+  // two different stamp keys, and that fails toward skipping the suite.
   return start
 }

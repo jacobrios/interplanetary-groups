@@ -64,7 +64,7 @@ function tracked() {
   const project = fakeProject()
   process.env.CLAUDE_PROJECT_DIR = project.root
   const { edited, ran } = stampPaths(project.root)
-  cleanup.push(edited, ran)
+  cleanup.push(edited, ran, project.root)
   return project
 }
 
@@ -72,7 +72,7 @@ const savedEnv = process.env.CLAUDE_PROJECT_DIR
 afterEach(() => {
   if (savedEnv === undefined) delete process.env.CLAUDE_PROJECT_DIR
   else process.env.CLAUDE_PROJECT_DIR = savedEnv
-  for (const f of cleanup.splice(0)) rmSync(f, { force: true })
+  for (const f of cleanup.splice(0)) rmSync(f, { recursive: true, force: true })
 })
 
 describe("which directory the runner runs in", () => {
@@ -93,6 +93,15 @@ describe("which directory the runner runs in", () => {
     const orphan = realpathSync(mkdtempSync(join(tmpdir(), "hook-orphan-")))
     delete process.env.CLAUDE_PROJECT_DIR
     expect(resolveProjectRoot(orphan)).toBe(orphan)
+  })
+
+  it("normalizes even that last resort, so one directory has one spelling", () => {
+    // Two spellings of one directory hash to two different stamp keys, and the
+    // way that fails is the unsafe way: the stop hook finds no edit stamp and
+    // skips. Found by PR #64's review.
+    const orphan = realpathSync(mkdtempSync(join(tmpdir(), "hook-orphan-")))
+    delete process.env.CLAUDE_PROJECT_DIR
+    expect(resolveProjectRoot(`${orphan}/`)).toBe(orphan)
   })
 })
 
@@ -193,6 +202,58 @@ describe("a tool call we cannot read", () => {
     process.env.CLAUDE_PROJECT_DIR = root
     runEdit({ filePath: "", shellCwd: root, spawn: fakeRunner().spawn })
     expect(needsFullRun(root)).toBe(true)
+  })
+})
+
+describe("when the stamp cannot be written", () => {
+  // If the stamp did not record, the end-of-task run will not know this edit
+  // happened, so the narrow run is all the verification it would ever get.
+  // Verify it now instead. Found by PR #64's review, where this threw uncaught
+  // and exited 1: the agent never heard, and neither half of the gate ran.
+  it("runs the whole suite now, since the end-of-task run cannot be relied on", () => {
+    const { root, deep } = tracked()
+    const runner = fakeRunner()
+    const throws = () => {
+      throw new Error("temp directory is read-only")
+    }
+    runEdit({
+      filePath: join(deep, "front-door.ts"),
+      shellCwd: root,
+      spawn: runner.spawn,
+      mark: throws,
+    })
+    expect(runner.calls[0].args).toEqual(["vitest", "run"])
+  })
+
+  it("still reports a failing run as exit 2 rather than dying as exit 1", () => {
+    const { root, deep } = tracked()
+    const throws = () => {
+      throw new Error("temp directory is read-only")
+    }
+    const code = runEdit({
+      filePath: join(deep, "front-door.ts"),
+      shellCwd: root,
+      spawn: fakeRunner(1).spawn,
+      mark: throws,
+    })
+    expect(code).toBe(2)
+  })
+})
+
+describe("what vitest related actually selects", () => {
+  // The one assumption this whole change rests on, and the only one every other
+  // test fakes away. If a vitest upgrade changed what `related` resolves, every
+  // unit test here would still pass while the gate quietly covered nothing.
+  it("really does select the tests that reach an edited source file", () => {
+    const result = spawnSync(
+      "npx",
+      ["vitest", "related", "--run", "--passWithNoTests", "src/lib/events/ics.ts"],
+      { cwd: process.cwd(), encoding: "utf8" }
+    )
+    const output = `${result.stdout}${result.stderr}`
+    expect(result.status).toBe(0)
+    expect(output).toMatch(/Tests\s+\d+ passed/)
+    expect(output).not.toMatch(/No test files found/)
   })
 })
 
