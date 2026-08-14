@@ -41,6 +41,7 @@ import PageHeader from "@/components/PageHeader"
 import { deriveIdeaItems, deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
+import FeedSeam from "./FeedSeam"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -277,27 +278,26 @@ export default async function GroupPage({ params }: Props) {
       {/* ── Chat feed + pinned input (client island) ───────────────────── */}
       {/* The chat section fills remaining viewport height.  The feed is its
           own scroll region; the input is pinned at the bottom.
-          Body stays at --type-body (17px), never shrunk (§7 firm rule). */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          marginTop: "0.75rem",
-        }}
-      >
-        <GroupHome
-          groupId={group.id}
-          initialMessages={messages}
-          viewerId={viewer?.id ?? null}
-          viewerName={viewer?.name ?? null}
-          timeZone={group.timeZone}
-          gauges={gauges}
-          proposals={proposals}
-          groupProposals={groupProposals}
-          viewerIsMember={viewerIsMember}
-        />
+          Body stays at --type-body (17px), never shrunk (§7 firm rule).
+
+          FeedSeam wraps it and owns the boundary against the card region
+          above: the hairline and the scrim over the feed's top edge. It
+          replaced a bare 12px margin, which left this the one unmarked seam
+          on a screen whose other two are both drawn. */}
+      <div style={{ marginTop: "0.75rem", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <FeedSeam>
+          <GroupHome
+            groupId={group.id}
+            initialMessages={messages}
+            viewerId={viewer?.id ?? null}
+            viewerName={viewer?.name ?? null}
+            timeZone={group.timeZone}
+            gauges={gauges}
+            proposals={proposals}
+            groupProposals={groupProposals}
+            viewerIsMember={viewerIsMember}
+          />
+        </FeedSeam>
       </div>
     </div>
   )
