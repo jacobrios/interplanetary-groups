@@ -41,6 +41,8 @@ import PageHeader from "@/components/PageHeader"
 import { deriveIdeaItems, deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
+import FeedSeam from "./FeedSeam"
+import CardRegionEmpty from "./CardRegionEmpty"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -240,7 +242,7 @@ export default async function GroupPage({ params }: Props) {
           along with the strip itself. */}
       <div
         style={{
-          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0`,
+          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0.75rem`,
           flexShrink: 0,
         }}>
         {entries.length > 0 ? (
@@ -252,41 +254,24 @@ export default async function GroupPage({ params }: Props) {
             proposals={proposalBands}
           />
         ) : (
-          /* No upcoming event or idea — quiet empty state; the feed still renders */
-          <div
-            style={{
-              backgroundColor: "var(--surface-raised)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "0.75rem",
-              padding: "1rem",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "var(--type-meta)",
-                lineHeight: "var(--leading-normal)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              No upcoming events yet. Orbit will propose one soon.
-            </p>
-          </div>
+          /* No upcoming event or idea. The quiet bottom rung of the card
+             ladder; the feed still renders below it. */
+          <CardRegionEmpty />
         )}
       </div>
 
       {/* ── Chat feed + pinned input (client island) ───────────────────── */}
       {/* The chat section fills remaining viewport height.  The feed is its
           own scroll region; the input is pinned at the bottom.
-          Body stays at --type-body (17px), never shrunk (§7 firm rule). */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          marginTop: "0.75rem",
-        }}
-      >
+          Body stays at --type-body (17px), never shrunk (§7 firm rule).
+
+          FeedSeam owns the boundary against the card region above: the
+          hairline and the scrim over the feed's top edge. The 12px gap that
+          used to live on a wrapper div here now lives on the card region's
+          own bottom padding instead, since FeedSeam already carries the flex
+          layout (flex, display, flexDirection, minHeight) that wrapper only
+          duplicated. */}
+      <FeedSeam>
         <GroupHome
           groupId={group.id}
           initialMessages={messages}
@@ -298,7 +283,7 @@ export default async function GroupPage({ params }: Props) {
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
         />
-      </div>
+      </FeedSeam>
     </div>
   )
 }

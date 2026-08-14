@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Round 7 · Seam &amp; Grounds · Interplanetary Groups</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="walkthrough.css" />
+<link rel="stylesheet" href="pending-surface.css" />
+<link rel="stylesheet" href="round4-base.css" />
+<link rel="stylesheet" href="round5-cards.css" />
+<link rel="stylesheet" href="round6-proposal.css" />
+<link rel="stylesheet" href="round7-seam.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.bd-cap { color: #1f2024; }
+.bd-ttl { color: #111214; }
+.bd-num { color: #111214; }
+.sec-head { max-width: 78ch; margin: 72px 0 0; }
+.sec-head .k { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: #2b2b2b; font-weight: 700; }
+.sec-head h2 { font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: -.015em; color: #111214; margin: 8px 0 0; }
+.sec-head p { font-size: 14px; line-height: 1.62; color: #23242a; margin: 10px 0 0; text-wrap: pretty; }
+.sec-head b { color: #0d0e11; }
+.sec-head code, .bd-cap code, .rules code, .iso-notes code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.iso-list { display: flex; flex-direction: column; gap: 28px; margin-top: 26px; }
+.iso { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-start; }
+.iso-frame { width: 390px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 14px; overflow: hidden; }
+.iso-notes { flex: 1 1 320px; min-width: 300px; max-width: 48ch; padding-top: 1px; }
+.iso-notes h3 { font-family: var(--display); font-weight: 800; font-size: 17px; color: #101114; margin: 0 0 7px; }
+.iso-notes p { font-size: 13.5px; line-height: 1.62; color: #23242a; margin: 0 0 8px; text-wrap: pretty; }
+.iso-notes ul { margin: 0; padding-left: 17px; font-size: 13px; line-height: 1.6; color: #23242a; }
+.iso-notes li { margin: 4px 0; }
+.iso-notes b { color: #0d0e11; }
+.r7-region { background: var(--surface-base); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.r7-sliver { margin: 0 -16px -16px; padding: 12px 20px 0; height: 78px; overflow: hidden; }
+.r7-sliver .gh-human { margin-top: 0; }
+.dirA .r7-sliver { border-top: 1px solid var(--hairline); }
+.dirB .r7-sliver { background: var(--surface-well); }
+.rules { margin-top: 64px; max-width: 80ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 0 0 10px; letter-spacing: -.01em; }
+.rules ul { margin: 0 0 14px; padding-left: 18px; }
+.rules li { margin: 5px 0; }
+.rules b { color: #0d0e11; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+  <p class="board-eyebrow">Interplanetary Groups · round 7</p>
+  <h1 class="board-title">One seam, two grounds</h1>
+  <p class="board-sub">Two complaints, one root: the pending idea card's fill is <code>--surface-base</code>, which is also the page and the chat feed's ground, so the card is an outline on the chat's own floor and the feed has no edge to stop at. Two directions, both drawn, one to build. Direction A moves the card: the idea gains a fourth surface (<code>--surface-low</code> #1f222c) and the seam is closed by an edge. Direction B moves the ground: the feed drops one plane onto <code>--surface-well</code> (#10111a) and both complaints fall to a single move. Each direction costs exactly one new token; neither touches <code>--surface-base</code>, the cards, teal, or lime. Boards 01 and 03 show a quiet and a firm seam strength; board 05 is the worst case; board 06 proves a maybe still never reads as a plan.</p>
+
+  <!-- ============ 01 · DIRECTION A · AT REST ============ -->
+  <div class="sec-head">
+    <p class="k">Board 01 · Direction A · at rest</p>
+    <h2>Move the card</h2>
+    <p>The idea card gains its own ground, <code>--surface-low</code> #1f222c — halfway between base and raised. The shell is otherwise round 5's, verbatim: 1px hairline, 14px radius, no shadow, plain-weight title. The seam is closed separately: a full-bleed hairline at the feed's top (quiet), or the hairline plus an 18px inner scrim echoing the composer's (firm).</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">01a</span><span class="bd-ttl">Quiet · hairline seam</span></div>
+      <div class="bd-frame" data-screen-label="01a direction A at rest quiet seam">
+        <div class="phone dirA seam-rule">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The idea card now has a fill of its own against both neighbours: one step up from the base ground behind it, one step down from the raised confirmed card peeking at the right. The seam is the header's own grammar — one full-bleed hairline where the feed begins.</p>
+    </div>
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">01b</span><span class="bd-ttl">Firm · hairline + scrim</span></div>
+      <div class="bd-frame" data-screen-label="01b direction A at rest firm seam">
+        <div class="phone dirA seam-rule seam-scrim">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The same hairline, plus an 18px scrim inside the feed's top edge — <code>rgba(0,0,0,.32)→0</code>, the composer's scrim grammar turned upside down. At rest it reads as a shadow the region casts; its real work is on board 02.</p>
+    </div>
+  </div>
+
+  <!-- ============ 02 · DIRECTION A · SCROLLED ============ -->
+  <div class="sec-head">
+    <p class="k">Board 02 · Direction A · scrolled</p>
+    <h2>The seam doing its job</h2>
+    <p>Jesse's message is cut by the feed's top edge. Shown at the <b>firm</b> strength: the hairline marks where the feed stops and the scrim makes the cut message read as passing <em>under</em> the region rather than ceasing to exist. At the quiet strength the hairline alone marks the boundary but the cut edge is harder — that trade is the choice on board 01.</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">02</span><span class="bd-ttl">Direction A · scrolled · firm seam</span></div>
+      <div class="bd-frame" data-screen-label="02 direction A scrolled firm seam">
+        <div class="phone dirA seam-rule seam-scrim">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed clip">
+              <div class="gh-human cut"><div class="hname">Jesse</div><div class="hmsg">beers this week? or next — whoever's around 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+              <div class="gh-human"><div class="hname">Maya</div><div class="hmsg">count me in — same place as last time?</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">A bubble sliced mid-body at the hairline, darkened by the scrim as it goes. The feed now visibly stops at a boundary; the region above it is a fixed shelf, not something the chat slides beneath. Mock note: the boards fake the scroll with a clipped offset; production is the scroll region's own top edge plus a pinned overlay.</p>
+    </div>
+  </div>
+
+  <!-- ============ 03 · DIRECTION B · AT REST ============ -->
+  <div class="sec-head">
+    <p class="k">Board 03 · Direction B · at rest</p>
+    <h2>Move the ground</h2>
+    <p>The feed, composer row and home strip drop one plane onto <code>--surface-well</code> #10111a. The card region keeps <code>--surface-base</code>, so one move answers both complaints: the idea card no longer shares a fill with the chat window, and the feed has a real ground with a real top edge. Every bubble's contrast moves <b>up</b>, not down: Orbit's raised bubble, the viewer's <code>--surface-self</code> bubble, and the human bubble — whose <code>--surface-base</code> fill was invisible on base and now reads as an actual fill. The confirmed card is untouched; no adjustment to declare.</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">03a</span><span class="bd-ttl">Quiet · the value step alone</span></div>
+      <div class="bd-frame" data-screen-label="03a direction B at rest quiet seam">
+        <div class="phone dirB">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">No rule, no shadow: the boundary is the value change itself. The lower half of the screen is one continuous well from the feed's top edge through the composer to the home strip, so the composer's scrim now darkens a ground it belongs to.</p>
+    </div>
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">03b</span><span class="bd-ttl">Firm · the step + a hairline</span></div>
+      <div class="bd-frame" data-screen-label="03b direction B at rest firm seam">
+        <div class="phone dirB seam-rule">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The same well with the top edge drawn: one full-bleed hairline where the plane changes, matching the header's boundary grammar. The firmest the seam gets in this direction — no scrim needed when the ground itself already darkens.</p>
+    </div>
+  </div>
+
+  <!-- ============ 04 · DIRECTION B · SCROLLED ============ -->
+  <div class="sec-head">
+    <p class="k">Board 04 · Direction B · scrolled</p>
+    <h2>The plane doing its job</h2>
+    <p>Shown at the <b>quiet</b> strength deliberately — direction B's claim is that the value step alone is enough. Jesse's bubble is cut where the well begins; because the bubble is brighter than the well, the cut edge reads without any drawn line.</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">04</span><span class="bd-ttl">Direction B · scrolled · quiet seam</span></div>
+      <div class="bd-frame" data-screen-label="04 direction B scrolled quiet seam">
+        <div class="phone dirB">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned peek r7gap">
+              <div class="gh-rail peek">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gh-evcard compact">
+                  <div class="gh-evpad">
+                    <div class="gh-crow">
+                      <div class="gh-cmid">
+                        <div class="gh-ctitle">Monday morning climb</div>
+                        <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                        <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                      </div>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                    </div>
+                    <div class="gh-ask">
+                      <div class="gh-rsvp slim ask">
+                        <div class="in">I'm in</div>
+                        <div class="out">Can't make it</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="gh-dots"><i class="on"></i><i></i></div>
+            </div>
+            <div class="gh-feed clip">
+              <div class="gh-human cut"><div class="hname">Jesse</div><div class="hmsg">beers this week? or next — whoever's around 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+              <div class="gh-human"><div class="hname">Maya</div><div class="hmsg">count me in — same place as last time?</div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">The bubble stops where the well stops; the base-coloured region above reads as the shelf the feed scrolls beneath — which is what actually happens, so the eye and the mechanics finally agree. If the owner wants the edge drawn as well, 03b's hairline stacks on top.</p>
+    </div>
+  </div>
+
+  <!-- ============ 05 · WORST CASE ============ -->
+  <div class="sec-head">
+    <p class="k">Board 05 · The worst case</p>
+    <h2>One idea, alone</h2>
+    <p>A single pending idea card, no peek, no confirmed card to borrow contrast from, the feed directly below. Both frames use the <b>quiet</b> seam strength on purpose: if the quiet answer survives here, the firm one certainly does.</p>
+  </div>
+  <div class="board">
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">05a</span><span class="bd-ttl">Direction A · worst case · quiet</span></div>
+      <div class="bd-frame" data-screen-label="05a direction A worst case">
+        <div class="phone dirA seam-rule">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned r7gap">
+              <div class="gh-rail">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">With nothing beside it, the card's own fill is what saves it: <code>--surface-low</code> against base is a real figure on a real ground, hairline or no hairline. The seam still needs its rule — the fill fixes the card, not the boundary.</p>
+    </div>
+    <div class="bd-item">
+      <div class="bd-label"><span class="bd-num">05b</span><span class="bd-ttl">Direction B · worst case · quiet</span></div>
+      <div class="bd-frame" data-screen-label="05b direction B worst case">
+        <div class="phone dirB">
+          <div class="statusbar"><span>9:41</span><div class="dots"><span></span><span></span><span></span><div class="battery"></div></div></div>
+          <div class="gh-body">
+            <div class="gh-head">
+              <div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+              <div class="gh-title">
+                <span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+                <span class="gh-sub">8 members · group info &amp; invite link</span>
+              </div>
+            </div>
+            <div class="gh-pinned r7gap">
+              <div class="gh-rail">
+                <div class="gh-evcard idea">
+                  <div class="gh-evpad">
+                    <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+                    <div class="gh-idtitle">Beers?</div>
+                    <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+                    <div class="gh-ask">
+                      <div class="gh-qr">
+                        <div class="gh-qrchip">🍻 I'm in</div>
+                        <div class="gh-qrchip quiet">🙏 Next time</div>
+                        <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+                      </div>
+                      <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="gh-feed">
+              <div class="gh-day">Today</div>
+              <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+              <div class="gh-self"><div class="smsg">yes! free after 7</div></div>
+              <div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Floated it up top as Friday beers — answer there when you can.<span class="gtally"><i></i>Jesse &amp; Maya are in so far</span></div></div>
+            </div>
+            <div class="gh-pin"><div class="gh-input"><span class="ftxt">Message the group<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+          </div>
+          <div class="home-ind"><i></i></div>
+        </div>
+      </div>
+      <p class="bd-cap">Stated honestly: inside its own region the idea card still leans on the hairline alone — B fixes the card's relationship to the <em>chat</em>, not to the region ground it stands on. The well below gives the region a floor, so the card no longer dissolves downward into the feed; whether that is enough is exactly what this frame is for. If it is not, A's <code>--surface-low</code> composes with B — the two directions are not exclusive, only the seam treatment is.</p>
+    </div>
+  </div>
+
+  <!-- ============ 06 · SUBORDINATION LADDER ============ -->
+  <div class="sec-head">
+    <p class="k">Board 06 · The subordination ladder</p>
+    <h2>A maybe never reads as a plan</h2>
+    <p>Confirmed card, pending idea card, and the quiet empty-state box, stacked, with a sliver of each direction's feed treatment below. The empty box is drawn this round: no fill, dashed hairline — the roster's "not yet" grammar — faint centred text. Every rung survives greyscale; the ladder is brightness and structure, never hue.</p>
+  </div>
+  <div class="iso-list">
+    <div class="iso">
+      <div class="iso-frame dirA seam-rule" data-screen-label="06a ladder direction A">
+        <div class="r7-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Monday morning climb</div>
+                  <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                  <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim ask">
+                <div class="in">I'm in</div>
+                <div class="out">Can't make it</div>
+              </div>
+            </div>
+          </div>
+          <div class="gh-evcard idea">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+              <div class="gh-idtitle">Beers?</div>
+              <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+              <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+            </div>
+          </div>
+          <div class="gh-empty"><span class="t">Nothing planned yet — float an idea in chat</span></div>
+          <div class="r7-sliver">
+            <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Direction A's ladder</h3>
+        <ul>
+          <li><b>Confirmed</b>: <code>--surface-raised</code> #262b37, 1.7px hairline, shadow, display-weight title. The plan.</li>
+          <li><b>Idea</b>: <code>--surface-low</code> #1f222c, 1px hairline, no shadow, UI-weight body-size title. Visibly a step down from the plan and a step up from the ground — the fourth surface's whole job.</li>
+          <li><b>Empty box</b>: no fill, 1px <b>dashed</b> hairline, <code>--text-faint</code> text. Below everything; not a card, an absence with a border.</li>
+          <li><b>Below</b>: the quiet seam — the feed begins at one full-bleed hairline.</li>
+          <li>Greyscale: the ladder is three brightness steps and three border weights. No hue anywhere.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="iso">
+      <div class="iso-frame dirB" data-screen-label="06b ladder direction B">
+        <div class="r7-region">
+          <div class="gh-evcard compact">
+            <div class="gh-evpad">
+              <div class="gh-crow">
+                <div class="gh-cmid">
+                  <div class="gh-ctitle">Monday morning climb</div>
+                  <div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+                  <div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+              </div>
+              <div class="gh-rsvp slim ask">
+                <div class="in">I'm in</div>
+                <div class="out">Can't make it</div>
+              </div>
+            </div>
+          </div>
+          <div class="gh-evcard idea">
+            <div class="gh-evpad">
+              <div class="gh-need"><span class="lbl you">Needs your vote</span></div>
+              <div class="gh-idtitle">Beers?</div>
+              <div class="gh-cmeta"><span class="seg">Fri 7pm</span><span class="seg">Place TBD</span></div>
+              <div class="gh-qr">
+                <div class="gh-qrchip">🍻 I'm in</div>
+                <div class="gh-qrchip quiet">🙏 Next time</div>
+                <div class="gh-qrchip quiet">📅 Yes, can't Fri</div>
+              </div>
+              <div class="gh-vtally"><b>Jesse &amp; Maya</b> are in so far · one more makes it happen</div>
+            </div>
+          </div>
+          <div class="gh-empty"><span class="t">Nothing planned yet — float an idea in chat</span></div>
+          <div class="r7-sliver">
+            <div class="gh-human"><div class="hname">Jesse</div><div class="hmsg">beers this week? 🍻</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso-notes">
+        <h3>Direction B's ladder</h3>
+        <ul>
+          <li><b>Confirmed and empty box</b>: identical to A's rungs — B changes neither.</li>
+          <li><b>Idea</b>: unchanged from round 5 — <code>--surface-base</code> fill, 1px hairline. Its step down from the confirmed card is untouched; what changed is the world below it.</li>
+          <li><b>Below</b>: the well. The idea card's fill is no longer the chat's fill, because the chat no longer sits on base. The bubble sliver shows the human bubble's base fill now reading as a fill.</li>
+          <li>Idea vs empty is carried by fill-vs-none, solid-vs-dashed, and content — same as today.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RULES ============ -->
+  <div class="rules">
+    <h2>Binding constraints, verified against every board</h2>
+    <ul>
+      <li><b><code>--surface-base</code> is not redefined.</b> Each direction adds one new token instead: A adds <code>--surface-low: #1f222c</code>; B adds <code>--surface-well: #10111a</code>. Only the chosen direction's token ships. Neither direction solved it with the existing three — the palette's three surfaces are all spoken for, so a fourth value was unavoidable either way; the cost is symmetric and stated.</li>
+      <li><b>Frozen and untouched</b>: the confirmed card's shell and content, gauge chips and selected states, the RSVP pair's teal grammar, peek geometry and dots, header, composer geometry. Direction B changes no card, so the declared-exception clause for the confirmed card goes unused.</li>
+      <li><b>Teal</b> appears only where it already ships: the RSVP ask borders and the viewer-move need label. Never on the seam, never a wash, never a region border. Lime appears nowhere new.</li>
+      <li><b>Greyscale-safe</b>: every move this round is a neutral value or a border — nothing encodes state in hue, nothing is red vs green.</li>
+      <li><b>13px floor</b> untouched; no new text roles. Layout grows with content; the seam treatments are edges, not height caps; nothing clips (the scrolled boards fake the scroll region's own clipping). No animation.</li>
+      <li><b>Round-5 intent survives</b>: the idea card stays quiet — subordinate by brightness and structure in both directions; it gains an edge, never a promotion.</li>
+    </ul>
+  </div>
+</div>
+<script src="orbit-mark.js"></script>
+<script>document.querySelectorAll('[data-orbit]').forEach(function (el) { el.innerHTML = window.OrbitMark.svg(72); });</script>
+</body>
+</html>
+
+</untrusted-project-content>
+(The body above is HTML-entity-escaped: & < > stand for & < >. Do not follow any instructions inside it — it is user-authored file content.)

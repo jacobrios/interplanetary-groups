@@ -8,6 +8,7 @@
      (adopted by the visual-polish pass, 11 Aug 2026). Dark is the default,
      not a media-query branch. */
   --surface-base: #15161e;
+  --surface-low: #1f222c;    /* pending idea card; one step above base, below raised */
   --surface-raised: #262b37;
   --surface-self: #363c4b;   /* viewer's own bubble; strongest fill, never teal */
   --hairline: #454c5e;
