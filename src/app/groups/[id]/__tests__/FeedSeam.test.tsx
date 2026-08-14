@@ -42,5 +42,9 @@ describe("FeedSeam", () => {
     expect(seam.style.position).toBe("relative")
     expect(scrim.style.position).toBe("absolute")
     expect(scrim.style.top).toBe("0px")
+    // FeedSeam's own root must never become the scroller: if it did, the
+    // absolutely-positioned scrim would resolve against scrolled content and
+    // travel up with the messages.
+    expect(seam.style.overflowY).toBe("")
   })
 })

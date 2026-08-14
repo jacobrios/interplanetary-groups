@@ -242,7 +242,7 @@ export default async function GroupPage({ params }: Props) {
           along with the strip itself. */}
       <div
         style={{
-          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0`,
+          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0.75rem`,
           flexShrink: 0,
         }}>
         {entries.length > 0 ? (
@@ -265,25 +265,25 @@ export default async function GroupPage({ params }: Props) {
           own scroll region; the input is pinned at the bottom.
           Body stays at --type-body (17px), never shrunk (§7 firm rule).
 
-          FeedSeam wraps it and owns the boundary against the card region
-          above: the hairline and the scrim over the feed's top edge. It
-          replaced a bare 12px margin, which left this the one unmarked seam
-          on a screen whose other two are both drawn. */}
-      <div style={{ marginTop: "0.75rem", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <FeedSeam>
-          <GroupHome
-            groupId={group.id}
-            initialMessages={messages}
-            viewerId={viewer?.id ?? null}
-            viewerName={viewer?.name ?? null}
-            timeZone={group.timeZone}
-            gauges={gauges}
-            proposals={proposals}
-            groupProposals={groupProposals}
-            viewerIsMember={viewerIsMember}
-          />
-        </FeedSeam>
-      </div>
+          FeedSeam owns the boundary against the card region above: the
+          hairline and the scrim over the feed's top edge. The 12px gap that
+          used to live on a wrapper div here now lives on the card region's
+          own bottom padding instead, since FeedSeam already carries the flex
+          layout (flex, display, flexDirection, minHeight) that wrapper only
+          duplicated. */}
+      <FeedSeam>
+        <GroupHome
+          groupId={group.id}
+          initialMessages={messages}
+          viewerId={viewer?.id ?? null}
+          viewerName={viewer?.name ?? null}
+          timeZone={group.timeZone}
+          gauges={gauges}
+          proposals={proposals}
+          groupProposals={groupProposals}
+          viewerIsMember={viewerIsMember}
+        />
+      </FeedSeam>
     </div>
   )
 }

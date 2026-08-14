@@ -9,8 +9,8 @@
 // No fill and a dashed edge, the roster's own "not yet" grammar, so it reads
 // as an absence with a border rather than a card with nothing in it.
 //
-// Lifted out of page.tsx so its copy can be tested at all: the page is server
-// -rendered and this repo cannot unit test it.
+// Lifted out of page.tsx so its copy can be tested at all: the page is
+// server-rendered and this repo cannot unit test it.
 
 export default function CardRegionEmpty() {
   return (

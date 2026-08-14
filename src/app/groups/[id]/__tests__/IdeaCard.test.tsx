@@ -66,6 +66,5 @@ describe("IdeaCard", () => {
     // which is the exact value of the page and the chat feed behind it, so it
     // was a hairline outline on the chat's own floor.
     expect(shell.style.backgroundColor).toBe("var(--surface-low)")
-    expect(shell.style.backgroundColor).not.toBe("var(--surface-base)")
   })
 })
