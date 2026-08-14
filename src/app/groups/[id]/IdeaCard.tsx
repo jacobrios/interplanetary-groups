@@ -19,6 +19,7 @@ import type { IdeaItem } from "@/lib/pending/derive"
 
 export default function IdeaCard({ item }: { item: IdeaItem }) {
   const title = item.title.endsWith("?") ? item.title : `${item.title}?`
+  const needLabel = ideaNeedLabel(item.chips.viewerAnswer)
   return (
     <div
       style={{
@@ -40,18 +41,34 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
           flexDirection: "column",
         }}
       >
-        <NeedLabel value={ideaNeedLabel(item.chips.viewerAnswer)} />
-        <p
-          style={{
-            fontSize: "var(--type-body)",
-            lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
-            color: "var(--text-primary)",
-            textWrap: "balance",
-          }}
-        >
-          {title}
-        </p>
+        {/* Title row: the label rides beside the title instead of its own
+            row (task 3, buys back ~25px). `flexWrap: wrap` plus the title's
+            `flex: 1 1 auto` is the whole mechanism: a short title's box
+            grows to fill the line and pushes the label flush right; a long
+            title's natural width alone already fills the line, so the label
+            (flexShrink: 0, no room left) drops to a line of its own below
+            it, and the title reclaims the full row width, same as before
+            this change. Never clips: nothing here fixes a height or hides
+            overflow. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: "10px", rowGap: "3px" }}>
+          <p
+            style={{
+              fontSize: "var(--type-body)",
+              lineHeight: "var(--leading-tight)",
+              fontWeight: 700,
+              color: "var(--text-primary)",
+              textWrap: "balance",
+              flex: "1 1 auto",
+            }}
+          >
+            {title}
+          </p>
+          {needLabel && (
+            <div style={{ flexShrink: 0, marginLeft: "auto" }}>
+              <NeedLabel value={needLabel} inline />
+            </div>
+          )}
+        </div>
         <p
           style={{
             fontSize: "var(--type-meta)",

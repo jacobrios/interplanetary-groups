@@ -20,4 +20,16 @@ describe("NeedLabel", () => {
     render(<NeedLabel value={{ text: "Needs other votes", needsViewer: false }} />)
     expect(screen.getByText("Needs other votes").style.color).toBe("var(--text-secondary)")
   })
+  it("renders nothing for a settled card in inline mode too", () => {
+    const { container } = render(<NeedLabel value={null} inline />)
+    expect(container.innerHTML).toBe("")
+  })
+  it("inline mode skips the row wrapper: the text is the root node, unwrapped and unpadded", () => {
+    const { container } = render(
+      <NeedLabel value={{ text: "Needs your vote", needsViewer: true }} inline />
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.tagName).toBe("SPAN")
+    expect(root.style.color).toBe("var(--action)")
+  })
 })

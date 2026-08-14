@@ -67,4 +67,66 @@ describe("IdeaCard", () => {
     // was a hairline outline on the chat's own floor.
     expect(shell.style.backgroundColor).toBe("var(--surface-low)")
   })
+
+  // Task 3 (card-region-height slice): the label rides the title's row
+  // instead of a row of its own. jsdom lays out nothing, so these tests
+  // assert the structure and the flex styles that produce the wrap in a
+  // real browser — they cannot and do not assert the wrap itself happening
+  // at a given pixel width. The visual wrap (short title beside the label,
+  // a long one dropping it below) is browser evidence gathered separately
+  // (task 7's real-phone pass), not proven here.
+  it("puts the label on the same row as the title, right-aligned and free to wrap", () => {
+    const { container } = render(<IdeaCard item={ITEM} />)
+    const title = screen.getByText("Beers?")
+    const label = screen.getByText("Needs your vote")
+    const row = title.parentElement as HTMLElement
+    expect(row).toBe(label.parentElement!.parentElement)
+    expect(row.style.display).toBe("flex")
+    expect(row.style.flexWrap).toBe("wrap")
+    // The title grows to fill the row (pushing the label flush right on a
+    // shared line); the label's own wrapper never shrinks below its text
+    // and carries the auto margin that pins it right if it lands alone on
+    // a wrapped second line.
+    expect(title.style.flex).toBe("1 1 auto")
+    const labelWrapper = label.parentElement as HTMLElement
+    expect(labelWrapper.style.flexShrink).toBe("0")
+    expect(labelWrapper.style.marginLeft).toBe("auto")
+  })
+
+  it("still renders the label alongside a long title, on the same wrap-capable row", () => {
+    const longItem: IdeaItem = {
+      ...ITEM,
+      title: "Morning climbing session",
+    }
+    render(<IdeaCard item={longItem} />)
+    const title = screen.getByText("Morning climbing session?")
+    const label = screen.getByText("Needs your vote")
+    const row = title.parentElement as HTMLElement
+    expect(row.style.flexWrap).toBe("wrap")
+    expect(row.contains(label)).toBe(true)
+  })
+
+  it("keeps the teal-when-it-is-yours rule on both a short and a long title", () => {
+    const { unmount } = render(<IdeaCard item={ITEM} />)
+    expect(screen.getByText("Needs your vote").style.color).toBe("var(--action)")
+    unmount()
+
+    const longVoted: IdeaItem = {
+      ...ITEM,
+      title: "Morning climbing session",
+      chips: { ...ITEM.chips, viewerAnswer: "IN" },
+    }
+    render(<IdeaCard item={longVoted} />)
+    expect(screen.getByText("Needs other votes").style.color).toBe("var(--text-secondary)")
+  })
+
+  it("renders no label at all when the card needs nothing from anyone", () => {
+    const settled: IdeaItem = {
+      ...ITEM,
+      chips: { ...ITEM.chips, viewerAnswer: "NOT_THAT_DAY" },
+    }
+    render(<IdeaCard item={settled} />)
+    expect(screen.queryByText("Needs your vote")).toBeNull()
+    expect(screen.queryByText("Needs other votes")).toBeNull()
+  })
 })
