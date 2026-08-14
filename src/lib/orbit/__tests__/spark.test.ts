@@ -441,18 +441,18 @@ describe("buildGaugeMessage", () => {
 describe("chipLabels", () => {
   it("abbreviates the weekday on the different-day chip", () => {
     const labels = chipLabels(new Date("2026-07-24T00:00:00Z"), "UTC")
-    expect(labels.notThatDay).toBe("📅 Yes, can't Fri")
+    expect(labels.notThatDay).toBe("Yes, can't Fri")
   })
 
   it("keeps the yes and no chips fixed", () => {
     const labels = chipLabels(new Date("2026-07-24T00:00:00Z"), "UTC")
-    expect(labels.in).toBe("✋ I'm in")
-    expect(labels.out).toBe("🙏 Next time")
+    expect(labels.in).toBe("I'm in")
+    expect(labels.out).toBe("Next time")
   })
 
   it("reads the weekday off the stored date in the group's zone", () => {
     const labels = chipLabels(new Date("2026-07-25T02:00:00Z"), "Pacific/Midway")
-    expect(labels.notThatDay).toBe("📅 Yes, can't Fri")
+    expect(labels.notThatDay).toBe("Yes, can't Fri")
   })
 })
 

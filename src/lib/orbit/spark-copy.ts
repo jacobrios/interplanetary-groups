@@ -429,13 +429,6 @@ export function isGaugeLive(
 
 // ── What the group reads ─────────────────────────────────────────────────────
 
-/**
- * One fixed emoji on the yes chip, not one matched to the activity. Nothing in
- * the product maps an activity to an emoji, and a table that guesses wrong
- * reads worse than one that never tries.
- */
-const CHIP_IN_EMOJI = "✋"
-
 /** Beyond this the proposed day is no longer "this <weekday>" and gets its date. */
 export const THIS_WEEK_DAYS = 7
 
@@ -493,9 +486,9 @@ export function buildGaugeMessage(
 /** The three chips. Weekday abbreviated on the third per the copy rule. */
 export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
   return {
-    in: `${CHIP_IN_EMOJI} I'm in`,
-    out: "🙏 Next time",
-    notThatDay: `📅 Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
+    in: "I'm in",
+    out: "Next time",
+    notThatDay: `Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
   }
 }
 
