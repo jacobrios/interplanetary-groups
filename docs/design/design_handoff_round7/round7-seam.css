@@ -1,0 +1,69 @@
+/* Round 7 · SEAM & GROUNDS — the card-region/feed boundary + the idea card's ground.
+   Loads AFTER walkthrough.css + pending-surface.css + round4-base.css + round5-cards.css
+   + round6-proposal.css (rulings + region stretch only; its variant blocks stay inert).
+   ONE direction ships. Direction A adopts --surface-low; direction B adopts --surface-well.
+   --surface-base is NOT redefined by either. */
+
+:root {
+  /* NEW TOKEN · direction A only. A fourth surface between base (#15161e) and
+     raised (#262b37): the pending idea card's own ground. */
+  --surface-low: #1f222c;
+  /* NEW TOKEN · direction B only. The chat feed's ground, one step BELOW base:
+     the lower plane the feed scrolls inside. */
+  --surface-well: #10111a;
+}
+
+/* =====================================================================
+   DIRECTION A · MOVE THE CARD
+   The idea card keeps its round-5 shell (1px hairline, 14px radius, no
+   shadow, plain-weight title) and gains only a fill. Subordination ladder
+   by brightness survives: raised #262b37 > low #1f222c > base #15161e.
+   ===================================================================== */
+.dirA .gh-evcard.idea { background: var(--surface-low); }
+
+/* =====================================================================
+   SEAM EDGE · shared vocabulary (used by A; B's firm strength borrows
+   the rule). The gap between region and feed stays 12px, now closed by
+   an edge instead of trailing off.
+   ===================================================================== */
+.gh-pinned.r7gap { padding-bottom: 12px; }
+
+/* Quiet: one full-bleed hairline at the feed's top — the same grammar
+   that already ends the header (border-bottom: 1px solid var(--hairline)). */
+.seam-rule .gh-feed { border-top: 1px solid var(--hairline); }
+
+/* Firm: the hairline plus an 18px inner scrim at the feed's top, echoing
+   the composer's scrim (rgba(0,0,0,.34)→0) upside down. Production: an
+   overlay pinned to the scroll region's top edge, not part of the content. */
+.seam-scrim .gh-feed { position: relative; }
+.seam-scrim .gh-feed::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 18px; background: linear-gradient(180deg, rgba(0,0,0,.32), rgba(0,0,0,0)); pointer-events: none; z-index: 2; }
+
+/* =====================================================================
+   DIRECTION B · MOVE THE GROUND
+   The feed, composer row and home-indicator strip sit on --surface-well:
+   everything below the card region is one lower plane. The card region
+   keeps --surface-base, so the cards' ground is untouched and the idea
+   card no longer shares a fill with the chat window. Composer keeps its
+   shipped scrim (background-image) — it composes over the well.
+   Bubble contrast all moves UP: Orbit (raised), the viewer (self) and
+   the base-filled human bubble each gain distance from the ground.
+   ===================================================================== */
+.dirB .gh-feed { background: var(--surface-well); }
+.dirB .gh-pin, .dirB .home-ind { background-color: var(--surface-well); }
+
+/* =====================================================================
+   EMPTY-STATE BOX (.gh-empty) · drawn this round for the ladder boards.
+   Shown when the region has no event and no idea. Quieter than every
+   card: no fill, dashed hairline (the roster's "not yet" grammar),
+   faint centered text. Never approaches the 13px floor.
+   ===================================================================== */
+.gh-empty { border: 1px dashed var(--hairline); border-radius: 14px; background: transparent; min-height: 92px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 18px 22px; }
+.gh-empty .t { font-size: var(--type-meta); line-height: var(--leading-normal); color: var(--text-faint); font-weight: 500; text-wrap: balance; }
+
+/* =====================================================================
+   MOCK ONLY · static stand-ins for a scrolled feed on the boards.
+   Not production: the real feed scrolls; overflow lives on the scroll
+   region and the first visible message is cut by that edge naturally.
+   ===================================================================== */
+.gh-feed.clip { overflow: hidden; }
+.gh-feed.clip .cut { margin-top: -34px; }

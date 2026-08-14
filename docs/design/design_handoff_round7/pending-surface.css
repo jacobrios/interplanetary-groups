@@ -1,0 +1,109 @@
+/* Pending surface — group home.
+   Collapsed strip + expanded panel. Prefix: .pd-
+   Depends on walkthrough.css for tokens, phone shell, .gh-* chat + chip styles.
+   Chips are reused VERBATIM from the chip spec (.gh-qr / .gh-qrchip) — do not restyle. */
+
+/* ---------- host: strip in flow, panel overlays the feed ---------- */
+.gh-body { position: relative; }
+.pd-host { position: relative; z-index: 3; flex: 0 0 auto; }
+
+/* ---------- collapsed strip ---------- */
+.pd-strip {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 16px; padding: 11px 2px;
+  border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+  background: var(--surface-base); cursor: pointer;
+}
+.pd-strip .pd-ico { width: 16px; height: 16px; flex: 0 0 auto; stroke: var(--text-secondary); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.pd-striptxt {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-wrap: wrap; column-gap: .5em; row-gap: .1em;
+  font-size: var(--type-meta); line-height: var(--leading-normal); color: var(--text-secondary);
+}
+.pd-striptxt .seg { white-space: nowrap; }
+.pd-striptxt .seg:not(:last-child)::after { content: "\00B7"; margin-left: .5em; color: var(--placeholder); font-size: 1.12em; }
+.pd-striptxt .n { color: var(--text-primary); font-weight: 700; }
+.pd-chev { width: 18px; height: 18px; flex: 0 0 auto; stroke: var(--text-faint); fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.pd-strip.open .pd-chev { transform: rotate(180deg); }
+
+/* ---------- expanded panel ---------- */
+.pd-panel {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--surface-base);
+  border-bottom: 1px solid var(--hairline); border-radius: 0 0 16px 16px;
+  box-shadow: 0 22px 46px -14px rgba(0,0,0,.78);
+  padding-bottom: 0;
+  /* production: max-height: calc(100vh - <strip bottom>); the panel scrolls
+     internally rather than growing past the viewport. */
+  overflow-y: auto;
+}
+/* feed sits behind, untouched and unsqueezed */
+.gh-feed.pd-behind { position: relative; }
+.gh-feed.pd-behind::after { content: ""; position: absolute; inset: 0; background: rgba(11,12,17,.74); z-index: 1; }
+
+/* ---------- rows ---------- */
+.pd-row { padding: 10px 18px 11px; }
+.pd-row + .pd-row { border-top: 1px solid var(--hairline); }
+.pd-kind {
+  display: flex; flex-wrap: wrap; column-gap: .5em;
+  font-size: var(--type-eyebrow); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 700; line-height: 1.35;
+}
+.pd-kind .seg:not(:last-child)::after { content: "\00B7"; margin-left: .5em; }
+.pd-title {
+  font-size: var(--type-body); line-height: var(--leading-tight); font-weight: 600;
+  color: var(--text-primary); margin-top: 3px; text-wrap: pretty;
+}
+.pd-when {
+  display: flex; flex-wrap: wrap; column-gap: .5em; row-gap: .1em; margin-top: .34em;
+  font-size: var(--type-meta); line-height: var(--leading-normal); color: var(--text-secondary);
+}
+.pd-when .seg { white-space: nowrap; }
+.pd-when .seg:not(:last-child)::after { content: "\00B7"; margin-left: .5em; color: var(--placeholder); font-size: 1.12em; }
+
+/* time change · old vs new by label + brightness, never hue */
+.pd-shift {
+  display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .45em; row-gap: .25em;
+  margin-top: .42em; font-size: var(--type-meta); line-height: var(--leading-normal);
+}
+.pd-shift .lbl { font-size: var(--type-eyebrow); letter-spacing: .12em; text-transform: uppercase; font-weight: 700; color: var(--text-faint); }
+.pd-shift .old { color: var(--text-faint); text-decoration: line-through; text-decoration-color: var(--hairline); }
+.pd-shift .new { color: var(--text-primary); font-weight: 700; }
+.pd-shift .arw { width: 15px; height: 15px; stroke: var(--text-faint); fill: none; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; align-self: center; }
+
+.pd-tally {
+  display: flex; flex-wrap: wrap; column-gap: .5em; row-gap: .1em; margin-top: .48em;
+  font-size: var(--type-label); line-height: var(--leading-normal); color: var(--text-secondary); font-weight: 700;
+}
+.pd-tally .seg { white-space: nowrap; }
+.pd-tally .seg:not(:last-child)::after { content: "\00B7"; margin-left: .5em; color: var(--placeholder); font-size: 1.12em; }
+.pd-tally .wait { color: var(--text-faint); font-weight: 600; }
+
+/* chips: existing spec, only the indent changes */
+.pd-row .gh-qr { margin: 9px 0 0; }
+
+/* ---------- "you're in on" · quieter group ---------- */
+.pd-grouplbl {
+  display: flex; align-items: baseline; gap: .5em;
+  padding: 10px 18px 0; border-top: 1px solid var(--hairline);
+  font-size: var(--type-eyebrow); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 700;
+}
+.pd-row.quiet { padding-top: 8px; padding-bottom: 10px; }
+.pd-row.quiet + .pd-row.quiet { border-top: 1px solid var(--hairline); }
+.pd-row.quiet .pd-title { font-size: var(--type-meta); font-weight: 600; color: var(--text-secondary); margin-top: 0; }
+.pd-row.quiet .pd-when { font-size: var(--type-label); color: var(--text-faint); }
+.pd-answerrow { display: flex; align-items: center; gap: 10px; margin-top: .5em; }
+.pd-answer {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--type-label); line-height: var(--leading-normal); font-weight: 700; color: var(--text-secondary);
+}
+.pd-answer svg { width: 14px; height: 14px; stroke: var(--text-secondary); fill: none; stroke-width: 2.7; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.pd-change {
+  margin-left: auto; font-size: var(--type-label); font-weight: 600; color: var(--text-secondary);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hairline); cursor: pointer;
+}
+
+/* ---------- caught-up note (Orbit's voice, chat bubble reused) ---------- */
+.pd-caught { padding: 15px 18px 17px; }
+.pd-caught .gh-msgrow { margin-top: 0; max-width: 100%; }
