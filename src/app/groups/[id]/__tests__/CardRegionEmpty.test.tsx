@@ -18,6 +18,16 @@ describe("CardRegionEmpty", () => {
     expect(container.textContent).not.toMatch(/[—–]/)
   })
 
+  it("keeps the sentence readable, not merely quiet", () => {
+    // Pinned because the design board specified --text-faint here, which
+    // measures ~3.8:1 against the page and is under the readability floor for
+    // text this size. A future pass matching the board pixel for pixel would
+    // reintroduce it silently.
+    render(<CardRegionEmpty />)
+    const line = screen.getByText("Nothing planned yet, float an idea in chat")
+    expect(line.style.color).toBe("var(--text-secondary)")
+  })
+
   it("is the quietest thing in the region: no fill, a dashed edge", () => {
     // It sits below both card kinds on the ladder. A dashed edge is the
     // roster's own "not yet" grammar, so this reads as an absence with a

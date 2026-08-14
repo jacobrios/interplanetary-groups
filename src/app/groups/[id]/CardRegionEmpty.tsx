@@ -31,7 +31,11 @@ export default function CardRegionEmpty() {
         style={{
           fontSize: "var(--type-meta)",
           lineHeight: "var(--leading-normal)",
-          color: "var(--text-faint)",
+          // --text-secondary, not --text-faint, which the round-7 board drew.
+          // Faint on the page ground measures ~3.8:1, under the 4.5:1 floor for
+          // text this size; secondary is ~9:1, the value the copy this replaced
+          // already used. Quiet is the intent here, unreadable is not.
+          color: "var(--text-secondary)",
           fontWeight: 500,
           textWrap: "balance",
         }}

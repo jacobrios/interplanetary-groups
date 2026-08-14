@@ -3005,3 +3005,62 @@ idea and confirmed cards at rest, the feed scrolled with a message cut at the ed
 single idea card with no peek and nothing beside it to borrow contrast from, and the empty
 region. **That third one closes a gap the card-state slice carried:** the ideas-only card
 region was covered by neither a test nor a walkthrough, and it has now been seen.
+
+**Postscript, 14 Aug 2026, from the owner's QA run on the branch (PR #66), before merge.**
+Written on the branch rather than after it, per the correction recorded on 12 Aug. Six notes,
+cleaned up for clarity but not for content.
+
+*The fill worked, and it is the last thing fill will be asked to do.* The idea card now stands
+out from the chat and no longer blends. But it still reads too close to a confirmed card, which
+matches the 1.12:1 measurement taken before the build. **The owner's ruling: background colour
+is no longer the lever to pull on this problem.** Whatever separates a maybe from a plan next
+will be structural, a shape or a mark rather than a value; a carve-out on the card's top corner
+was floated as one candidate and explicitly left undecided. Also worth keeping as evidence
+rather than opinion: the card already carries two text signals, a teal NEEDS YOUR VOTE and a
+title ending in a question mark, and neither landed. That is data about those two signals, not
+an argument for a third.
+
+*The two biggest complaints turned out to be one bug, and it is not this slice's.* The cards are
+too tall, which squeezes the chat into a strip on a phone; and a promoted short card carries a
+large hollow middle. Both come from one rule: every card sets `height: 100%` and the rail renders
+at its tallest card's height, so the tallest card (a confirmed one carrying a venue line, a
+counts line, the RSVP pair and a time-change notice) sizes every card beside it and the whole
+region. That rule arrived with the card-state slice on 12 Aug, and `EventCard.tsx` even carries a
+comment predicting this exact failure as its reason for keeping the time-change to a one-line
+notice. The prediction was right and the mitigation was not enough. **The owner keeps equal-height
+cards as the correct call** and accepts the blank middle on a short card; what must change is the
+height of the whole set.
+
+*Registered as the pre-MVP priority, ahead of everything else queued here:* **reduce the card
+region's vertical height so more chat is visible on a phone.** One concrete idea from the owner:
+get the idea card's three chips onto a single row. The confirmed card carrying a time-change
+notice is the harder half and has no answer yet.
+
+*The time-change override rule is endorsed; its words are not.* The rule (a change moves the plan
+on at least three yeses AND more yeses than the people still in on the old time) is the behaviour
+the owner wants, and keeping needs no votes because it is the default. The screen does not say
+that: the tally shows both counts rising side by side, so it reads as a symmetric race to three
+and puts apparent onus on the people who want no change. **A copy problem sitting on a correct
+mechanism**, worth fixing whatever happens to the larger feature.
+
+*Two things deferred to a round-2 polish pass, explicitly not pre-MVP.* First, letting a member
+answer a time-change with checkboxes ("both 7 and 8 work") instead of an either/or, which the
+owner wants and judged too much added complexity this close to launch. Second, the deeper
+information-architecture question the QA surfaced and which is **open, not decided**: two
+different things both feel "pending" to a member, a genuinely new idea and a settled plan
+somebody is trying to move. They are distinct in the product's model and identical in a user's
+head. Cutting time-change-on-confirmed entirely was raised as one possible answer and is not the
+only one; the owner also noted the recurring-rhythm case is the strongest argument for keeping
+some plans hard to move, since the cadence is the group's identity.
+
+*One fix applied before merge.* The empty-region sentence moved from `--text-faint` to
+`--text-secondary`. The round-7 board specified faint, which measures about 3.8:1 against the
+page and sits under the 4.5:1 floor for text that size; the copy it replaced used secondary at
+about 9:1. A test now pins the token, because a future pass matching the board pixel for pixel
+would reintroduce it silently.
+
+*Process finding, and the reason the rest of this postscript exists.* The whole QA ran on a real
+phone over the LAN, and every note above came from things a desktop browser had hidden. This is
+the second time a real-screen check has caught what desktop verification missed. It became a
+standing rule in the user-level rules file the same day: **anything visual gets a mobile pass
+before the QA script is written.**
