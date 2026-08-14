@@ -2909,3 +2909,99 @@ owner's call rather than this session's. Two smaller ones left alone the same wa
 says "the next task finish" though the hook is registered for plain turn finishes too, and
 "this gate has already held this agent once" reads a flag the harness sets when any stop hook
 blocked, which cannot count.
+
+## §11 entry: the chat-feed boundary (13-14 Aug 2026)
+
+*The group home's one unmarked seam, and the card that had no fill. Both came out of
+the owner's QA run on the card-state slice (note one of the 12 Aug postscript above).*
+
+**What was actually wrong, with values, because the complaint was vaguer than the defect.**
+The screen has three horizontal seams and two were already drawn: the header ends in a
+hairline, the composer sits on a scrim. Between the card region and the feed there was
+`marginTop: 0.75rem` and nothing else, same background above and below. The idea card was
+worse than "blending": its fill was `--surface-base`, the exact value of the page and the
+chat behind it, so it was a hairline outline drawn on the chat's own floor with no fill at
+all.
+
+**The decision that shaped everything after it: this was a hole in the design, not drift
+from it.** The round-4 boards separate `.gh-pinned` from `.gh-feed` with padding and
+nothing more, so there was no existing source to build against. That is why the fix was
+sourced from a new design round rather than settled in the repo, and why the owner ran it
+rather than the build agent: a fresh instance reading only the brief can return a direction
+neither party had thought of, which is the property the handoff rule exists to protect. It
+did exactly that, twice (see below).
+
+**Direction A over direction B.** A gives the idea card a fourth surface, `--surface-low`
+(#1f222c); B drops the whole feed onto a plane below the page. B is the more elegant idea
+and the one that makes "the feed slides underneath" literally true, but it closes one and
+a half complaints to A's two: under B the idea card still leans entirely on its hairline
+inside its own region. B's step was also about half A's (roughly 5 points per channel
+against 10 to 14), and B would have opened a debt A does not: a second ground under the
+chat is a contrast question every future chat element inherits, and polish slices two and
+three would have needed to know which ground they draw on. **That debt is therefore not
+incurred.** Firm seam over quiet, because a hairline says where the feed begins at rest
+while the scrim is what makes a message darken as it travels up, and the motion half of
+the complaint is the half a hairline cannot answer.
+
+**The honest limit, measured rather than eyeballed, and the owner's ruling on it.** The
+idea card sits 1.12:1 from a confirmed card and 1.14:1 from the page, where 3:1 is the
+usual floor for two surfaces being reliably tellable apart. The cause is structural: the
+palette spans 1.27:1 in total from page to brightest card, so a third rung cannot be
+bigger without colliding. Dark interfaces are like this. The consequence, worth keeping
+because it will resurface: **fill is the weakest of the five signals separating an idea
+from a plan**, behind the controls, the shadow, the title weight, and the need label.
+Direction A stops it being zero; it does not make it the differentiator. The owner saw the
+number and chose to ship and revisit with the app in hand, on the reasoning that every
+lever here (fill value, border weight, corner treatment) is a one-line change later.
+
+**Why the seam is a component and not three style properties on the page.** `FeedSeam`
+exists because the page is server-rendered and cannot be unit tested here, and the scrim
+carries a real failure mode: it covers the feed's top 18px, which after a scroll is exactly
+where the topmost gauge chip sits, so an overlay accepting pointer events would make that
+chip dead while the screen still looked correct. **The load-bearing structural rule, stated
+here because it is easy to get wrong and invisible when wrong: the scrim is a sibling of
+the scrolling element, never a child.** Absolute positioning inside a scroller resolves
+against the content box, so a scrim placed inside the feed scrolls away with the messages,
+which is the opposite of marking a fixed edge. Verified live in the DOM, not only in the
+unit test: the seam contains the scroller and the scroller does not contain the scrim.
+
+**The empty-state box was drawn for the first time by anyone.** It had been an inline
+`--surface-raised` block in the page, as bright as a confirmed card while saying the least
+on the screen. It is now the bottom rung: no fill, a dashed hairline (the roster's "not
+yet" grammar), and copy that tells a member what to do, "Nothing planned yet, float an
+idea in chat," rather than promising Orbit will handle it. It moved into its own component
+so the copy could be tested at all.
+
+**Two rulings recorded so they are not re-opened.** The board drew that copy with an em
+dash; the owner briefly considered inverting the product-voice rule to permit em dashes in
+Orbit's own speech, then kept the rule as written, so the dash became a comma. And the
+empty-state box is chrome rather than Orbit speaking, which is what the "bubbles for
+dialogue, notes for reference" rule decides, so the question would not have applied to it
+either way.
+
+**What was not verified, named rather than rounded up.** The real-phone daylight pass, which
+is the only thing that can answer whether a 1.14:1 step reads outdoors, and which is the
+accepted cost of sourcing this from static boards. And a real pointer tap on a chip sitting
+under the scrim: the browser pane's input actions time out in this environment, so the
+evidence is a hit test at the exact overlapping coordinate (chip 376-416, band 386-404,
+`elementFromPoint` at (108,390) returning the button rather than the scrim) plus the unit
+test pinning `pointer-events: none`. That is strong evidence and it is not a tap.
+
+**Left open for the owner:** the empty-state sentence renders `--text-faint` on
+`--surface-base`, roughly 3.8:1, under the 4.5:1 AA floor for 15px text, and the copy it
+replaced used `--text-secondary` at about 9:1. The board specified the token, so this is
+the design being followed rather than an implementation slip, which is why it was raised
+as a question rather than quietly changed.
+
+**Tooling note, recorded because it cost time.** The Claude Design MCP connector is an
+authoring workspace, not a channel for submitting a brief: its tools write files into a
+design project. Running a design round still means the owner pasting the brief into the
+app. Its read path is the half that earns its keep, and it is how round 7 reached the repo.
+
+**Verification.** Test baseline 87 files / 880 tests green at slice start, matching the
+previous slice's finishing number, with no pre-existing failures; 89 files / 888 tests
+green at the end, `tsc` clean. Four states were looked at in a browser at 390x780: the
+idea and confirmed cards at rest, the feed scrolled with a message cut at the edge, the
+single idea card with no peek and nothing beside it to borrow contrast from, and the empty
+region. **That third one closes a gap the card-state slice carried:** the ideas-only card
+region was covered by neither a test nor a walkthrough, and it has now been seen.
