@@ -164,3 +164,42 @@ In order, with the owner's gates marked:
    revision note recording what was picked and why.
 5. **Owner gate:** the go signal before any execution run begins.
 6. Build, verify per Part 4, open the PR, **owner gate:** the merge.
+
+## Part 8 · Revision, 13 Aug 2026: direction A, firm seam
+
+The round-7 handoff landed at `docs/design/design_handoff_round7/` and the owner
+picked **direction A with the firm seam**, after the describe-back.
+
+**Why A over B.** A closes both halves of the complaint; B closes one and a half.
+B fixes the seam and, as a side effect, the card-matches-the-chat problem, but
+inside its own region the idea card is still an outline on the region's ground.
+A's brightness step is also about twice B's (the well sat roughly 5 points per
+channel below base, against A's 10 to 14), which matters because the one thing
+no board can prove is how a step that small survives a phone in daylight. And A
+leaves the chat untouched, so it never opens the debt Part 5 anticipated: no
+future chat element inherits a question about which ground it draws on. That
+debt is therefore **not incurred**, and Part 5's first paragraph is superseded.
+
+**Why firm over quiet.** The motion half of the complaint is where a bare
+hairline is weakest. A hairline says where the feed begins when nothing moves;
+the scrim is what makes a message darken as it travels up, which is what reads
+as stopping rather than sliding under.
+
+**Measured, not eyeballed** (sampled off the rendered board): confirmed card
+`#262b37`, idea card `#1f222c`, page `#15161e`. That is a 1.12:1 contrast ratio
+between the idea card and a confirmed one and 1.14:1 against the page, where 3:1
+is the usual floor for two UI surfaces being reliably tellable apart. The reason
+the step is that small is that the whole palette spans 1.27:1 from page to
+brightest card, so a third rung cannot be bigger without colliding. This is
+normal for dark interfaces. The consequence, recorded because it is a real
+limitation rather than a defect: **fill is the weakest of the five signals
+separating an idea from a plan**, behind the controls, the shadow, the title
+weight, and the need label. Direction A stops the fill being zero; it does not
+make it the differentiator. The owner reviewed this measurement and chose to
+ship and revisit with the app in hand, on the reasoning that every lever here
+(fill value, border weight, corner treatment) is a one-line change later.
+
+**Empty-state copy, settled.** "Nothing planned yet, float an idea in chat"
+replaces "No upcoming events yet. Orbit will propose one soon." The board drew
+it with an em dash, which was corrected: the product-voice rule stands, and the
+empty-state box is chrome rather than Orbit speaking either way.

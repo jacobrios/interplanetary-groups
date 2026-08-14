@@ -10,6 +10,7 @@
   --surface-base: #15161e;
   --surface-raised: #262b37;
   --surface-self: #363c4b;   /* viewer's own bubble; strongest fill, never teal */
+  --surface-low: #1f222c;    /* pending idea card; one step above base, below raised */
   --hairline: #454c5e;
   --text-primary: #ECEDF2;
   --text-secondary: #A7AAB6;

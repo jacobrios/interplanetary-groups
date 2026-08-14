@@ -59,4 +59,13 @@ describe("IdeaCard", () => {
     const ask = container.querySelector("[data-ask]") as HTMLElement
     expect(ask.style.marginTop).toBe("auto")
   })
+  it("sits on its own ground, not the chat's", () => {
+    const { container } = render(<IdeaCard item={ITEM} />)
+    const shell = container.firstElementChild as HTMLElement
+    // The whole point of the slice: the idea card used to be var(--surface-base),
+    // which is the exact value of the page and the chat feed behind it, so it
+    // was a hairline outline on the chat's own floor.
+    expect(shell.style.backgroundColor).toBe("var(--surface-low)")
+    expect(shell.style.backgroundColor).not.toBe("var(--surface-base)")
+  })
 })

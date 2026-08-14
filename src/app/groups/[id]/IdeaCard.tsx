@@ -1,12 +1,16 @@
 // src/app/groups/[id]/IdeaCard.tsx
 // An idea being gauged, living in the carousel beside confirmed cards.
 // Subordinate by brightness and structure, never hue (spec decision 7): flat
-// --surface-base, a single hairline, no shadow, body-size title, no chevron
+// --surface-low, a single hairline, no shadow, body-size title, no chevron
 // (there is no detail screen behind an idea). The title carries a question
 // mark, a maybe and not a plan; "Place TBD" is fixed copy, kept by the owner
 // because an empty spot where a place should be reads as a bug. The shell
 // stretches to the region's height and the ask block anchors to the bottom
 // baseline (board 06, spec decision 8), so slack reads as mid-card air.
+// The fill moved off --surface-base in the chat-feed-boundary slice (round 7,
+// direction A): sharing the page's own value meant the card had, in effect, no
+// fill at all. It is still the quietest filled thing in the region, one step
+// under a confirmed card, which is what keeps a maybe from reading as a plan.
 import GaugeChips from "./GaugeChips"
 import { NeedLabel } from "@/components/NeedLabel"
 import { TallyLine } from "@/components/choice"
@@ -18,7 +22,7 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
   return (
     <div
       style={{
-        backgroundColor: "var(--surface-base)",
+        backgroundColor: "var(--surface-low)",
         border: "1px solid var(--hairline)",
         borderRadius: "14px",
         overflow: "hidden",
