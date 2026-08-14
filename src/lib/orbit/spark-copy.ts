@@ -544,6 +544,47 @@ export function buildTallyLine(
   return parts.join(" · ")
 }
 
+/**
+ * The idea card's tally line: same underlying vote rows as `buildTallyLine`,
+ * a counts form instead of a named one. This is not Orbit speaking, so it
+ * carries none of Orbit's voice; it exists because the card gives this line a
+ * hard 298px ceiling and a named line wraps well before a real group fills
+ * it. Deliberately verb-free ("N in", not "N is/are in") so there is no
+ * singular/plural agreement to track.
+ *
+ * Same one-away-from-the-bar countdown as `buildTallyLine`, but "one more
+ * makes it happen" measured 355px in the three-clause case against the
+ * card's 298px, so the card gets the shorter "one more to go" instead. Keep
+ * this function beside `buildTallyLine` so a future change to either tally
+ * has both forms in view.
+ */
+export function buildCardTallyLine(
+  votes: GaugeVoteLike[],
+  names: Map<string, string>
+): string {
+  const inCount = votes.filter(
+    (v) => v.answer === "IN" && names.has(v.userId)
+  ).length
+
+  const differentDay = votes.filter((v) => v.answer === "NOT_THAT_DAY").length
+
+  const parts: string[] = []
+
+  if (inCount > 0) {
+    parts.push(`${inCount} in`)
+  }
+
+  if (differentDay > 0) {
+    parts.push(`${differentDay} for another day`)
+  }
+
+  if (inCount === SPARK_THRESHOLD - 1) {
+    parts.push("one more to go")
+  }
+
+  return parts.join(" · ")
+}
+
 const BUMP_COUNTDOWN_WORDS: Record<number, string> = { 2: "two", 3: "three" }
 
 export function buildBumpMessage(activity: string, inNames: string[]): string {

@@ -1,6 +1,7 @@
 // src/lib/orbit/__tests__/spark-copy.test.ts
 import { describe, it, expect } from "vitest"
 import {
+  buildCardTallyLine,
   buildDayCommentReply,
   buildGaugeMessage,
   buildLiveGaugeLine,
@@ -174,6 +175,58 @@ describe("buildTallyLine, the countdown", () => {
   it("does not count a different-day answer toward the bar", () => {
     const votes = [inVote("a"), { userId: "b", answer: "NOT_THAT_DAY" as const }]
     expect(buildTallyLine(votes, names)).toBe("Jacob is in so far · 1 wants a different day")
+  })
+})
+
+// The idea card's counts form: same vote rows and same one-away countdown
+// rule as buildTallyLine above, but numbers instead of names, and "one more
+// to go" instead of "one more makes it happen" (that phrase measured 355px
+// against the card's 298px ceiling). This sibling exists so the card's
+// tally line is guaranteed to fit on one line; Orbit's own voice in the chat
+// feed (buildTallyLine, tested above) is untouched by this task.
+describe("buildCardTallyLine, the counts form", () => {
+  const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"], ["d", "Sam"]])
+  const inVote = (userId: string) => ({ userId, answer: "IN" as const })
+  const dayVote = (userId: string) => ({ userId, answer: "NOT_THAT_DAY" as const })
+
+  it("returns the empty string when nobody has voted", () => {
+    expect(buildCardTallyLine([], names)).toBe("")
+  })
+
+  it("shows the count at one, with no countdown yet", () => {
+    expect(buildCardTallyLine([inVote("a")], names)).toBe("1 in")
+  })
+
+  it("counts down when the group is one away from the three-person bar", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b")], names)).toBe("2 in · one more to go")
+  })
+
+  it("stops counting down once the bar is met", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b"), inVote("c")], names)).toBe("3 in")
+  })
+
+  it("stays a plain count past the bar", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b"), inVote("c"), inVote("d")], names))
+      .toBe("4 in")
+  })
+
+  it("adds the different-day count when nonzero, still counting down", () => {
+    const votes = [inVote("a"), inVote("b"), dayVote("c")]
+    expect(buildCardTallyLine(votes, names)).toBe("2 in · 1 for another day · one more to go")
+  })
+
+  it("omits the different-day clause when nobody named a different day", () => {
+    expect(buildCardTallyLine([inVote("a")], names)).not.toContain("for another day")
+  })
+
+  it("is verb-free at any count, so plurals need no agreement", () => {
+    const votes = [inVote("a"), inVote("b"), dayVote("c"), dayVote("d")]
+    expect(buildCardTallyLine(votes, names)).toBe("2 in · 2 for another day · one more to go")
+  })
+
+  it("does not count a vote for someone missing from the names map", () => {
+    const votes = [inVote("a"), inVote("not-a-member")]
+    expect(buildCardTallyLine(votes, names)).toBe("1 in")
   })
 })
 

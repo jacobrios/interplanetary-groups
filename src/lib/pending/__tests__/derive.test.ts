@@ -75,11 +75,12 @@ describe("deriveIdeaItems", () => {
     expect(out[0].chips.viewerAnswer).toBe("IN")
   })
 
-  it("tally line matches the feed's grammar: member-filtered names via buildTallyLine", () => {
+  it("tally line uses the card's counts form, member-filtered via buildCardTallyLine", () => {
     const g = gauge({ votes: [vote("user-maya", "IN", "Maya"), vote("outsider", "IN", "Ghost")] } as never)
     const out = deriveIdeaItems({ liveGauges: [g], viewerId: VIEWER, memberIds, timeZone: TZ })
-    expect(out[0].chips.tallyLine).toContain("Maya")
-    expect(out[0].chips.tallyLine).not.toContain("Ghost")
+    // A non-member vote is filtered out before the tally is built, so the
+    // count reflects Maya alone, not both IN votes.
+    expect(out[0].chips.tallyLine).toBe("1 in")
   })
 
   it("viewer answer is read from unfiltered votes, mirroring the feed", () => {

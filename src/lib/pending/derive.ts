@@ -7,7 +7,7 @@ import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
 import type { FeedGauge } from "@/app/groups/[id]/GaugeChips"
 import type { FeedGroupProposal } from "@/app/groups/[id]/GroupProposalChips"
-import { buildTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
+import { buildCardTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
 import { proposalBandQuestion, proposalNoticeQuestion } from "@/lib/orbit/change-copy"
 import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import { formatWeekdayShort } from "@/lib/events/format"
@@ -52,7 +52,7 @@ export function deriveIdeaItems(input: {
       chips: {
         id: g.id,
         orbitMessageId: g.orbitMessageId,
-        tallyLine: buildTallyLine(memberVotes, names),
+        tallyLine: buildCardTallyLine(memberVotes, names),
         labels: chipLabels(g.proposedDate, input.timeZone),
         viewerAnswer,
       },
