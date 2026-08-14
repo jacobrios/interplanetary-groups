@@ -42,6 +42,7 @@ import { deriveIdeaItems, deriveProposalBands, type ProposalBandData } from "@/l
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 import FeedSeam from "./FeedSeam"
+import CardRegionEmpty from "./CardRegionEmpty"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -253,25 +254,9 @@ export default async function GroupPage({ params }: Props) {
             proposals={proposalBands}
           />
         ) : (
-          /* No upcoming event or idea — quiet empty state; the feed still renders */
-          <div
-            style={{
-              backgroundColor: "var(--surface-raised)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "0.75rem",
-              padding: "1rem",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "var(--type-meta)",
-                lineHeight: "var(--leading-normal)",
-                color: "var(--text-secondary)",
-              }}
-            >
-              No upcoming events yet. Orbit will propose one soon.
-            </p>
-          </div>
+          /* No upcoming event or idea. The quiet bottom rung of the card
+             ladder; the feed still renders below it. */
+          <CardRegionEmpty />
         )}
       </div>
 
