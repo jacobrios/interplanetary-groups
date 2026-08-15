@@ -76,4 +76,50 @@ describe("EventCard need label and proposal notice", () => {
     renderCard()
     expect(screen.queryByText(/Time change proposed/)).toBeNull()
   })
+
+  // Task 4 (card-region-height slice): the label moves off its own row onto
+  // the counts row, mirroring IdeaCard's title row from task 3. jsdom lays
+  // out nothing, so this asserts the structure and flex styles that produce
+  // the wrap in a real browser, not the wrap itself at a given pixel width.
+  // The visual wrap (a big group's counts pushing the label to its own line)
+  // is browser evidence gathered separately (task 7's real-phone pass).
+  it("puts the label on the same row as the counts, right-aligned and free to wrap", () => {
+    renderCard()
+    const counts = screen.getByText("3 In · 1 Out · 5 TBD")
+    const label = screen.getByText("Needs your RSVP")
+    const row = counts.parentElement as HTMLElement
+    expect(row).toBe(label.parentElement!.parentElement)
+    expect(row.style.display).toBe("flex")
+    expect(row.style.flexWrap).toBe("wrap")
+    // The counts text grows to fill the row (pushing the label flush right
+    // on a shared line); the label's own wrapper never shrinks below its
+    // text and carries the auto margin that pins it right if it lands alone
+    // on a wrapped second line.
+    expect(counts.style.flex).toBe("1 1 auto")
+    const labelWrapper = label.parentElement as HTMLElement
+    expect(labelWrapper.style.flexShrink).toBe("0")
+    expect(labelWrapper.style.marginLeft).toBe("auto")
+  })
+
+  it("keeps the label inside the tappable link alongside the counts", () => {
+    renderCard()
+    const label = screen.getByText("Needs your RSVP")
+    expect(label.closest("a")?.getAttribute("href")).toBe("/events/e1")
+  })
+
+  it("renders no label at all when the card needs nothing", () => {
+    renderCard({ viewerStatus: "IN" })
+    expect(screen.queryByText(/Needs/)).toBeNull()
+    const counts = screen.getByText("3 In · 1 Out · 5 TBD")
+    // The row structure survives even with nothing to show: the counts text
+    // is still the sole child of the wrap row, still free to grow.
+    const row = counts.parentElement as HTMLElement
+    expect(row.style.flexWrap).toBe("wrap")
+    expect(row.children).toHaveLength(1)
+  })
+
+  it("skips the label entirely for a viewer with no session", () => {
+    renderCard({ viewerHasSession: false })
+    expect(screen.queryByText(/Needs/)).toBeNull()
+  })
 })

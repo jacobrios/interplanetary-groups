@@ -71,6 +71,9 @@ export default function EventCard({
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, timeZone)
   const countsLabel = formatCounts({ inCount, outCount, pendingCount })
+  const needLabel = viewerHasSession
+    ? eventNeedLabel(viewerStatus, proposal ? { viewerAnswer: proposal.chips.viewerAnswer } : null)
+    : null
 
   return (
     <div
@@ -92,14 +95,6 @@ export default function EventCard({
           both live in this shared padded wrapper instead, which is also why
           there is no separate footer band or hairline between them. */}
       <div style={{ padding: "14px 15px 13px", flex: "1 1 auto", display: "flex", flexDirection: "column" }}>
-        {viewerHasSession && (
-          <NeedLabel
-            value={eventNeedLabel(
-              viewerStatus,
-              proposal ? { viewerAnswer: proposal.chips.viewerAnswer } : null
-            )}
-          />
-        )}
         <Link
           href={`/events/${event.id}`}
           style={{
@@ -135,20 +130,49 @@ export default function EventCard({
             {venueLabel && <span> · {venueLabel}</span>}
           </p>
 
-          {/* Status line: counts, on their own steady row so a tally update
-              never reflows the metadata above it. */}
-          <p
+          {/* Status row: counts, on their own steady row so a tally update
+              never reflows the metadata above it, sharing that row with the
+              need label (task 4, mirrors IdeaCard's title row from task 3).
+              flexWrap:wrap plus the counts text's flex:1 1 auto is the whole
+              mechanism: a short counts string grows to fill the line and
+              pushes the label flush right; once the two together outgrow the
+              row (a big group's counts plus "Needs other votes" — measured
+              in the brief at 298-315px against 310px available), the label
+              (flexShrink:0, no room left) drops to its own line below,
+              pinned right by its wrapper's auto left margin, and the counts
+              text reclaims the full row width. Never clips: nothing here
+              fixes a height or hides overflow, staying inside the card's own
+              overflow:hidden only because the row is free to grow. Both
+              inside the Link, same as before this task, so the label joins
+              the tap target rather than shrinking it. */}
+          <div
             style={{
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              fontWeight: 700,
-              color: "var(--text-secondary)",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "baseline",
+              columnGap: 10,
+              rowGap: 3,
               marginTop: "0.55em",
-              fontVariantNumeric: "tabular-nums",
             }}
           >
-            {countsLabel}
-          </p>
+            <p
+              style={{
+                fontSize: "var(--type-label)",
+                lineHeight: "var(--leading-normal)",
+                fontWeight: 700,
+                color: "var(--text-secondary)",
+                fontVariantNumeric: "tabular-nums",
+                flex: "1 1 auto",
+              }}
+            >
+              {countsLabel}
+            </p>
+            {needLabel && (
+              <div style={{ flexShrink: 0, marginLeft: "auto" }}>
+                <NeedLabel value={needLabel} inline />
+              </div>
+            )}
+          </div>
         </Link>
 
         {/* RSVP controls — only for authenticated viewers. Bottom-anchored
