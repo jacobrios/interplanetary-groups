@@ -3188,3 +3188,14 @@ eslint clean. The final review reproduced the 889 baseline independently from th
 rather than taking it on trust. Six tests were removed across the branch and each was traced
 individually to behaviour that no longer exists. The region and card heights are browser
 measurements, not test evidence, because the page is server-rendered and cannot be tested here.
+
+**Added 14 Aug 2026, after the entry above: the endgame slice is a close, not a close plus a nudge.**
+The owner's own read, and it narrows the next slice rather than growing it. A last-call nudge before
+a stalled time change closes was considered and deferred post-MVP: it opens a decision tree (how
+long after the ask, how close to the event, what if the event is weeks out, does a second nudge ever
+fire) that is not worth paying for something that should be the exception rather than the core use
+case. **So the MVP shape of "the time change gets an ending" is: it closes, and it says so. No
+bump.** Worth recording alongside it, because it will come up when the slice is written: unlike an
+idea gauge, a time change already has a natural anchor for a nudge if one is ever wanted, since the
+event it belongs to has its own start time. That makes the deferred question smaller than it looks,
+but it is still a question, and the owner's call is that the MVP does not answer it.
