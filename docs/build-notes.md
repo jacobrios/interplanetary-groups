@@ -3064,3 +3064,127 @@ phone over the LAN, and every note above came from things a desktop browser had 
 the second time a real-screen check has caught what desktop verification missed. It became a
 standing rule in the user-level rules file the same day: **anything visual gets a mobile pass
 before the QA script is written.**
+
+## §11 entry: the card region gets a height budget (14 Aug 2026)
+
+*The slice that came out of the owner's real-phone QA on PR #66. One number was the whole
+deliverable: the pinned card region took 47.7% of the screen and left the chat feed 31.5%.*
+
+**The diagnosis in the QA note was wrong, and measuring first is why we know.** The note said the
+tallest confirmed card sized the region. Measured at 390px: the **idea card was 272px** and the
+confirmed card 229.4px with a time-change notice, 187.4px without. The idea card was the tall one;
+the confirmed card was the one wearing the hollow middle. Of the idea card's 272px, 169px was its
+ask block: a chip row wrapping to two rows because "📅 Yes, can't Mon" would not fit beside the
+other two, and a tally wrapping to two lines. **Both were text-length problems, not layout
+problems**, which is why the fix is mostly copy.
+
+**The owner's phone is 661 CSS pixels, not 780.** iPhone 13 Pro is 390x844, but Chrome on iOS keeps
+both its bars, and because the feed is an inner scroll region, scrolling it never collapses them.
+Every share figure in this entry is against 661. A desktop browser at "mobile size" reports 780 and
+flatters every number by about 15%.
+
+**Round 8 produced two approaches and both were declined.** Approach A packed the six parts tighter;
+measured against the shipped card it was **identical** (187.3 against 187.4), because its padding
+savings went into a 44px tap target. Approach B re-homed two parts and did work, but it was worth 21
+px only when a time change was open and **zero** in the common case, because the idea card sets the
+region's height either way. The round also reported the time-change notice wrapping to two lines at
+a 342px card, costing 60.9px; in the shipped app at exactly 342px it is one line at 42px, and that
+did not reproduce.
+
+**The brief carried an error that cost half the round**, recorded because the lesson is not about
+this round. It stated the card's natural total as 229px while separately listing the notice as an
+optional 42px part; the 229 already included the notice. So "compose this card inside 204px at
+baseline" asked for something the shipped card already did at 187.4px. Approach A passed a test that
+was already passing. The states that needed work were the ones the brief filed under "overflow."
+**A part table that does not sum to its own stated total is the tell**, and the designer caught the
+smell of it independently before building.
+
+**The owner's answer, which beat both approaches: the time change leaves the card entirely.** Three
+grounds, all his. The card was a second surface pointing at a conversation that already carried the
+same chips. An RSVP and a time-change vote on one card are two decisions the product already treats
+as coupled, since a passed change wipes every RSVP, so the card was asking someone to answer a
+question whose premise was under dispute and then throwing the answer away. And a time change is
+secondary and does not earn permanent space above the fold. This dissolved the half the round was
+briefed to solve rather than solving it.
+
+**What shipped, and what each piece was worth.** Chips lost their emoji and kept every word, 87px to
+40px. The card's tally took a counts form ("2 in · one more to go") while Orbit's spoken tally in
+chat kept its named form, 52px to 31px. Both cards' need labels left their own rows, the confirmed
+card's joining the counts line and the idea card's joining the title. The RSVP pair rose to a 44px
+tap target, the round's one adopted contribution, costing 8px and free because the idea card is the
+floor. The notice was deleted, not hidden.
+
+**Measured result at 390x661: region 315px to 224.8px (47.7% to 34%), chat feed 208px to 289.7px
+(31.5% to 43.8%).** Idea card 272 to 183.8, confirmed card 229.4 to 175, and the worst cases
+improved too: a two-line event title from 252.4 to 198.
+
+**Two things the reviews found that nothing else would have.** CLAUDE.md still asserted the card and
+chat share "the same tally voice", which this slice deliberately made false. And `NeedLabel` was
+left with a dead code path once both cards moved their labels, invisible because the only two tests
+exercising it were testing the dead branch. Both fixed before merge.
+
+**The wrap rows are the load-bearing structural detail.** Both shared rows must wrap rather than
+clip, because the card root sets `overflow: hidden`: a non-wrapping overflow is silently cut off and
+still looks correct in a screenshot. Verified in a browser at the real card width and again at
+doubled device text, where every row wraps and every card grows.
+
+**A false alarm worth recording so the next session does not chase it.** The dev server log filled
+with `ReferenceError`s naming code the slice had deleted. They were hot-reload artifacts from
+mid-edit, and the log buffer spans the whole session. Restarting the server on the finished code
+returned "No server errors found". The lesson: a long-lived dev log is not evidence about current
+code.
+
+### Postscript, 14 Aug 2026: the owner's real-phone pass on this branch
+
+Four findings, none a defect in this slice, all queued.
+
+**The header subline goes.** "6 members · group info & invite link" is roughly 24px of a 73.5px
+header, and the owner's ruling is that it is first-run information shown forever. The chevron
+already signals the title is tappable. Recorded cost, accepted: the invite link is this product's
+whole distribution mechanism and the header is currently the only place it is advertised, though
+onboarding step 3 already puts it in front of a founder when they first need it. Its own micro-PR.
+
+**The time-change tally line is deleted rather than reworded, and the buttons change.** The owner
+found two broken references in one line: "Casey says yes" (yes to what) and "1 would keep it" (keep
+what). Rewording was drafted and rejected, and the reasoning is the part worth keeping. **A gauge
+tally works because the bar is simple and the news is good; a time-change tally cannot be, because
+the rule is compound** (three yeses AND more yeses than the people still in on the old time, or the
+whole group when it is smaller than three) **and because naming who wants to move someone else's
+plan turns a scheduling question into an argument with a scoreboard.** A line that cannot be made
+brief and clear is deleted, and no reassurance line replaces it: the chip's own checkmark confirms
+the vote, and Orbit announces a passed change in chat while every RSVP resets. Separately, "8pm
+works" reads as availability ("8pm also works for me") when the vote is actually a preference, so
+the chips become **"Move to 8pm" / "Keep 7pm"**, symmetric, and echoing the question above them.
+
+**Add to calendar moves to the top of the event screen.** Sitting below the time-change block, it
+read as saving the proposed time when it saves the current one. Ordering implies scope. Putting it
+inside the details card is the stronger semantic answer and was deliberately not taken: "we can
+always complicate our lives later, but it is harder to uncomplicate things."
+
+**Three-way voting stays parked.** The owner re-derived the checkbox idea (only 7pm / only 8pm /
+both) and then talked himself out of it on the merits: if 8pm wins but strands the people who could
+only do 7pm, the vote has optimised the wrong thing. Fixing that properly turns a preference into an
+availability grid, which is a real feature. Unchanged from its 14 Aug deferral.
+
+**And the cost this slice knowingly takes on.** With the notice off the card and the tally deleted,
+a stalled time change is now completely invisible, and `ChangeProposal` has no expiry, no close and
+no bump: the hourly cron runs only `reconcileScheduledEvents` and `runGaugeEndgame`. A proposal
+nobody answers sits open forever. **This makes "the time change gets an ending" the next slice, and
+load-bearing rather than tidy-up.** An owner proposal for a preventive "speak now if you want a
+different time" nudge on every event was declined in favour of it, because it would spend a nudge on
+every plan to prevent an occasional problem.
+
+**Queued post-MVP: a detail page for a pending idea.** The owner tapped the "beers?" card, nothing
+happened, and he assumed it was broken. It is by design, since an idea has no detail screen, but a
+tap that does nothing beside a card that responds is a silent failure. Recorded as a candidate
+answer to the idea-versus-plan distinctness question rather than only as a missing page: **"one of
+these opens and one does not" is already a structural difference**, which is the kind of signal the
+owner has been looking for since ruling out background colour, and a real page would carry the
+explicit copy an idea card has no room for.
+
+**Verification.** Baseline 89 files / 889 tests green at slice start, matching the previous slice's
+finishing number, no pre-existing failures; **89 files / 906 tests green** at the end, `tsc` clean,
+eslint clean. The final review reproduced the 889 baseline independently from the branch point
+rather than taking it on trust. Six tests were removed across the branch and each was traced
+individually to behaviour that no longer exists. The region and card heights are browser
+measurements, not test evidence, because the page is server-rendered and cannot be tested here.
