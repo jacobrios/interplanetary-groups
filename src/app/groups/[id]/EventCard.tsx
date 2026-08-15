@@ -150,8 +150,8 @@ export default function EventCard({
               display: "flex",
               flexWrap: "wrap",
               alignItems: "baseline",
-              columnGap: 10,
-              rowGap: 3,
+              columnGap: "10px",
+              rowGap: "3px",
               marginTop: "0.55em",
             }}
           >
