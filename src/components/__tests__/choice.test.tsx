@@ -98,4 +98,37 @@ describe("RsvpOption", () => {
     expect(btn.style.border).toBe("1.5px solid var(--hairline)")
     expect(btn.style.color).toBe("var(--text-secondary)")
   })
+
+  // Card-region-height slice, task 5: the 44px tap-target floor is a prop
+  // the caller opts into, not a default on RsvpOption itself. minHeight is
+  // a floor, not a fixed height, so content taller than 44px is still free
+  // to grow (the project's layout-never-clips rule).
+  it("takes an explicit minHeight as a floor, never a fixed height", () => {
+    render(
+      <form>
+        <RsvpOption
+          value="IN"
+          label="I'm in"
+          state="ask"
+          disabled={false}
+          padding="0.375rem 0.75rem"
+          radius="24px"
+          minHeight="44px"
+        />
+      </form>
+    )
+    const btn = screen.getByRole("button", { name: "I'm in" })
+    expect(btn.style.minHeight).toBe("44px")
+    expect(btn.style.height).toBe("")
+  })
+
+  it("with no minHeight given, renders with no minHeight at all", () => {
+    render(
+      <form>
+        <RsvpOption value="IN" label="I'm in" state="ask" disabled={false} padding="0.375rem 0.75rem" radius="24px" />
+      </form>
+    )
+    const btn = screen.getByRole("button", { name: "I'm in" })
+    expect(btn.style.minHeight).toBe("")
+  })
 })
