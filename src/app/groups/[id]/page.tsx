@@ -165,9 +165,11 @@ export default async function GroupPage({ params }: Props) {
   const groupProposals: FeedGroupProposal[] = liveProposals
     .filter((p) => p.kind === "GROUP")
     .map((p) => {
-      // Shared with the card region's own bands (lib/pending/derive.ts) via
-      // deriveGroupProposalTally, so the chat feed and the event card's
-      // detail screen can never disagree about the same proposal's tally.
+      // Shared with the event detail screen's own proposal vote via
+      // deriveGroupProposalTally, so the chat feed and that screen can
+      // never disagree about the same proposal's tally. (The card region
+      // itself no longer renders this vote at all, since the card-region-
+      // height slice removed its pointer to it.)
       const tally = deriveGroupProposalTally({
         proposal: p,
         viewerId: viewer?.id ?? null,

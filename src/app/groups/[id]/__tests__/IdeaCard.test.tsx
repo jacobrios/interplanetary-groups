@@ -18,8 +18,8 @@ const ITEM: IdeaItem = {
   chips: {
     id: "g1",
     orbitMessageId: "m1",
-    tallyLine: "Rowan is in so far",
-    labels: { in: "🍻 I'm in", out: "🙏 Next time", notThatDay: "📅 Yes, can't Fri" },
+    tallyLine: "2 in · one more to go",
+    labels: { in: "I'm in", out: "Next time", notThatDay: "Yes, can't Fri" },
     viewerAnswer: null,
   },
 }
@@ -42,9 +42,9 @@ describe("IdeaCard", () => {
   })
   it("renders the shipped chips and the tally", () => {
     render(<IdeaCard item={ITEM} />)
-    expect(screen.getByRole("button", { name: "🍻 I'm in" })).toBeDefined()
-    expect(screen.getByRole("button", { name: "📅 Yes, can't Fri" })).toBeDefined()
-    expect(screen.getByText("Rowan is in so far")).toBeDefined()
+    expect(screen.getByRole("button", { name: "I'm in" })).toBeDefined()
+    expect(screen.getByRole("button", { name: "Yes, can't Fri" })).toBeDefined()
+    expect(screen.getByText("2 in · one more to go")).toBeDefined()
   })
   it("does not append a second question mark if the activity already ends with one", () => {
     render(<IdeaCard item={{ ...ITEM, title: "Beers?" }} />)

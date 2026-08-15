@@ -132,8 +132,9 @@ export default function EventCard({
               flexWrap:wrap plus the counts text's flex:1 1 auto is the whole
               mechanism: a short counts string grows to fill the line and
               pushes the label flush right; once the two together outgrow the
-              row (a big group's counts plus "Needs other votes" — measured
-              in the brief at 298-315px against 310px available), the label
+              row (the worst case now is a large group's counts string alone,
+              since a confirmed card's need label can only ever be "Needs
+              your RSVP" or nothing, per lib/cards/region.ts), the label
               (flexShrink:0, no room left) drops to its own line below,
               pinned right by its wrapper's auto left margin, and the counts
               text reclaims the full row width. Never clips: nothing here
@@ -165,7 +166,7 @@ export default function EventCard({
             </p>
             {needLabel && (
               <div style={{ flexShrink: 0, marginLeft: "auto" }}>
-                <NeedLabel value={needLabel} inline />
+                <NeedLabel value={needLabel} />
               </div>
             )}
           </div>

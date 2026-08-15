@@ -5,17 +5,14 @@
 // distinction on their own, so the color is reinforcement, never the only
 // signal (spec decisions 2 and 6).
 //
-// Two layouts share one styled label (card-region-height slice, task 3):
-// - default (`inline` unset or false): the original full-width row that
-//   right-aligns itself, unchanged since the card-state-grammar slice. This
-//   is EventCard's layout until task 4 moves it onto the counts row.
-// - `inline`: a bare, unwrapped span for a caller that already owns a flex
-//   row (IdeaCard's title row here; EventCard's counts row in task 4). The
-//   caller is responsible for the row's own wrap and right-alignment; this
-//   component only owns the text styling in either case.
+// A bare, unwrapped span (card-region-height slice, task 4): both callers
+// place it inside a flex row they already own (IdeaCard's title row, task
+// 3; EventCard's counts row, task 4), and are responsible for that row's
+// own wrap and right-alignment. This component only owns the text styling.
 import type { NeedLabelValue } from "@/lib/cards/region"
 
-function NeedLabelText({ value }: { value: NeedLabelValue }) {
+export function NeedLabel({ value }: { value: NeedLabelValue | null }) {
+  if (!value) return null
   return (
     <span
       style={{
@@ -30,21 +27,5 @@ function NeedLabelText({ value }: { value: NeedLabelValue }) {
     >
       {value.text}
     </span>
-  )
-}
-
-export function NeedLabel({
-  value,
-  inline = false,
-}: {
-  value: NeedLabelValue | null
-  inline?: boolean
-}) {
-  if (!value) return null
-  if (inline) return <NeedLabelText value={value} />
-  return (
-    <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 7 }}>
-      <NeedLabelText value={value} />
-    </div>
   )
 }

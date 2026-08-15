@@ -65,7 +65,7 @@ export default function IdeaCard({ item }: { item: IdeaItem }) {
           </p>
           {needLabel && (
             <div style={{ flexShrink: 0, marginLeft: "auto" }}>
-              <NeedLabel value={needLabel} inline />
+              <NeedLabel value={needLabel} />
             </div>
           )}
         </div>

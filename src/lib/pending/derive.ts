@@ -69,11 +69,13 @@ export interface ProposalBandData {
 }
 
 /**
- * Open group time-change proposals, keyed by the event they'd move.
- * Deliberately NOT viewer-filtered: a KEEP voter still sees the band on the
- * plan's card with their own chip selected, because the band is the vote
- * surface itself, not a to-do list that clears on answering. Only the label
- * logic elsewhere cares who has and hasn't answered.
+ * Open group time-change proposals, keyed by the event they'd move. Renders
+ * only on that event's own detail screen (card-region-height slice: the
+ * card region stopped pointing at this vote). Deliberately NOT viewer-
+ * filtered: a KEEP voter still sees the band with their own chip selected,
+ * because the band is the vote surface itself, not a to-do list that clears
+ * on answering. Only the label logic elsewhere cares who has and hasn't
+ * answered.
  */
 export function deriveProposalBands(input: {
   liveProposals: LiveProposal[]

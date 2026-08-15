@@ -118,8 +118,8 @@ works against the slice that disproved it. Four edits, each a dated inline note,
 - The settled-list clause "an open time-change vote showing on its event's card as a recessed
   one-line notice ... the one named exception to answer-in-place". The exception itself survives
   (the vote still lives one tap away on the event screen); the card's pointer to it does not.
-- "A card carries a short top-right label naming what it still needs" — no longer top-right on
-  either card.
+- "A card carries a short top-right label naming what it still needs" (no longer top-right on
+  either card).
 - The "Next slice" paragraph, which describes this slice as upcoming.
 
 ### Task 1: the gauge chips fit one row
