@@ -38,7 +38,7 @@ import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import PageHeader from "@/components/PageHeader"
-import { deriveIdeaItems, deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
+import { deriveIdeaItems } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 import FeedSeam from "./FeedSeam"
@@ -184,16 +184,15 @@ export default async function GroupPage({ params }: Props) {
       }
     })
 
-  // ── Card region: ideas + moved-time bands ────────────────────────────────
-  // A second window onto liveGauges/liveProposals, not a second query: pure
-  // derivation of this viewer's own idea cards and the moved-time bands each
-  // event card's footer notice needs (card-state-grammar slice).
+  // ── Card region: ideas ────────────────────────────────────────────────────
+  // A second window onto liveGauges, not a second query: pure derivation of
+  // this viewer's own idea cards (card-state-grammar slice). The confirmed
+  // card no longer advertises an open group time-change vote (card-region-
+  // height slice, task 6); that vote still lives in chat and on the event's
+  // own detail screen via deriveProposalBands there.
   const ideas = viewer
     ? deriveIdeaItems({ liveGauges, viewerId: viewer.id, memberIds, timeZone: group.timeZone })
     : []
-  const proposalBands = viewer
-    ? deriveProposalBands({ liveProposals, viewerId: viewer.id, memberIds, memberCount, timeZone: group.timeZone })
-    : new Map<string, ProposalBandData>()
   const entries = composeCardRegion(
     cards.map((c) => ({ sortMs: c.event.startsAt.getTime(), data: c })),
     ideas.map((i) => ({ sortMs: i.sortMs, item: i }))
@@ -251,7 +250,6 @@ export default async function GroupPage({ params }: Props) {
             groupId={group.id}
             timeZone={group.timeZone}
             viewerHasSession={viewer !== null}
-            proposals={proposalBands}
           />
         ) : (
           /* No upcoming event or idea. The quiet bottom rung of the card

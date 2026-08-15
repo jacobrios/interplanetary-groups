@@ -215,21 +215,19 @@ export function proposalChipLabels(
   }
 }
 
-/** The proposal questions on the card notice and the detail screen (spec
- *  decision 8). Plain voice, no em dashes, deterministic, and deliberately
- *  impersonal: composed from stored rows at render, never stored, and never
- *  naming the asker's constraint (the owner's objective-copy ruling: the
- *  group answers the time, not the person). */
+/** The proposal question on the event detail screen (spec decision 8; the
+ *  confirmed card's own copy of this question retired with its footer notice
+ *  in the card-region-height slice, task 6). Plain voice, no em dashes,
+ *  deterministic, and deliberately impersonal: composed from stored rows at
+ *  render, never stored, and never naming the asker's constraint (the
+ *  owner's objective-copy ruling: the group answers the time, not the
+ *  person). */
 export function proposalBandQuestion(
   eventTitle: string,
   proposedStartsAt: Date,
   timeZone: string
 ): string {
   return `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?`
-}
-
-export function proposalNoticeQuestion(proposedStartsAt: Date, timeZone: string): string {
-  return `Move to ${formatTime(proposedStartsAt, timeZone)}?`
 }
 
 /**

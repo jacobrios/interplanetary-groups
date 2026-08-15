@@ -11,16 +11,13 @@ export type NeedLabelValue = { text: string; needsViewer: boolean }
 
 /** The dense-face ladder (spec decision 6): the label names the card's
  *  highest outstanding need, the viewer's own before anyone else's, and is
- *  absent when the card needs nothing. */
-export function eventNeedLabel(
-  viewerRsvp: "IN" | "OUT" | null,
-  openProposal: { viewerAnswer: "YES" | "KEEP" | null } | null
-): NeedLabelValue | null {
+ *  absent when the card needs nothing. A confirmed card's only outstanding
+ *  need is now the viewer's RSVP: the open-proposal branch that used to sit
+ *  here left with the card's footer notice (card-region-height slice, task
+ *  6) — the vote itself still exists, it just doesn't advertise from here
+ *  anymore. */
+export function eventNeedLabel(viewerRsvp: "IN" | "OUT" | null): NeedLabelValue | null {
   if (viewerRsvp === null) return { text: "Needs your RSVP", needsViewer: true }
-  if (openProposal) {
-    if (openProposal.viewerAnswer === null) return { text: "Needs your vote", needsViewer: true }
-    return { text: "Needs other votes", needsViewer: false }
-  }
   return null
 }
 

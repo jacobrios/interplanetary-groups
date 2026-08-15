@@ -21,7 +21,7 @@ import EventCard from "./EventCard"
 import IdeaCard from "./IdeaCard"
 import { CarouselRail } from "./CarouselRail"
 import type { RegionEntry } from "@/lib/cards/region"
-import type { IdeaItem, ProposalBandData } from "@/lib/pending/derive"
+import type { IdeaItem } from "@/lib/pending/derive"
 import { RsvpStatus } from "@prisma/client"
 
 export interface EventCardData {
@@ -43,10 +43,9 @@ interface Props {
   groupId: string
   timeZone: string
   viewerHasSession: boolean
-  proposals: Map<string, ProposalBandData>
 }
 
-export default function EventCarousel({ entries, groupId, timeZone, viewerHasSession, proposals }: Props) {
+export default function EventCarousel({ entries, groupId, timeZone, viewerHasSession }: Props) {
   const single = entries.length === 1
 
   return (
@@ -72,7 +71,6 @@ export default function EventCarousel({ entries, groupId, timeZone, viewerHasSes
               pendingCount={entry.data.pendingCount}
               viewerStatus={entry.data.viewerStatus}
               viewerHasSession={viewerHasSession}
-              proposal={proposals.get(entry.data.event.id) ?? null}
             />
           ) : (
             <IdeaCard item={entry.item} />

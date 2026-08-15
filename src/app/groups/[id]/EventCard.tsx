@@ -17,13 +17,17 @@
 //   not built (see build-notes §7 open question and §11).
 //
 // Superseded by the card-state-grammar slice (spec decisions 1-3, 8): the
-// need-label ladder now names the card's own highest outstanding ask (RSVP,
-// then an open time-change vote) above the title, and an open proposal earns
-// a recessed footer notice linking to the vote on the detail screen — the
-// card itself never renders the proposal's chips, so the carousel doesn't
-// grow a second, taller shape. The shell also stretches to the region's full
-// height (board 06) with the RSVP block bottom-anchored, so slack in a short
-// card reads as mid-card air rather than dead space below it.
+// need-label ladder names the card's own highest outstanding ask above the
+// title. The shell also stretches to the region's full height (board 06)
+// with the RSVP block bottom-anchored, so slack in a short card reads as
+// mid-card air rather than dead space below it.
+//
+// Card-region-height slice (task 6): the card stopped advertising an open
+// group time-change vote. That vote still exists, unchanged, raised and
+// chipped in the group chat and answered on the event's own detail screen
+// (ProposalSection) — this card just no longer points at it. A confirmed
+// card's need label can now only ever ask for the viewer's own RSVP, or say
+// nothing.
 
 import Link from "next/link"
 import RsvpControls from "@/components/RsvpControls"
@@ -31,7 +35,6 @@ import { NeedLabel } from "@/components/NeedLabel"
 import { formatEventDate } from "@/lib/events/format"
 import { formatCounts } from "@/lib/events/roster"
 import { eventNeedLabel } from "@/lib/cards/region"
-import type { ProposalBandData } from "@/lib/pending/derive"
 import { RsvpStatus } from "@prisma/client"
 
 interface Props {
@@ -50,10 +53,6 @@ interface Props {
   pendingCount: number
   viewerStatus: RsvpStatus | null
   viewerHasSession: boolean
-  /** The event's open group time-change vote, if any. The card never
-   *  renders its chips; the footer notice links to the vote on the detail
-   *  screen instead (spec decision 8). */
-  proposal?: ProposalBandData | null
 }
 
 export default function EventCard({
@@ -65,15 +64,12 @@ export default function EventCard({
   pendingCount,
   viewerStatus,
   viewerHasSession,
-  proposal = null,
 }: Props) {
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, timeZone)
   const countsLabel = formatCounts({ inCount, outCount, pendingCount })
-  const needLabel = viewerHasSession
-    ? eventNeedLabel(viewerStatus, proposal ? { viewerAnswer: proposal.chips.viewerAnswer } : null)
-    : null
+  const needLabel = viewerHasSession ? eventNeedLabel(viewerStatus) : null
 
   return (
     <div
@@ -189,34 +185,6 @@ export default function EventCard({
           </div>
         )}
       </div>
-
-      {/* Footer notice: an open group time-change vote gets one recessed
-          line here, never the proposal's own chips (spec decision 8) — the
-          carousel renders at its tallest card's height, and a full vote
-          panel on this card would grow that height for every card beside
-          it. Tapping through is the vote surface; ProposalSection carries
-          the actual chips on the detail screen. overflow:hidden on the card
-          root squares this line's corners against the card radius. */}
-      {viewerHasSession && proposal && (
-        <Link
-          href={`/events/${event.id}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            borderTop: "1px solid var(--hairline)",
-            backgroundColor: "var(--surface-base)",
-            padding: "10px 15px",
-            textDecoration: "none",
-          }}
-        >
-          <svg viewBox="0 0 24 24" style={{ width: 15, height: 15, flexShrink: 0 }} fill="none" stroke="var(--text-secondary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14" /></svg>
-          <span style={{ flex: "1 1 auto", minWidth: 0, fontSize: "var(--type-label)", lineHeight: "var(--leading-normal)", fontWeight: 600, color: "var(--text-secondary)" }}>
-            Time change proposed · <b style={{ color: "var(--text-primary)", fontWeight: 700 }}>{proposal.notice}</b>
-          </span>
-          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, flexShrink: 0 }} fill="none" stroke="var(--text-faint)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-        </Link>
-      )}
     </div>
   )
 }

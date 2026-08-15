@@ -8,7 +8,7 @@ import type { LiveProposal } from "@/lib/proposals/read"
 import type { FeedGauge } from "@/app/groups/[id]/GaugeChips"
 import type { FeedGroupProposal } from "@/app/groups/[id]/GroupProposalChips"
 import { buildCardTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
-import { proposalBandQuestion, proposalNoticeQuestion } from "@/lib/orbit/change-copy"
+import { proposalBandQuestion } from "@/lib/orbit/change-copy"
 import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import { formatWeekdayShort } from "@/lib/events/format"
 
@@ -65,7 +65,6 @@ export function deriveIdeaItems(input: {
 export interface ProposalBandData {
   eventId: string
   question: string // detail-screen sentence: "Move Friday beers to 8pm?"
-  notice: string // card notice's short question: "Move to 8pm?"
   chips: FeedGroupProposal
 }
 
@@ -96,7 +95,6 @@ export function deriveProposalBands(input: {
     bands.set(p.event.id, {
       eventId: p.event.id,
       question: proposalBandQuestion(p.event.title, p.proposedStartsAt, input.timeZone),
-      notice: proposalNoticeQuestion(p.proposedStartsAt, input.timeZone),
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,

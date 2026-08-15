@@ -123,12 +123,11 @@ describe("deriveProposalBands", () => {
     expect(band!.chips.viewerAnswer).toBe("KEEP")
   })
 
-  it("composes the objective question and notice from stored facts alone", () => {
+  it("composes the objective question from stored facts alone", () => {
     const band = deriveProposalBands({
       liveProposals: [proposalFixture()], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
     }).get(proposalFixture().event.id)
     expect(band!.question).toBe("Move Monday morning climb to 9am?")
-    expect(band!.notice).toBe("Move to 9am?")
   })
 
   it("ignores non-GROUP proposals", () => {
