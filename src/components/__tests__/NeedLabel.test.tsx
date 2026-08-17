@@ -20,4 +20,12 @@ describe("NeedLabel", () => {
     render(<NeedLabel value={{ text: "Needs other votes", needsViewer: false }} />)
     expect(screen.getByText("Needs other votes").style.color).toBe("var(--text-secondary)")
   })
+  it("renders as a bare, unwrapped span: the caller owns the row it sits in", () => {
+    const { container } = render(
+      <NeedLabel value={{ text: "Needs your vote", needsViewer: true }} />
+    )
+    const root = container.firstElementChild as HTMLElement
+    expect(root.tagName).toBe("SPAN")
+    expect(root.style.color).toBe("var(--action)")
+  })
 })

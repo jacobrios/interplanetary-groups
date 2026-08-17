@@ -7,8 +7,8 @@ import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
 import type { FeedGauge } from "@/app/groups/[id]/GaugeChips"
 import type { FeedGroupProposal } from "@/app/groups/[id]/GroupProposalChips"
-import { buildTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
-import { proposalBandQuestion, proposalNoticeQuestion } from "@/lib/orbit/change-copy"
+import { buildCardTallyLine, chipLabels, formatTimeLocalLabel, sparkStartInstant } from "@/lib/orbit/spark-copy"
+import { proposalBandQuestion } from "@/lib/orbit/change-copy"
 import { deriveGroupProposalTally } from "@/lib/proposals/tally"
 import { formatWeekdayShort } from "@/lib/events/format"
 
@@ -52,7 +52,7 @@ export function deriveIdeaItems(input: {
       chips: {
         id: g.id,
         orbitMessageId: g.orbitMessageId,
-        tallyLine: buildTallyLine(memberVotes, names),
+        tallyLine: buildCardTallyLine(memberVotes, names),
         labels: chipLabels(g.proposedDate, input.timeZone),
         viewerAnswer,
       },
@@ -65,16 +65,17 @@ export function deriveIdeaItems(input: {
 export interface ProposalBandData {
   eventId: string
   question: string // detail-screen sentence: "Move Friday beers to 8pm?"
-  notice: string // card notice's short question: "Move to 8pm?"
   chips: FeedGroupProposal
 }
 
 /**
- * Open group time-change proposals, keyed by the event they'd move.
- * Deliberately NOT viewer-filtered: a KEEP voter still sees the band on the
- * plan's card with their own chip selected, because the band is the vote
- * surface itself, not a to-do list that clears on answering. Only the label
- * logic elsewhere cares who has and hasn't answered.
+ * Open group time-change proposals, keyed by the event they'd move. Renders
+ * only on that event's own detail screen (card-region-height slice: the
+ * card region stopped pointing at this vote). Deliberately NOT viewer-
+ * filtered: a KEEP voter still sees the band with their own chip selected,
+ * because the band is the vote surface itself, not a to-do list that clears
+ * on answering. Only the label logic elsewhere cares who has and hasn't
+ * answered.
  */
 export function deriveProposalBands(input: {
   liveProposals: LiveProposal[]
@@ -96,7 +97,6 @@ export function deriveProposalBands(input: {
     bands.set(p.event.id, {
       eventId: p.event.id,
       question: proposalBandQuestion(p.event.title, p.proposedStartsAt, input.timeZone),
-      notice: proposalNoticeQuestion(p.proposedStartsAt, input.timeZone),
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,

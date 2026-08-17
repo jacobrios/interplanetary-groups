@@ -17,13 +17,17 @@
 //   not built (see build-notes §7 open question and §11).
 //
 // Superseded by the card-state-grammar slice (spec decisions 1-3, 8): the
-// need-label ladder now names the card's own highest outstanding ask (RSVP,
-// then an open time-change vote) above the title, and an open proposal earns
-// a recessed footer notice linking to the vote on the detail screen — the
-// card itself never renders the proposal's chips, so the carousel doesn't
-// grow a second, taller shape. The shell also stretches to the region's full
-// height (board 06) with the RSVP block bottom-anchored, so slack in a short
-// card reads as mid-card air rather than dead space below it.
+// need-label ladder names the card's own highest outstanding ask above the
+// title. The shell also stretches to the region's full height (board 06)
+// with the RSVP block bottom-anchored, so slack in a short card reads as
+// mid-card air rather than dead space below it.
+//
+// Card-region-height slice (task 6): the card stopped advertising an open
+// group time-change vote. That vote still exists, unchanged, raised and
+// chipped in the group chat and answered on the event's own detail screen
+// (ProposalSection) — this card just no longer points at it. A confirmed
+// card's need label can now only ever ask for the viewer's own RSVP, or say
+// nothing.
 
 import Link from "next/link"
 import RsvpControls from "@/components/RsvpControls"
@@ -31,7 +35,6 @@ import { NeedLabel } from "@/components/NeedLabel"
 import { formatEventDate } from "@/lib/events/format"
 import { formatCounts } from "@/lib/events/roster"
 import { eventNeedLabel } from "@/lib/cards/region"
-import type { ProposalBandData } from "@/lib/pending/derive"
 import { RsvpStatus } from "@prisma/client"
 
 interface Props {
@@ -50,10 +53,6 @@ interface Props {
   pendingCount: number
   viewerStatus: RsvpStatus | null
   viewerHasSession: boolean
-  /** The event's open group time-change vote, if any. The card never
-   *  renders its chips; the footer notice links to the vote on the detail
-   *  screen instead (spec decision 8). */
-  proposal?: ProposalBandData | null
 }
 
 export default function EventCard({
@@ -65,12 +64,12 @@ export default function EventCard({
   pendingCount,
   viewerStatus,
   viewerHasSession,
-  proposal = null,
 }: Props) {
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, timeZone)
   const countsLabel = formatCounts({ inCount, outCount, pendingCount })
+  const needLabel = viewerHasSession ? eventNeedLabel(viewerStatus) : null
 
   return (
     <div
@@ -92,14 +91,6 @@ export default function EventCard({
           both live in this shared padded wrapper instead, which is also why
           there is no separate footer band or hairline between them. */}
       <div style={{ padding: "14px 15px 13px", flex: "1 1 auto", display: "flex", flexDirection: "column" }}>
-        {viewerHasSession && (
-          <NeedLabel
-            value={eventNeedLabel(
-              viewerStatus,
-              proposal ? { viewerAnswer: proposal.chips.viewerAnswer } : null
-            )}
-          />
-        )}
         <Link
           href={`/events/${event.id}`}
           style={{
@@ -135,20 +126,50 @@ export default function EventCard({
             {venueLabel && <span> · {venueLabel}</span>}
           </p>
 
-          {/* Status line: counts, on their own steady row so a tally update
-              never reflows the metadata above it. */}
-          <p
+          {/* Status row: counts, on their own steady row so a tally update
+              never reflows the metadata above it, sharing that row with the
+              need label (task 4, mirrors IdeaCard's title row from task 3).
+              flexWrap:wrap plus the counts text's flex:1 1 auto is the whole
+              mechanism: a short counts string grows to fill the line and
+              pushes the label flush right; once the two together outgrow the
+              row (the worst case now is a large group's counts string alone,
+              since a confirmed card's need label can only ever be "Needs
+              your RSVP" or nothing, per lib/cards/region.ts), the label
+              (flexShrink:0, no room left) drops to its own line below,
+              pinned right by its wrapper's auto left margin, and the counts
+              text reclaims the full row width. Never clips: nothing here
+              fixes a height or hides overflow, staying inside the card's own
+              overflow:hidden only because the row is free to grow. Both
+              inside the Link, same as before this task, so the label joins
+              the tap target rather than shrinking it. */}
+          <div
             style={{
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              fontWeight: 700,
-              color: "var(--text-secondary)",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "baseline",
+              columnGap: "10px",
+              rowGap: "3px",
               marginTop: "0.55em",
-              fontVariantNumeric: "tabular-nums",
             }}
           >
-            {countsLabel}
-          </p>
+            <p
+              style={{
+                fontSize: "var(--type-label)",
+                lineHeight: "var(--leading-normal)",
+                fontWeight: 700,
+                color: "var(--text-secondary)",
+                fontVariantNumeric: "tabular-nums",
+                flex: "1 1 auto",
+              }}
+            >
+              {countsLabel}
+            </p>
+            {needLabel && (
+              <div style={{ flexShrink: 0, marginLeft: "auto" }}>
+                <NeedLabel value={needLabel} />
+              </div>
+            )}
+          </div>
         </Link>
 
         {/* RSVP controls — only for authenticated viewers. Bottom-anchored
@@ -165,34 +186,6 @@ export default function EventCard({
           </div>
         )}
       </div>
-
-      {/* Footer notice: an open group time-change vote gets one recessed
-          line here, never the proposal's own chips (spec decision 8) — the
-          carousel renders at its tallest card's height, and a full vote
-          panel on this card would grow that height for every card beside
-          it. Tapping through is the vote surface; ProposalSection carries
-          the actual chips on the detail screen. overflow:hidden on the card
-          root squares this line's corners against the card radius. */}
-      {viewerHasSession && proposal && (
-        <Link
-          href={`/events/${event.id}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            borderTop: "1px solid var(--hairline)",
-            backgroundColor: "var(--surface-base)",
-            padding: "10px 15px",
-            textDecoration: "none",
-          }}
-        >
-          <svg viewBox="0 0 24 24" style={{ width: 15, height: 15, flexShrink: 0 }} fill="none" stroke="var(--text-secondary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M17 3l4 4-4 4M21 7H7M7 21l-4-4 4-4M3 17h14" /></svg>
-          <span style={{ flex: "1 1 auto", minWidth: 0, fontSize: "var(--type-label)", lineHeight: "var(--leading-normal)", fontWeight: 600, color: "var(--text-secondary)" }}>
-            Time change proposed · <b style={{ color: "var(--text-primary)", fontWeight: 700 }}>{proposal.notice}</b>
-          </span>
-          <svg viewBox="0 0 24 24" style={{ width: 16, height: 16, flexShrink: 0 }} fill="none" stroke="var(--text-faint)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-        </Link>
-      )}
     </div>
   )
 }

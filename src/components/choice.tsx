@@ -117,7 +117,13 @@ export function ErrorLine({ msg, marginLeft = 0 }: { msg: string | null; marginL
 
 /** One side of the RSVP pair. ask = open question (teal border, no mark);
  *  pick = the viewer's answer (teal fill, ink, checkmark); other = the road
- *  not taken (hairline, secondary), still tappable to change the answer. */
+ *  not taken (hairline, secondary), still tappable to change the answer.
+ *
+ *  minHeight is a floor, never a fixed height (card-region-height slice,
+ *  task 5): the compact home-card caller passes "44px" to meet the tap-
+ *  target minimum, the event-detail caller passes nothing, and either way
+ *  a button whose content needs more room than the floor is still free to
+ *  grow, per the project's layout-never-clips rule. */
 export function RsvpOption({
   value,
   label,
@@ -125,6 +131,7 @@ export function RsvpOption({
   disabled,
   padding,
   radius,
+  minHeight,
 }: {
   value: string
   label: string
@@ -132,6 +139,7 @@ export function RsvpOption({
   disabled: boolean
   padding: string
   radius: string
+  minHeight?: string
 }) {
   const stateStyle = {
     ask: {
@@ -168,6 +176,9 @@ export function RsvpOption({
         fontFamily: "inherit",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.65 : 1,
+        ...(minHeight
+          ? { minHeight, display: "flex", alignItems: "center", justifyContent: "center" }
+          : {}),
         ...stateStyle,
       }}
     >

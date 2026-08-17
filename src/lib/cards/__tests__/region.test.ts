@@ -41,32 +41,17 @@ describe("composeCardRegion", () => {
 })
 
 describe("eventNeedLabel (the dense-face ladder, spec decision 6)", () => {
-  it("no RSVP yet: needs your RSVP, viewer's move, whatever the proposal state", () => {
-    expect(eventNeedLabel(null, null)).toEqual({ text: "Needs your RSVP", needsViewer: true })
-    expect(eventNeedLabel(null, { viewerAnswer: null })).toEqual({
-      text: "Needs your RSVP",
-      needsViewer: true,
-    })
+  it("no RSVP yet: needs your RSVP, viewer's move", () => {
+    expect(eventNeedLabel(null)).toEqual({ text: "Needs your RSVP", needsViewer: true })
   })
-  it("RSVP settled, proposal unanswered: needs your vote, viewer's move", () => {
-    expect(eventNeedLabel("IN", { viewerAnswer: null })).toEqual({
-      text: "Needs your vote",
-      needsViewer: true,
-    })
-  })
-  it("RSVP settled, proposal answered either way: needs other votes, not the viewer's move", () => {
-    expect(eventNeedLabel("IN", { viewerAnswer: "YES" })).toEqual({
-      text: "Needs other votes",
-      needsViewer: false,
-    })
-    expect(eventNeedLabel("OUT", { viewerAnswer: "KEEP" })).toEqual({
-      text: "Needs other votes",
-      needsViewer: false,
-    })
-  })
-  it("settled card, no open proposal: bare", () => {
-    expect(eventNeedLabel("IN", null)).toBeNull()
-    expect(eventNeedLabel("OUT", null)).toBeNull()
+  // Card-region-height slice (task 6): the open-proposal branch left with
+  // the card's footer notice. A settled RSVP now always reads bare, with no
+  // way left to ask this function about an open vote at all — the second
+  // argument that used to carry it is gone from the signature. If that
+  // branch ever came back, this is the assertion it would break.
+  it("RSVP settled: bare, regardless of any open time-change vote", () => {
+    expect(eventNeedLabel("IN")).toBeNull()
+    expect(eventNeedLabel("OUT")).toBeNull()
   })
 })
 

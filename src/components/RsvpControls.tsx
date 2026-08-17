@@ -55,6 +55,11 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
   const btnPadding = compact ? "0.375rem 0.75rem" : "0.625rem 1rem"
   const btnRadius = compact ? "24px" : "0.5rem"
   const rowGap = compact ? "0.6em" : "0.625rem"
+  // Card-region-height slice, task 5: the home card's buttons measured 36px
+  // at a 390px viewport, short of a 44px tap target. Compact only, per the
+  // slice brief; the event-detail pair (compact=false) gets no minHeight
+  // and renders exactly as it did before.
+  const btnMinHeight = compact ? "44px" : undefined
 
   const stateFor = (own: RsvpStatus): "ask" | "pick" | "other" => {
     if (optimisticStatus === null) return "ask"
@@ -78,6 +83,7 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
           disabled={isPending}
           padding={btnPadding}
           radius={btnRadius}
+          minHeight={btnMinHeight}
         />
         <RsvpOption
           value={RsvpStatus.OUT}
@@ -86,6 +92,7 @@ export default function RsvpControls({ eventId, currentStatus, compact = false, 
           disabled={isPending}
           padding={btnPadding}
           radius={btnRadius}
+          minHeight={btnMinHeight}
         />
       </div>
     </form>

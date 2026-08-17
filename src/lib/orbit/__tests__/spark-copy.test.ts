@@ -1,6 +1,7 @@
 // src/lib/orbit/__tests__/spark-copy.test.ts
 import { describe, it, expect } from "vitest"
 import {
+  buildCardTallyLine,
   buildDayCommentReply,
   buildGaugeMessage,
   buildLiveGaugeLine,
@@ -174,6 +175,57 @@ describe("buildTallyLine, the countdown", () => {
   it("does not count a different-day answer toward the bar", () => {
     const votes = [inVote("a"), { userId: "b", answer: "NOT_THAT_DAY" as const }]
     expect(buildTallyLine(votes, names)).toBe("Jacob is in so far · 1 wants a different day")
+  })
+})
+
+// The idea card's counts form: same vote rows and same one-away countdown
+// rule as buildTallyLine above, but numbers instead of names. As of the PR
+// #67 QA fix it shares buildTallyLine's "one more makes it happen" wording
+// too, and dropped the different-day clause entirely: "2 in · 1 for another
+// day · one more makes it happen" measured 334px against the card's 298px
+// ceiling, so the different-day count no longer appears on the card at all.
+// Orbit's own voice in the chat feed (buildTallyLine, tested above) is
+// untouched by this task, different-day clause included.
+describe("buildCardTallyLine, the counts form", () => {
+  const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"], ["d", "Sam"]])
+  const inVote = (userId: string) => ({ userId, answer: "IN" as const })
+  const dayVote = (userId: string) => ({ userId, answer: "NOT_THAT_DAY" as const })
+
+  it("returns the empty string when nobody has voted", () => {
+    expect(buildCardTallyLine([], names)).toBe("")
+  })
+
+  it("shows the count at one, with no countdown yet", () => {
+    expect(buildCardTallyLine([inVote("a")], names)).toBe("1 in")
+  })
+
+  it("counts down when the group is one away from the three-person bar", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b")], names))
+      .toBe("2 in · one more makes it happen")
+  })
+
+  it("stops counting down once the bar is met", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b"), inVote("c")], names)).toBe("3 in")
+  })
+
+  it("stays a plain count past the bar", () => {
+    expect(buildCardTallyLine([inVote("a"), inVote("b"), inVote("c"), inVote("d")], names))
+      .toBe("4 in")
+  })
+
+  it("never shows the different-day count, even when a different-day vote exists", () => {
+    const votes = [inVote("a"), inVote("b"), dayVote("c")]
+    expect(buildCardTallyLine(votes, names)).toBe("2 in · one more makes it happen")
+  })
+
+  it("does not count a different-day answer toward the in-count or the bar", () => {
+    const votes = [inVote("a"), dayVote("b"), dayVote("c")]
+    expect(buildCardTallyLine(votes, names)).toBe("1 in")
+  })
+
+  it("does not count a vote for someone missing from the names map", () => {
+    const votes = [inVote("a"), inVote("not-a-member")]
+    expect(buildCardTallyLine(votes, names)).toBe("1 in")
   })
 })
 

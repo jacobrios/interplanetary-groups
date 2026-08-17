@@ -429,13 +429,6 @@ export function isGaugeLive(
 
 // ── What the group reads ─────────────────────────────────────────────────────
 
-/**
- * One fixed emoji on the yes chip, not one matched to the activity. Nothing in
- * the product maps an activity to an emoji, and a table that guesses wrong
- * reads worse than one that never tries.
- */
-const CHIP_IN_EMOJI = "✋"
-
 /** Beyond this the proposed day is no longer "this <weekday>" and gets its date. */
 export const THIS_WEEK_DAYS = 7
 
@@ -493,9 +486,9 @@ export function buildGaugeMessage(
 /** The three chips. Weekday abbreviated on the third per the copy rule. */
 export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
   return {
-    in: `${CHIP_IN_EMOJI} I'm in`,
-    out: "🙏 Next time",
-    notThatDay: `📅 Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
+    in: "I'm in",
+    out: "Next time",
+    notThatDay: `Yes, can't ${formatWeekdayShort(proposedDate, timeZone)}`,
   }
 }
 
@@ -545,6 +538,45 @@ export function buildTallyLine(
   // pressure rather than information, and past the bar there is nothing left
   // to count down to.
   if (inNames.length === SPARK_THRESHOLD - 1) {
+    parts.push("one more makes it happen")
+  }
+
+  return parts.join(" · ")
+}
+
+/**
+ * The idea card's tally line: same underlying vote rows as `buildTallyLine`,
+ * a counts form instead of a named one. This is not Orbit speaking, so it
+ * carries none of Orbit's voice; it exists because the card gives this line a
+ * hard 298px ceiling and a named line wraps well before a real group fills
+ * it. Deliberately verb-free ("N in", not "N is/are in") so there is no
+ * singular/plural agreement to track.
+ *
+ * Same one-away-from-the-bar countdown as `buildTallyLine`, and as of the PR
+ * #67 QA fix the same "one more makes it happen" wording too, so a hit on
+ * three genuinely reads as turning into a real plan. The different-day
+ * clause was dropped entirely to make room: "2 in · 1 for another day · one
+ * more makes it happen" measured 334px against the card's 298px ceiling, so
+ * the different-day count no longer appears on the card at all (it still
+ * shows in chat, via `buildTallyLine`). Keep this function beside
+ * `buildTallyLine` so a future change to either tally has both forms in
+ * view.
+ */
+export function buildCardTallyLine(
+  votes: GaugeVoteLike[],
+  names: Map<string, string>
+): string {
+  const inCount = votes.filter(
+    (v) => v.answer === "IN" && names.has(v.userId)
+  ).length
+
+  const parts: string[] = []
+
+  if (inCount > 0) {
+    parts.push(`${inCount} in`)
+  }
+
+  if (inCount === SPARK_THRESHOLD - 1) {
     parts.push("one more makes it happen")
   }
 

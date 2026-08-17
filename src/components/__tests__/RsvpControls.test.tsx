@@ -76,4 +76,26 @@ describe("RsvpControls", () => {
     fireEvent.click(screen.getByRole("button", { name: "Can't make it" }))
     await waitFor(() => expect(screen.getByText("That event already ended.")).toBeDefined())
   })
+
+  // Card-region-height slice, task 5: the home card's RSVP pair measured
+  // 36px tall at a 390px viewport, short of a 44px tap target. Compact is
+  // the group-home card's variant only.
+  it("compact (the home card): both buttons carry the 44px tap-target floor", () => {
+    render(<RsvpControls eventId="e1" currentStatus={null} compact />)
+    const inBtn = screen.getByRole("button", { name: "I'm in" })
+    const outBtn = screen.getByRole("button", { name: "Can't make it" })
+    expect(inBtn.style.minHeight).toBe("44px")
+    expect(outBtn.style.minHeight).toBe("44px")
+  })
+
+  // The failure mode that matters most here: a shared component quietly
+  // widening a screen this slice never intended to touch. The event-detail
+  // screen renders RsvpControls with no `compact` prop at all.
+  it("non-compact (the event-detail screen): the floor is NOT inherited", () => {
+    render(<RsvpControls eventId="e1" currentStatus={null} />)
+    const inBtn = screen.getByRole("button", { name: "I'm in" })
+    const outBtn = screen.getByRole("button", { name: "Can't make it" })
+    expect(inBtn.style.minHeight).toBe("")
+    expect(outBtn.style.minHeight).toBe("")
+  })
 })

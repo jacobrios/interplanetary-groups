@@ -11,7 +11,6 @@ afterEach(cleanup)
 const BAND: ProposalBandData = {
   eventId: "e1",
   question: "Move Friday beers to 8pm?",
-  notice: "Move to 8pm?",
   chips: {
     id: "p1",
     orbitMessageId: "m1",
