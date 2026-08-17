@@ -3108,8 +3108,12 @@ secondary and does not earn permanent space above the fold. This dissolved the h
 briefed to solve rather than solving it.
 
 **What shipped, and what each piece was worth.** Chips lost their emoji and kept every word, 87px to
-40px. The card's tally took a counts form ("2 in · one more to go") while Orbit's spoken tally in
-chat kept its named form, 52px to 31px. Both cards' need labels left their own rows, the confirmed
+40px. The card's tally took a counts form ("2 in · one more makes it happen") while Orbit's spoken
+tally in chat kept its named form, 52px to 31px. (Corrected after PR #67 QA: the card first shipped
+as "2 in · one more to go" and dropped its different-day clause to fit the longer phrase, since "2 in
+· 1 for another day · one more makes it happen" ran past the card's 298px ceiling and a line that is
+sometimes one row and sometimes two defeats the point of this slice.) Both cards' need labels left
+their own rows, the confirmed
 card's joining the counts line and the idea card's joining the title. The RSVP pair rose to a 44px
 tap target, the round's one adopted contribution, costing 8px and free because the idea card is the
 floor. The notice was deleted, not hidden.

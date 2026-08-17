@@ -179,11 +179,13 @@ describe("buildTallyLine, the countdown", () => {
 })
 
 // The idea card's counts form: same vote rows and same one-away countdown
-// rule as buildTallyLine above, but numbers instead of names, and "one more
-// to go" instead of "one more makes it happen" (that phrase measured 355px
-// against the card's 298px ceiling). This sibling exists so the card's
-// tally line is guaranteed to fit on one line; Orbit's own voice in the chat
-// feed (buildTallyLine, tested above) is untouched by this task.
+// rule as buildTallyLine above, but numbers instead of names. As of the PR
+// #67 QA fix it shares buildTallyLine's "one more makes it happen" wording
+// too, and dropped the different-day clause entirely: "2 in · 1 for another
+// day · one more makes it happen" measured 334px against the card's 298px
+// ceiling, so the different-day count no longer appears on the card at all.
+// Orbit's own voice in the chat feed (buildTallyLine, tested above) is
+// untouched by this task, different-day clause included.
 describe("buildCardTallyLine, the counts form", () => {
   const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"], ["d", "Sam"]])
   const inVote = (userId: string) => ({ userId, answer: "IN" as const })
@@ -198,7 +200,8 @@ describe("buildCardTallyLine, the counts form", () => {
   })
 
   it("counts down when the group is one away from the three-person bar", () => {
-    expect(buildCardTallyLine([inVote("a"), inVote("b")], names)).toBe("2 in · one more to go")
+    expect(buildCardTallyLine([inVote("a"), inVote("b")], names))
+      .toBe("2 in · one more makes it happen")
   })
 
   it("stops counting down once the bar is met", () => {
@@ -210,18 +213,14 @@ describe("buildCardTallyLine, the counts form", () => {
       .toBe("4 in")
   })
 
-  it("adds the different-day count when nonzero, still counting down", () => {
+  it("never shows the different-day count, even when a different-day vote exists", () => {
     const votes = [inVote("a"), inVote("b"), dayVote("c")]
-    expect(buildCardTallyLine(votes, names)).toBe("2 in · 1 for another day · one more to go")
+    expect(buildCardTallyLine(votes, names)).toBe("2 in · one more makes it happen")
   })
 
-  it("omits the different-day clause when nobody named a different day", () => {
-    expect(buildCardTallyLine([inVote("a")], names)).not.toContain("for another day")
-  })
-
-  it("is verb-free at any count, so plurals need no agreement", () => {
-    const votes = [inVote("a"), inVote("b"), dayVote("c"), dayVote("d")]
-    expect(buildCardTallyLine(votes, names)).toBe("2 in · 2 for another day · one more to go")
+  it("does not count a different-day answer toward the in-count or the bar", () => {
+    const votes = [inVote("a"), dayVote("b"), dayVote("c")]
+    expect(buildCardTallyLine(votes, names)).toBe("1 in")
   })
 
   it("does not count a vote for someone missing from the names map", () => {
