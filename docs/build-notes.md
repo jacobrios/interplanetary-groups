@@ -3203,3 +3203,23 @@ bump.** Worth recording alongside it, because it will come up when the slice is 
 idea gauge, a time change already has a natural anchor for a nudge if one is ever wanted, since the
 event it belongs to has its own start time. That makes the deferred question smaller than it looks,
 but it is still a question, and the owner's call is that the MVP does not answer it.
+
+**Added 14 Aug 2026: the three-vote bar does not adapt to a small group, and that is deferred
+post-MVP.** `SPARK_THRESHOLD` is a hardcoded 3 and the gauge's promotion check is a flat "three or
+more yeses", with no small-group handling. The time-change vote does adapt (three, or the whole
+group when it is smaller than three); the gauge never got the equivalent. So in a two-person group
+an idea can never become an event, while Orbit says "if three are in, I'll set it up".
+
+**The owner's call: leave it, revisit post-MVP.** His reasoning, which is the product argument: a
+group of two does not need a coordinator at all, so it is not worth designing for. The engineering
+argument agrees. `reachedThreshold` receives only the votes and has no member count, so adapting the
+bar means threading that through it, its call sites, the countdown, and the endgame's
+would-have-cleared check, plus the copy in at least two of Orbit's messages that say "three" out
+loud. And it needs a floor decided first, because the same relaxation in a one-person group would
+let a founder's idea promote by themselves.
+
+**The nuance that makes deferring safe, recorded because it is the part that could change the
+answer later:** two members is a transient state every group passes through between creation and
+the third join, not only a permanent small-group case. What keeps it tolerable is that the failure
+is honest rather than silent, since Orbit states the bar out loud even when the group cannot meet
+it. If that copy ever stops naming the number, this moves from deferred to a real gap.
