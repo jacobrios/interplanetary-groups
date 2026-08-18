@@ -3255,10 +3255,31 @@ a founder who dismisses step 3 and later wants the link has to find it behind an
 Recorded as a known cost of this deletion, not as a defect, and worth revisiting if anything ever
 suggests groups are failing to grow.
 
+**What the independent review found, and the one that mattered.** Five findings, all fixed. The
+serious one: **the subline was also the link's accessible name.** The chevron cannot stand in for
+it, because `Chevron` is `aria-hidden` on the stated invariant that it always sits beside text
+naming the destination, and after this deletion it did not. Since this link is the only route in the
+whole app to the group info page, and that page is the only in-app home of the invite link, member
+management and leave-group, a screen-reader user was left with "Climbing Crew, link" as the entire
+signpost. Fixed with an `aria-label` on the link, which costs no pixels and so takes nothing back
+from the deletion; the point of the change was vertical space, never the semantic. A test asserts
+the label and was shown failing without it.
+
+The other four: the component's own comment still carried the ~24px estimate the docs had just
+corrected; CLAUDE.md said onboarding step 3 was now the "sole" place the invite link is put in front
+of a founder, which the group info page's own share button contradicts (reworded to "unprompted");
+`PageHeader`'s comment used "the group home's two-line header" as its example of growing with
+content, and that second line was the subline (the rule it illustrates is unchanged, only the
+example was stale); and the absence test was two negatives with no positive anchor, so a component
+rendering nothing at all would have passed it. Nothing was left deliberately unfixed. The review
+also recorded one thing not to "clean up" later: `flexDirection: column` on the info link is
+load-bearing for centering even with a single child.
+
 **Verification.** Baseline on main before the branch: 89 files / 905 tests green, zero skipped, no
-pre-existing failures. After: 89 files / 905 tests green, the same count, because the two subline
-assertions ("8 members · …" and the singular "1 member · …") were replaced by one asserting the
-subline is absent and one asserting the name still renders. The component test was rewritten red
+pre-existing failures. After: 89 files / 906 tests green. The two subline assertions ("8 members ·
+…" and the singular "1 member · …") were replaced by one asserting the subline is absent, and the
+review added one asserting the link still names its destination for assistive tech, so the count
+goes up by one. The component test was rewritten red
 first and shown failing against the old component before the deletion, so the new assertion could
 have failed. `tsc --noEmit` clean. eslint reports the same two pre-existing errors as main, both in
 files this change never touches (`OnboardingWizard.tsx`, `ResetInviteLink.tsx`).

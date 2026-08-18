@@ -5,8 +5,16 @@
 //
 // It carried a "N members · group info & invite link" subline until the
 // header-subline micro-PR (17 Aug 2026) deleted it: first-run information
-// that showed forever, costing ~24px of chat on every phone screen. The
-// chevron beside the name already says the title opens group info.
+// that showed forever, costing a measured 16.5px of chat on every screen
+// (the header goes 73.5px to 57px at 375px wide). The chevron beside the
+// name already says the title opens group info.
+//
+// The subline was also the link's accessible name, and the chevron cannot
+// replace it: Chevron is aria-hidden precisely because it is supposed to
+// sit beside text that names the destination. So the destination moved to
+// an aria-label on the link, which costs no pixels. Without it, the only
+// route in the whole app to group info (and therefore to the invite link,
+// member management, and leave-group) reads as "[group name], link".
 //
 // Grammar per §7, unchanged from the inline version this replaces: the Orbit
 // logo top-left is the home button; the group title plus chevron opens group
@@ -62,6 +70,7 @@ export function GroupHomeHeader({
           beside a two-line block or dropping onto its own line. */}
       <Link
         href={`/groups/${groupId}/info`}
+        aria-label={`${groupName}, group info and invite link`}
         style={{
           display: "flex",
           flexDirection: "column",
