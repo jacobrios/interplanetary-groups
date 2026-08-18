@@ -252,6 +252,9 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `endgame.ts`, guess gauge routing | Orbit's own guess never earns a second ask or guess, however it dies; only humans reset the cycle. Stays quiet. | Correct |
 | `endgame.ts`, activity-exact answered check | A pivot to a different activity does not cancel the guess; the votes were for this activity. Speaks. Watch-item. | Correct |
 | `endgame.ts`, suggested revival at a day-blocked close (added 10 Aug 2026) | A day somebody named while the gauge was live replaces the retry ask: Orbit opens that day's gauge instead of asking a question already answered. Speaks. One message either way, so Orbit's total volume is unchanged. Orbit's own guess gauge earns this too, because a person naming a day is a human resetting the clock. | Correct |
+| `proposals/endgame.ts`, lapsed close (added 18 Aug 2026) | A group time-change vote that ran out of time unanswered closes with one soft line naming the time the plan is staying at. Speaks. The asker was owed an answer, and since the tally and the card notice were both deleted, silence would leave a stalled vote with no ending anywhere. | Correct |
+| `proposals/endgame.ts`, moot close (added 18 Aug 2026) | A vote overtaken because the plan moved by some other path records SUPERSEDED and says nothing. Stays quiet. The read layer already retired the question silently the instant the plan moved; this only adds the bookkeeping row. | Correct |
+| `proposals/endgame.ts`, a close landing after the event started | The hourly cron means a close can land up to an hour late, occasionally after the event's own start. It still posts. Never-leave-a-direct-ask-hanging outranks anti-clutter here: the asker is owed an answer even a little late. Speaks. | Correct |
 
 ### Everything else that ends in silence
 
@@ -367,6 +370,12 @@ Seven High-priority items come due at the moment of the first production deploy.
 *Correction, 11 Aug 2026 (triage round two): ten items now. Same reading as above: check all of them.*
 
 *Correction, 11 Aug 2026 (joining-arc slice): ten items now. Same reading as above: check all of them.*
+
+11. **Apply migration `20260818190840_proposal_lapsed_answer` to the production database** (adds `LAPSED` to the `ProposalAnswer` enum, nothing else changes shape).
+    *Why it blocks deploy:* the time-change endgame sweep writes `answer: LAPSED` on every stalled group vote it closes, on the hourly cron. A production database without this migration fails that write on every sweep, and it fails inside the same transaction that posts Orbit's closing message, so the visible symptom is that a stalled time change simply never ends, which is the exact gap the slice exists to close.
+    *Detail:* time-change-ending slice, Task 1. Applied to dev-test only, per the two-databases rule. Additive enum value: safe to apply ahead of the code, and it must be, since a deploy of the code against an older database would fail on the first sweep.
+
+*Correction, 18 Aug 2026 (time-change-ending slice): eleven items now. Same reading as above: check all of them.*
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -3492,3 +3501,112 @@ event-copy pass's finishing number, no pre-existing failures. After: unchanged, 
 green, `tsc` clean, because the change is a reorder of two JSX blocks in a server-rendered page the
 suite cannot reach; the evidence is the rendered screen, checked at 375px against a staged group
 with an open proposal: details card, then the teal pill, then TIME CHANGE, then the roster.
+
+---
+
+## §11 entry: the time change gets an ending (18 Aug 2026)
+
+**The gap, in one sentence.** A group time-change vote could never end. Its chips already stopped
+rendering at the right moment, because liveness is derived rather than stored, but the row stayed
+unanswered forever and nobody ever heard an ending. That was tolerable while the vote carried a
+tally and the confirmed card carried a notice; the card-region-height slice removed the notice and
+the event-copy pass deleted the tally, and between them a stalled proposal became completely
+invisible. This slice closes it and says so, once.
+
+**What ships.** `ProposalAnswer` gains `LAPSED`, the vote that ran out of time unanswered.
+`runProposalEndgame` rides the existing hourly cron beside the gauge sweep. A lapsed vote records
+LAPSED and posts one soft line, "The time change didn't come together. Trivia Night is staying at
+7pm.", with the answer and the message written in one transaction so a close can never half-exist.
+A vote made moot, because the plan moved by some other path, records SUPERSEDED and says nothing.
+Plus two riders the owner approved at the go gate: the chat question ends "Move it?" instead of
+"Works for you?", and a member who has voted sees one quiet line on the event screen.
+
+**SUPERSEDED was reused rather than a second new enum value added.** It already meant "overtaken
+before the group answered", which is exactly what a moot vote is; the only difference is what did
+the overtaking (a newer proposal, or the plan moving some other way). Recorded because a future
+reader will find one enum value covering two shapes and wonder whether that was an oversight.
+
+**The two silences are different and both deliberate.** A lapsed vote speaks because somebody asked
+the group for something and is owed an answer, and because nothing else on any surface would say
+the vote ended. A moot vote stays silent because the read layer already retired the question the
+instant the plan moved, with no residue anywhere, and announcing a vote nobody could still see
+would be Orbit talking about its own bookkeeping. Both have rows in the speak-or-stay-quiet
+register above, as does the third decision here: a close landing after the event has already
+started still posts, because the cron is hourly and never-leave-a-direct-ask-hanging outranks
+anti-clutter for a question somebody actually asked.
+
+**Why the boundary is mirrored rather than restated.** `read.ts` is the single source of truth for
+when a proposal stops being answerable, and the sweep derives its own boundary as that rule's exact
+complement instead of re-deriving one. The review checked the two against each other case by case,
+including both `min(proposed, startsAt)` orderings and the equality edges, and found no state where
+the chips are dead but the sweep never closes, or where the sweep closes something still
+answerable. Tests now pin the equality instant on both sides at once: the read layer is asserted
+live at one millisecond before and empty at the instant itself, so the mirror is pinned rather than
+one half of it.
+
+**The riders, and why the acknowledgement is a rendered line and never a message.** The chat
+question asked "Works for you?", an availability question, above chips that answer a preference
+between two times; the event screen's own question already matched, so this was one surface
+disagreeing with itself. The acknowledgement ("Vote counted. If enough of the group agrees, I'll
+move it and let everyone know.") renders under the chips for a viewer who has voted, and nowhere
+else. It is not a chat message, because chip responses posting a message per response is exactly
+what the anti-clutter guardrail forbids, and it names nobody, counts nothing, and states no bar, so
+it does not smuggle back the tally the previous slice deleted on purpose.
+
+**Three implementer decisions the slice document had not settled, all upheld by the review.** Moot
+rows are swept immediately rather than waiting for the time boundary, because the read layer
+retires them the instant the plan moves and the bookkeeping row has nothing to wait for; this also
+keeps the lapse copy honest, since "staying at 7pm" is only ever posted when the prior time is
+still the event's time. `answeredAt` uses the sweep's own `now` argument rather than a fresh
+timestamp, keeping tests deterministic without mocking the clock. And there is no coarse date
+window on the candidate query, unlike the gauge sweep, because the `answer: null` filter already
+shrinks the set on every pass, while a window would add the gauge sweep's own failure mode: a cron
+outage longer than the window strands rows unclosed forever.
+
+**One behavior change nobody had written down, surfaced by the review.** Before this slice, a moot
+proposal could theoretically revive: liveness is derived, so if the plan moved away and then back
+to the original time, the question would have become answerable again. Writing SUPERSEDED forecloses
+that. It matches `read.ts`'s documented semantics ("a move by any other path silently retires the
+question") and is a hardening rather than a regression, but it was implicit and is now recorded.
+
+**A correction to this slice's own document, worth keeping.** Task 1 said to record the SUPERSEDED
+reuse "in the migration's comment". That instruction is wrong and was not followed: Prisma
+checksums applied migrations, so editing the SQL after it is applied makes the next `migrate`
+report the migration as modified. The reuse is documented in `schema.prisma`'s enum doc-comment and
+here instead. Any future slice document should say schema comment, not migration comment.
+
+**Verification.** Baseline on main at slice start: 89 files / 899 tests green, matching PR #70's
+finishing number, no pre-existing failures. Finish: **90 files / 914 tests green**, `tsc --noEmit`
+clean, eslint carrying only the same two pre-existing errors in files this slice never touched.
+The suite grew by 15: seven sweep integration tests, two copy tests, two component tests for the
+acknowledgement, and four added by the review's findings (two equality-edge, two concurrent-race).
+Every sweep test is group-scoped without exception, which is not a style preference: an unscoped
+sweep in a test writes real Orbit messages into every group in the shared dev-test database,
+permanently, as the gauge endgame learned once already.
+
+**The race was proven, not argued.** The most delicate code here is the close losing a race to a
+confirming vote. Two tests cover it: a `Promise.all` two-sweep race mirroring the gauge precedent,
+and a deterministic one that spies on the transaction to commit a CONFIRMED answer between the
+sweep's candidate read and its close write. Both assert the same three things: the loser returns
+`already_answered`, the winner's answer is never overwritten by LAPSED, and no orphaned Orbit
+message survives the rollback. Each was shown failing against a deliberately weakened guard.
+
+**The model evidence, and a finding that is not this slice's.** The recognition bench was re-run
+because the chat question's copy changed and Orbit reads its own messages as context. Full bench on
+the branch: **78/80 must-recognize, 65/65 must-stay-quiet, 10/20 ambiguous** against a standing
+baseline of 80/80, 65/65, 10/20. One case regressed, `bare-ask-no-plans`, and it is not caused by
+this slice: the intent prompt and the bench harness never import `change-copy.ts`, and that case
+has an empty calendar with no Orbit message in its history, so the changed string cannot enter its
+prompt. Confirmed by running the case on main, where it fails too (7/10 on main, 3/10 on the
+branch, both far from the 5/5 it scored twice on 17 Aug; the branch-versus-main spread is within
+noise at n=10). **The regression predates this slice and reads as model-side drift**, on a day when
+the API returned 529 overloads repeatedly. It matters because the failing behavior is a direct ask
+met with silence, which is the exact bug the 29 July recognition tune-up existed to fix. Registered
+as its own investigation, not a passenger on this PR.
+
+**Debt this slice creates or leaves standing.** The close lands on cron resolution, so it can be up
+to an hour late, and occasionally after the event itself started; accepted, same precision the
+gauge endgame accepts. Part-one VERIFY rows still linger unanswered forever, untouched by the
+sweep; invisible either way, since their chips already die at the boundary. No bump before a close,
+the owner's standing deferral from 14 Aug. And the new migration is item 11 on the pre-deploy
+checklist.
