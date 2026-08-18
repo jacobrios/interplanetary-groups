@@ -3237,9 +3237,15 @@ reader on this page.
 **The owner's reasoning, which is the part worth keeping.** It is first-run information shown
 forever, and he designs for the second and fifth use rather than the first. The chevron beside the
 name already carries the "this opens something" signal, so the subline was spending permanent
-vertical space to restate a one-time discovery. Roughly 24px of a 73.5px header, on a screen where
-the 14 Aug phone pass established that vertical space is the scarce resource and the chat is what
-pays for it.
+vertical space to restate a one-time discovery. On a screen where the 14 Aug phone pass established that vertical
+space is the scarce resource and the chat is what pays for it.
+
+**Measured, and smaller than the estimate.** The 14 Aug note put the subline at "roughly 24px of a
+73.5px header". Rendered at 375px wide, the header measures **73.5px with the subline and 57px
+without it, a 16.5px gain**, taken by re-injecting an identical span into the live header and
+re-measuring rather than by subtracting two guesses. The 73.5px total matches the phone pass
+exactly, so the delta is the part that was estimated high. Still worth taking, and it is real
+chat height, but the honest number is 16.5px.
 
 **The cost, accepted rather than overlooked.** The invite link is this product's whole distribution
 mechanism, and this header was the only place in the running app that advertised it. What makes the
