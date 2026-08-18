@@ -13,6 +13,7 @@ import {
   buildWhichPlanQuestion,
   buildWhichTimeQuestion,
   buildAlreadyAtReply,
+  buildProposalClosureMessage,
   NO_PLANS_REPLY,
 } from "../change-copy"
 
@@ -160,14 +161,17 @@ describe("group proposal copy", () => {
   const newStart = new Date("2026-07-28T14:00:00Z") // Tue 9:00am
 
   it("the question names the asker, both times, and asks the group", () => {
+    // "Move it?" echoes the chips below it ("Move to 9am" / "Keep 8am"), a
+    // preference between two times; the old "Works for you?" asked about
+    // availability, a different question (time-change-ending slice, task 5).
     const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now, null)
-    expect(q).toBe("Sam wants climbing this Tue at 9am instead of 8am. Works for you?")
+    expect(q).toBe("Sam wants climbing this Tue at 9am instead of 8am. Move it?")
   })
 
   it("the disclosure rides the question once", () => {
     const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now,
       "You said 9, and since this plan was in the morning I took that as 9am.")
-    expect(q).toContain("Works for you? You said 9,")
+    expect(q).toContain("Move it? You said 9,")
   })
 
   it("the announcement never assumes a count and owns the seeding out loud", () => {
@@ -202,6 +206,25 @@ describe("group proposal copy", () => {
       "Good news, climbing this Tue is already at 8am."
     )
     expect(NO_PLANS_REPLY).toBe("I don't see any plans on the calendar right now.")
+  })
+
+  it("the closure message is soft, names the label and the standing time, and nothing else", () => {
+    // No tally, no names, no blame: the group just hears the plan is staying put.
+    expect(buildProposalClosureMessage("climbing", oldStart, TZ)).toBe(
+      "The time change didn't come together. Climbing is staying at 8am."
+    )
+  })
+
+  it("the closure message keeps minutes and never uses an em dash", () => {
+    const body = buildProposalClosureMessage(
+      "trivia night",
+      new Date("2026-07-29T00:30:00Z"), // Tue 7:30pm Chicago
+      TZ
+    )
+    expect(body).toBe(
+      "The time change didn't come together. Trivia night is staying at 7:30pm."
+    )
+    expect(body).not.toMatch(/[–—]/)
   })
 
   it("the targetless decline drops the weekday clause", () => {

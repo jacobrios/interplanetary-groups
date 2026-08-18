@@ -1,7 +1,7 @@
 // src/app/api/cron/orbit/route.ts
 //
-// Vercel Cron endpoint for Orbit's scheduled event reconciliation and gauge
-// endgame sweep.
+// Vercel Cron endpoint for Orbit's scheduled event reconciliation, gauge
+// endgame sweep, and group time-change proposal endgame sweep.
 //
 // Vercel invokes this as HTTP GET once per hour (see vercel.json).
 // When CRON_SECRET is set, Vercel automatically sends it as
@@ -18,6 +18,7 @@
 import type { NextRequest } from "next/server"
 import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 import { runGaugeEndgame } from "@/lib/orbit/endgame"
+import { runProposalEndgame } from "@/lib/proposals/endgame"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -48,7 +49,8 @@ export async function GET(request: NextRequest): Promise<Response> {
   try {
     const results = await reconcileScheduledEvents(new Date())
     const endgame = await runGaugeEndgame(new Date())
-    return Response.json({ ok: true, results, endgame })
+    const proposalEndgame = await runProposalEndgame(new Date())
+    return Response.json({ ok: true, results, endgame, proposalEndgame })
   } catch (err) {
     console.error("[orbit-cron] sweep failed:", err)
     return new Response("Internal Server Error", { status: 500 })

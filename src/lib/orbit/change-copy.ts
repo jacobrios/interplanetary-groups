@@ -181,7 +181,7 @@ export function buildGroupProposalQuestion(
   now: Date,
   disclosure: string | null
 ): string {
-  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Works for you?`
+  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Move it?`
   return disclosure ? `${q} ${disclosure}` : q
 }
 
@@ -255,6 +255,21 @@ export function proposalBandQuestion(
  * Nothing replaces it: the chip's own checkmark confirms the vote landed, and
  * Orbit announces a passed change in the feed while every RSVP resets.
  */
+
+/**
+ * The lapsed close: what Orbit says when a group time-change vote ran out of
+ * time unanswered (the time-change-ending slice). Soft, no tally, no names,
+ * no blame: the group hears once that the plan is staying where it was, and
+ * nothing about who did or did not vote. The moot close (plan moved by some
+ * other path) says nothing at all; this builder is only for the lapse.
+ */
+export function buildProposalClosureMessage(
+  label: string,
+  priorStartsAt: Date,
+  timeZone: string
+): string {
+  return `The time change didn't come together. ${cap(label)} is staying at ${formatTime(priorStartsAt, timeZone)}.`
+}
 
 /**
  * Verify question when a request is ambiguous about which plan.
