@@ -39,15 +39,28 @@ import { prisma } from "../src/lib/prisma"
 import { createEvent } from "../src/lib/events/create"
 import { createGroupProposal } from "../src/lib/proposals/create"
 import { buildGroupProposalQuestion } from "../src/lib/orbit/change-copy"
+import { judge } from "./db-which"
 import { MessageAuthor, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
 
 const TZ = "America/Chicago"
 
-function requireDevTest() {
-  const ref = process.env.DIRECT_URL?.match(/postgres\.([a-z0-9]+):/)?.[1]
-  if (ref !== "pxbewardwvoyqqcvogel") {
-    throw new Error(`refusing to run: DIRECT_URL points at ${ref ?? "unknown"}, not dev-test`)
-  }
+/** The same ref db:which checks against (CLAUDE.md, "Two databases, never crossed"). */
+const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
+
+/**
+ * Refuses to run unless the checkout points at dev-test, on all three env
+ * sources. Uses the shared `judge` rather than a hand-rolled parse: an
+ * earlier draft of this file checked DIRECT_URL alone, which is the wrong
+ * variable to trust on its own, since the writes travel over DATABASE_URL.
+ * A mixed .env would have sailed through it.
+ */
+function requireDevTest(): void {
+  const verdict = judge(process.env, EXPECTED_DEV_TEST_REF)
+  if (verdict.ok) return
+  console.error(`STOP: this checkout is NOT confirmed to be dev-test.`)
+  for (const p of verdict.problems) console.error(`  - ${p}`)
+  console.error(`Run npm run db:which and resolve it before running this script.`)
+  process.exit(1)
 }
 
 async function main() {

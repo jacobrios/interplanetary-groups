@@ -117,7 +117,7 @@ async function makeProposal(opts: {
       groupId: groupId!,
       authorType: MessageAuthor.ORBIT,
       authorId: null,
-      body: "Sam wants climbing at 6pm instead of 8am. Works for you?",
+      body: "Sam wants climbing at 6pm instead of 8am. Move it?",
     },
   })
   const proposal = await prisma.changeProposal.create({

@@ -356,13 +356,22 @@ model ChangeProposal {
   @@index([eventId])
 }
 
-/// How a change question ended. CONFIRMED and DECLINED are part one's
-/// asker-only answers. SUPERSEDED is a question overtaken before the group
-/// answered it, which now covers two shapes: a newer proposal replacing it,
-/// and (since the time-change-ending slice) a vote made moot because the plan
-/// moved by some other path, so its prior time no longer matches the event.
+/// How a change question ended.
+///
+/// CONFIRMED is the ask going through, on BOTH kinds: part one's asker-only
+/// confirm, and a GROUP vote clearing the consensus bar (promote.ts, then
+/// move.ts, which stamps it and announces the move in the same transaction).
+/// DECLINED is VERIFY-only, the asker waving their own question away.
+///
+/// SUPERSEDED is a question overtaken before the group answered it, and it
+/// covers two shapes: a newer proposal replacing it, and (since the
+/// time-change-ending slice) a vote made moot because the plan moved by some
+/// other path, so its prior time no longer matches the event.
+///
 /// LAPSED is that slice's addition: a group vote that ran out of time
-/// unanswered, closed by the hourly sweep, and the only one Orbit speaks about.
+/// unanswered, closed by the hourly sweep. Of the two endings that sweep
+/// writes, it is the one Orbit speaks about; SUPERSEDED is silent, because
+/// the read layer had already retired that question with no residue.
 enum ProposalAnswer {
   CONFIRMED
   DECLINED

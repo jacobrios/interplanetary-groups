@@ -3625,3 +3625,20 @@ gap this slice exists to close, and the script now says so instead of asking for
 happen. Also recorded so it does not read as a bug later: Orbit names the activity label rather than
 the event title, so the closing line says "Board games" where the card says "Board Games", the same
 idiom the gauge closure uses.
+
+**What the final whole-branch review found, and the one that mattered.** Five findings, four fixed.
+The serious one was mine and was in the QA tooling, not the product: both new scripts hand-rolled a
+dev-test guard that regex-parsed `DIRECT_URL` alone, while the writes actually travel over
+`DATABASE_URL`, and the file header claimed it checked all three sources when it checked one. A
+mixed `.env` would have walked straight through it into production. Both now import `judge` from
+`db-which.ts` like every sibling script, which is the sanctioned path and exists precisely for this.
+**The lesson is not "be careful", it is "the shared guard already existed and I wrote a new one":**
+under the two-databases rule, a hand-rolled check next to a sanctioned one is a defect even when it
+happens to pass today. Also fixed: the new `ProposalAnswer` doc-comment said CONFIRMED was
+part-one-only (a passed GROUP vote stamps it too, via move.ts) and that LAPSED is the only ending
+Orbit speaks about (CONFIRMED announces the move); `qa-sweep.ts` claimed to make "the same calls the
+cron route makes" while deliberately omitting reconcile; and a new test fixture had planted a fresh
+copy of the retired "Works for you?" string. Left standing as a note: the `Promise.all` race test
+depends on both candidate reads dispatching before either commit, which it cannot enforce, so it can
+flake in principle; it mirrors the gauge sweep's accepted precedent and the deterministic spy test
+next to it is the one that actually proves the guard.
