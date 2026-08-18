@@ -161,14 +161,17 @@ describe("group proposal copy", () => {
   const newStart = new Date("2026-07-28T14:00:00Z") // Tue 9:00am
 
   it("the question names the asker, both times, and asks the group", () => {
+    // "Move it?" echoes the chips below it ("Move to 9am" / "Keep 8am"), a
+    // preference between two times; the old "Works for you?" asked about
+    // availability, a different question (time-change-ending slice, task 5).
     const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now, null)
-    expect(q).toBe("Sam wants climbing this Tue at 9am instead of 8am. Works for you?")
+    expect(q).toBe("Sam wants climbing this Tue at 9am instead of 8am. Move it?")
   })
 
   it("the disclosure rides the question once", () => {
     const q = buildGroupProposalQuestion("Sam", "climbing", newStart, oldStart, TZ, now,
       "You said 9, and since this plan was in the morning I took that as 9am.")
-    expect(q).toContain("Works for you? You said 9,")
+    expect(q).toContain("Move it? You said 9,")
   })
 
   it("the announcement never assumes a count and owns the seeding out loud", () => {

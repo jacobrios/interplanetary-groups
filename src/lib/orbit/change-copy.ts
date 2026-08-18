@@ -181,7 +181,7 @@ export function buildGroupProposalQuestion(
   now: Date,
   disclosure: string | null
 ): string {
-  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Works for you?`
+  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Move it?`
   return disclosure ? `${q} ${disclosure}` : q
 }
 

@@ -20,10 +20,12 @@
 //   → ChangeProposal (groupId) → Message (groupId) → Event (groupId)
 //   → Membership (groupId) → Group (founderId) → User
 
-import { describe, it, expect, afterEach, beforeEach } from "vitest"
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, ProposalAnswer, ProposalKind } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 import { runProposalEndgame } from "../endgame"
+import { findLiveProposals } from "../read"
 
 // Fixtures in UTC so wall time and instant read the same in assertions.
 const NOW = new Date("2099-06-10T12:00:00Z")
@@ -59,6 +61,7 @@ async function cleanup() {
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   await cleanup()
   await prisma.$disconnect()
 })
@@ -275,5 +278,143 @@ describe("runProposalEndgame", () => {
     expect(after?.answer).toBe(ProposalAnswer.LAPSED)
     expect(after?.answeredAt).toEqual(answeredAt)
     expect(await closureMessages()).toHaveLength(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // The equality edge. The sweep's boundary and the read layer's liveness rule
+  // meet at exactly now === min(proposedStartsAt, event.startsAt): read.ts uses
+  // `gt: now`, so at that instant the chips are already gone, and the sweep's
+  // `boundary > now` skip no longer holds, so it lapses at that same instant.
+  // Every other fixture in this file sits strictly on one side of the boundary,
+  // so these two tests are what would catch a future > / >= off-by-one in
+  // either file. Each one pins BOTH sides of the mirror: findLiveProposals is
+  // asserted (before the sweep writes anything) to show the proposal live one
+  // millisecond before the instant and gone at it.
+  // ---------------------------------------------------------------------------
+
+  it("lapses at the exact instant the proposed time arrives, and the read layer agrees", async () => {
+    // now === proposedStartsAt, event start still ahead.
+    const { proposal } = await makeProposal({
+      eventStartsAt: FUTURE_START,
+      priorStartsAt: FUTURE_START,
+      proposedStartsAt: NOW,
+    })
+
+    // The mirror, pinned before the sweep writes an answer: live 1ms before
+    // the instant, gone at it. (After the sweep, answer: null would hide the
+    // row from the read layer for the wrong reason.)
+    const justBefore = new Date(NOW.getTime() - 1)
+    expect(await findLiveProposals(groupId!, justBefore)).toHaveLength(1)
+    expect(await findLiveProposals(groupId!, NOW)).toHaveLength(0)
+
+    const results = await runProposalEndgame(NOW, { groupId: groupId! })
+    expect(results).toEqual([{ proposalId: proposal.id, action: "lapsed" }])
+
+    const after = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+    expect(after?.answer).toBe(ProposalAnswer.LAPSED)
+    expect(await closureMessages()).toHaveLength(1)
+  })
+
+  it("lapses at the exact instant the event starts, and the read layer agrees", async () => {
+    // now === event.startsAt, proposed time still ahead: the other arm of
+    // min(proposedStartsAt, event.startsAt).
+    const { proposal } = await makeProposal({
+      eventStartsAt: NOW,
+      priorStartsAt: NOW,
+      proposedStartsAt: FUTURE_PROPOSED,
+    })
+
+    const justBefore = new Date(NOW.getTime() - 1)
+    expect(await findLiveProposals(groupId!, justBefore)).toHaveLength(1)
+    expect(await findLiveProposals(groupId!, NOW)).toHaveLength(0)
+
+    const results = await runProposalEndgame(NOW, { groupId: groupId! })
+    expect(results).toEqual([{ proposalId: proposal.id, action: "lapsed" }])
+
+    const after = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+    expect(after?.answer).toBe(ProposalAnswer.LAPSED)
+    expect(await closureMessages()).toHaveLength(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // The lost race: "already_answered". Reachable only under concurrency (the
+  // serial second-sweep test above never gets past the answer: null candidate
+  // filter), so these two tests manufacture the race. The first mirrors the
+  // gauge sweep's concurrent-ask test (two overlapping sweeps via Promise.all);
+  // the second makes the race deterministic by intercepting $transaction, so
+  // the delicate path — AlreadyAnsweredInTx thrown inside the transaction,
+  // rolling the orphaned Orbit message back out — is exercised on every run,
+  // not only when the scheduler cooperates.
+  // ---------------------------------------------------------------------------
+
+  it("a race between two overlapping sweeps lapses once, not twice", async () => {
+    const { proposal } = await makeProposal({
+      eventStartsAt: FUTURE_START,
+      priorStartsAt: FUTURE_START,
+      proposedStartsAt: PAST_PROPOSED,
+    })
+
+    // Promise.all dispatches both candidate reads before either close commits,
+    // same technique as the gauge endgame's concurrent-ask test: both sweeps
+    // see the unanswered row, one close wins the row, the loser's conditional
+    // UPDATE matches zero rows inside its transaction and rolls back.
+    const [a, b] = await Promise.all([
+      runProposalEndgame(NOW, { groupId: groupId! }),
+      runProposalEndgame(NOW, { groupId: groupId! }),
+    ])
+    const resultA = a.find((r) => r.proposalId === proposal.id)
+    const resultB = b.find((r) => r.proposalId === proposal.id)
+    const winner = [resultA, resultB].find((r) => r?.action === "lapsed")
+    const loser = [resultA, resultB].find((r) => r?.action === "skipped")
+
+    expect(winner).toEqual({ proposalId: proposal.id, action: "lapsed" })
+    expect(loser).toEqual({
+      proposalId: proposal.id,
+      action: "skipped",
+      reason: "already_answered",
+    })
+
+    const after = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+    expect(after?.answer).toBe(ProposalAnswer.LAPSED)
+    // Exactly one closure message: the loser's orphaned message rolled back.
+    expect(await closureMessages()).toHaveLength(1)
+  })
+
+  it("a close that loses the race to a confirming vote backs off: the vote's answer stands, the message rolls back", async () => {
+    const { proposal } = await makeProposal({
+      eventStartsAt: FUTURE_START,
+      priorStartsAt: FUTURE_START,
+      proposedStartsAt: PAST_PROPOSED,
+    })
+    const confirmedAt = new Date("2099-06-10T11:59:00Z")
+
+    // Deterministic race: the sweep's candidate read has already seen
+    // answer: null; the moment it opens its close transaction, a confirming
+    // vote commits first. The spy restores itself on first use so only this
+    // one transaction is intercepted.
+    const transactionHost = prisma as unknown as {
+      $transaction: (fn: (tx: Prisma.TransactionClient) => Promise<void>) => Promise<void>
+    }
+    const realTransaction = transactionHost.$transaction.bind(prisma)
+    const txSpy = vi.spyOn(transactionHost, "$transaction").mockImplementation(async (fn) => {
+      txSpy.mockRestore()
+      await prisma.changeProposal.updateMany({
+        where: { id: proposal.id },
+        data: { answer: ProposalAnswer.CONFIRMED, answeredAt: confirmedAt },
+      })
+      return realTransaction(fn)
+    })
+
+    const results = await runProposalEndgame(NOW, { groupId: groupId! })
+    expect(results).toEqual([
+      { proposalId: proposal.id, action: "skipped", reason: "already_answered" },
+    ])
+
+    // The winning side's answer stands, untouched by the losing close.
+    const after = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+    expect(after?.answer).toBe(ProposalAnswer.CONFIRMED)
+    expect(after?.answeredAt).toEqual(confirmedAt)
+    // And no orphaned Orbit closure message survived the rollback.
+    expect(await closureMessages()).toHaveLength(0)
   })
 })

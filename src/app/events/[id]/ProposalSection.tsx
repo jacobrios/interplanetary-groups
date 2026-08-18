@@ -48,6 +48,25 @@ export default function ProposalSection({ band }: { band: ProposalBandData }) {
         {band.question}
       </p>
       <GroupProposalChips proposal={band.chips} rowMargin="10px 0 0" />
+      {band.chips.viewerAnswer !== null && (
+        // The vote-counted acknowledgement (time-change-ending slice): one
+        // quiet rendered line, never a feed message (chip responses never
+        // post a message per response). Per-viewer state, not a tally: it
+        // names nobody, counts nothing, and states no bar; the deleted tally
+        // stays deleted. Quiet by rule: meta size, secondary color, never
+        // teal (this is not an action) and never lime (that is Orbit's own).
+        <p
+          style={{
+            fontSize: "var(--type-meta)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            marginTop: 10,
+            textWrap: "pretty",
+          }}
+        >
+          Vote counted. If enough of the group agrees, I&apos;ll move it and let everyone know.
+        </p>
+      )}
     </div>
   )
 }
