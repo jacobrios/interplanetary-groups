@@ -15,8 +15,10 @@
 // chevron (spec: "the shared piece owns the bar, not the content").
 //
 // It owns no height either, so a one-line child header is one line tall and
-// the group home's two-line header is taller, and neither pays for the other
-// (CLAUDE.md: layout grows with content, never clips).
+// a header whose content wraps (a long group name) is taller, and neither
+// pays for the other (CLAUDE.md: layout grows with content, never clips).
+// The original example here was the group home's two-line header; that
+// second line was the members subline, deleted 17 Aug 2026.
 
 export default function PageHeader({
   children,

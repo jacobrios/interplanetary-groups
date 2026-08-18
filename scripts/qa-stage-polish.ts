@@ -8,8 +8,9 @@
 //
 //   - THREE upcoming events ("Saturday Climb", "Trivia Night", "Sunday Trail
 //     Run"), each with a venue, soonest first, nobody's RSVP set. This is
-//     what puts the carousel into its multi-card peek-and-dots chrome
-//     (CarouselRail.tsx) instead of the single-card layout, and leaves every
+//     what puts the carousel into its multi-card peeking layout
+//     (CarouselRail.tsx, whose dot row was deleted 17 Aug 2026) instead of
+//     the single-card one, and leaves every
 //     card's "I'm in" live and its counts line reading a pending count.
 //   - Chat messages spanning THREE distinct calendar days IN THE GROUP'S OWN
 //     TIMEZONE (America/Chicago, set explicitly below): a couple two days
@@ -222,8 +223,8 @@ async function main() {
   }
 
   // ── Three upcoming events, soonest first, each with a venue and nobody's
-  // RSVP set: the multi-card carousel's peek-and-dots chrome needs at least
-  // two cards, and three is the display cap. ────────────────────────────────
+  // RSVP set: the carousel's peek of the next card needs at least two cards,
+  // and three is the display cap. ──────────────────────────────────────────
   const climb = await createEvent({
     groupId: group.id,
     title: "Saturday Climb",

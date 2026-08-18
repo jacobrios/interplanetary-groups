@@ -102,7 +102,7 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 - **People, not counts, where identity matters.** The event detail roster shows who, by name, grouped IN / OUT / HAVEN'T REPLIED (the "WHO'S COMING" title was dropped for tightness). The compact preview card is counts-only ("4 In · 1 Out · 4 TBD": In always shown, Out only when at least one is out, TBD is the count still to reply, no names). Why counts-only on the card: names took too much vertical space, which made the preview card too tall and left too little room for the chat below it. The named roster is the right place for identity; the card's job is the gist. *(This is why the earlier composed, name-truncating status line was dropped. It is no longer used anywhere.)*
 - **Preview cards show the gist plus the primary action; the detail screen carries completeness.** Counts-only status, the short venue label (§2), and day abbreviations are all instances of one principle: brevity and real-estate discipline on the card, completeness on the detail page.
 - **Separator dots** between metadata items are slightly larger and brighter than a hairline so they read as deliberate, still subordinate to the text. Known minor tradeoff: a trailing dot can push an item to wrap one step early, leaving a little empty space on the line above. Cosmetic only, not worth a JS fix in the mockup. Optional future refinement: let a long location field wrap at its internal spaces so it fills the line above.
-- **The carousel** orders soonest-first; peek-and-dots chrome appears only with two or more cards.
+- **The carousel** orders soonest-first; the peek of the next card appears only with two or more cards. (Amended 17 Aug 2026: this read "peek-and-dots chrome" until the dot row was deleted.)
 - **Header grammar:** the Orbit logo top-left is the home button (anticipating multi-group); the group title with chevron opens group info. The Orbit-generated group emblem lives on the info page and the future multi-group home, not in the header.
 - **Event cards are tappable previews** into the detail page; the detail page is where the confirmed RSVP state and the full roster live.
 - **The event detail page is a stack of cards**, so new sections (a LOGISTICS card for travel-style events, per-person details on roster rows) slot in additively without redesign.
@@ -924,7 +924,7 @@ One finding was **not** fixed in code and was raised as a question for the produ
 - **A wrong time guess has no correction path.** If Orbit reads "at 8" as 8pm and the group meant morning, nobody can tell it otherwise; the cut "let me know and I'll change it" clause is exactly what is missing. Was already true of the scheduled path and now applies to two event sources, so it is worth more than it was. Medium, and it belongs to the change-request slice.
 - **Venue inheritance is exact-word matching.** "grab drinks" against a "beers" rhythm inherits nothing. Degrades to no venue, never to a wrong one. Low.
 - ~~**The reconcile test sweeps the whole shared dev-test database.** Its unscoped `reconcileScheduledEvents(NOW)` creates real events in every group with a rhythm and cleans up only the ones it tracks, so every run leaves residue in unrelated QA groups and inflates what a later walkthrough sees.~~ **Resolved 27 July 2026**, see the follow-up entry below.
-- **The carousel's dots have no active state.** Interim treatment, below. Low.
+- ~~**The carousel's dots have no active state.** Interim treatment, below. Low.~~ **Resolved 12 Aug 2026** by polish slice one, which gave the dots a tracked active state, and **moot as of 17 Aug 2026**, when the dot row was deleted outright (header-subline micro-PR).
 - **No server-action tests** for `gauge-vote` or `detect-spark`, matching the repo's existing shape; both are proven only by the walkthrough. Low, and named so the absence reads as consistency rather than oversight.
 
 **QA data note.** Browser verification created one "Sunday Climbers" group in dev-test via the real wizard, with four gauges (beers, breakfast, pickleball, darts), two promoted events (Beers and Pickleball), two seeded members named Maya and Jesse, and a standing Climbing Sunday whose start was deliberately moved into the past to exercise the cron. Left in place as the PR's inspectable evidence; expendable dev data thereafter. Separately, 32 duplicate 2099-dated events created by the constraint gap described above were deleted from seven dev-test groups; one such row from 21 July, predating this session, was left alone.
@@ -3223,3 +3223,99 @@ answer later:** two members is a transient state every group passes through betw
 the third join, not only a permanent small-group case. What keeps it tolerable is that the failure
 is honest rather than silent, since Orbit states the bar out loud even when the group cannot meet
 it. If that copy ever stops naming the number, this moves from deferred to a real gap.
+
+---
+
+### Micro-PR, 17 Aug 2026: the header subline goes
+
+The group home's header carried "N members · group info & invite link" under the group name from
+polish slice one until now. It is deleted, along with the `memberCount` prop that fed it and the
+page's now-unused local; the comment explaining why that count is safe to read straight off the
+already-fetched memberships moved down to the group-proposal tally, which is the only remaining
+reader on this page.
+
+**The owner's reasoning, which is the part worth keeping.** It is first-run information shown
+forever, and he designs for the second and fifth use rather than the first. The chevron beside the
+name already carries the "this opens something" signal, so the subline was spending permanent
+vertical space to restate a one-time discovery. On a screen where the 14 Aug phone pass established that vertical
+space is the scarce resource and the chat is what pays for it.
+
+**Measured, and smaller than the estimate.** The 14 Aug note put the subline at "roughly 24px of a
+73.5px header". Rendered at 375px wide, the header measures **73.5px with the subline and 57px
+without it, a 16.5px gain**, taken by re-injecting an identical span into the live header and
+re-measuring rather than by subtracting two guesses. The 73.5px total matches the phone pass
+exactly, so the delta is the part that was estimated high. Still worth taking, and it is real
+chat height, but the honest number is 16.5px.
+
+**The cost, accepted rather than overlooked.** The invite link is this product's whole distribution
+mechanism, and this header was the only place in the running app that advertised it. What makes the
+trade acceptable is that onboarding step 3 puts the link in front of a founder at the exact moment
+they first need it, and the group info page still carries it with a share button. What it does mean:
+a founder who dismisses step 3 and later wants the link has to find it behind an unlabelled chevron.
+Recorded as a known cost of this deletion, not as a defect, and worth revisiting if anything ever
+suggests groups are failing to grow.
+
+**What the independent review found, and the one that mattered.** Five findings, all fixed. The
+serious one: **the subline was also the link's accessible name.** The chevron cannot stand in for
+it, because `Chevron` is `aria-hidden` on the stated invariant that it always sits beside text
+naming the destination, and after this deletion it did not. Since this link is the only route in the
+whole app to the group info page, and that page is the only in-app home of the invite link, member
+management and leave-group, a screen-reader user was left with "Climbing Crew, link" as the entire
+signpost. Fixed with an `aria-label` on the link, which costs no pixels and so takes nothing back
+from the deletion; the point of the change was vertical space, never the semantic. A test asserts
+the label and was shown failing without it.
+
+The other four: the component's own comment still carried the ~24px estimate the docs had just
+corrected; CLAUDE.md said onboarding step 3 was now the "sole" place the invite link is put in front
+of a founder, which the group info page's own share button contradicts (reworded to "unprompted");
+`PageHeader`'s comment used "the group home's two-line header" as its example of growing with
+content, and that second line was the subline (the rule it illustrates is unchanged, only the
+example was stale); and the absence test was two negatives with no positive anchor, so a component
+rendering nothing at all would have passed it. Nothing was left deliberately unfixed. The review
+also recorded one thing not to "clean up" later: `flexDirection: column` on the info link is
+load-bearing for centering even with a single child.
+
+**Added the same day, after the owner's phone pass: the carousel's dot row goes too.** Same screen,
+same purpose, so it rides this micro-PR rather than opening a third concurrent one. His read, and it
+is the right one: **the next card already peeks past the right edge, so the dots restate a signal
+the layout is giving anyway**, and on this screen a row is the scarce thing. Measured the same way
+as the subline, by re-injecting an identical row into the live rail: the dot row costs **17px, and
+the feed gains exactly 17px** when it goes. With the subline that is **33.5px of chat back** from
+this one PR.
+
+The deletion took more than a row. `CarouselRail` tracked the snapped index off scroll position so
+the marker could never disagree with the card actually showing, which is why it was the only client
+component in the card region; with the dots gone it holds no state, no scroll listener, no ref, and
+no `snappedIndex` helper, and is a styled flex row. It also stopped being a client component, which the
+first draft of this entry got wrong: it claimed the "use client" boundary was what let the
+server-rendered cards pass through as children, and that is circular, since passing children through
+is the workaround for being a client component rather than a reason to be one. With no hook and no
+handler left, the directive was shipping a styled div to the browser to hydrate it into the same
+styled div. `cardCount` went with it, down to a `peek` boolean: the count only ever existed to size
+the dot row's array, and EventCarousel already derives the same fact for each card's width. Two of its
+four old tests were about dots and two about the snap math those dots needed; the three now assert that no dot
+row renders, that more than one card still gives a snapping scroller with a hidden scrollbar, and
+that a single card neither scrolls nor snaps, which is the behaviour a swipe carousel actually owes.
+
+**Verification.** Baseline on main before the branch: 89 files / 905 tests green, zero skipped, no
+pre-existing failures. After: 89 files / 905 tests green. The two subline assertions ("8 members ·
+…" and the singular "1 member · …") were replaced by one asserting the subline is absent, and the
+review added one asserting the link still names its destination for assistive tech, so that file
+goes up by one; `CarouselRail.test.tsx` then went from four to three when the dot row left, so the
+total lands back on 905. The component test was rewritten red
+first and shown failing against the old component before the deletion, so the new assertion could
+have failed. `tsc --noEmit` clean. eslint reports the same two pre-existing errors as main, both in
+files this change never touches (`OnboardingWizard.tsx`, `ResetInviteLink.tsx`).
+
+**One anomaly, recorded because a red run appeared and was not real.** The first full-suite run on
+this branch reported 8 failures across 4 files and took 562 seconds against a normal 175. It
+overlapped the `Stop` hook's own full-suite run from the preceding turn, and the suite talks to the
+shared dev-test database, so two concurrent runs collide. Two consecutive clean runs followed at
+normal duration. Worth knowing: a suite run started in the turn immediately after a turn ends can
+race the hook, and the resulting red is contention rather than a defect.
+
+**A number correction, since this branch is where it surfaced.** The card-region-height entry above
+records 906 tests at that slice's finish; main measures 905. Both readings are green with no
+failures, so this is a one-test bookkeeping difference (most likely a test removed during that
+branch's own QA-fix round after the entry was written), not a lost or broken test. The 905 measured
+here is the number the next slice should cross-check against.
