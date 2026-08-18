@@ -3223,3 +3223,80 @@ answer later:** two members is a transient state every group passes through betw
 the third join, not only a permanent small-group case. What keeps it tolerable is that the failure
 is honest rather than silent, since Orbit states the bar out loud even when the group cannot meet
 it. If that copy ever stops naming the number, this moves from deferred to a real gap.
+
+---
+
+### Micro-PR, 17 Aug 2026: the event-copy pass
+
+Four pieces of copy, one shared diagnosis: the product was saying the same thing twice on the same
+screen, and the second telling was the one doing damage. Three of the four were queued by the 14 Aug
+phone pass; the other two (the gauge tally's countdown and the spark message) were settled after
+that entry was written and are recorded here for the first time.
+
+**1. The time-change tally is deleted, not reworded.** It read "Casey says yes · 1 would keep it".
+The 14 Aug pass caught both halves referring to something the reader cannot see (yes to what, keep
+what) and the owner's ruling was deletion. The reasoning, which is what a future session needs when
+it is tempted to add a tally back: **a gauge tally works because its bar is simple and its news is
+good, and a time-change tally can be neither.** The rule is compound (three yeses AND more yeses
+than the people still in on the old time, or the whole group when it is smaller than three), so no
+brief line states it truthfully, and naming who wants to move someone else's plan turns a scheduling
+question into an argument with a scoreboard. **Nothing replaces it**, deliberately: the chip's own
+checkmark confirms the vote landed, and Orbit announces a passed change in the feed while every RSVP
+resets.
+
+**What went with it, because the owner asked for the trail and not just the function.**
+`buildProposalTallyLine` is gone from `change-copy.ts`, replaced by a comment explaining why not to
+write it again. `oneMoreClearsIt` is gone from `consensus.ts`: its only caller was that countdown
+clause, and a dead exported function with its own test file reads as live code. `hasConsensus`,
+`consensusFloor` and `incumbentCount` are untouched, since they decide whether a plan actually
+moves. `deriveGroupProposalTally` no longer takes `memberIds` or `memberCount`, because the
+member-filtered vote arithmetic existed only to feed the tally; it now composes two chip labels and
+the viewer's own answer. `GroupProposalTally`, the little renderer, is gone, and with it
+`MessageFeed`'s non-member branch, which had existed to show a reader who could see the group but
+not vote where things stood. That branch is unreachable today (the share-readiness wall) and there
+is no count left for it to show; if viewing is ever loosened, a non-member now sees Orbit's question
+with no answer of their own, which is the honest shape.
+
+**2. The chips name outcomes, not availability: "Move to 8pm" / "Keep 7pm".** "8pm works" reads as
+"8pm also works for me", which is an availability answer, and this vote is a preference between two
+times. A member answering one question while the product records the other is exactly the drift RSVP
+accuracy cannot afford. Both labels stay soft and neither is teal, so the teal-never-leans-an-open-
+question rule is unaffected.
+
+**3. The gauge's chat tally drops its countdown: "Sam & Jordan are in so far".** Names and the
+different-day clause stay. The principle is the one to carry forward, because it decides the next
+argument of this kind rather than just this one: **each surface states the bar exactly once.**
+Orbit's own message sits directly above this line and already says "if three are in", so the tally
+repeating it was the second telling. The idea card's tally keeps "one more makes it happen" for the
+mirror reason: nothing on the card states the bar anywhere else. That is why the two tally voices
+diverged again a week after the card-region-height slice created them, and it is not an
+inconsistency to tidy up later.
+
+**4. Orbit's spark message shortens to "Love it. Beers this Tuesday? If three are in, I'll set it
+up."** Measured at two rendered rows against three. The redundancy was asking twice: "Anyone in for
+beers this Tuesday?" and "If three of you are in" are the same question. What was cut is the
+repetition, not the warmth, which is why "Love it." and the promise both stay. The activity now
+opens a sentence so it is capitalised, which also lines it up with the idea card's own title
+("Beers?"). Untouched, and flagged rather than changed because it is out of this pass's lane: the
+wrong-day revival message still says "If three of you are in, I'll set it up.", so two Orbit
+messages now phrase the same promise two ways. **Open question for the owner rather than a silent
+fix.**
+
+**Verification.** Baseline on main at branch point: 89 files / 905 tests green, zero skipped, no
+pre-existing failures. After: 89 files / 899 tests. Six tests fewer, each traced: four asserted the
+proposal tally's own composition (the empty case, names-and-keeps, the countdown, and the component
+rendering nothing when the line was empty), and two asserted `oneMoreClearsIt`, which no longer
+exists. Every changed assertion was edited first and shown red against the old code before the
+implementation, so none of them could have passed vacuously. `tsc --noEmit` clean; eslint carries
+the same two pre-existing errors as main, in files this change never touches.
+
+**The model evidence, which this change needed and would not obviously have needed.** Orbit's
+detection reads the last twenty feed messages, Orbit's own included, so changing the spark message
+changes the context the model reasons over, and the recognition bench had that old wording hardcoded
+in ten fixtures. Run 1, before touching anything: **80/80 must-recognize, 65/65 must-stay-quiet,
+10/20 ambiguous**, reproducing the recorded baseline exactly, the same two ambiguous cases failing
+as they have since they were written. The fixtures were then updated to the copy the product now
+posts, and run 2 came back **identical on all three buckets**, same two ambiguous failures. So the
+shorter message costs nothing in recognition. Worth recording as a habit rather than a one-off: a
+bench fixture holding a copy of Orbit's own words is a flattened copy of the product, and a copy
+change that skips the bench leaves it testing a conversation that no longer happens.

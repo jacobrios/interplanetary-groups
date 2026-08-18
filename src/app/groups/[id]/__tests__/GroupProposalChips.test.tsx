@@ -2,8 +2,9 @@
 //
 // The server action is mocked: under test is the component's own contract
 // (two chips with the labels it is given, a checkmark on the optimistic /
-// persisted choice, the tally line rendered below the chips, an error line
-// when the action reports one), not the action.
+// persisted choice, an error line when the action reports one), not the
+// action. The tally line left this component in the 17 Aug event-copy pass;
+// the checkmark is now the only confirmation a vote landed.
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
@@ -22,22 +23,23 @@ afterEach(() => {
 const PROPOSAL: FeedGroupProposal = {
   id: "p1",
   orbitMessageId: "m1",
-  labels: { yes: "9am works", keep: "Keep 8am" },
-  tallyLine: "Sam says yes",
+  labels: { yes: "Move to 9am", keep: "Keep 8am" },
   viewerAnswer: null,
 }
 
 describe("GroupProposalChips", () => {
-  it("renders both chips from labels and the tally line", () => {
-    render(<GroupProposalChips proposal={PROPOSAL} />)
-    expect(screen.getByRole("button", { name: "9am works" })).toBeDefined()
+  it("renders both chips from labels, and nothing under them", () => {
+    const { container } = render(<GroupProposalChips proposal={PROPOSAL} />)
+    expect(screen.getByRole("button", { name: "Move to 9am" })).toBeDefined()
     expect(screen.getByRole("button", { name: "Keep 8am" })).toBeDefined()
-    expect(screen.getByText("Sam says yes")).toBeDefined()
+    // No tally, and nothing in its place: a vote is confirmed by its own
+    // checkmark, and a passed change is announced by Orbit in the feed.
+    expect(container.textContent).toBe("Move to 9amKeep 8am")
   })
 
   it("marks the viewer's own standing answer", () => {
     render(<GroupProposalChips proposal={{ ...PROPOSAL, viewerAnswer: "YES" }} />)
-    expect(screen.getByRole("button", { name: "✓ 9am works" })).toBeDefined()
+    expect(screen.getByRole("button", { name: "✓ Move to 9am" })).toBeDefined()
   })
 
   it("shows the error line when the action reports one", async () => {
@@ -45,21 +47,16 @@ describe("GroupProposalChips", () => {
       errors: { general: "The plan already changed, take a look up top." },
     })
     render(<GroupProposalChips proposal={PROPOSAL} />)
-    fireEvent.click(screen.getByRole("button", { name: "9am works" }))
+    fireEvent.click(screen.getByRole("button", { name: "Move to 9am" }))
     await waitFor(() =>
       expect(screen.getByText("The plan already changed, take a look up top.")).toBeDefined()
     )
   })
 
-  it("renders no tally line when it is empty", () => {
-    render(<GroupProposalChips proposal={{ ...PROPOSAL, tallyLine: "" }} />)
-    expect(screen.queryByText("Sam says yes")).toBeNull()
-  })
-
   it("reports the answer upward after a successful vote", async () => {
     const onAnswered = vi.fn()
     render(<GroupProposalChips proposal={PROPOSAL} onAnswered={onAnswered} />)
-    fireEvent.click(screen.getByRole("button", { name: "9am works" }))
+    fireEvent.click(screen.getByRole("button", { name: "Move to 9am" }))
     await waitFor(() => expect(onAnswered).toHaveBeenCalledWith("YES"))
   })
 
@@ -69,7 +66,7 @@ describe("GroupProposalChips", () => {
       errors: { general: "The plan already changed, take a look up top." },
     })
     render(<GroupProposalChips proposal={PROPOSAL} onAnswered={onAnswered} />)
-    fireEvent.click(screen.getByRole("button", { name: "9am works" }))
+    fireEvent.click(screen.getByRole("button", { name: "Move to 9am" }))
     await waitFor(() =>
       expect(screen.getByText("The plan already changed, take a look up top.")).toBeDefined()
     )

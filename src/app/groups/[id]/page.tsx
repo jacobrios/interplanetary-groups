@@ -167,22 +167,19 @@ export default async function GroupPage({ params }: Props) {
     .map((p) => {
       // Shared with the event detail screen's own proposal vote via
       // deriveGroupProposalTally, so the chat feed and that screen can
-      // never disagree about the same proposal's tally. (The card region
+      // never disagree about the same proposal's chips. (The card region
       // itself no longer renders this vote at all, since the card-region-
       // height slice removed its pointer to it.)
-      const tally = deriveGroupProposalTally({
+      const chips = deriveGroupProposalTally({
         proposal: p,
         viewerId: viewer?.id ?? null,
-        memberIds,
-        memberCount: group.memberships.length,
         timeZone: group.timeZone,
       })
       return {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
-        labels: tally.labels,
-        tallyLine: tally.tallyLine,
-        viewerAnswer: tally.viewerAnswer,
+        labels: chips.labels,
+        viewerAnswer: chips.viewerAnswer,
       }
     })
 

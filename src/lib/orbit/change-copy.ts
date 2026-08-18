@@ -202,7 +202,15 @@ export function buildConsensusAnnouncement(
 }
 
 /**
- * Chip labels for a consensus proposal: soft on both sides, mirroring the change request chips.
+ * Chip labels for a consensus proposal: the two outcomes, symmetric, each
+ * echoing the question above them.
+ *
+ * The yes chip read `${time} works` until the event-copy pass (17 Aug 2026).
+ * That is an availability answer ("8pm also works for me") and this vote is a
+ * preference between two times, which is a different question; a member
+ * answering the first one while the product records the second is the kind of
+ * mismatch RSVP accuracy cannot afford. Soft on both sides still holds: neither
+ * label pushes, and neither is teal.
  */
 export function proposalChipLabels(
   proposedStartsAt: Date,
@@ -210,7 +218,7 @@ export function proposalChipLabels(
   timeZone: string
 ): { yes: string; keep: string } {
   return {
-    yes: `${formatTime(proposedStartsAt, timeZone)} works`,
+    yes: `Move to ${formatTime(proposedStartsAt, timeZone)}`,
     keep: `Keep ${formatTime(priorStartsAt, timeZone)}`,
   }
 }
@@ -230,24 +238,23 @@ export function proposalBandQuestion(
   return `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?`
 }
 
-/**
- * The tally line for a consensus proposal: names for yeses, count for keeps,
- * countdown only when one more vote would settle it. Empty until someone votes.
+/*
+ * A consensus proposal has NO tally line. Deleted 17 Aug 2026 (event-copy
+ * pass), and deliberately not replaced.
+ *
+ * It read "Casey says yes · 1 would keep it", and both halves referred to
+ * nothing a reader could see: yes to what, keep what. Rewording was drafted
+ * and rejected on the reasoning worth keeping here, because this is where
+ * someone would come to add it back: a gauge tally works because its bar is
+ * simple and the news is good, and a time-change tally cannot be either. The
+ * rule is compound (three yeses AND more yeses than the people still in on the
+ * old time, or the whole group when it is smaller than three), so no brief line
+ * states it truthfully; and naming who wants to move someone else's plan turns
+ * a scheduling question into an argument with a scoreboard.
+ *
+ * Nothing replaces it: the chip's own checkmark confirms the vote landed, and
+ * Orbit announces a passed change in the feed while every RSVP resets.
  */
-export function buildProposalTallyLine(
-  yesNames: string[],
-  keepCount: number,
-  oneMore: boolean
-): string {
-  if (yesNames.length === 0 && keepCount === 0) return ""
-  const parts: string[] = []
-  if (yesNames.length === 1) parts.push(`${yesNames[0]} says yes`)
-  else if (yesNames.length > 1)
-    parts.push(`${yesNames.slice(0, -1).join(", ")} & ${yesNames.at(-1)} say yes`)
-  if (keepCount > 0) parts.push(`${keepCount} would keep it`)
-  if (oneMore) parts.push("one more makes it happen")
-  return parts.join(" · ")
-}
 
 /**
  * Verify question when a request is ambiguous about which plan.

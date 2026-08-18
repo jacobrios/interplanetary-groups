@@ -133,13 +133,16 @@ describe("buildGaugeMessage, part two", () => {
 
   it("makes the promise it can now keep", () => {
     const msg = buildGaugeMessage("beers", FRI, TZ, WED, null)
-    expect(msg).toBe("Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.")
+    // Shortened by the event-copy pass (17 Aug 2026): two rendered rows on a
+    // phone against three. "Anyone in for X?" and "If three are in" were
+    // asking the same question twice; the politeness was never the length.
+    expect(msg).toBe("Love it. Beers this Friday? If three are in, I'll set it up.")
   })
 
   it("owns up to a guessed half of the day, before the promise", () => {
     const msg = buildGaugeMessage("pickleball", FRI, TZ, WED, "You said 8, so I'm taking that as 8pm.")
     expect(msg).toBe(
-      "Love it. Anyone in for pickleball this Friday? You said 8, so I'm taking that as 8pm. If three of you are in, I'll set it up."
+      "Love it. Pickleball this Friday? You said 8, so I'm taking that as 8pm. If three are in, I'll set it up."
     )
   })
 
@@ -154,22 +157,28 @@ describe("buildGaugeMessage, part two", () => {
   })
 })
 
-describe("buildTallyLine, the countdown", () => {
-  const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"]])
+describe("buildTallyLine, which no longer counts down", () => {
+  const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"], ["d", "Sam"]])
   const inVote = (userId: string) => ({ userId, answer: "IN" as const })
 
-  it("counts down when the group is one away", () => {
+  // Each surface states the bar exactly once (event-copy pass, 17 Aug 2026).
+  // Orbit's own message directly above this line already says "if three are
+  // in", so the tally repeating it in chat was the second telling. The card
+  // keeps its countdown because nothing on the card says the bar otherwise.
+  it("names who is in and stops there, even one away from the bar", () => {
     expect(buildTallyLine([inVote("a"), inVote("b")], names))
-      .toBe("Jacob & Maya are in so far · one more makes it happen")
+      .toBe("Jacob & Maya are in so far")
   })
 
   it("stays quiet at one, where the countdown would be pressure", () => {
     expect(buildTallyLine([inVote("a")], names)).toBe("Jacob is in so far")
   })
 
-  it("stops counting down once the bar is met", () => {
-    expect(buildTallyLine([inVote("a"), inVote("b"), inVote("c")], names))
-      .not.toContain("makes it happen")
+  it("carries no countdown at any count", () => {
+    for (const n of [1, 2, 3, 4]) {
+      const votes = ["a", "b", "c", "d"].slice(0, n).map(inVote)
+      expect(buildTallyLine(votes, names)).not.toContain("makes it happen")
+    }
   })
 
   it("does not count a different-day answer toward the bar", () => {
@@ -184,8 +193,10 @@ describe("buildTallyLine, the countdown", () => {
 // too, and dropped the different-day clause entirely: "2 in · 1 for another
 // day · one more makes it happen" measured 334px against the card's 298px
 // ceiling, so the different-day count no longer appears on the card at all.
-// Orbit's own voice in the chat feed (buildTallyLine, tested above) is
-// untouched by this task, different-day clause included.
+// The two tallies diverged again on 17 Aug 2026: the chat form dropped its
+// countdown (Orbit's message above it already states the bar) while this
+// card form kept one (nothing on the card states it). Two tally voices by
+// design; see the describe above.
 describe("buildCardTallyLine, the counts form", () => {
   const names = new Map([["a", "Jacob"], ["b", "Maya"], ["c", "Jesse"], ["d", "Sam"]])
   const inVote = (userId: string) => ({ userId, answer: "IN" as const })

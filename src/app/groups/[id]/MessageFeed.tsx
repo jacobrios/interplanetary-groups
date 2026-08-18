@@ -20,7 +20,7 @@ import { MessageAuthor } from "@prisma/client"
 import { Fragment, useRef, useEffect } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
-import GroupProposalChips, { GroupProposalTally, type FeedGroupProposal } from "./GroupProposalChips"
+import GroupProposalChips, { type FeedGroupProposal } from "./GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { groupMessagesByDay } from "@/lib/messages/day-groups"
 
@@ -237,22 +237,20 @@ export default function MessageFeed({
                         rendering it here is already asker-only. */}
                     {proposal && viewerId !== null && <ProposalChips proposal={proposal} />}
 
-                    {/* Defense in depth, not a live path today: the group page
-                        now walls every non-member before this feed ever renders
-                        (share-readiness slice), so the GroupProposalTally branch
-                        below cannot currently be reached. It stays, with its prop
-                        chain, so the feed still renders correctly for a
-                        non-member if viewing the group is ever deliberately
-                        loosened: the tally is feed history for everyone, but
-                        only a member gets a vote (the chips), so a non-member
-                        would see the standing count with no chips rather than
-                        the chips vanishing along with the tally. */}
-                    {groupProposal &&
-                      (viewerIsMember ? (
-                        <GroupProposalChips proposal={groupProposal} />
-                      ) : (
-                        <GroupProposalTally line={groupProposal.tallyLine} />
-                      ))}
+                    {/* Member-gated, and now nothing renders for anyone else.
+                        The non-member branch used to show the standing tally
+                        without the chips, so a reader who could see the group
+                        but not vote still saw where things stood; the tally
+                        was deleted whole in the event-copy pass, and there is
+                        no count left to show. Not a live path either way: the
+                        group page walls every non-member before this feed
+                        renders (share-readiness slice). If viewing is ever
+                        deliberately loosened, a non-member sees Orbit's
+                        question with no answer of their own, which is the
+                        honest shape. */}
+                    {groupProposal && viewerIsMember && (
+                      <GroupProposalChips proposal={groupProposal} />
+                    )}
                   </div>
                 )}
 

@@ -1,8 +1,12 @@
 // src/app/groups/[id]/GroupProposalChips.tsx
 "use client"
 
-// The two one-tap answers under Orbit's group consensus question, plus the
-// quiet tally line that sits below them showing where things stand.
+// The two one-tap answers under Orbit's group consensus question.
+//
+// A quiet tally line sat below them until the event-copy pass (17 Aug 2026)
+// deleted it, with nothing in its place: the checkmark on the chosen chip is
+// the confirmation that a vote landed, and Orbit announces a passed change in
+// the feed. Reasoning in lib/orbit/change-copy.ts.
 //
 // Unlike ProposalChips (the asker-only confirm/decline for part one), this
 // vote is a standing member answer that the bar can clear or fail to clear
@@ -20,15 +24,13 @@
 import { useOptimistic, useTransition, useState } from "react"
 import { ProposalVoteAnswer } from "@prisma/client"
 import { proposalVoteAction } from "@/app/actions/proposal-vote"
-import { ChoiceChip, ChipRow, ErrorLine, TallyLine } from "@/components/choice"
+import { ChoiceChip, ChipRow, ErrorLine } from "@/components/choice"
 
 export interface FeedGroupProposal {
   id: string
   /** The Orbit message this renders under. */
   orbitMessageId: string
   labels: { yes: string; keep: string }
-  /** Composed server-side; empty string until someone has voted. */
-  tallyLine: string
   viewerAnswer: ProposalVoteAnswer | null
 }
 
@@ -36,11 +38,10 @@ interface Props {
   proposal: FeedGroupProposal
   onAnswered?: (answer: ProposalVoteAnswer) => void
   /**
-   * Whether this chip row (and its tally line) sits under Orbit's avatar and
-   * should indent past it (the feed). False renders both flush left instead,
-   * for surfaces with no avatar to align under (the pending panel —
-   * pending-surface.css's `.pd-row .gh-qr` override, `9px 0 0`). Defaults to
-   * the feed's indented value so nothing in the chat feed changes.
+   * Whether this chip row sits under Orbit's avatar and should indent past it
+   * (the feed). False renders it flush left instead, for a surface with no
+   * avatar to align under (the event screen's band). Defaults to the feed's
+   * indented value so nothing in the chat feed changes.
    */
   indentPastAvatar?: boolean
   /** Card surfaces (IdeaCard, ProposalBand) pass an explicit margin; feed callers leave it unset. */
@@ -100,30 +101,6 @@ export default function GroupProposalChips({
           />
         ))}
       </ChipRow>
-
-      {/* Where things stand, below the chips (mirrors GaugeTally inside the
-          bubble; here it sits under the row since the chips, not a bubble,
-          are what it's reporting on). Exported separately so MessageFeed can
-          render it alone for a non-member, who gets the tally as feed history
-          but no vote of their own. */}
-      <GroupProposalTally line={proposal.tallyLine} indentPastAvatar={rowMargin ? false : indentPastAvatar} />
     </form>
   )
-}
-
-/**
- * The quiet tally line. Rendered only once somebody has voted: an empty bar
- * is noise the chips already imply. Exported so MessageFeed can render it on
- * its own for a non-member (tally is feed history for everyone; the vote
- * itself is member-gated).
- */
-export function GroupProposalTally({
-  line,
-  indentPastAvatar = true,
-}: {
-  line: string
-  /** See the same-named prop on GroupProposalChips: keeps this tally's indent matching its chip row's. */
-  indentPastAvatar?: boolean
-}) {
-  return <TallyLine line={line} marginLeft={indentPastAvatar ? 37 : 0} />
 }

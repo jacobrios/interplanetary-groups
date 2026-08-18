@@ -409,7 +409,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Friday? If three are in, I'll set it up.",
         minutesAgo: 60 * 26 - 1,
       },
       {
@@ -433,7 +433,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Friday? If three are in, I'll set it up.",
         minutesAgo: 60 * 26 - 1,
       },
       {
@@ -457,7 +457,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Friday? If three are in, I'll set it up.",
         minutesAgo: 60 * 26 - 1,
       },
       {
@@ -481,7 +481,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers friday anyone?", minutesAgo: 60 * 26 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Friday? If three are in, I'll set it up.",
         minutesAgo: 60 * 26 - 1,
       },
       {
@@ -505,7 +505,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],
@@ -524,7 +524,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],
@@ -543,7 +543,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],
@@ -562,7 +562,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],
@@ -592,7 +592,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],
@@ -611,7 +611,7 @@ export const CASES: EvalCase[] = [
       { author: "Priya", body: "beers saturday anyone?", minutesAgo: 60 * 20 },
       {
         author: "Orbit",
-        body: "Love it. Anyone in for beers this Saturday? If three of you are in, I'll set it up.",
+        body: "Love it. Beers this Saturday? If three are in, I'll set it up.",
         minutesAgo: 60 * 20 - 1,
       },
     ],

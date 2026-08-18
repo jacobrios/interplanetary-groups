@@ -141,9 +141,9 @@ describe("deriveProposalBands", () => {
     expect(bands.size).toBe(0)
   })
 
-  it("a member IN rsvp feeds oneMoreClearsIt through to the proposal tally", () => {
+  it("hands the band chip labels and the viewer's answer, and no tally line", () => {
     const p = proposalFixture({
-      votes: [pvote("user-maya", "YES", "Maya"), pvote("user-jesse", "YES", "Jesse")],
+      votes: [pvote("user-maya", "YES", "Maya"), pvote(VIEWER, "KEEP", "You")],
       event: {
         id: "e1", title: "Monday morning climb",
         startsAt: new Date("2026-08-17T13:00:00.000Z"),
@@ -153,6 +153,9 @@ describe("deriveProposalBands", () => {
     const bands = deriveProposalBands({
       liveProposals: [p], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
     })
-    expect(bands.get("e1")!.chips.tallyLine).toContain("one more")
+    const chips = bands.get("e1")!.chips
+    expect(chips.labels.yes).toMatch(/^Move to /)
+    expect(chips.viewerAnswer).toBe("KEEP")
+    expect("tallyLine" in chips).toBe(false)
   })
 })

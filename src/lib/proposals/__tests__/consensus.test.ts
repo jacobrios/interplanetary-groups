@@ -3,7 +3,6 @@ import {
   consensusFloor,
   incumbentCount,
   hasConsensus,
-  oneMoreClearsIt,
 } from "../consensus"
 
 const input = (
@@ -70,17 +69,3 @@ describe("hasConsensus", () => {
   })
 })
 
-describe("oneMoreClearsIt", () => {
-  it("fires when any additional yes would clear both conditions", () => {
-    expect(oneMoreClearsIt(input(["a", "b"], [], [], 5))).toBe(true)
-  })
-  it("does not fire when only an incumbent's switch could clear it", () => {
-    // 3 yes already; incumbent 3: a non-incumbent 4th yes gives 4 > 3, fires.
-    expect(oneMoreClearsIt(input(["a", "b", "c"], [], ["d", "e", "f"], 8))).toBe(true)
-    // 2 yes, incumbent 3: a 3rd yes gives 3 > 3 false unless the yes is d/e/f.
-    expect(oneMoreClearsIt(input(["a", "b"], [], ["d", "e", "f"], 8))).toBe(false)
-  })
-  it("stays quiet once the bar is met (announcement's job, not countdown's)", () => {
-    expect(oneMoreClearsIt(input(["a", "b", "c"], [], [], 5))).toBe(false)
-  })
-})

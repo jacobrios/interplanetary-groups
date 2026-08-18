@@ -10,7 +10,6 @@ import {
   buildGroupProposalQuestion,
   buildConsensusAnnouncement,
   proposalChipLabels,
-  buildProposalTallyLine,
   buildWhichPlanQuestion,
   buildWhichTimeQuestion,
   buildAlreadyAtReply,
@@ -179,22 +178,14 @@ describe("group proposal copy", () => {
     expect(a).not.toMatch(/three|Three|3/)
   })
 
-  it("chips are soft on both sides", () => {
+  it("chips name the two outcomes, not availability", () => {
+    // "9am works" reads as "9am also works for me", which is an availability
+    // answer; the vote is a preference between two times. Symmetric verbs,
+    // echoing the question above them (event-copy pass, 17 Aug 2026).
     expect(proposalChipLabels(newStart, oldStart, TZ)).toEqual({
-      yes: "9am works",
+      yes: "Move to 9am",
       keep: "Keep 8am",
     })
-  })
-
-  it("tally: names for yeses, count for keeps, countdown only when told", () => {
-    expect(buildProposalTallyLine([], 0, false)).toBe("")
-    expect(buildProposalTallyLine(["Sam"], 0, false)).toBe("Sam says yes")
-    expect(buildProposalTallyLine(["Sam", "Priya"], 1, false)).toBe(
-      "Sam & Priya say yes · 1 would keep it"
-    )
-    expect(buildProposalTallyLine(["Sam", "Priya"], 0, true)).toBe(
-      "Sam & Priya say yes · one more makes it happen"
-    )
   })
 
   it("verify questions are concrete about what they know", () => {

@@ -480,7 +480,15 @@ export function buildGaugeMessage(
 
   // The promise part one deliberately withheld. It can be kept now: three
   // yeses create the event in the same tap that produces the third one.
-  return `Love it. Anyone in for ${activity} ${when}?${disclosureClause} If three of you are in, I'll set it up.`
+  //
+  // Shortened 17 Aug 2026 (event-copy pass), measured at two rendered rows on
+  // a phone against three. "Anyone in for beers this Friday?" and "If three
+  // of you are in" were asking the same question twice; what got cut is the
+  // redundancy, not the warmth, which is why "Love it." and the promise both
+  // stay. The activity now opens a sentence, so it is capitalised, which also
+  // matches the idea card's own title ("Beers?").
+  const opener = activity.charAt(0).toUpperCase() + activity.slice(1)
+  return `Love it. ${opener} ${when}?${disclosureClause} If three are in, I'll set it up.`
 }
 
 /** The three chips. Weekday abbreviated on the third per the copy rule. */
@@ -501,8 +509,14 @@ export function chipLabels(proposedDate: Date, timeZone: string): ChipLabels {
  * plus a count, and people who want a different day are shown because hiding
  * them would misrepresent the group to itself.
  *
- * Counts down only at one away from the bar. Part one had no countdown at any
- * count, because nothing happened when the bar was met.
+ * Carries no countdown, as of the event-copy pass (17 Aug 2026). Part one had
+ * none because nothing happened at the bar; part two added one because the
+ * third yes creates the event; this pass removed it again on a rule that is
+ * about surfaces rather than about the countdown itself: EACH SURFACE STATES
+ * THE BAR EXACTLY ONCE. Orbit's own message sits directly above this line in
+ * the feed and already says "if three are in", so the tally saying it too was
+ * the second telling. `buildCardTallyLine` keeps its countdown for the mirror
+ * reason: nothing on the idea card states the bar anywhere else.
  */
 export function buildTallyLine(
   votes: GaugeVoteLike[],
@@ -532,13 +546,6 @@ export function buildTallyLine(
     parts.push(
       `${differentDay} ${differentDay === 1 ? "wants" : "want"} a different day`
     )
-  }
-
-  // One away, and only one away: at zero or one the countdown would be
-  // pressure rather than information, and past the bar there is nothing left
-  // to count down to.
-  if (inNames.length === SPARK_THRESHOLD - 1) {
-    parts.push("one more makes it happen")
   }
 
   return parts.join(" · ")
