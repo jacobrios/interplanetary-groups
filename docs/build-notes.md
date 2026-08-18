@@ -3223,3 +3223,49 @@ answer later:** two members is a transient state every group passes through betw
 the third join, not only a permanent small-group case. What keeps it tolerable is that the failure
 is honest rather than silent, since Orbit states the bar out loud even when the group cannot meet
 it. If that copy ever stops naming the number, this moves from deferred to a real gap.
+
+---
+
+### Micro-PR, 17 Aug 2026: the header subline goes
+
+The group home's header carried "N members · group info & invite link" under the group name from
+polish slice one until now. It is deleted, along with the `memberCount` prop that fed it and the
+page's now-unused local; the comment explaining why that count is safe to read straight off the
+already-fetched memberships moved down to the group-proposal tally, which is the only remaining
+reader on this page.
+
+**The owner's reasoning, which is the part worth keeping.** It is first-run information shown
+forever, and he designs for the second and fifth use rather than the first. The chevron beside the
+name already carries the "this opens something" signal, so the subline was spending permanent
+vertical space to restate a one-time discovery. Roughly 24px of a 73.5px header, on a screen where
+the 14 Aug phone pass established that vertical space is the scarce resource and the chat is what
+pays for it.
+
+**The cost, accepted rather than overlooked.** The invite link is this product's whole distribution
+mechanism, and this header was the only place in the running app that advertised it. What makes the
+trade acceptable is that onboarding step 3 puts the link in front of a founder at the exact moment
+they first need it, and the group info page still carries it with a share button. What it does mean:
+a founder who dismisses step 3 and later wants the link has to find it behind an unlabelled chevron.
+Recorded as a known cost of this deletion, not as a defect, and worth revisiting if anything ever
+suggests groups are failing to grow.
+
+**Verification.** Baseline on main before the branch: 89 files / 905 tests green, zero skipped, no
+pre-existing failures. After: 89 files / 905 tests green, the same count, because the two subline
+assertions ("8 members · …" and the singular "1 member · …") were replaced by one asserting the
+subline is absent and one asserting the name still renders. The component test was rewritten red
+first and shown failing against the old component before the deletion, so the new assertion could
+have failed. `tsc --noEmit` clean. eslint reports the same two pre-existing errors as main, both in
+files this change never touches (`OnboardingWizard.tsx`, `ResetInviteLink.tsx`).
+
+**One anomaly, recorded because a red run appeared and was not real.** The first full-suite run on
+this branch reported 8 failures across 4 files and took 562 seconds against a normal 175. It
+overlapped the `Stop` hook's own full-suite run from the preceding turn, and the suite talks to the
+shared dev-test database, so two concurrent runs collide. Two consecutive clean runs followed at
+normal duration. Worth knowing: a suite run started in the turn immediately after a turn ends can
+race the hook, and the resulting red is contention rather than a defect.
+
+**A number correction, since this branch is where it surfaced.** The card-region-height entry above
+records 906 tests at that slice's finish; main measures 905. Both readings are green with no
+failures, so this is a one-test bookkeeping difference (most likely a test removed during that
+branch's own QA-fix round after the entry was written), not a lost or broken test. The 905 measured
+here is the number the next slice should cross-check against.

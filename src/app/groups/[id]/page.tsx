@@ -78,10 +78,6 @@ export default async function GroupPage({ params }: Props) {
   const upcomingEvents = await findUpcomingEvents(group.id, new Date(), CARD_REGION_CAP)
 
   const allMembers = group.memberships.map((m) => m.user)
-  // Current members only, same source as the info page's tally: a removed
-  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
-  // already-fetched include never needs a second query to stay accurate.
-  const memberCount = group.memberships.length
   const cards: EventCardData[] = await Promise.all(
     upcomingEvents.map(async (event) => {
       const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id } })
@@ -174,6 +170,10 @@ export default async function GroupPage({ params }: Props) {
         proposal: p,
         viewerId: viewer?.id ?? null,
         memberIds,
+        // Current members only, same source as the info page's tally: a
+        // removed membership row is hard-deleted (remove-member.ts,
+        // leave.ts), so this already-fetched include stays accurate with
+        // no second query.
         memberCount: group.memberships.length,
         timeZone: group.timeZone,
       })
@@ -230,10 +230,11 @@ export default async function GroupPage({ params }: Props) {
           Task 4) rather than PageHeader arranging it: PageHeader owns the
           bar's rules and nothing about content, which is what keeps it from
           ever growing an opinion about this title chevron. GroupHomeHeader
-          carries the heading-weight name, Orbit's real avatar, and the
-          designed "N members · group info & invite link" subline. */}
+          carries the heading-weight name and Orbit's real avatar; its
+          members subline was deleted 17 Aug 2026 to give the chat its
+          height back. */}
       <PageHeader>
-        <GroupHomeHeader groupId={group.id} groupName={group.name} memberCount={memberCount} />
+        <GroupHomeHeader groupId={group.id} groupName={group.name} />
       </PageHeader>
 
       {/* ── Pinned card region ─────────────────────────────────────────── */}
