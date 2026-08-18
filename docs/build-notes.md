@@ -3341,3 +3341,23 @@ posts, and run 2 came back **identical on all three buckets**, same two ambiguou
 shorter message costs nothing in recognition. Worth recording as a habit rather than a one-off: a
 bench fixture holding a copy of Orbit's own words is a flattened copy of the product, and a copy
 change that skips the bench leaves it testing a conversation that no longer happens.
+
+**Postscript, 17 Aug 2026: the owner's phone pass on this branch, and one thing it changed my mind
+about.** He tapped "Move to 8pm" on the event screen and reported the plan had not moved. It had
+not, and that is correct: the group had five members, so the floor was three, and only Casey's
+auto-seeded yes plus his own were on the board. Verified against the rows rather than reasoned
+about, since a QA report of "nothing happened" deserves a look at the data:
+`Casey=YES, Rae=KEEP, Jacob=YES`, two against a floor of three, proposal answer still null. **The
+error was mine, in the QA script, which told him to expect a move; I had computed the arithmetic
+from a different staged group where a third yes already existed.**
+
+**What that accidentally proved is worth more than the mistake.** He tapped, his vote landed, and
+the screen told him nothing: not that it registered in a way he trusted, and not that the bar was
+two short. He asked for a short confirmation ("thanks for your vote, we'll let you know if the time
+changes") and queued it post-MVP himself. Recorded here with a recommendation attached, because this
+entry is the one that deleted the tally: **the deletion is right and the confirmation gap is real,
+and they are the same gap.** The tally was the only thing on that surface saying where a vote stood,
+so removing it makes a one-line acknowledgement worth more than it was worth a week ago. My
+recommendation is that it lands inside "the time change gets an ending" rather than post-MVP, since
+that slice is already opening this exact surface and a close with no bump needs something to say
+when a member votes into it. The owner's call, and his stated position is post-MVP.
