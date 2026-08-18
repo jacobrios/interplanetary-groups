@@ -45,10 +45,13 @@ interface Props {
 }
 
 export default function EventCarousel({ entries, groupId, timeZone, viewerHasSession }: Props) {
+  // One fact, derived once and handed both to the rail and to each card's
+  // width: is there a second card to peek at. (It used to be two predicates
+  // off the same source, `single` here and `cardCount > 1` inside the rail.)
   const single = entries.length === 1
 
   return (
-    <CarouselRail cardCount={entries.length}>
+    <CarouselRail peek={!single}>
       {entries.map((entry) => (
         <div
           key={entry.kind === "event" ? entry.data.event.id : entry.item.key}

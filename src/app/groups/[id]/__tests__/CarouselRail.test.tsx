@@ -13,7 +13,7 @@ describe("CarouselRail", () => {
   // rail held state at all.
   it("renders no dot row under the cards", () => {
     const { container } = render(
-      <CarouselRail cardCount={3}>
+      <CarouselRail peek>
         <div>a</div>
         <div>b</div>
         <div>c</div>
@@ -25,7 +25,7 @@ describe("CarouselRail", () => {
 
   it("still swipes: more than one card makes the rail a snapping scroller", () => {
     const { container } = render(
-      <CarouselRail cardCount={3}>
+      <CarouselRail peek>
         <div>a</div>
         <div>b</div>
         <div>c</div>
@@ -39,7 +39,7 @@ describe("CarouselRail", () => {
 
   it("a single card neither scrolls nor snaps", () => {
     const { container } = render(
-      <CarouselRail cardCount={1}>
+      <CarouselRail peek={false}>
         <div>a</div>
       </CarouselRail>
     )

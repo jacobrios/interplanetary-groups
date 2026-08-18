@@ -1,8 +1,15 @@
-"use client"
-
 // The horizontal rail the event cards sit on: one swipe per card, snapped.
 //
-// It carried a row of dots under the cards until 17 Aug 2026, tracking the
+// A SERVER component, as of 17 Aug 2026, which it had not been since it was
+// split out of EventCarousel. The split existed because the dot row tracked
+// the snapped card off scroll position, and that needed the client; with the
+// dots gone this holds no state, no handler and no hook, so "use client" was
+// shipping a styled div to the browser to hydrate it into the same styled
+// div. It stays a separate file rather than folding back into EventCarousel,
+// because the rail's own rules (snap, hidden scrollbar, peek padding, the
+// gap constant) are the thing that must not drift.
+//
+// It also carried a row of dots under the cards until 17 Aug 2026, tracking the
 // snapped index off scroll position so the marker could never disagree with
 // what was actually showing. They are gone, by the owner's call, and the
 // reasoning is worth keeping: the next card already peeks past the right
@@ -19,8 +26,11 @@
 // without noticing this note.
 const RAIL_GAP_REM = 0.625
 
-export function CarouselRail({ cardCount, children }: { cardCount: number; children: React.ReactNode }) {
-  const peek = cardCount > 1
+// `peek` rather than a card count: the count itself is nobody's business
+// here any more (it fed the dot row's `Array.from`), and a caller passing a
+// number that this file immediately reduces to one boolean is a second
+// derivation of a fact EventCarousel already holds.
+export function CarouselRail({ peek, children }: { peek: boolean; children: React.ReactNode }) {
 
   return (
     <div
