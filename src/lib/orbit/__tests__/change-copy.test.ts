@@ -13,6 +13,7 @@ import {
   buildWhichPlanQuestion,
   buildWhichTimeQuestion,
   buildAlreadyAtReply,
+  buildProposalClosureMessage,
   NO_PLANS_REPLY,
 } from "../change-copy"
 
@@ -202,6 +203,25 @@ describe("group proposal copy", () => {
       "Good news, climbing this Tue is already at 8am."
     )
     expect(NO_PLANS_REPLY).toBe("I don't see any plans on the calendar right now.")
+  })
+
+  it("the closure message is soft, names the label and the standing time, and nothing else", () => {
+    // No tally, no names, no blame: the group just hears the plan is staying put.
+    expect(buildProposalClosureMessage("climbing", oldStart, TZ)).toBe(
+      "The time change didn't come together. Climbing is staying at 8am."
+    )
+  })
+
+  it("the closure message keeps minutes and never uses an em dash", () => {
+    const body = buildProposalClosureMessage(
+      "trivia night",
+      new Date("2026-07-29T00:30:00Z"), // Tue 7:30pm Chicago
+      TZ
+    )
+    expect(body).toBe(
+      "The time change didn't come together. Trivia night is staying at 7:30pm."
+    )
+    expect(body).not.toMatch(/[–—]/)
   })
 
   it("the targetless decline drops the weekday clause", () => {

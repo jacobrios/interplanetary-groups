@@ -257,6 +257,21 @@ export function proposalBandQuestion(
  */
 
 /**
+ * The lapsed close: what Orbit says when a group time-change vote ran out of
+ * time unanswered (the time-change-ending slice). Soft, no tally, no names,
+ * no blame: the group hears once that the plan is staying where it was, and
+ * nothing about who did or did not vote. The moot close (plan moved by some
+ * other path) says nothing at all; this builder is only for the lapse.
+ */
+export function buildProposalClosureMessage(
+  label: string,
+  priorStartsAt: Date,
+  timeZone: string
+): string {
+  return `The time change didn't come together. ${cap(label)} is staying at ${formatTime(priorStartsAt, timeZone)}.`
+}
+
+/**
  * Verify question when a request is ambiguous about which plan.
  * Concrete-first: names the plans the group has, never an open question.
  */

@@ -356,10 +356,18 @@ model ChangeProposal {
   @@index([eventId])
 }
 
+/// How a change question ended. CONFIRMED and DECLINED are part one's
+/// asker-only answers. SUPERSEDED is a question overtaken before the group
+/// answered it, which now covers two shapes: a newer proposal replacing it,
+/// and (since the time-change-ending slice) a vote made moot because the plan
+/// moved by some other path, so its prior time no longer matches the event.
+/// LAPSED is that slice's addition: a group vote that ran out of time
+/// unanswered, closed by the hourly sweep, and the only one Orbit speaks about.
 enum ProposalAnswer {
   CONFIRMED
   DECLINED
   SUPERSEDED
+  LAPSED
 }
 
 /// VERIFY is part one's asker-only clarifying question. GROUP is part two's
