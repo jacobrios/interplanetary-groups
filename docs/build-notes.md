@@ -3610,3 +3610,18 @@ gauge endgame accepts. Part-one VERIFY rows still linger unanswered forever, unt
 sweep; invisible either way, since their chips already die at the boundary. No bump before a close,
 the owner's standing deferral from 14 Aug. And the new migration is item 11 on the pre-deploy
 checklist.
+
+**Walkthrough evidence, and one thing it corrected.** Staged two votes in one group and swept by
+hand rather than waiting an hour for the cron: a live vote six days out, and one whose proposed time
+had passed two hours ago while its event was still three days away, which is the ordering that
+proves the boundary is `min(proposed, startsAt)` rather than the event date. After one sweep: the
+dead vote recorded LAPSED with exactly one Orbit line ("The time change didn't come together. Board
+games is staying at 2:41pm."), the live vote's row was untouched with its chips still working, and a
+second sweep produced nothing new. The acknowledgement line renders under the chips only after the
+viewer votes, on the live vote's screen. **The correction:** the first draft of the QA script told
+the owner to vote on the lapsing event before sweeping, which is impossible: its chips were already
+gone, because liveness is derived and they stop at the boundary on their own. That is exactly the
+gap this slice exists to close, and the script now says so instead of asking for a click that cannot
+happen. Also recorded so it does not read as a bug later: Orbit names the activity label rather than
+the event title, so the closing line says "Board games" where the card says "Board Games", the same
+idiom the gauge closure uses.
