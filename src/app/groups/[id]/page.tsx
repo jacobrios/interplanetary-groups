@@ -5,7 +5,7 @@
 // Layout:
 //   Header: Orbit logo (home button) · group title + chevron (→ group info)
 //   Pinned card region, soonest first, mingling confirmed events and ideas
-//   still being gauged, in a peek-and-dots carousel (up to CARD_REGION_CAP)
+//   still being gauged, in a peeking swipe carousel (up to CARD_REGION_CAP)
 //   Chat feed (own scroll region, --type-body 17px, never shrunk)
 //   Pinned message input
 //
@@ -16,8 +16,9 @@
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
 //
-// The carousel's peek geometry and active dot are finished chrome per the
-// visual-polish Claude Design handoff (round4-base.css); see CarouselRail.tsx.
+// The carousel's peek geometry is finished chrome per the visual-polish
+// Claude Design handoff (round4-base.css); its dot row was deleted 17 Aug
+// 2026. See CarouselRail.tsx.
 
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
@@ -78,10 +79,6 @@ export default async function GroupPage({ params }: Props) {
   const upcomingEvents = await findUpcomingEvents(group.id, new Date(), CARD_REGION_CAP)
 
   const allMembers = group.memberships.map((m) => m.user)
-  // Current members only, same source as the info page's tally: a removed
-  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
-  // already-fetched include never needs a second query to stay accurate.
-  const memberCount = group.memberships.length
   const cards: EventCardData[] = await Promise.all(
     upcomingEvents.map(async (event) => {
       const rsvps = await prisma.rsvp.findMany({ where: { eventId: event.id } })
@@ -121,6 +118,13 @@ export default async function GroupPage({ params }: Props) {
   // too. Removing this filter would not open a hole, it would just let a
   // stale or removed member's name show up in a feed they no longer belong
   // to.
+  // Current members only, same source as the info page's tally: a removed
+  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
+  // already-fetched include stays accurate with no second query. (This note
+  // has moved twice as its readers were deleted: it sat on a memberCount
+  // local until the header subline went, then on the proposal tally's
+  // memberCount until the tally line went. The gauge tallies below are its
+  // remaining reader.)
   const memberIds = new Set(group.memberships.map((m) => m.userId))
 
   // A bumped gauge gets a second FeedGauge entry sharing its id but pointing
@@ -227,10 +231,11 @@ export default async function GroupPage({ params }: Props) {
           Task 4) rather than PageHeader arranging it: PageHeader owns the
           bar's rules and nothing about content, which is what keeps it from
           ever growing an opinion about this title chevron. GroupHomeHeader
-          carries the heading-weight name, Orbit's real avatar, and the
-          designed "N members · group info & invite link" subline. */}
+          carries the heading-weight name and Orbit's real avatar; its
+          members subline was deleted 17 Aug 2026 to give the chat its
+          height back. */}
       <PageHeader>
-        <GroupHomeHeader groupId={group.id} groupName={group.name} memberCount={memberCount} />
+        <GroupHomeHeader groupId={group.id} groupName={group.name} />
       </PageHeader>
 
       {/* ── Pinned card region ─────────────────────────────────────────── */}

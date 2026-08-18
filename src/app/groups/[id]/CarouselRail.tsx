@@ -1,93 +1,51 @@
-"use client"
+// The horizontal rail the event cards sit on: one swipe per card, snapped.
+//
+// A SERVER component, as of 17 Aug 2026, which it had not been since it was
+// split out of EventCarousel. The split existed because the dot row tracked
+// the snapped card off scroll position, and that needed the client; with the
+// dots gone this holds no state, no handler and no hook, so "use client" was
+// shipping a styled div to the browser to hydrate it into the same styled
+// div. It stays a separate file rather than folding back into EventCarousel,
+// because the rail's own rules (snap, hidden scrollbar, peek padding, the
+// gap constant) are the thing that must not drift.
+//
+// It also carried a row of dots under the cards until 17 Aug 2026, tracking the
+// snapped index off scroll position so the marker could never disagree with
+// what was actually showing. They are gone, by the owner's call, and the
+// reasoning is worth keeping: the next card already peeks past the right
+// edge, which says "there is more" without spending a row, so the dots were
+// restating a signal the layout already gave. On this screen a row is the
+// scarce thing (the card-region-height slice measured why). Deleting them
+// also took the component's only piece of state, its scroll listener, and
+// the snappedIndex helper: nothing else needed to know which card was up.
 
-import { useRef, useState } from "react"
-
-// One swipe per card; the active dot is derived from scroll position, so it
-// can never disagree with what is actually snapped. Dots are chrome, not a
-// control surface (handoff item 02): swipe is the interaction.
-export function snappedIndex(scrollLeft: number, cardWidth: number, gap: number): number {
-  // Guard on cardWidth alone, not cardWidth + gap: a zero-width card (before
-  // layout has run, e.g. jsdom or the first paint) must snap safely to 0
-  // even though the gap by itself is a positive, nonzero step.
-  if (cardWidth <= 0) return 0
-  const step = cardWidth + gap
-  return Math.round(scrollLeft / step)
-}
-
-// Single source of truth for the rail's card gap, so the inline style below
-// and the scroll-math constant used by handleScroll can never drift apart
-// (fix-wave 1 Finding 7b: the two used to be independently hardcoded, one in
-// rem and the other in a bare px literal, which only agreed at the default
-// root font size).
+// Single source of truth for the rail's card gap (fix-wave 1 Finding 7b:
+// this used to be hardcoded twice, once in rem and once as a bare px
+// literal, which only agreed at the default root font size). One copy now,
+// but kept named rather than inlined so a second reader can never reappear
+// without noticing this note.
 const RAIL_GAP_REM = 0.625
 
-export function CarouselRail({ cardCount, children }: { cardCount: number; children: React.ReactNode }) {
-  const [active, setActive] = useState(0)
-  const railRef = useRef<HTMLDivElement>(null)
-  const peek = cardCount > 1
-  // Rem honors the device text setting, so the gap's actual pixel size can
-  // change at enlarged text. Read it back off the DOM (the value the browser
-  // actually resolved RAIL_GAP_REM to) rather than re-deriving it from a
-  // root-font-size assumption, so scroll math matches layout even if root
-  // font size or the constant itself ever changes.
-  const gapPx = () => {
-    const rail = railRef.current
-    const computed = rail ? parseFloat(getComputedStyle(rail).columnGap) : NaN
-    return Number.isFinite(computed) ? computed : RAIL_GAP_REM * 16
-  }
-
-  const handleScroll = () => {
-    const rail = railRef.current
-    if (!rail) return
-    const card = rail.firstElementChild as HTMLElement | null
-    const width = card ? card.offsetWidth : 0
-    const index = Math.min(cardCount - 1, Math.max(0, snappedIndex(rail.scrollLeft, width, gapPx())))
-    setActive(index)
-  }
-
-  // Clamp rather than trust the last scroll-derived value: if a card drops
-  // out from under the viewer while they're on the last card, `active` can
-  // point past the new last index until the next scroll event, which would
-  // render no dot as active at all.
-  const activeIndex = Math.min(active, Math.max(0, cardCount - 1))
+// `peek` rather than a card count: the count itself is nobody's business
+// here any more (it fed the dot row's `Array.from`), and a caller passing a
+// number that this file immediately reduces to one boolean is a second
+// derivation of a fact EventCarousel already holds.
+export function CarouselRail({ peek, children }: { peek: boolean; children: React.ReactNode }) {
 
   return (
-    <div>
-      <div
-        ref={railRef}
-        onScroll={peek ? handleScroll : undefined}
-        className={peek ? "scrollbar-hidden" : undefined}
-        style={{
-          display: "flex",
-          gap: `${RAIL_GAP_REM}rem`,
-          overflowX: peek ? "auto" : "visible",
-          scrollSnapType: peek ? "x mandatory" : undefined,
-          scrollPaddingLeft: peek ? 16 : undefined,
-          padding: peek ? "0 16px" : undefined,
-          scrollbarWidth: peek ? "none" : undefined,
-        }}
-      >
-        {children}
-      </div>
-      {peek ? (
-        <div
-          aria-hidden="true"
-          style={{ display: "flex", justifyContent: "center", gap: 6, paddingTop: 11 }}
-        >
-          {Array.from({ length: cardCount }, (_, i) => (
-            <i
-              key={i}
-              data-dot
-              style={{
-                width: i === activeIndex ? 17 : 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: i === activeIndex ? "var(--text-primary)" : "var(--hairline)",
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
+    <div
+      className={peek ? "scrollbar-hidden" : undefined}
+      style={{
+        display: "flex",
+        gap: `${RAIL_GAP_REM}rem`,
+        overflowX: peek ? "auto" : "visible",
+        scrollSnapType: peek ? "x mandatory" : undefined,
+        scrollPaddingLeft: peek ? 16 : undefined,
+        padding: peek ? "0 16px" : undefined,
+        scrollbarWidth: peek ? "none" : undefined,
+      }}
+    >
+      {children}
     </div>
   )
 }

@@ -1,8 +1,20 @@
 // src/app/groups/[id]/GroupHomeHeader.tsx
 //
 // The group home's header row, extracted out of page.tsx (visual-polish
-// slice, Task 4) so it can carry the designed heading-weight name and the
-// members subline that were drawn in the walkthrough but never built.
+// slice, Task 4) so it can carry the designed heading-weight name.
+//
+// It carried a "N members · group info & invite link" subline until the
+// header-subline micro-PR (17 Aug 2026) deleted it: first-run information
+// that showed forever, costing a measured 16.5px of chat on every screen
+// (the header goes 73.5px to 57px at 375px wide). The chevron beside the
+// name already says the title opens group info.
+//
+// The subline was also the link's accessible name, and the chevron cannot
+// replace it: Chevron is aria-hidden precisely because it is supposed to
+// sit beside text that names the destination. So the destination moved to
+// an aria-label on the link, which costs no pixels. Without it, the only
+// route in the whole app to group info (and therefore to the invite link,
+// member management, and leave-group) reads as "[group name], link".
 //
 // Grammar per §7, unchanged from the inline version this replaces: the Orbit
 // logo top-left is the home button; the group title plus chevron opens group
@@ -16,11 +28,9 @@ import { OrbitMark } from "@/components/OrbitMark"
 export function GroupHomeHeader({
   groupId,
   groupName,
-  memberCount,
 }: {
   groupId: string
   groupName: string
-  memberCount: number
 }) {
   return (
     <div
@@ -46,7 +56,7 @@ export function GroupHomeHeader({
         <OrbitMark size={28} label={null} />
       </Link>
 
-      {/* Group name + members subline + chevron → group info.
+      {/* Group name + chevron → group info.
           The name does NOT get whiteSpace: nowrap (fix round 1): the design
           board drew this with one short placeholder name, but the standing
           rule wins over the board here ("layout grows with content, never
@@ -60,6 +70,7 @@ export function GroupHomeHeader({
           beside a two-line block or dropping onto its own line. */}
       <Link
         href={`/groups/${groupId}/info`}
+        aria-label={`${groupName}, group info and invite link`}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -92,17 +103,6 @@ export function GroupHomeHeader({
           >
             <Chevron direction="right" />
           </span>
-        </span>
-        <span
-          style={{
-            fontSize: "var(--type-eyebrow)",
-            color: "var(--text-secondary)",
-            fontWeight: 500,
-            marginTop: 2,
-            letterSpacing: ".02em",
-          }}
-        >
-          {`${memberCount} ${memberCount === 1 ? "member" : "members"} · group info & invite link`}
         </span>
       </Link>
 

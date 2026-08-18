@@ -6,28 +6,46 @@ import { GroupHomeHeader } from "@/app/groups/[id]/GroupHomeHeader"
 afterEach(cleanup)
 
 describe("GroupHomeHeader", () => {
-  it("renders the group name and the members subline inside the info link", () => {
-    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" memberCount={8} />)
+  it("renders the group name inside the info link", () => {
+    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" />)
     expect(screen.getByText("Climbing Crew")).toBeDefined()
-    expect(screen.getByText("8 members · group info & invite link")).toBeDefined()
     const link = screen.getByRole("link", { name: /Climbing Crew/ })
     expect(link.getAttribute("href")).toBe("/groups/g1/info")
   })
 
-  it("uses the singular for a group of one", () => {
-    render(<GroupHomeHeader groupId="g1" groupName="Solo" memberCount={1} />)
-    expect(screen.getByText("1 member · group info & invite link")).toBeDefined()
+  // The subline ("N members · group info & invite link") was deleted: it is
+  // first-run information that showed forever, and the chevron beside the
+  // name already says the title opens group info. The positive assertion is
+  // deliberate: two negatives alone would pass on a component that rendered
+  // nothing at all.
+  it("carries no members subline under the name", () => {
+    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" />)
+    expect(screen.getByText("Climbing Crew")).toBeDefined()
+    expect(screen.queryByText(/member/)).toBeNull()
+    expect(screen.queryByText(/invite link/)).toBeNull()
+  })
+
+  // What the subline was also doing, and what the chevron cannot do: naming
+  // the destination for a screen reader. Chevron is aria-hidden, so without
+  // this label the app's only route to group info reads as "Climbing Crew,
+  // link".
+  it("names the destination for assistive tech", () => {
+    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" />)
+    const link = screen.getByRole("link", {
+      name: "Climbing Crew, group info and invite link",
+    })
+    expect(link.getAttribute("href")).toBe("/groups/g1/info")
   })
 
   it("keeps the home button labeled Home", () => {
-    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" memberCount={8} />)
+    render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" />)
     const home = screen.getByLabelText("Home")
     expect(home.getAttribute("href")).toBe("/")
   })
 
   it("lets a long name wrap instead of clipping (fix round 1)", () => {
     const longName = "A".repeat(120)
-    render(<GroupHomeHeader groupId="g1" groupName={longName} memberCount={8} />)
+    render(<GroupHomeHeader groupId="g1" groupName={longName} />)
     const nameEl = screen.getByText(longName)
     expect(nameEl.style.whiteSpace).not.toBe("nowrap")
   })
