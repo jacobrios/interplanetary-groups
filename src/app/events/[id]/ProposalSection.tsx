@@ -1,9 +1,11 @@
 // src/app/events/[id]/ProposalSection.tsx
 // The open time-change vote, on the plan it is about (spec decision 8,
-// round-6 variant A): placed by the caller between the details card and the
-// Add to calendar button, because it amends the time the calendar would
-// save. The question is deterministic and deliberately impersonal: the
-// group answers the time, never the asker's circumstances. The shell matches
+// round-6 variant A): placed by the caller below the Add to calendar button
+// as of 17 Aug 2026 (calendar-placement micro-PR; it originally sat between
+// the details card and the button, an order that made the button read as
+// saving the proposed time). The question is deterministic and deliberately
+// impersonal: the group answers the time, never the asker's circumstances.
+// The shell matches
 // the detail screen's own card idiom (rem-based radius/padding, 0.75rem gap)
 // rather than the carousel's px-based one, so it reads as a shipped
 // detail-screen card, not a transplanted carousel piece.

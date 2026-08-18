@@ -3457,3 +3457,38 @@ so removing it makes a one-line acknowledgement worth more than it was worth a w
 recommendation is that it lands inside "the time change gets an ending" rather than post-MVP, since
 that slice is already opening this exact surface and a close with no bump needs something to say
 when a member votes into it. The owner's call, and his stated position is post-MVP.
+
+---
+
+### Micro-PR, 17 Aug 2026: "Add to calendar" moves above the time-change vote
+
+One reorder on the event screen, queued by the 14 Aug phone pass: the calendar button now sits
+directly below the details card, above the TIME CHANGE block, instead of below it. "Top of the
+event screen" from the queue was read as above-the-vote rather than above-the-details-card, since
+a save button ahead of the details it saves would trade one scope confusion for another; assumption
+stated in chat before building.
+
+**Postscript, 18 Aug 2026: that assumption was questioned and then ratified, so it is now a
+decision, not a reading.** At PR review the owner recalled the intent as literally above the
+details card. The concern raised against that placement: it makes an export action the first thing
+on the screen, before the plan it exports, and it pushes the details card, which carries the RSVP
+pair, one block down on every visit to promote a button most members tap once. The owner chose to
+keep the as-built order (details card, then the pill, then the vote). Do not re-derive from the
+phrase "top of the event screen" in the queue or the 14 Aug postscript; this postscript supersedes
+that wording.
+
+**The old order was mechanism-true and read wrong, which is the pattern worth keeping.** The
+original comment placed the vote first "because a vote here amends the very time that button would
+save", which is a fact about the mechanism. But ordering implies scope: sitting below the proposal,
+the button read as saving the PROPOSED time, when it always builds the file fresh from the current
+stored plan. The button now sits with the card whose time it actually saves, and the vote reads as
+its own matter below. Putting the button inside the details card was the stronger semantic answer
+and stays deliberately not taken ("we can always complicate our lives later"). Nothing about the
+button's behavior changed: a tap after a passed change still carries the moved time, because the
+file is built from the stored plan at each tap.
+
+**Verification.** Baseline on main at branch start: 89 files / 899 tests green, matching the
+event-copy pass's finishing number, no pre-existing failures. After: unchanged, 89 files / 899
+green, `tsc` clean, because the change is a reorder of two JSX blocks in a server-rendered page the
+suite cannot reach; the evidence is the rendered screen, checked at 375px against a staged group
+with an open proposal: details card, then the teal pill, then TIME CHANGE, then the roster.

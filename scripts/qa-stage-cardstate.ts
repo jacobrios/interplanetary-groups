@@ -23,8 +23,10 @@
 //   2. An OPEN group time-change proposal on that event: Casey asks to push
 //      it from 7pm to 8pm (her message auto-seeds her own YES vote inside
 //      createGroupProposal), and Rae explicitly votes to keep 7pm. That's
-//      what puts the vote on the event's detail screen, between the details
-//      card and "Add to calendar". (It also put a "Time change proposed"
+//      what puts the vote on the event's detail screen, below "Add to
+//      calendar" (calendar-placement micro-PR, 17 Aug 2026; it sat between
+//      the details card and the button before that). (It also put a "Time
+//      change proposed"
 //      notice on the card's footer until the card-region-height slice
 //      removed it, and a tally line under the chips until the event-copy
 //      pass deleted that.)
@@ -204,7 +206,7 @@ async function main() {
           "Join through inviteUrl as a brand-new member (that real session becomes the 5th member and the viewer).",
           "Load homeUrl. The rail should show the beers idea card first (earlier date), then Trivia Night, with a teal \"Needs your RSVP\" on Trivia Night and a teal \"Needs your vote\" on the beers idea, both unanswered.",
           "Trivia Night's card should NOT mention the time change at all (the card-region-height slice removed that footer notice); the ask lives in chat.",
-          "Open eventUrl directly to see the group vote (\"Move to 8pm\" / \"Keep 7pm\") sitting between the details card and \"Add to calendar\", with no tally line under the chips (event-copy pass).",
+          "Open eventUrl directly to see the group vote (\"Move to 8pm\" / \"Keep 7pm\") sitting below \"Add to calendar\" (which now follows the details card directly), with no tally line under the chips (event-copy pass).",
         ],
       },
       null,

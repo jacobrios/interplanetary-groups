@@ -170,22 +170,34 @@ export default async function EventPage({ params }: Props) {
           )}
         </div>
 
-        {/* ── Open time-change vote ─────────────────────────────────────── */}
-        {/* Placed here, ahead of "Add to calendar", because a vote here
-            amends the very time that button would save: the calendar file
-            should never be built from a plan the group might be about to
-            move. The compact card's footer notice (EventCard.tsx) links
-            here; this is where the actual chips live. */}
-        {proposalBand && <ProposalSection band={proposalBand} />}
-
         {/* ── Add to calendar ────────────────────────────────────────── */}
         {/* The screen's own primary action, its own region: teal, separate
             from the details card's teal "I'm in" (per-element teal rule).
             Reuses the same 1rem gap that already separates the details card
-            from the roster card below. */}
+            from the roster card below.
+
+            Above the time-change vote, as of 17 Aug 2026, reversing the
+            original order. The old reasoning ("a vote here amends the very
+            time that button would save, so the vote comes first") was
+            mechanism-true and read wrong: sitting below the vote, the
+            button looked like it saved the PROPOSED time, when it always
+            builds the file from the current stored plan. Ordering implies
+            scope, so the button now sits with the details card whose time
+            it actually saves, and the vote reads as its own matter below.
+            (Putting the button inside the details card was the stronger
+            semantic answer and was deliberately not taken; the owner's
+            call, 14 Aug QA.) */}
         <div style={{ marginBottom: "1rem" }}>
           <AddToCalendarButton eventId={event.id} />
         </div>
+
+        {/* ── Open time-change vote ─────────────────────────────────────── */}
+        {/* The vote on this plan's time; the chips live here (the group
+            home's card stopped pointing at it in the card-region-height
+            slice). A tap after a passed change still carries the moved
+            time, because the calendar file is built fresh from the stored
+            plan at each tap, never cached. */}
+        {proposalBand && <ProposalSection band={proposalBand} />}
 
         {/* ── Roster card ────────────────────────────────────────────── */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
