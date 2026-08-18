@@ -4,8 +4,8 @@
 // as of 17 Aug 2026 (calendar-placement micro-PR; it originally sat between
 // the details card and the button, an order that made the button read as
 // saving the proposed time). The question is deterministic and deliberately
-// impersonal: the
-// group answers the time, never the asker's circumstances. The shell matches
+// impersonal: the group answers the time, never the asker's circumstances.
+// The shell matches
 // the detail screen's own card idiom (rem-based radius/padding, 0.75rem gap)
 // rather than the carousel's px-based one, so it reads as a shipped
 // detail-screen card, not a transplanted carousel piece.
