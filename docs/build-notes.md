@@ -3468,6 +3468,15 @@ event screen" from the queue was read as above-the-vote rather than above-the-de
 a save button ahead of the details it saves would trade one scope confusion for another; assumption
 stated in chat before building.
 
+**Postscript, 18 Aug 2026: that assumption was questioned and then ratified, so it is now a
+decision, not a reading.** At PR review the owner recalled the intent as literally above the
+details card. The concern raised against that placement: it makes an export action the first thing
+on the screen, before the plan it exports, and it pushes the details card, which carries the RSVP
+pair, one block down on every visit to promote a button most members tap once. The owner chose to
+keep the as-built order (details card, then the pill, then the vote). Do not re-derive from the
+phrase "top of the event screen" in the queue or the 14 Aug postscript; this postscript supersedes
+that wording.
+
 **The old order was mechanism-true and read wrong, which is the pattern worth keeping.** The
 original comment placed the vote first "because a vote here amends the very time that button would
 save", which is a fact about the mechanism. But ordering implies scope: sitting below the proposal,
