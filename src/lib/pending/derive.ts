@@ -80,8 +80,6 @@ export interface ProposalBandData {
 export function deriveProposalBands(input: {
   liveProposals: LiveProposal[]
   viewerId: string
-  memberIds: Set<string>
-  memberCount: number
   timeZone: string
 }): Map<string, ProposalBandData> {
   const bands = new Map<string, ProposalBandData>()

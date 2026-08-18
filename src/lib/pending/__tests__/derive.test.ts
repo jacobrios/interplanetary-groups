@@ -114,8 +114,6 @@ describe("deriveProposalBands", () => {
     const bands = deriveProposalBands({
       liveProposals: [proposalFixture({ votes: [pvote(VIEWER, "KEEP")] } as never)],
       viewerId: VIEWER,
-      memberIds,
-      memberCount: 4,
       timeZone: TZ,
     })
     const band = bands.get(proposalFixture().event.id)
@@ -125,7 +123,7 @@ describe("deriveProposalBands", () => {
 
   it("composes the objective question from stored facts alone", () => {
     const band = deriveProposalBands({
-      liveProposals: [proposalFixture()], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      liveProposals: [proposalFixture()], viewerId: VIEWER, timeZone: TZ,
     }).get(proposalFixture().event.id)
     expect(band!.question).toBe("Move Monday morning climb to 9am?")
   })
@@ -134,8 +132,6 @@ describe("deriveProposalBands", () => {
     const bands = deriveProposalBands({
       liveProposals: [proposalFixture({ kind: "VERIFY" } as never)],
       viewerId: VIEWER,
-      memberIds,
-      memberCount: 4,
       timeZone: TZ,
     })
     expect(bands.size).toBe(0)
@@ -151,7 +147,7 @@ describe("deriveProposalBands", () => {
       },
     } as never)
     const bands = deriveProposalBands({
-      liveProposals: [p], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      liveProposals: [p], viewerId: VIEWER, timeZone: TZ,
     })
     const chips = bands.get("e1")!.chips
     expect(chips.labels.yes).toMatch(/^Move to /)

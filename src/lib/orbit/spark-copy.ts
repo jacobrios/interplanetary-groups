@@ -25,8 +25,8 @@ import type { PartOfDay } from "./spark"
 
 /**
  * The activity is one or two words in the member's own words and lands inside
- * a short sentence ("Anyone in for beers this Friday?"). Capped well below the
- * venue limit so a runaway string can never blow out the chat bubble.
+ * a short sentence ("Beers this Friday?"). Capped well below the venue limit
+ * so a runaway string can never blow out the chat bubble.
  */
 export const ACTIVITY_MAX = 40
 

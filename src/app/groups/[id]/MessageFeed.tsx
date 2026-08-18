@@ -59,8 +59,10 @@ interface Props {
   proposals?: FeedProposal[]
   /**
    * Live group consensus proposals, keyed to the Orbit message each one
-   * renders under. Unlike the asker-only proposals above, the tally is feed
-   * history for everyone; only the chips (the vote itself) are member-gated.
+   * renders under. Unlike the asker-only proposals above, these are composed
+   * for every viewer, and the render is member-gated: a non-member sees
+   * Orbit's question with no answer of their own. (The tally line that used
+   * to render for a non-member was deleted whole in the event-copy pass.)
    */
   groupProposals?: FeedGroupProposal[]
   /** Whether the viewer is a member of this group, gating the vote chips. */

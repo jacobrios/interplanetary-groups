@@ -73,7 +73,6 @@ export default async function EventPage({ params }: Props) {
   // filtered to this event by the derivation's own keyed map — never a
   // second, event-scoped query path to keep in sync with the home's.
   const liveProposals = await findLiveProposals(event.group.id, new Date())
-  const memberIds = new Set(event.group.memberships.map((m) => m.userId))
   // Non-null in practice: the members-only wall above already returned for a
   // null viewer, since isMember requires viewer !== null. TS can't see that
   // narrowing across the boolean, so this narrows on `viewer` itself instead
@@ -84,8 +83,6 @@ export default async function EventPage({ params }: Props) {
     ? deriveProposalBands({
         liveProposals,
         viewerId: viewer.id,
-        memberIds,
-        memberCount: event.group.memberships.length,
         timeZone: event.group.timeZone,
       })
     : new Map<string, ProposalBandData>()

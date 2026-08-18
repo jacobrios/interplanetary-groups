@@ -50,9 +50,11 @@ describe("deriveGroupProposalTally", () => {
   // The tally line is gone entirely (event-copy pass, 17 Aug 2026): the rule
   // behind it cannot be stated briefly, and naming who wants to move someone
   // else's plan turns a scheduling question into an argument with a
-  // scoreboard. Nothing replaces it, so this shape carries labels and the
-  // viewer's own answer and nothing else.
-  it("carries no tally line at all", () => {
+  // scoreboard. Nothing replaces it, so the composed shape is exactly two
+  // keys however many people have voted. Asserted as the whole key set, not
+  // as one absent field: with votes on the fixture, a re-added tally of any
+  // name fails this.
+  it("composes labels and the viewer's answer, and nothing else, however people vote", () => {
     const p = proposalFixture({
       votes: [
         pvote("user-maya", "YES", "Maya"),
@@ -62,7 +64,7 @@ describe("deriveGroupProposalTally", () => {
     const tally = deriveGroupProposalTally({
       proposal: p, viewerId: VIEWER, timeZone: TZ,
     })
-    expect("tallyLine" in tally).toBe(false)
+    expect(Object.keys(tally).sort()).toEqual(["labels", "viewerAnswer"])
   })
 
   it("reads the viewer's own answer from unfiltered votes, member or not", () => {

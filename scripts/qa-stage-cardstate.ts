@@ -23,9 +23,11 @@
 //   2. An OPEN group time-change proposal on that event: Casey asks to push
 //      it from 7pm to 8pm (her message auto-seeds her own YES vote inside
 //      createGroupProposal), and Rae explicitly votes to keep 7pm. That's
-//      what puts the recessed "Time change proposed · Move to 8pm?" notice
-//      on the event card's footer and the vote itself on the event's detail
-//      screen, between the details card and "Add to calendar".
+//      what puts the vote on the event's detail screen, between the details
+//      card and "Add to calendar". (It also put a "Time change proposed"
+//      notice on the card's footer until the card-region-height slice
+//      removed it, and a tally line under the chips until the event-copy
+//      pass deleted that.)
 //   3. An open idea gauge ("beers") proposed 3 days out at 7pm — earlier
 //      than the confirmed Trivia Night — with two IN votes (Sam, the
 //      floater, seeded via initiatorUserId; Jordan, seeded as a direct
@@ -136,8 +138,11 @@ async function main() {
 
   // ── The open group time-change proposal: Casey asks to push Trivia Night
   // to 8pm. Her message auto-seeds her own YES vote inside
-  // createGroupProposal; Rae explicitly votes to keep 7pm, giving the tally
-  // a mixed read (one yes, one keep) rather than a lone vote. ───────────────
+  // createGroupProposal; Rae explicitly votes to keep 7pm. Both votes stay
+  // seeded after the event-copy pass deleted the tally line they used to
+  // feed: nothing renders them now, but they still make the proposal a real
+  // contested vote rather than a lone tap, which is what the promotion
+  // arithmetic reads. ──────────────────────────────────────────────────────
   const proposalStart = new Date(eventStart.getTime() + 60 * 60 * 1000)
   const proposalSrc = await memberMsg(casey.id, "can we push trivia to 8 instead of 7? running late that day")
   const proposalBody = buildGroupProposalQuestion(casey.name, "trivia", proposalStart, eventStart, TZ, now, null)
@@ -198,8 +203,8 @@ async function main() {
         next: [
           "Join through inviteUrl as a brand-new member (that real session becomes the 5th member and the viewer).",
           "Load homeUrl. The rail should show the beers idea card first (earlier date), then Trivia Night, with a teal \"Needs your RSVP\" on Trivia Night and a teal \"Needs your vote\" on the beers idea, both unanswered.",
-          "Trivia Night's card should also carry a recessed \"Time change proposed · Move to 8pm?\" footer notice.",
-          "Open eventUrl directly to see the group vote (\"8pm works\" / \"Keep 7pm\") sitting between the details card and \"Add to calendar\".",
+          "Trivia Night's card should NOT mention the time change at all (the card-region-height slice removed that footer notice); the ask lives in chat.",
+          "Open eventUrl directly to see the group vote (\"Move to 8pm\" / \"Keep 7pm\") sitting between the details card and \"Add to calendar\", with no tally line under the chips (event-copy pass).",
         ],
       },
       null,

@@ -38,20 +38,21 @@ interface Props {
   proposal: FeedGroupProposal
   onAnswered?: (answer: ProposalVoteAnswer) => void
   /**
-   * Whether this chip row sits under Orbit's avatar and should indent past it
-   * (the feed). False renders it flush left instead, for a surface with no
-   * avatar to align under (the event screen's band). Defaults to the feed's
-   * indented value so nothing in the chat feed changes.
+   * A surface with no Orbit avatar to align under (the event screen's band)
+   * passes its own margin; feed callers leave it unset and get the indent
+   * that tucks the row under Orbit's avatar.
+   *
+   * This replaced a separate `indentPastAvatar` boolean in the event-copy
+   * pass. The boolean's last real consumer was the tally line, and once that
+   * was deleted every non-default caller was already passing rowMargin,
+   * which overrode it: two knobs where one of them no longer moved anything.
    */
-  indentPastAvatar?: boolean
-  /** Card surfaces (IdeaCard, ProposalBand) pass an explicit margin; feed callers leave it unset. */
   rowMargin?: string
 }
 
 export default function GroupProposalChips({
   proposal,
   onAnswered,
-  indentPastAvatar = true,
   rowMargin,
 }: Props) {
   const [optimisticAnswer, setOptimisticAnswer] = useOptimistic(proposal.viewerAnswer)
@@ -78,11 +79,10 @@ export default function GroupProposalChips({
   ]
 
   // Wrapping row, indented past Orbit's avatar so the chips read as part of
-  // its message rather than as a new speaker. Flush left instead on a
-  // surface with no avatar (indentPastAvatar={false}), or a card surface's
-  // own explicit rowMargin.
-  const rowMarginValue = rowMargin ?? (indentPastAvatar ? "8px 0 0 37px" : "9px 0 0")
-  const errorMarginLeft = indentPastAvatar && !rowMargin ? 36 : 0
+  // its message rather than as a new speaker. A surface with no avatar passes
+  // its own margin instead.
+  const rowMarginValue = rowMargin ?? "8px 0 0 37px"
+  const errorMarginLeft = rowMargin ? 0 : 36
 
   return (
     <form action={handle}>

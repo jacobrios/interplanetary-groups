@@ -28,13 +28,16 @@ describe("ProposalSection", () => {
     expect(screen.getByRole("button", { name: "Keep 7pm" })).toBeDefined()
   })
 
-  // The tally line was deleted in the 17 Aug event-copy pass. Nothing takes
-  // its place, so this screen shows the question and the two answers only.
-  it("shows no tally under the chips", () => {
-    render(<ProposalSection band={BAND} />)
-    expect(screen.queryByText(/so far/)).toBeNull()
-    expect(screen.queryByText(/makes it happen/)).toBeNull()
-    expect(screen.queryByText(/would keep it/)).toBeNull()
+  // The tally line was deleted in the 17 Aug event-copy pass, and nothing
+  // takes its place. Pinned as the section's whole rendered text rather than
+  // as three absent strings: the fixture no longer carries a tallyLine field
+  // at all, so an absence assertion could not fail whatever the component
+  // did, while this one fails the moment anything is added under the chips.
+  it("renders the label, question and chips, and nothing else", () => {
+    const { container } = render(<ProposalSection band={BAND} />)
+    expect(container.textContent).toBe(
+      "Time changeMove Friday beers to 8pm?Move to 8pmKeep 7pm"
+    )
   })
   it("marks the viewer's standing vote", () => {
     render(<ProposalSection band={{ ...BAND, chips: { ...BAND.chips, viewerAnswer: "YES" } }} />)

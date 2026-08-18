@@ -3282,13 +3282,45 @@ wrong-day revival message still says "If three of you are in, I'll set it up.", 
 messages now phrase the same promise two ways. **Open question for the owner rather than a silent
 fix.**
 
+**What the independent review found.** Ten findings, seven fixed here and three left standing on
+purpose. Fixed: `deriveProposalBands` still declared `memberIds` and `memberCount` on its input
+after the inner call stopped taking them, so the event page was building a Set for nobody, and a
+test was documenting the dead interface as live; `MessageFeed`'s prop doc still described the
+non-member tally split this change deleted; the QA staging script still told a tester to look for an
+"8pm works" chip and a tally; the `ACTIVITY_MAX` comment still used the retired sentence as its
+example; and `GaugeChips` still pointed at `pending-surface.css`, a stylesheet that left with the
+pending panel, which is the twin of a dangling pointer this change removed from `GroupProposalChips`
+(named here because it is a touch outside the change's own lane). Two of the fixes were test
+quality, and both are worth recording as a pattern: **an absence assertion against a fixture that
+can no longer carry the thing cannot fail.** `ProposalSection`'s new "no tally" test asserted three
+missing strings against a fixture with no `tallyLine` field at all, so it was green by construction;
+it now pins the section's entire rendered text. `tally.test.ts` did the same with `"tallyLine" in
+tally`, and now asserts the whole key set. Also fixed: the `indentPastAvatar` prop on
+`GroupProposalChips` had lost its last real consumer with the tally, since every non-default caller
+also passed `rowMargin`, which overrode it; one knob replaced two.
+
+**Left standing, deliberately.** The verification accounting in this entry was wrong in every
+component while landing on the right total, and it is corrected below rather than left as written,
+which is the one place the review changed a claim rather than the code. The wrong-day revival
+message (`buildSuggestedRetryMessage`) still says "Anyone in for beers this Sunday? If three of you
+are in", so a group whose idea fails and revives can see both phrasings of the same promise in one
+feed; that is out of this pass's lane and goes to the owner as a question. And the chat question
+above the new chips still ends "Works for you?", which is the availability framing the chip change
+exists to remove: the chips now read "Move to 9am" under a question asking whether 9am works. The
+event screen's own question ("Move Friday beers to 8pm?") already matches. **This is the finding
+worth the owner's attention**, because most votes are cast in chat, and it is a one-line change that
+nobody asked for, so it is surfaced rather than taken.
+
 **Verification.** Baseline on main at branch point: 89 files / 905 tests green, zero skipped, no
-pre-existing failures. After: 89 files / 899 tests. Six tests fewer, each traced: four asserted the
-proposal tally's own composition (the empty case, names-and-keeps, the countdown, and the component
-rendering nothing when the line was empty), and two asserted `oneMoreClearsIt`, which no longer
-exists. Every changed assertion was edited first and shown red against the old code before the
-implementation, so none of them could have passed vacuously. `tsc --noEmit` clean; eslint carries
-the same two pre-existing errors as main, in files this change never touches.
+pre-existing failures. After: 89 files / 899 tests. Seven removed and one added,
+counted per file rather than asserted from memory: `change-copy.test.ts` 21 to 20 (the tally
+builder's own test), `tally.test.ts` 6 to 4 (the empty-line case and the countdown case; the
+names-and-keeps case was rewritten in place, not removed), `consensus.test.ts` 17 to 14 (all three
+`oneMoreClearsIt` cases), `GroupProposalChips.test.tsx` 6 to 5 (the component rendering nothing when
+the line was empty), and `ProposalSection.test.tsx` 2 to 3 (an added assertion that nothing renders
+under the chips). Every changed assertion was edited first and shown red against the old code before
+the implementation. `tsc --noEmit` clean; eslint carries the same two pre-existing errors as main,
+in files this change never touches.
 
 **The model evidence, which this change needed and would not obviously have needed.** Orbit's
 detection reads the last twenty feed messages, Orbit's own included, so changing the spark message
