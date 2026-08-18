@@ -3275,11 +3275,29 @@ rendering nothing at all would have passed it. Nothing was left deliberately unf
 also recorded one thing not to "clean up" later: `flexDirection: column` on the info link is
 load-bearing for centering even with a single child.
 
+**Added the same day, after the owner's phone pass: the carousel's dot row goes too.** Same screen,
+same purpose, so it rides this micro-PR rather than opening a third concurrent one. His read, and it
+is the right one: **the next card already peeks past the right edge, so the dots restate a signal
+the layout is giving anyway**, and on this screen a row is the scarce thing. Measured the same way
+as the subline, by re-injecting an identical row into the live rail: the dot row costs **17px, and
+the feed gains exactly 17px** when it goes. With the subline that is **33.5px of chat back** from
+this one PR.
+
+The deletion took more than a row. `CarouselRail` tracked the snapped index off scroll position so
+the marker could never disagree with the card actually showing, which is why it was the only client
+component in the card region; with the dots gone it holds no state, no scroll listener, no ref, and
+no `snappedIndex` helper, and is a styled flex row. It stays a client component because the
+"use client" boundary is what lets the server-rendered cards pass through as children. Two of its
+three old tests were about dots and one about zero-width snap math; the three now assert that no dot
+row renders, that more than one card still gives a snapping scroller with a hidden scrollbar, and
+that a single card neither scrolls nor snaps, which is the behaviour a swipe carousel actually owes.
+
 **Verification.** Baseline on main before the branch: 89 files / 905 tests green, zero skipped, no
-pre-existing failures. After: 89 files / 906 tests green. The two subline assertions ("8 members ·
+pre-existing failures. After: 89 files / 905 tests green. The two subline assertions ("8 members ·
 …" and the singular "1 member · …") were replaced by one asserting the subline is absent, and the
-review added one asserting the link still names its destination for assistive tech, so the count
-goes up by one. The component test was rewritten red
+review added one asserting the link still names its destination for assistive tech, so that file
+goes up by one; `CarouselRail.test.tsx` then went from four to three when the dot row left, so the
+total lands back on 905. The component test was rewritten red
 first and shown failing against the old component before the deletion, so the new assertion could
 have failed. `tsc --noEmit` clean. eslint reports the same two pre-existing errors as main, both in
 files this change never touches (`OnboardingWizard.tsx`, `ResetInviteLink.tsx`).

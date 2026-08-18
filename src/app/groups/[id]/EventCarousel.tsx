@@ -2,20 +2,19 @@
 //
 // The pinned card region: a single, date-ordered list mingling confirmed
 // events and ideas still being gauged (card-state-grammar slice, spec
-// decision 5). One card renders bare, with no carousel chrome at all: dots
-// under a single card would be furniture implying something that is not
-// there.
+// decision 5). One card renders bare, with no scroll or snap at all: there
+// is nothing to swipe to.
 //
 // Scroll-snap rather than a JS carousel: the browser already does this well,
 // it degrades to a plain scroll everywhere, and it keeps the region free of
 // state that would fight the server-rendered card list.
 //
-// FINISHED CHROME, per the visual-polish Claude Design handoff
-// (round4-base.css). This stays a server component; only the rail's scroll
-// tracking and its active dot need the client, so that piece is split out
-// into CarouselRail and the server-rendered cards are passed through as
-// children (the supported App Router pattern for a client wrapper around
-// server-rendered content).
+// Peek geometry per the visual-polish Claude Design handoff
+// (round4-base.css); the handoff's dot row was deleted 17 Aug 2026, since
+// the peek already says there is more and a row costs chat height. This
+// stays a server component, with the rail split out into CarouselRail and
+// the server-rendered cards passed through as children (the supported App
+// Router pattern for a client wrapper around server-rendered content).
 
 import EventCard from "./EventCard"
 import IdeaCard from "./IdeaCard"

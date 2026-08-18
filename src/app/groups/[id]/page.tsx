@@ -5,7 +5,7 @@
 // Layout:
 //   Header: Orbit logo (home button) · group title + chevron (→ group info)
 //   Pinned card region, soonest first, mingling confirmed events and ideas
-//   still being gauged, in a peek-and-dots carousel (up to CARD_REGION_CAP)
+//   still being gauged, in a peeking swipe carousel (up to CARD_REGION_CAP)
 //   Chat feed (own scroll region, --type-body 17px, never shrunk)
 //   Pinned message input
 //
@@ -16,8 +16,9 @@
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
 // - Email-capture ask after first RSVP (rides with Orbit's live posting)
 //
-// The carousel's peek geometry and active dot are finished chrome per the
-// visual-polish Claude Design handoff (round4-base.css); see CarouselRail.tsx.
+// The carousel's peek geometry is finished chrome per the visual-polish
+// Claude Design handoff (round4-base.css); its dot row was deleted 17 Aug
+// 2026. See CarouselRail.tsx.
 
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
