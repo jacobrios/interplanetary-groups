@@ -3322,6 +3322,15 @@ under the chips). Every changed assertion was edited first and shown red against
 the implementation. `tsc --noEmit` clean; eslint carries the same two pre-existing errors as main,
 in files this change never touches.
 
+**Checked in a browser at 375px, against a freshly staged group, not asserted from tests.** Orbit's
+gauge message renders as two rows ("Love it. Beers this Thursday? If three are in, I'll set it
+up.") with "Sam & Jordan are in so far" under it and no countdown, while the idea card two inches
+above still reads "2 in · one more makes it happen", which is the two-voices decision visible in
+one screen. The time-change vote renders on the event screen as label, question and two chips and
+literally nothing else (read back as "Time changeMove Trivia Night to 8pm?✓ Move to 8pmKeep 7pm"
+after voting), and the same chips render in chat with no line beneath them. A vote was cast and the
+checkmark is what confirmed it, which is the claim the deletion rests on.
+
 **The model evidence, which this change needed and would not obviously have needed.** Orbit's
 detection reads the last twenty feed messages, Orbit's own included, so changing the spark message
 changes the context the model reasons over, and the recognition bench had that old wording hardcoded
