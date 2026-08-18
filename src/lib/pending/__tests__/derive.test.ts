@@ -114,8 +114,6 @@ describe("deriveProposalBands", () => {
     const bands = deriveProposalBands({
       liveProposals: [proposalFixture({ votes: [pvote(VIEWER, "KEEP")] } as never)],
       viewerId: VIEWER,
-      memberIds,
-      memberCount: 4,
       timeZone: TZ,
     })
     const band = bands.get(proposalFixture().event.id)
@@ -125,7 +123,7 @@ describe("deriveProposalBands", () => {
 
   it("composes the objective question from stored facts alone", () => {
     const band = deriveProposalBands({
-      liveProposals: [proposalFixture()], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      liveProposals: [proposalFixture()], viewerId: VIEWER, timeZone: TZ,
     }).get(proposalFixture().event.id)
     expect(band!.question).toBe("Move Monday morning climb to 9am?")
   })
@@ -134,16 +132,14 @@ describe("deriveProposalBands", () => {
     const bands = deriveProposalBands({
       liveProposals: [proposalFixture({ kind: "VERIFY" } as never)],
       viewerId: VIEWER,
-      memberIds,
-      memberCount: 4,
       timeZone: TZ,
     })
     expect(bands.size).toBe(0)
   })
 
-  it("a member IN rsvp feeds oneMoreClearsIt through to the proposal tally", () => {
+  it("hands the band chip labels and the viewer's answer, and no tally line", () => {
     const p = proposalFixture({
-      votes: [pvote("user-maya", "YES", "Maya"), pvote("user-jesse", "YES", "Jesse")],
+      votes: [pvote("user-maya", "YES", "Maya"), pvote(VIEWER, "KEEP", "You")],
       event: {
         id: "e1", title: "Monday morning climb",
         startsAt: new Date("2026-08-17T13:00:00.000Z"),
@@ -151,8 +147,11 @@ describe("deriveProposalBands", () => {
       },
     } as never)
     const bands = deriveProposalBands({
-      liveProposals: [p], viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      liveProposals: [p], viewerId: VIEWER, timeZone: TZ,
     })
-    expect(bands.get("e1")!.chips.tallyLine).toContain("one more")
+    const chips = bands.get("e1")!.chips
+    expect(chips.labels.yes).toMatch(/^Move to /)
+    expect(chips.viewerAnswer).toBe("KEEP")
+    expect("tallyLine" in chips).toBe(false)
   })
 })

@@ -118,6 +118,13 @@ export default async function GroupPage({ params }: Props) {
   // too. Removing this filter would not open a hole, it would just let a
   // stale or removed member's name show up in a feed they no longer belong
   // to.
+  // Current members only, same source as the info page's tally: a removed
+  // membership row is hard-deleted (remove-member.ts, leave.ts), so this
+  // already-fetched include stays accurate with no second query. (This note
+  // has moved twice as its readers were deleted: it sat on a memberCount
+  // local until the header subline went, then on the proposal tally's
+  // memberCount until the tally line went. The gauge tallies below are its
+  // remaining reader.)
   const memberIds = new Set(group.memberships.map((m) => m.userId))
 
   // A bumped gauge gets a second FeedGauge entry sharing its id but pointing
@@ -164,26 +171,19 @@ export default async function GroupPage({ params }: Props) {
     .map((p) => {
       // Shared with the event detail screen's own proposal vote via
       // deriveGroupProposalTally, so the chat feed and that screen can
-      // never disagree about the same proposal's tally. (The card region
+      // never disagree about the same proposal's chips. (The card region
       // itself no longer renders this vote at all, since the card-region-
       // height slice removed its pointer to it.)
-      const tally = deriveGroupProposalTally({
+      const chips = deriveGroupProposalTally({
         proposal: p,
         viewerId: viewer?.id ?? null,
-        memberIds,
-        // Current members only, same source as the info page's tally: a
-        // removed membership row is hard-deleted (remove-member.ts,
-        // leave.ts), so this already-fetched include stays accurate with
-        // no second query.
-        memberCount: group.memberships.length,
         timeZone: group.timeZone,
       })
       return {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
-        labels: tally.labels,
-        tallyLine: tally.tallyLine,
-        viewerAnswer: tally.viewerAnswer,
+        labels: chips.labels,
+        viewerAnswer: chips.viewerAnswer,
       }
     })
 

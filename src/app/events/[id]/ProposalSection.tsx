@@ -45,7 +45,7 @@ export default function ProposalSection({ band }: { band: ProposalBandData }) {
       >
         {band.question}
       </p>
-      <GroupProposalChips proposal={band.chips} indentPastAvatar={false} rowMargin="10px 0 0" />
+      <GroupProposalChips proposal={band.chips} rowMargin="10px 0 0" />
     </div>
   )
 }

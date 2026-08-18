@@ -394,7 +394,7 @@ describe("buildGaugeMessage", () => {
       null
     )
     expect(msg).toBe(
-      "Love it. Anyone in for beers this Friday? If three of you are in, I'll set it up."
+      "Love it. Beers this Friday? If three are in, I'll set it up."
     )
   })
 
@@ -408,7 +408,7 @@ describe("buildGaugeMessage", () => {
       new Date("2026-07-20T12:00:00Z"),
       null
     )
-    expect(msg).toContain("If three of you are in, I'll set it up.")
+    expect(msg).toContain("If three are in, I'll set it up.")
   })
 
   it("names the date outright when the day is more than a week away", () => {
@@ -422,7 +422,7 @@ describe("buildGaugeMessage", () => {
       null
     )
     expect(msg).toBe(
-      "Love it. Anyone in for beers on Friday, Jul 31? If three of you are in, I'll set it up."
+      "Love it. Beers on Friday, Jul 31? If three are in, I'll set it up."
     )
   })
 
@@ -475,9 +475,11 @@ describe("buildTallyLine", () => {
   })
 
   it("names two people", () => {
-    // Two is also one away from the bar, so part two's countdown rides along.
+    // One away from the bar, and the line says so no longer: the countdown
+    // left the chat tally in the 17 Aug event-copy pass, because Orbit's own
+    // message right above it already states the bar.
     expect(buildTallyLine([inVote("u1"), inVote("u2")], names)).toBe(
-      "Jesse & Maya are in so far · one more makes it happen"
+      "Jesse & Maya are in so far"
     )
   })
 
@@ -494,18 +496,16 @@ describe("buildTallyLine", () => {
     ).toBe("Jesse, Maya & 2 others are in so far")
   })
 
-  it("counts down only at one away from the bar", () => {
-    // Part one pinned the countdown OUT at every count, because nothing
-    // happened when the bar was met. Part two creates the event there, so the
-    // clause is now information rather than an empty tease. Still absent at one
-    // (pressure, not information) and past three (nothing left to count).
-    for (const n of [1, 3, 4, 5]) {
+  it("never counts down, at any count", () => {
+    // Part one pinned the countdown OUT because nothing happened at the bar;
+    // part two put it in because the third yes creates the event; the 17 Aug
+    // event-copy pass took it back out of THIS surface only, on the rule that
+    // each surface states the bar exactly once and Orbit's message above the
+    // tally already does. The idea card's own tally still counts down.
+    for (const n of [1, 2, 3, 4, 5]) {
       const votes = ["u1", "u2", "u3", "u4", "u5"].slice(0, n).map(inVote)
       expect(buildTallyLine(votes, names)).not.toContain("makes it happen")
     }
-    expect(buildTallyLine([inVote("u1"), inVote("u2")], names)).toContain(
-      "one more makes it happen"
-    )
   })
 
   it("shows people who want a different day, and only when there are any", () => {

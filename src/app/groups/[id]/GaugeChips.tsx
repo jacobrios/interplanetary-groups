@@ -52,10 +52,11 @@ interface Props {
   onAnswered?: (answer: GaugeAnswer) => void
   /**
    * Whether this chip row sits under Orbit's avatar and should indent past
-   * it (the feed). False renders flush left instead, for surfaces with no
-   * avatar to align under (the pending panel — pending-surface.css's
-   * `.pd-row .gh-qr` override, `9px 0 0`). Defaults to the feed's indented
-   * value so nothing in the chat feed changes.
+   * it (the feed). False renders flush left instead, for a surface with no
+   * avatar to align under. Defaults to the feed's indented value so nothing
+   * in the chat feed changes. (It used to cite pending-surface.css, a
+   * stylesheet that left with the pending panel; the same dangling pointer
+   * was removed from GroupProposalChips by the 17 Aug event-copy pass.)
    */
   indentPastAvatar?: boolean
   /** Card surfaces (IdeaCard, ProposalBand) pass an explicit margin; feed callers leave it unset. */

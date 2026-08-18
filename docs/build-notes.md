@@ -3319,3 +3319,141 @@ records 906 tests at that slice's finish; main measures 905. Both readings are g
 failures, so this is a one-test bookkeeping difference (most likely a test removed during that
 branch's own QA-fix round after the entry was written), not a lost or broken test. The 905 measured
 here is the number the next slice should cross-check against.
+
+---
+
+### Micro-PR, 17 Aug 2026: the event-copy pass
+
+Four pieces of copy, one shared diagnosis: the product was saying the same thing twice on the same
+screen, and the second telling was the one doing damage. Three of the four were queued by the 14 Aug
+phone pass; the other two (the gauge tally's countdown and the spark message) were settled after
+that entry was written and are recorded here for the first time.
+
+**1. The time-change tally is deleted, not reworded.** It read "Casey says yes · 1 would keep it".
+The 14 Aug pass caught both halves referring to something the reader cannot see (yes to what, keep
+what) and the owner's ruling was deletion. The reasoning, which is what a future session needs when
+it is tempted to add a tally back: **a gauge tally works because its bar is simple and its news is
+good, and a time-change tally can be neither.** The rule is compound (three yeses AND more yeses
+than the people still in on the old time, or the whole group when it is smaller than three), so no
+brief line states it truthfully, and naming who wants to move someone else's plan turns a scheduling
+question into an argument with a scoreboard. **Nothing replaces it**, deliberately: the chip's own
+checkmark confirms the vote landed, and Orbit announces a passed change in the feed while every RSVP
+resets.
+
+**What went with it, because the owner asked for the trail and not just the function.**
+`buildProposalTallyLine` is gone from `change-copy.ts`, replaced by a comment explaining why not to
+write it again. `oneMoreClearsIt` is gone from `consensus.ts`: its only caller was that countdown
+clause, and a dead exported function with its own test file reads as live code. `hasConsensus`,
+`consensusFloor` and `incumbentCount` are untouched, since they decide whether a plan actually
+moves. `deriveGroupProposalTally` no longer takes `memberIds` or `memberCount`, because the
+member-filtered vote arithmetic existed only to feed the tally; it now composes two chip labels and
+the viewer's own answer. `GroupProposalTally`, the little renderer, is gone, and with it
+`MessageFeed`'s non-member branch, which had existed to show a reader who could see the group but
+not vote where things stood. That branch is unreachable today (the share-readiness wall) and there
+is no count left for it to show; if viewing is ever loosened, a non-member now sees Orbit's question
+with no answer of their own, which is the honest shape.
+
+**2. The chips name outcomes, not availability: "Move to 8pm" / "Keep 7pm".** "8pm works" reads as
+"8pm also works for me", which is an availability answer, and this vote is a preference between two
+times. A member answering one question while the product records the other is exactly the drift RSVP
+accuracy cannot afford. Both labels stay soft and neither is teal, so the teal-never-leans-an-open-
+question rule is unaffected.
+
+**3. The gauge's chat tally drops its countdown: "Sam & Jordan are in so far".** Names and the
+different-day clause stay. The principle is the one to carry forward, because it decides the next
+argument of this kind rather than just this one: **each surface states the bar exactly once.**
+Orbit's own message sits directly above this line and already says "if three are in", so the tally
+repeating it was the second telling. The idea card's tally keeps "one more makes it happen" for the
+mirror reason: nothing on the card states the bar anywhere else. That is why the two tally voices
+diverged again a week after the card-region-height slice created them, and it is not an
+inconsistency to tidy up later.
+
+**4. Orbit's spark message shortens to "Love it. Beers this Tuesday? If three are in, I'll set it
+up."** Measured at two rendered rows against three. The redundancy was asking twice: "Anyone in for
+beers this Tuesday?" and "If three of you are in" are the same question. What was cut is the
+repetition, not the warmth, which is why "Love it." and the promise both stay. The activity now
+opens a sentence so it is capitalised, which also lines it up with the idea card's own title
+("Beers?"). Untouched, and flagged rather than changed because it is out of this pass's lane: the
+wrong-day revival message still says "If three of you are in, I'll set it up.", so two Orbit
+messages now phrase the same promise two ways. **Open question for the owner rather than a silent
+fix.**
+
+**What the independent review found.** Ten findings, seven fixed here and three left standing on
+purpose. Fixed: `deriveProposalBands` still declared `memberIds` and `memberCount` on its input
+after the inner call stopped taking them, so the event page was building a Set for nobody, and a
+test was documenting the dead interface as live; `MessageFeed`'s prop doc still described the
+non-member tally split this change deleted; the QA staging script still told a tester to look for an
+"8pm works" chip and a tally; the `ACTIVITY_MAX` comment still used the retired sentence as its
+example; and `GaugeChips` still pointed at `pending-surface.css`, a stylesheet that left with the
+pending panel, which is the twin of a dangling pointer this change removed from `GroupProposalChips`
+(named here because it is a touch outside the change's own lane). Two of the fixes were test
+quality, and both are worth recording as a pattern: **an absence assertion against a fixture that
+can no longer carry the thing cannot fail.** `ProposalSection`'s new "no tally" test asserted three
+missing strings against a fixture with no `tallyLine` field at all, so it was green by construction;
+it now pins the section's entire rendered text. `tally.test.ts` did the same with `"tallyLine" in
+tally`, and now asserts the whole key set. Also fixed: the `indentPastAvatar` prop on
+`GroupProposalChips` had lost its last real consumer with the tally, since every non-default caller
+also passed `rowMargin`, which overrode it; one knob replaced two.
+
+**Left standing, deliberately.** The verification accounting in this entry was wrong in every
+component while landing on the right total, and it is corrected below rather than left as written,
+which is the one place the review changed a claim rather than the code. The wrong-day revival
+message (`buildSuggestedRetryMessage`) still says "Anyone in for beers this Sunday? If three of you
+are in", so a group whose idea fails and revives can see both phrasings of the same promise in one
+feed; that is out of this pass's lane and goes to the owner as a question. And the chat question
+above the new chips still ends "Works for you?", which is the availability framing the chip change
+exists to remove: the chips now read "Move to 9am" under a question asking whether 9am works. The
+event screen's own question ("Move Friday beers to 8pm?") already matches. **This is the finding
+worth the owner's attention**, because most votes are cast in chat, and it is a one-line change that
+nobody asked for, so it is surfaced rather than taken.
+
+**Verification.** Baseline on main at branch point: 89 files / 905 tests green, zero skipped, no
+pre-existing failures. After: 89 files / 899 tests. Seven removed and one added,
+counted per file rather than asserted from memory: `change-copy.test.ts` 21 to 20 (the tally
+builder's own test), `tally.test.ts` 6 to 4 (the empty-line case and the countdown case; the
+names-and-keeps case was rewritten in place, not removed), `consensus.test.ts` 17 to 14 (all three
+`oneMoreClearsIt` cases), `GroupProposalChips.test.tsx` 6 to 5 (the component rendering nothing when
+the line was empty), and `ProposalSection.test.tsx` 2 to 3 (an added assertion that nothing renders
+under the chips). Every changed assertion was edited first and shown red against the old code before
+the implementation. `tsc --noEmit` clean; eslint carries the same two pre-existing errors as main,
+in files this change never touches.
+
+**Checked in a browser at 375px, against a freshly staged group, not asserted from tests.** Orbit's
+gauge message renders as two rows ("Love it. Beers this Thursday? If three are in, I'll set it
+up.") with "Sam & Jordan are in so far" under it and no countdown, while the idea card two inches
+above still reads "2 in · one more makes it happen", which is the two-voices decision visible in
+one screen. The time-change vote renders on the event screen as label, question and two chips and
+literally nothing else (read back as "Time changeMove Trivia Night to 8pm?✓ Move to 8pmKeep 7pm"
+after voting), and the same chips render in chat with no line beneath them. A vote was cast and the
+checkmark is what confirmed it, which is the claim the deletion rests on.
+
+**The model evidence, which this change needed and would not obviously have needed.** Orbit's
+detection reads the last twenty feed messages, Orbit's own included, so changing the spark message
+changes the context the model reasons over, and the recognition bench had that old wording hardcoded
+in ten fixtures. Run 1, before touching anything: **80/80 must-recognize, 65/65 must-stay-quiet,
+10/20 ambiguous**, reproducing the recorded baseline exactly, the same two ambiguous cases failing
+as they have since they were written. The fixtures were then updated to the copy the product now
+posts, and run 2 came back **identical on all three buckets**, same two ambiguous failures. So the
+shorter message costs nothing in recognition. Worth recording as a habit rather than a one-off: a
+bench fixture holding a copy of Orbit's own words is a flattened copy of the product, and a copy
+change that skips the bench leaves it testing a conversation that no longer happens.
+
+**Postscript, 17 Aug 2026: the owner's phone pass on this branch, and one thing it changed my mind
+about.** He tapped "Move to 8pm" on the event screen and reported the plan had not moved. It had
+not, and that is correct: the group had five members, so the floor was three, and only Casey's
+auto-seeded yes plus his own were on the board. Verified against the rows rather than reasoned
+about, since a QA report of "nothing happened" deserves a look at the data:
+`Casey=YES, Rae=KEEP, Jacob=YES`, two against a floor of three, proposal answer still null. **The
+error was mine, in the QA script, which told him to expect a move; I had computed the arithmetic
+from a different staged group where a third yes already existed.**
+
+**What that accidentally proved is worth more than the mistake.** He tapped, his vote landed, and
+the screen told him nothing: not that it registered in a way he trusted, and not that the bar was
+two short. He asked for a short confirmation ("thanks for your vote, we'll let you know if the time
+changes") and queued it post-MVP himself. Recorded here with a recommendation attached, because this
+entry is the one that deleted the tally: **the deletion is right and the confirmation gap is real,
+and they are the same gap.** The tally was the only thing on that surface saying where a vote stood,
+so removing it makes a one-line acknowledgement worth more than it was worth a week ago. My
+recommendation is that it lands inside "the time change gets an ending" rather than post-MVP, since
+that slice is already opening this exact surface and a close with no bump needs something to say
+when a member votes into it. The owner's call, and his stated position is post-MVP.

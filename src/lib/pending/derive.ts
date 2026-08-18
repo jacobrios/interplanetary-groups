@@ -80,18 +80,14 @@ export interface ProposalBandData {
 export function deriveProposalBands(input: {
   liveProposals: LiveProposal[]
   viewerId: string
-  memberIds: Set<string>
-  memberCount: number
   timeZone: string
 }): Map<string, ProposalBandData> {
   const bands = new Map<string, ProposalBandData>()
   for (const p of input.liveProposals) {
     if (p.kind !== "GROUP") continue
-    const tally = deriveGroupProposalTally({
+    const chips = deriveGroupProposalTally({
       proposal: p,
       viewerId: input.viewerId,
-      memberIds: input.memberIds,
-      memberCount: input.memberCount,
       timeZone: input.timeZone,
     })
     bands.set(p.event.id, {
@@ -100,9 +96,8 @@ export function deriveProposalBands(input: {
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
-        labels: tally.labels,
-        tallyLine: tally.tallyLine,
-        viewerAnswer: tally.viewerAnswer,
+        labels: chips.labels,
+        viewerAnswer: chips.viewerAnswer,
       },
     })
   }

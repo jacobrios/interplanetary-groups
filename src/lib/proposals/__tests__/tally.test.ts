@@ -1,10 +1,12 @@
 // src/lib/proposals/__tests__/tally.test.ts
 //
 // Pure, DB-free tests pinning deriveGroupProposalTally's output: the single
-// computation now shared by the group home's live feed (page.tsx) and the
-// card region's per-viewer bands (lib/pending/derive.ts). Fixtures mirror
+// composition shared by the group home's live feed (page.tsx) and the event
+// screen's band (lib/pending/derive.ts). Fixtures mirror
 // lib/pending/__tests__/derive.test.ts's proposalFixture, since that is
-// exactly the shape the two real callers pass in.
+// exactly the shape the two real callers pass in. Member filtering left this
+// module with the tally line it served (event-copy pass, 17 Aug 2026), so
+// there is no memberIds set here any more.
 
 import { describe, expect, it } from "vitest"
 import { deriveGroupProposalTally } from "../tally"
@@ -12,7 +14,6 @@ import type { LiveProposal } from "../read"
 
 const TZ = "America/Chicago"
 const VIEWER = "user-viewer"
-const memberIds = new Set([VIEWER, "user-maya", "user-jesse", "user-sam"])
 
 function proposalFixture(over: Partial<LiveProposal> = {}): LiveProposal {
   return {
@@ -41,53 +42,35 @@ function pvote(userId: string, answer: string, name = userId) {
 describe("deriveGroupProposalTally", () => {
   it("composes chip labels from the proposed and prior times", () => {
     const tally = deriveGroupProposalTally({
-      proposal: proposalFixture(), viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      proposal: proposalFixture(), viewerId: VIEWER, timeZone: TZ,
     })
-    expect(tally.labels).toEqual({ yes: "9am works", keep: "Keep 8am" })
+    expect(tally.labels).toEqual({ yes: "Move to 9am", keep: "Keep 8am" })
   })
 
-  it("empty tally line until someone votes", () => {
-    const tally = deriveGroupProposalTally({
-      proposal: proposalFixture(), viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
-    })
-    expect(tally.tallyLine).toBe("")
-  })
-
-  it("names yes voters and counts keep voters, member-filtered", () => {
+  // The tally line is gone entirely (event-copy pass, 17 Aug 2026): the rule
+  // behind it cannot be stated briefly, and naming who wants to move someone
+  // else's plan turns a scheduling question into an argument with a
+  // scoreboard. Nothing replaces it, so the composed shape is exactly two
+  // keys however many people have voted. Asserted as the whole key set, not
+  // as one absent field: with votes on the fixture, a re-added tally of any
+  // name fails this.
+  it("composes labels and the viewer's answer, and nothing else, however people vote", () => {
     const p = proposalFixture({
       votes: [
         pvote("user-maya", "YES", "Maya"),
         pvote("user-jesse", "KEEP", "Jesse"),
-        pvote("outsider", "YES", "Ghost"),
       ],
     } as never)
     const tally = deriveGroupProposalTally({
-      proposal: p, viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
+      proposal: p, viewerId: VIEWER, timeZone: TZ,
     })
-    expect(tally.tallyLine).toContain("Maya")
-    expect(tally.tallyLine).not.toContain("Ghost")
-    expect(tally.tallyLine).toContain("1 would keep it")
-  })
-
-  it("adds the one-more-clears-it countdown once a member IN rsvp is in play", () => {
-    const p = proposalFixture({
-      votes: [pvote("user-maya", "YES", "Maya"), pvote("user-jesse", "YES", "Jesse")],
-      event: {
-        id: "e1", title: "Monday morning climb",
-        startsAt: new Date("2026-08-17T13:00:00.000Z"),
-        rsvps: [{ userId: "user-sam", status: "IN" }],
-      },
-    } as never)
-    const tally = deriveGroupProposalTally({
-      proposal: p, viewerId: VIEWER, memberIds, memberCount: 4, timeZone: TZ,
-    })
-    expect(tally.tallyLine).toContain("one more")
+    expect(Object.keys(tally).sort()).toEqual(["labels", "viewerAnswer"])
   })
 
   it("reads the viewer's own answer from unfiltered votes, member or not", () => {
     const p = proposalFixture({ votes: [pvote(VIEWER, "KEEP")] } as never)
     const tally = deriveGroupProposalTally({
-      proposal: p, viewerId: VIEWER, memberIds: new Set(["user-maya"]), memberCount: 4, timeZone: TZ,
+      proposal: p, viewerId: VIEWER, timeZone: TZ,
     })
     expect(tally.viewerAnswer).toBe("KEEP")
   })
@@ -95,7 +78,7 @@ describe("deriveGroupProposalTally", () => {
   it("a null viewerId (no session) reads no viewer answer", () => {
     const p = proposalFixture({ votes: [pvote("user-maya", "YES", "Maya")] } as never)
     const tally = deriveGroupProposalTally({
-      proposal: p, viewerId: null, memberIds, memberCount: 4, timeZone: TZ,
+      proposal: p, viewerId: null, timeZone: TZ,
     })
     expect(tally.viewerAnswer).toBeNull()
   })

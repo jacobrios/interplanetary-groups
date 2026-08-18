@@ -46,14 +46,10 @@ export function hasConsensus(i: ConsensusInput): boolean {
   return yes >= consensusFloor(i.memberCount) && yes > incumbentCount(i)
 }
 
-/**
- * True when one more yes, from anyone at all, is guaranteed to clear the bar:
- * the countdown clause must never promise what an unlucky voter cannot
- * deliver. A yes from an incumbent clears more easily (it shrinks their side),
- * so checking the non-incumbent case covers everyone.
- */
-export function oneMoreClearsIt(i: ConsensusInput): boolean {
-  if (hasConsensus(i)) return false
-  const yes = new Set(i.yesVoterIds).size
-  return yes + 1 >= consensusFloor(i.memberCount) && yes + 1 > incumbentCount(i)
-}
+// `oneMoreClearsIt` lived here until 17 Aug 2026 (event-copy pass). Its only
+// caller was the proposal tally's countdown clause, and the tally was deleted
+// whole, so it went with it rather than sitting here reading as live code. Git
+// has it if the time-change endgame ever wants a countdown back; what it did
+// was answer "is one more yes from anyone guaranteed to clear the bar", which
+// is not the same question as hasConsensus and would need writing again with
+// care.
