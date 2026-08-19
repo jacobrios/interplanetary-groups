@@ -6,7 +6,23 @@
 // filename deliberately avoids *.test.ts so Vitest's default glob never
 // collects them into CI, where they would cost money on every run.
 
-export type Bucket = "must-recognize" | "must-stay-quiet" | "ambiguous"
+/**
+ * `must-recognize` and `must-stay-quiet` carry a bar: every run must land.
+ * `ambiguous` carries none, because the input genuinely has no right answer;
+ * it is watched to see which way the model drifts.
+ *
+ * `accepted` (added 19 Aug 2026) is the fourth and the one that needs its
+ * reasoning attached, because on its face it looks like a bar being lowered
+ * to make a red bench green. It means: this case HAS a right answer, Orbit
+ * does not reliably reach it, and the owner looked at the actual member
+ * experience and accepted it rather than spending a slice on it. It sits
+ * apart from `ambiguous` because nothing about the desired outcome is
+ * unclear, and apart from the barred buckets because it would fail them
+ * every run, and a bucket that is permanently red stops being a signal at
+ * all. Anything moved here needs a dated entry in build-notes recording who
+ * accepted it and why.
+ */
+export type Bucket = "must-recognize" | "must-stay-quiet" | "ambiguous" | "accepted"
 
 /**
  * What the member should end up seeing. `action` is optional on purpose: for
@@ -101,9 +117,25 @@ export const CASES: EvalCase[] = [
   },
   {
     id: "bare-ask-no-plans",
-    bucket: "must-recognize",
+    // Moved out of must-recognize 19 Aug 2026, by the owner's decision, after
+    // it went from 10/10 across two runs on 17 Aug to 12/20 on main over the
+    // two days after. Nothing in the product changed; the drift is model-side,
+    // and it is isolated (the other 15 must-recognize cases held at 5/5).
+    //
+    // What the owner accepted, in member terms: about half the time, someone
+    // typing "can we move it?" into a group with an empty calendar gets
+    // silence instead of the honest "I don't see any plans" answer. Silence is
+    // the second-best outcome and it is what happens; the worst outcome,
+    // Orbit inventing a plan, is structurally unreachable here, because the
+    // reply is a fixed constant chosen by change-plan.ts after counting real
+    // stored events, and the model supplies no prose on this path. That
+    // verification is what the acceptance rests on.
+    //
+    // It stays in the bench, scored and printed, so a further slide (or a
+    // recovery) is visible. Reasoning in build-notes, 19 Aug 2026.
+    bucket: "accepted",
     description:
-      "A bare ask with nothing on the calendar. The ladder has an honest answer for this and it must get the chance to give it.",
+      "A bare ask with nothing on the calendar. The ladder has an honest answer and should give it; measured at roughly half the runs since 17 Aug, accepted by the owner rather than fixed. Watched for further drift.",
     calendar: [],
     history: [{ author: "Jo", body: "quiet week", minutesAgo: 90 }],
     trigger: { author: "Sam", body: "can we move it?" },

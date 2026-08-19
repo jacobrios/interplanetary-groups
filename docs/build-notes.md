@@ -3642,3 +3642,62 @@ copy of the retired "Works for you?" string. Left standing as a note: the `Promi
 depends on both candidate reads dispatching before either commit, which it cannot enforce, so it can
 flake in principle; it mirrors the gauge sweep's accepted precedent and the deterministic spy test
 next to it is the one that actually proves the guard.
+---
+
+### Micro-PR, 19 Aug 2026: the bench gets a fourth bucket, and a known gap gets accepted
+
+**The decision, which is the owner's and not an engineering tidy-up.** `bare-ask-no-plans` scored
+10/10 across two full-bench runs on 17 Aug and 12/20 on main over the two days after. The 18 Aug
+reading was taken on a day the API returned 529 overloads repeatedly, so it was registered rather
+than acted on, with a re-run on a calmer day as the next step. That re-run came back **5/10 on main
+with the API behaving normally**, so the answer is drift, not weather: if the true rate were the
+~60% now measured, a 10/10 would happen about 2% of the time. The owner looked at what that means
+for a member and accepted it.
+
+**What was accepted, stated in member terms rather than bench terms.** About half the time, someone
+typing "can we move it?" into a group with an empty calendar gets nothing back, instead of Orbit's
+honest "I don't see any plans on the calendar right now." That is the second-best of the three
+possible outcomes. The owner's own ranking, and the basis of the decision: the honest answer is
+best, silence is tolerable, and inventing a plan would not be.
+
+**The acceptance rests on a verified claim, not a remembered one.** Invention is structurally
+unreachable on this path. `NO_PLANS_REPLY` in `change-copy.ts` is a fixed string constant, and
+`change-plan.ts` reaches it by counting the group's actual stored events and finding zero. The
+model's entire contribution to this path is the classification "is this a request to change a
+time"; every reply body in that ladder is either a constant or composed from stored rows. The model
+never holds the pen, so it cannot write a plan that does not exist. This was read out of the code
+before the decision was made, because the whole acceptance depends on it.
+
+**Two facts that made accepting defensible rather than resigned.** The drift is isolated: the other
+15 must-recognize cases held at 5/5 in the same run, so this is the weakest case in the set moving,
+not Orbit getting generally worse at hearing people. And the trigger is rare in real use, since it
+needs an empty calendar as well as the bare ask, which is essentially a brand-new group before
+anything has been scheduled.
+
+**Why the case moved buckets, which is the part that is engineering.** Leaving it in
+`must-recognize` would have left that bucket reading 78/80 permanently. **A bucket that is always
+red stops being a signal:** the next session either re-runs this whole investigation from scratch or
+learns that red is normal, and the second one is how a bench quietly dies. So the bench gained a
+fourth bucket, `accepted`, deliberately NOT the existing `ambiguous` one: ambiguous means the input
+has no right answer, and this input has a perfectly clear right answer that Orbit does not reliably
+reach. Conflating the two would have hidden the distinction that matters. The case is still run,
+still scored, and still printed in the failures list, so a further slide or a recovery is visible;
+it simply carries no bar. `must-recognize` reads 75/75 again, and a red bar means something.
+
+**The rule attached to the new bucket, so it cannot become a dumping ground.** On its face
+`accepted` looks exactly like lowering a bar to turn a red bench green, which is why the type's own
+doc comment says so out loud. Anything moved into it needs a dated build-notes entry naming who
+accepted it and why. This entry is the first.
+
+**Verification.** Suite untouched at 90 files / 914 tests green (this change touches only bench
+fixtures, the bench runner's scoreboard, and docs; no product code, and the bench is deliberately
+outside the test suite). `tsc --noEmit` clean. Full bench after the move: **must-recognize 75/75 with
+15/15 cases clean, must-stay-quiet 65/65 with 13/13 clean, ambiguous 10/20 (the same two known
+cases), accepted 4/5.** That 4/5 is a further data point on the same case rather than a target, and
+it is consistent with the ~60% pooled rate.
+
+**Revisit triggers, recorded so this is a decision with an expiry rather than a shrug.** If the rate
+slides materially further, if the failure mode ever changes shape from silence to something else, or
+if the trigger stops being rare, this comes back. The one that would matter most: silence is
+acceptable precisely because invention is impossible, so any future change to how that reply is
+composed re-opens the decision.

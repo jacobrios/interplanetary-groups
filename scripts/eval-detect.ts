@@ -44,7 +44,7 @@ async function main() {
     console.log(`  ...${Math.min(i + CONCURRENCY, selected.length)}/${selected.length}`)
   }
 
-  const buckets = ["must-recognize", "must-stay-quiet", "ambiguous"] as const
+  const buckets = ["must-recognize", "must-stay-quiet", "ambiguous", "accepted"] as const
   console.log("\n=== SCOREBOARD ===")
   for (const b of buckets) {
     const inBucket = results.filter((r) => r.bucket === b)
@@ -54,7 +54,8 @@ async function main() {
     const clean = inBucket.filter((r) => r.passes === r.runs).length
     console.log(
       `${b}: ${passes}/${total} runs, ${clean}/${inBucket.length} cases clean` +
-        (b === "ambiguous" ? "  (no bar, watched for drift)" : "")
+        (b === "ambiguous" ? "  (no bar, watched for drift)" : "") +
+        (b === "accepted" ? "  (no bar; a known gap the owner accepted, watched for drift)" : "")
     )
   }
 
