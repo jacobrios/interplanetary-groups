@@ -164,7 +164,7 @@ export default function StepGapAsk({
             padding: "0.5rem 0.75rem",
             backgroundColor: "var(--surface-raised)",
             border: "1px solid var(--hairline)",
-            borderRadius: "1.5rem",
+            borderRadius: 26,
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
             outline: "none",
@@ -172,7 +172,11 @@ export default function StepGapAsk({
           }}
         />
 
-        {/* Send arrow: dim when empty, teal when the founder has typed. */}
+        {/* Send circle: neutral fill when empty, teal fill the moment there's
+            text, matching ChatInput's resting/active pair exactly (same
+            source rule, walkthrough.css .gh-send/.s2r-send override at
+            694-698). Border stays 1px in both states, only its color
+            switches, so the circle can't change size when the state flips. */}
         <button
           type="submit"
           disabled={!hasText || isMerging}
@@ -181,16 +185,15 @@ export default function StepGapAsk({
             width: 36,
             height: 36,
             borderRadius: "50%",
-            border: "none",
-            backgroundColor: "transparent",
+            border: hasText ? "1px solid var(--action)" : "1px solid var(--hairline)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: hasText && !isMerging ? "pointer" : "default",
             flexShrink: 0,
             alignSelf: "center",
-            transition: "color 0.15s ease",
-            color: hasText ? "var(--action)" : "var(--placeholder)",
+            backgroundColor: hasText ? "var(--action)" : "var(--surface-raised)",
+            color: hasText ? "var(--action-ink)" : "var(--text-faint)",
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
