@@ -117,7 +117,16 @@ export default function Step1Describe({
         </div>
       </div>
 
-      <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {/* No flex `gap` here: the design's own containers (.s2-body,
+          .s2-final-scroll, .s1-foot) contribute no gap of their own, so a
+          uniform gap here would land on top of every ported margin-top
+          below and double-count the spacing (round-2 review finding).
+          Each child instead carries its own explicit marginTop, either a
+          value ported straight from the design or, where a child has no
+          design counterpart of its own (the description field, the pause
+          state), the same 20px that the removed gap used to give it, so
+          nothing collapses to zero and nothing un-flagged changes. */}
+      <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
         <div>
           <label
             htmlFor="founderName"
@@ -155,7 +164,7 @@ export default function Step1Describe({
           />
         </div>
 
-        <div>
+        <div style={{ marginTop: "1.25rem" }}>
           <label
             htmlFor="description"
             style={{
@@ -196,8 +205,13 @@ export default function Step1Describe({
 
         {isExtracting ? (
           // The pause: a labeled thinking state in Orbit's voice. Inputs stay
-          // mounted (disabled) so the founder's text is never lost.
-          <OrbitPause copy={PAUSE_COPY} />
+          // mounted (disabled) so the founder's text is never lost. Wrapped
+          // so it carries the same 20px the removed flex gap used to give
+          // it from the description field above (no design source for this
+          // state, so its own spacing is unchanged from before this fix).
+          <div style={{ marginTop: "1.25rem" }}>
+            <OrbitPause copy={PAUSE_COPY} />
+          </div>
         ) : (
           <button
             type="submit"
@@ -218,7 +232,11 @@ export default function Step1Describe({
               borderRadius: "30px",
               cursor: canSubmit ? "pointer" : "not-allowed",
               opacity: canSubmit ? 1 : 0.5,
-              marginTop: "18px",
+              // 32px: .s1-foot's padding-top (14) plus .cta's own
+              // margin-top (18) from the design, combined here since our
+              // button is a direct flex child rather than nested in a
+              // .s1-foot wrapper (round-2 review finding).
+              marginTop: "32px",
             }}
           >
             Continue
