@@ -56,7 +56,11 @@ export function WizardHeader({ step, onBack }: Props) {
           style={{
             fontSize: "var(--type-heading)",
             lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
+            // 800, per walkthrough.css .s2-top .nm (line 102). Geist is
+            // loaded as a variable font through next/font, so 800 is a real
+            // weight here rather than a synthesized one. This is the Orbit
+            // wordmark, not a group name.
+            fontWeight: 800,
             margin: 0,
           }}
         >

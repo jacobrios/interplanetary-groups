@@ -149,7 +149,10 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
       <p
         style={{
           textAlign: "center",
-          fontSize: "var(--type-eyebrow)",
+          // Meta, not eyebrow: the role map reserves the 13px eyebrow floor
+          // for uppercase eyebrows and puts sentence-case reference text at
+          // meta, which is where step 1's own hint line already sits.
+          fontSize: "var(--type-meta)",
           lineHeight: "var(--leading-normal)",
           color: "var(--text-secondary)",
           margin: "0.5rem 0 0",

@@ -21,6 +21,27 @@ const ERROR_COPY = "Hmm, that didn't go through. Give it another try in a moment
 
 const PAUSE_COPY = "One sec, I'm working out your schedule."
 
+// The design's field-label grammar, ported from walkthrough.css .s1-namelab
+// (line 200): 13px eyebrow, 0.12em tracking, uppercase, weight 700, in the
+// secondary ink (--ink-faint there is #A7AAB6, this project's
+// --text-secondary). Steps 2 and 3 already speak it (PlaybackRow's key
+// column, step 3's "GROUP INVITE LINK" eyebrow), so step 1's two field
+// labels were the last sentence-case holdouts. Only the type grammar is
+// ported: the rule's own `margin: 13px 4px 6px` is left out, because the
+// vertical rhythm around these fields was tuned against the design's own
+// containers in an earlier fix, and a 4px left inset would pull the label
+// off the input's left edge.
+const fieldLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "var(--type-eyebrow)",
+  lineHeight: "var(--leading-normal)",
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  fontWeight: 700,
+  color: "var(--text-secondary)",
+  marginBottom: "0.375rem",
+}
+
 interface Props {
   founderName: string
   onFounderNameChange: (v: string) => void
@@ -130,13 +151,7 @@ export default function Step1Describe({
         <div>
           <label
             htmlFor="founderName"
-            style={{
-              display: "block",
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-secondary)",
-              marginBottom: "0.375rem",
-            }}
+            style={fieldLabelStyle}
           >
             Your name
           </label>
@@ -167,13 +182,7 @@ export default function Step1Describe({
         <div style={{ marginTop: "1.25rem" }}>
           <label
             htmlFor="description"
-            style={{
-              display: "block",
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-secondary)",
-              marginBottom: "0.375rem",
-            }}
+            style={fieldLabelStyle}
           >
             About your group
           </label>

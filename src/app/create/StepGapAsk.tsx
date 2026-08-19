@@ -21,6 +21,7 @@ import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import SendCircleButton from "@/components/SendCircleButton"
 import { PlaybackCard, PlaybackRow, PlaybackGapMarker, rowValueTextStyle } from "./PlaybackCard"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
@@ -146,7 +147,7 @@ export default function StepGapAsk({
           e.preventDefault()
           if (hasText && !isMerging) onSubmit()
         }}
-        style={{ display: "flex", gap: "0.5rem" }}
+        style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
       >
         <label htmlFor="gapAnswer" style={{ display: "none" }}>
           Message Orbit
@@ -172,40 +173,16 @@ export default function StepGapAsk({
           }}
         />
 
-        {/* Send circle: neutral fill when empty, teal fill the moment there's
-            text, matching ChatInput's resting/active pair exactly (same
-            source rule, walkthrough.css .gh-send/.s2r-send override at
-            694-698). Border stays 1px in both states, only its color
-            switches, so the circle can't change size when the state flips. */}
-        <button
-          type="submit"
+        {/* The shared send circle, the same component the group chat
+            composer uses. 40px is walkthrough.css .s2r-send (line 146), the
+            same size as .gh-send; the 36px this shipped at was an unported
+            value. The form centers its children, which is what the old
+            inline alignSelf was doing. */}
+        <SendCircleButton
+          active={hasText}
           disabled={!hasText || isMerging}
-          aria-label="Send answer"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: hasText ? "1px solid var(--action)" : "1px solid var(--hairline)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: hasText && !isMerging ? "pointer" : "default",
-            flexShrink: 0,
-            alignSelf: "center",
-            backgroundColor: hasText ? "var(--action)" : "var(--surface-raised)",
-            color: hasText ? "var(--action-ink)" : "var(--text-faint)",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path
-              d="M10 16V4M10 4L5 9M10 4L15 9"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+          label="Send answer"
+        />
       </form>
 
       {/* One line below the input: hint examples normally, the labeled pause
@@ -217,7 +194,11 @@ export default function StepGapAsk({
           <p
             style={{
               textAlign: "center",
-              fontSize: "var(--type-eyebrow)",
+              // Meta, not eyebrow: the role map reserves the 13px eyebrow
+              // floor for uppercase eyebrows and puts sentence-case
+              // reference text at meta, which is where step 1's own hint
+              // line already sits.
+              fontSize: "var(--type-meta)",
               lineHeight: "var(--leading-normal)",
               color: "var(--placeholder)",
               margin: "0.375rem 0 0",
