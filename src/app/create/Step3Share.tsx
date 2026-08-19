@@ -72,8 +72,8 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            border: "1px solid var(--hairline)",
+            gap: "0.5625rem",
+            border: "1.6px solid var(--hairline)",
             borderRadius: "0.625rem",
             backgroundColor: "var(--surface-base)",
             padding: "0.6875rem 0.75rem",
@@ -99,6 +99,7 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
             style={{
               fontSize: "var(--type-label)",
               color: "var(--text-primary)",
+              fontWeight: 500,
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
@@ -132,13 +133,14 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: "0.5rem",
-          backgroundColor: "transparent",
-          border: "1px solid var(--hairline)",
+          gap: "0.5625rem",
+          backgroundColor: "var(--surface-raised)",
+          border: "none",
           borderRadius: "1.75rem",
           color: "var(--text-primary)",
           fontSize: "var(--type-body)",
-          fontWeight: 600,
+          lineHeight: "var(--leading-normal)",
+          fontWeight: 700,
           cursor: "pointer",
         }}
       >

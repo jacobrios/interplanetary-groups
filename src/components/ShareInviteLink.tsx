@@ -44,13 +44,18 @@ export default function ShareInviteLink({ inviteToken, groupName }: Props) {
       onClick={handleShare}
       style={{
         width: "100%",
-        padding: "0.75rem 1.5rem",
+        height: "2.875rem", // 46px (walkthrough.css .s3-sharebtn)
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0 1.5rem",
         backgroundColor: "var(--action)",
         color: "var(--action-ink)",
         fontSize: "var(--type-body)",
-        fontWeight: 600,
+        lineHeight: "var(--leading-normal)",
+        fontWeight: 700,
         border: "none",
-        borderRadius: "0.5rem",
+        borderRadius: "1.5rem", // 24px pill
         cursor: "pointer",
       }}
     >
