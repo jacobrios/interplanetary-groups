@@ -114,3 +114,24 @@ File: `src/app/create/OrbitPause.tsx`. Ruled 18 Aug 2026: shape stays (mark plus
 Recorded 18 Aug 2026, at branch start, before any code: **90 files / 914 tests green**, zero
 failures, matching the previous slice's finishing number recorded in build-notes §11
 (time-change-ending slice). No pre-existing failures to carry.
+
+
+---
+
+## Postscript, 19 Aug 2026: what actually shipped against what this document planned
+
+- **Task 3 was split and half of it is unbuilt.** The character counter is not in the branch. The
+  design's counter reads "0/500", which imposes a 500-char cap on the founder's description where none
+  exists; that is product behavior, it was surfaced to the owner as a question, and the task was split
+  rather than guessed. Everything else in step 1 landed.
+- **Task 7's brief was wrong.** It said the step eyebrow maps `--ink-faint` to `--text-faint`. The
+  stylesheet defines `--ink-faint` as #A7AAB6, which is `--text-secondary`. The implementer followed the
+  source over the brief and said so. The source-wins instruction in this document is what caught it.
+- **The final review added seven fixes** beyond the nine planned tasks, two of them defects this slice
+  itself introduced (a mid-word text break created by task 4's own overflow fix, and a duplicated send
+  button). Also corrected: a fixed height violating the grows-with-content rule, step 1's label grammar,
+  two shipped-code quiet-text sizes, step 2's missing disabled affordance, and the wordmark weight.
+- **No real-phone pass was run by the build.** The document's verification plan asked for one. The build
+  produced a 375x812 emulated pass with measured computed values instead; that is not the same thing and
+  the phone pass is step 1 of the PR's QA script.
+- **Final numbers:** 91 files / 920 tests green against a 90 / 914 baseline, `tsc --noEmit` clean.

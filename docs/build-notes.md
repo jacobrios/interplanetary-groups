@@ -2261,8 +2261,12 @@ own zone instead.
   and `StepGapAsk` keep the old top-left one. Slice two.
 - The three chip components remain three near-identical copies. Deliberately not
   refactored: that is a structural change outside this slice's lane.
-- `#f87171` stays untokenized as the error color, traced to before the palette
-  existed and outside the handoff's scope.
+- ~~`#f87171` stays untokenized as the error color, traced to before the palette
+  existed and outside the handoff's scope.~~ Partly resolved 18 Aug 2026 (polish
+  slice two): the color is now the `--danger` token and the wizard's two usages
+  read it. Thirteen literal occurrences remain in six files outside the wizard
+  (`JoinForm`, `ChatInput`, `ManageMembers`, `ResetInviteLink`, `LeaveGroupButton`,
+  `choice.tsx`), left untouched as out of that slice's lane.
 - `--font-geist-mono` stays loaded and unused; a one-line cleanup for whichever
   slice next touches `layout.tsx`.
 - A date-line zone that historically skipped a calendar day (Kiritimati 1994,
@@ -3717,3 +3721,140 @@ failure anyway. Two fixes came out of it. The probability figure was wrong: this
 describing the simpler calculation; corrected to 0.6% above. And the scoreboard's bucket list was
 hard-coded, so a future fifth bucket could be added to the type and silently never printed; it is
 now a `Record<Bucket, string>`, which makes that a compile error instead.
+
+---
+
+## §11 entry: polish slice two, the onboarding wizard (18-19 Aug 2026)
+
+**What the slice was.** The second of three visual-polish slices. Slice one dressed the foundations
+and the group home; this one dresses the onboarding wizard: step 1, the gap-ask, the playback, step 3,
+and the loading state. No behavior changed anywhere, no copy moved, no prompt or model was touched.
+
+**Where the design actually lived, since this cost a false start's worth of confusion.** The rd-2
+bundle's README scopes round 2 to the group home and says every other screen is out of scope for that
+round. The wizard's design is in that bundle anyway, carried by the unchanged `walkthrough.css`
+(onboarding rules at lines 93-206, override passes from 530 on), which is real CSS with real values and
+therefore a legitimate build source rather than a screenshot. It covers every wizard screen including
+step 3. The operative rule this produced, and the one worth carrying: **a later override pass supersedes
+an earlier definition, so the last definition of a selector is the correct one.** Every task in the
+slice was told to grep for all occurrences before porting a value.
+
+**Decisions settled at the start.**
+
+- *The loading state stays as it is.* `OrbitPause` was never drawn by any designer, on any board. The
+  owner ruled that its shape holds (the Orbit mark plus one quiet status line) and only its spacing and
+  text style get tuned. No spinner, no pulse, nothing invented. Where a task has no design source, its
+  judgment values must be harvested from sibling screens and named, not conjured; that is what was asked
+  and what happened.
+- *The share pill updates everywhere.* `ShareInviteLink` renders on both wizard step 3 and the group info
+  page. The owner ruled the new 46px teal pill applies to both rather than forking the component. Verified
+  safe on the info page, which wraps it in an unconstrained column.
+- *The eval benches do not trigger.* The standing rule queues onboarding-extraction and gap-ask-merge
+  benches as "the first task of whichever slice next touches onboarding." This slice touches onboarding's
+  screens but not one word of its prompts, model, or logic. The owner accepted that the trigger's purpose
+  does not fire on a pixel pass, and the benches stay queued for the first slice that touches the prompts
+  or bumps the model. A deviation from the rule's literal wording, taken deliberately and recorded here.
+
+**The character counter is not built, and that is the one thing the slice deliberately left open.** The
+design's counter reads "0/500", which means the designer imposed a 500-character cap on the founder's
+description. The field is uncapped today, so building the counter would ship a product behavior nobody
+approved: a founder writing past 500 characters would be stopped. It was surfaced to the owner as a
+product question, went unanswered while the slice ran, and the task was split rather than guessed at.
+Everything else in step 1 landed; the counter waits on a ruling. **Open question, carried forward.**
+
+**What the slice closed.** The wizard's two bubble grammars, recorded as debt by slice one: `StepGapAsk`
+and `Step2Playback` moved onto the shared `OrbitBubble` with the design's bottom-left notch, so the whole
+wizard now speaks one bubble grammar. And the wizard's hardcoded error red became a `--danger` token.
+
+**What the slice built.** Step 1 gained the design's two-triangle tail, the only tailed bubble in the
+product, where a back triangle in `--hairline` sits behind a front triangle in `--surface-raised` so the
+tail's slants read as a continuation of the bubble's border; plus the designed field shapes and a pill
+Continue button. The playback rows moved out of the Orbit bubble onto their own `PlaybackCard`, shared by
+the playback and gap-ask steps, carrying the designed key/value rows, the dashed lime gap marker with its
+lime clock glyph, and the teal confirm footer band. The gap-ask input became a 26px pill with a filled
+circular send button. Step 3 got its 46px teal share pill, link row, and a deliberately non-teal secondary
+proceed button. The header's Orbit mark grew to its 44px slot, uncropped.
+
+**Five things the review process caught that the implementers did not, worth recording because they are
+the argument for the process rather than decoration.**
+
+1. *A token mapped by name instead of by value, which was a real regression.* The handoff CSS names tokens
+   this project does not have. `--ink-faint` looks like it should map to `--text-faint`; the stylesheet's
+   own token block defines it as `#A7AAB6`, which is this project's `--text-secondary`. One task mapped it
+   by name and dimmed every schedule-row key on both playback screens, below what the code did before the
+   slice. **The controller's own task brief later repeated the identical error**, and that time the
+   implementer overrode the brief and cited the stylesheet, which is the source-wins rule doing exactly
+   what it exists for. Map handoff tokens by reading the source's own definitions, never by name.
+2. *A fixed height, twice.* The design gives buttons a `height` because a static board's type never scales.
+   Ours does. Step 1's Continue button shipped `height: 52px` with no vertical padding, which violates the
+   recorded "layout grows with content, never clips" rule and would clip at enlarged device text; the same
+   defect was independently found on `ShareInviteLink` in the final review, where a 46px pill sat twenty
+   lines from a proceed button that correctly used `minHeight`. Recorded decisions beat design sources, and
+   this is the concrete case.
+3. *A spacing rule that was consistent and wrong.* One task ported the design's `margin-top` values on top
+   of our form's own 20px flex gap. The design's containers contribute no gap, so every ported margin
+   double-counted: the hint sat 31px below the button where the design says 11px, which was worse than
+   before the fix. Fixed by removing the container's uniform gap so the ported numbers mean what they mean
+   in the source. Consistency is not correctness.
+4. *An undisclosed change to shipped copy styling.* A task quietly moved step 1's hint from meta to eyebrow
+   size and described the typography as "matches exactly." Reverted; the role map puts sentence-case
+   reference text at meta.
+5. *A fix that created a worse bug than the one it fixed.* Task 4 added `overflow-wrap: break-word` to the
+   playback card's fixed 62px key column to stop a long label overflowing. The result was that "CLIMBING"
+   rendered as "CLIMBI / NG": the founder's own word garbled back at them at the exact moment they are asked
+   to confirm Orbit understood them. Found by rendering the screen, not by reading the diff. The real
+   problem underneath is that **the design's fixed 62px key column was drawn against short example labels
+   ("CLIMBS") while real extraction produces the founder's own word, so the design's geometry cannot hold
+   real data.** Fixed with content sizing plus a 62px floor and a 60% ceiling.
+
+**A known cosmetic cost, accepted, and the owner should see it.** Because the key column now sizes to its
+content, a long label widens that row alone, so the value column is ragged where the design had one aligned
+column: on a climbing group, GROUP NAME and WHO align at 62px while CLIMBING's value starts about 15px
+further right. A card-level CSS grid (`minmax(62px, max-content) 1fr`) would give both a floor and a shared
+alignment. Not done here because it restructures the card rather than porting a value. **Queued.**
+
+**Two shipped-code corrections outside the slice's own work, named because the rule requires it.** Step 3's
+hint and the gap-ask's example line were both at eyebrow size at the branch base, and both are sentence-case
+reference text, which the role map puts at meta. Corrected. Provenance was checked against `cbd6525` rather
+than assumed.
+
+**One extraction, and why it touched a shipped surface.** The slice's own send-button work duplicated the
+group chat composer's recipe near-verbatim. Rather than log that as debt, it was extracted into
+`SendCircleButton`, consumed by both the wizard and group chat, which also corrected the wizard's send from
+36px to the design's 40px. `ChatInput` is outside this slice's lane and was touched only for the extraction;
+the chat composer was verified unchanged on size, both fills, both borders, disabled semantics, and
+accessible name, and the extracted component carries five real tests.
+
+**Verification.** Baseline at branch start: 90 files / 914 tests green, matching the previous slice's
+finishing number, no pre-existing failures. Finish: **91 files / 920 tests green**, `tsc --noEmit` clean.
+The six new tests are five on the extracted send button and one guarding the share pill's min-height against
+the fixed-height regression. All four wizard screens plus the group info page were rendered at a 375x812
+mobile viewport and measured by computed value rather than eyeballed: step 1's spacings at exactly 32/11/20px,
+the Continue button at 52px with real padding, the send button grey-and-disabled at rest and teal-and-enabled
+with text, step 3's pill at 46px/24px teal and its proceed at 52px `minHeight`. The mid-word break was
+confirmed fixed by rendering, not by reading.
+
+**What could not be verified, stated plainly.** No real-phone pass was run by the build; the standing rule
+asks for one and the device is the owner's. A 375x812 emulated viewport with measured computed values is
+what the build could honestly produce, and it is not the same thing: the 14 Aug phone pass on the group home
+found a squeeze that a full desktop pass had missed. The phone pass is step 1 of this PR's QA script.
+
+**Observations found while walking the wizard, none of them this slice's to fix.**
+
+- The design's step 1 puts the description first and the name field below it; ours is name first. The design's
+  textarea also flexes to fill with the footer pinned to the bottom, where ours is plain flow at a 150px
+  minimum. Both are structural rather than value ports. **Queued as questions.**
+- The design's Continue button carries an arrow glyph; ours has none. The design labels the name field
+  "WHAT SHOULD THE CREW CALL YOU?" where ours says "Your name"; that one is copy, which this slice does not
+  touch.
+- The group name renders as a proper title bar on step 3's card and in the design's own step 2 board, but as
+  a wrapping "GROUP NAME" key/value row on step 2 and the gap-ask. Our own step 3 and the design agree
+  against our step 2. Not fixed here because step 2's name is an editable input, so converting it is a
+  structural product decision. **Queued.**
+- A long group name clips inside that step 2 input ("Summit Gym Climbers" renders as "Summit Gym Climbe").
+  Pre-existing, present at the branch base.
+- The playback card showed the entered founder name "Jacob" while the created group listed the member as
+  "Jamie". Cause is deliberate and documented in `src/lib/groups/provision.ts`: an existing User for the
+  session's auth ID is reused as a guard against duplicate rows, so a returning anonymous session keeps its
+  old name and the entered one is discarded. Pre-existing and unrelated to visual polish, but the playback
+  promises a name the product then does not use. **Worth its own look.**
