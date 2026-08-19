@@ -35,7 +35,7 @@ const cardPadStyle: React.CSSProperties = {
 /**
  * The card shell. `footer`, when given, renders full-bleed below the padded
  * content (edge to edge, clipped to the card's own corners by `overflow:
- * hidden` above) — that is what makes Step2Playback's confirm button read
+ * hidden` above), which is what makes Step2Playback's confirm button read
  * as a band on the card rather than a button floating beneath it.
  */
 export function PlaybackCard({
@@ -64,7 +64,7 @@ export const rowValueTextStyle: React.CSSProperties = {
 
 /**
  * One key/value row. `pending` marks the row Orbit is waiting on (the
- * gapped rhythm), which colors the key lime — the row-level counterpart to
+ * gapped rhythm), which colors the key lime, the row-level counterpart to
  * `PlaybackGapMarker` coloring the value. `isLast` drops the divider and
  * tightens the bottom padding, matching the card's own last-row rule.
  * `htmlForLabel` swaps the key from a `<p>` to a real `<label>` when the
@@ -99,7 +99,12 @@ export function PlaybackRow({
     // which is not itself in the stylesheet since its own vocabulary
     // never produced a label this long.
     overflowWrap: "break-word",
-    color: pending ? "var(--lime)" : "var(--text-faint)",
+    // --ink-faint in the stylesheet is #A7AAB6, which is this project's
+    // --text-secondary (#A7AAB6), not --text-faint (#6F7280, a dimmer
+    // gray). The stylesheet's own inline comment on --ink-faint says as
+    // much: it names the token a retired dim gray now standing in for
+    // secondary.
+    color: pending ? "var(--lime)" : "var(--text-secondary)",
   }
 
   return (
@@ -129,7 +134,7 @@ export function PlaybackRow({
  * The "what time?" style marker Orbit points at a missing field: a dashed
  * lime underline and a lime clock glyph around whatever prompt text the
  * caller passes (the marker's icon is lime; its text stays the row's
- * ordinary secondary color, per the color rules — lime marks the cue, not
+ * ordinary secondary color, per the color rules: lime marks the cue, not
  * the sentence).
  */
 export function PlaybackGapMarker({ children }: { children: ReactNode }) {
