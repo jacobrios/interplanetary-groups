@@ -74,8 +74,8 @@ export default function Step1Describe({
           aria-hidden
           style={{
             position: "absolute",
-            top: -12,
-            left: 17,
+            top: -11,
+            left: 18,
             width: 0,
             height: 0,
             borderLeft: "9px solid transparent",
@@ -87,8 +87,8 @@ export default function Step1Describe({
           aria-hidden
           style={{
             position: "absolute",
-            top: -11,
-            left: 18,
+            top: -10,
+            left: 19,
             width: 0,
             height: 0,
             borderLeft: "8px solid transparent",
@@ -204,10 +204,11 @@ export default function Step1Describe({
             disabled={!canSubmit}
             style={{
               width: "100%",
-              height: "52px",
+              minHeight: "52px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "13px 24px",
               backgroundColor: "var(--action)",
               color: "var(--action-ink)",
               fontSize: "var(--type-body)",
@@ -230,11 +231,12 @@ export default function Step1Describe({
             doing with the description either way. */}
         <p
           style={{
-            fontSize: "var(--type-eyebrow)",
+            fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
             textAlign: "center",
-            margin: 0,
+            marginTop: "11px",
+            marginBottom: 0,
           }}
         >
           Orbit reads this to set your days, send reminders, and build a shared group page.
