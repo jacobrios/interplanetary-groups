@@ -65,26 +65,43 @@ export default function Step1Describe({
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* The one tailed bubble in the product: no avatar, left margin, small
-          tail pointing up at the header (§7 onboarding exception). */}
+          tail pointing up at the header (§7 onboarding exception). Two
+          stacked triangles (back in --hairline, front in --surface-raised)
+          so the tail reads as a hairline continuation of the bubble's own
+          border, per walkthrough.css .s2r-msg-tail::before/::after. */}
       <div style={{ position: "relative", marginTop: "1rem", marginBottom: "2rem" }}>
         <div
           aria-hidden
           style={{
             position: "absolute",
-            top: -9,
-            left: 20,
+            top: -12,
+            left: 17,
+            width: 0,
+            height: 0,
+            borderLeft: "9px solid transparent",
+            borderRight: "9px solid transparent",
+            borderBottom: "13px solid var(--hairline)",
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -11,
+            left: 18,
             width: 0,
             height: 0,
             borderLeft: "8px solid transparent",
             borderRight: "8px solid transparent",
-            borderBottom: "10px solid var(--surface-raised)",
+            borderBottom: "12px solid var(--surface-raised)",
           }}
         />
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
-            borderRadius: "16px",
-            padding: "0.75rem 1rem",
+            border: "1px solid var(--hairline)",
+            borderRadius: "16px 16px 16px 5px",
+            padding: "12px 14px",
           }}
         >
           <p
@@ -125,12 +142,13 @@ export default function Step1Describe({
             disabled={isExtracting}
             style={{
               width: "100%",
-              padding: "0.625rem 0.75rem",
+              padding: "11px 14px",
               backgroundColor: "var(--surface-raised)",
               border: "1px solid var(--hairline)",
-              borderRadius: "0.5rem",
+              borderRadius: "12px",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
+              fontWeight: 500,
               outline: "none",
               boxSizing: "border-box",
             }}
@@ -160,10 +178,11 @@ export default function Step1Describe({
             disabled={isExtracting}
             style={{
               width: "100%",
-              padding: "0.625rem 0.75rem",
+              minHeight: "150px",
+              padding: "14px 15px",
               backgroundColor: "var(--surface-raised)",
               border: "1px solid var(--hairline)",
-              borderRadius: "0.5rem",
+              borderRadius: "14px",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
               lineHeight: "var(--leading-normal)",
@@ -185,16 +204,20 @@ export default function Step1Describe({
             disabled={!canSubmit}
             style={{
               width: "100%",
-              padding: "0.75rem 1.5rem",
+              height: "52px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               backgroundColor: "var(--action)",
               color: "var(--action-ink)",
               fontSize: "var(--type-body)",
+              lineHeight: "var(--leading-normal)",
               fontWeight: 600,
               border: "none",
-              borderRadius: "0.5rem",
+              borderRadius: "30px",
               cursor: canSubmit ? "pointer" : "not-allowed",
               opacity: canSubmit ? 1 : 0.5,
-              marginTop: "0.5rem",
+              marginTop: "18px",
             }}
           >
             Continue
@@ -207,7 +230,7 @@ export default function Step1Describe({
             doing with the description either way. */}
         <p
           style={{
-            fontSize: "var(--type-meta)",
+            fontSize: "var(--type-eyebrow)",
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
             textAlign: "center",
