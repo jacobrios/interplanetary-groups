@@ -69,6 +69,13 @@ export default function Step2Playback({
     () => new Set(rhythms.flatMap((r, i) => (r.venueName ? [i] : [])))
   )
   const [tappedVenueIdx, setTappedVenueIdx] = useState<ReadonlySet<number>>(new Set())
+
+  // One source for "can this be pressed", so the disabled attribute and the
+  // dimmed appearance can never disagree (they did: the opacity keyed off
+  // isCreating alone, so a confirm blocked by an empty group name still
+  // rendered as a live teal band).
+  const canConfirm = !isCreating && groupName.trim().length > 0
+
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* Shared Orbit bubble, same as everywhere else Orbit speaks
@@ -100,7 +107,7 @@ export default function Step2Playback({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isCreating || groupName.trim().length === 0}
+            disabled={!canConfirm}
             style={{
               width: "100%",
               display: "flex",
@@ -110,13 +117,19 @@ export default function Step2Playback({
               backgroundColor: "var(--action)",
               padding: "12px 15px",
               border: "none",
-              // In-flight feedback: the old palette shifted the fill to a
-              // second teal while pending; the new palette has no second
-              // teal, so this dims instead, matching MessageFeed's optimistic-
-              // message idiom (0.65, greyscale-safe, no new token). No
-              // transition: this slice is no-animation, so the change is instant.
-              opacity: isCreating ? 0.65 : 1,
-              cursor: isCreating ? "not-allowed" : "pointer",
+              // Two dimmed states, because the band is disabled for two
+              // different reasons and only one of them used to show.
+              // In-flight: the old palette shifted the fill to a second teal
+              // while pending; the new palette has no second teal, so this
+              // dims instead, matching MessageFeed's optimistic-message idiom
+              // (0.65, greyscale-safe, no new token).
+              // Not yet submittable (the group name is empty): 0.5, the same
+              // dim step 1's Continue button already uses for exactly this,
+              // so a button that cannot be pressed never renders as a live
+              // teal band. No transition: this slice is no-animation, so the
+              // change is instant.
+              opacity: isCreating ? 0.65 : canConfirm ? 1 : 0.5,
+              cursor: canConfirm ? "pointer" : "not-allowed",
             }}
           >
             <span
