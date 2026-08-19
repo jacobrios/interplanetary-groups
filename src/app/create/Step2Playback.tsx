@@ -12,7 +12,7 @@ import { useState } from "react"
 import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
-import { OrbitMark } from "@/components/OrbitMark"
+import { OrbitBubble } from "@/components/OrbitBubble"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -86,19 +86,14 @@ export default function Step2Playback({
   const [tappedVenueIdx, setTappedVenueIdx] = useState<ReadonlySet<number>>(new Set())
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* Feed-style Orbit bubble: lime avatar, muted fill, no name label. */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
-          <OrbitMark size={28} />
-        </span>
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "4px 16px 16px 16px",
-            padding: "0.75rem 1rem",
-            flex: 1,
-          }}
-        >
+      {/* Shared Orbit bubble, same as everywhere else Orbit speaks
+          (build-notes §11, polish slice two). The width:100% wrapper is the
+          same pattern MessageFeed uses so the bubble's content area fills
+          the available width rather than shrinking to its content's
+          intrinsic size. Task 4 moves these rows onto their own card; this
+          task only swaps the bubble chrome, so the rows still live here. */}
+      <div style={{ width: "100%", marginBottom: "1.5rem" }}>
+        <OrbitBubble>
           <p
             style={{
               fontSize: "var(--type-body)",
@@ -228,7 +223,7 @@ export default function Step2Playback({
           >
             Times in {zoneLabel}
           </p>
-        </div>
+        </OrbitBubble>
       </div>
 
       {error && (

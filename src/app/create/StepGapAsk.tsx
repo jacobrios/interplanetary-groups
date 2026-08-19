@@ -20,7 +20,7 @@ import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
-import { OrbitMark } from "@/components/OrbitMark"
+import { OrbitBubble } from "@/components/OrbitBubble"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
@@ -61,14 +61,6 @@ const rowValueStyle: React.CSSProperties = {
   margin: 0,
 }
 
-function OrbitAvatar() {
-  return (
-    <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
-      <OrbitMark size={28} />
-    </span>
-  )
-}
-
 export default function StepGapAsk({
   founderName,
   gap,
@@ -87,20 +79,13 @@ export default function StepGapAsk({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* Playback card: same feed-style Orbit bubble chrome as Step 2, minus
-          the confirm affordance. The gapped primary is always row zero. */}
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1rem" }}
-      >
-        <OrbitAvatar />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "4px 16px 16px 16px",
-            padding: "0.75rem 1rem",
-            flex: 1,
-          }}
-        >
+      {/* Playback card: same shared Orbit bubble as everywhere else Orbit
+          speaks (build-notes §11, polish slice two). The gapped primary is
+          always row zero. The width:100% wrapper is the same pattern
+          MessageFeed uses so the bubble's content area fills the available
+          width rather than shrinking to its content's intrinsic size. */}
+      <div style={{ width: "100%", marginBottom: "1rem" }}>
+        <OrbitBubble>
           {gap.groupName !== null && (
             <div style={{ marginBottom: "0.75rem" }}>
               <p style={rowLabelStyle}>Group name</p>
@@ -171,22 +156,13 @@ export default function StepGapAsk({
               </div>
             )
           })}
-        </div>
+        </OrbitBubble>
       </div>
 
       {/* Orbit's question: deterministic lead-in composed by code around the
           one validated (or fire-exit template) sentence. */}
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1.5rem" }}
-      >
-        <OrbitAvatar />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "4px 16px 16px 16px",
-            padding: "0.75rem 1rem",
-          }}
-        >
+      <div style={{ width: "100%", marginBottom: "1.5rem" }}>
+        <OrbitBubble>
           <p
             style={{
               fontSize: "var(--type-body)",
@@ -197,7 +173,7 @@ export default function StepGapAsk({
           >
             {bubbleLine}
           </p>
-        </div>
+        </OrbitBubble>
       </div>
 
       {mergeError && (
