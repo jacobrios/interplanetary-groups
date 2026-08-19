@@ -3651,7 +3651,10 @@ next to it is the one that actually proves the guard.
 reading was taken on a day the API returned 529 overloads repeatedly, so it was registered rather
 than acted on, with a re-run on a calmer day as the next step. That re-run came back **5/10 on main
 with the API behaving normally**, so the answer is drift, not weather: if the true rate were the
-~60% now measured, a 10/10 would happen about 2% of the time. The owner looked at what that means
+~60% now measured, a 10/10 run would happen about 0.6% of the time (0.6^10). An earlier draft of
+this entry said 2%, which was a different test's number (a Fisher exact comparison of the two
+samples, p is about 0.022) pasted under a sentence describing the simpler one. The correction cuts
+against nothing: the smaller number argues harder for drift, which is the conclusion either way. The owner looked at what that means
 for a member and accepted it.
 
 **What was accepted, stated in member terms rather than bench terms.** About half the time, someone
@@ -3701,3 +3704,16 @@ slides materially further, if the failure mode ever changes shape from silence t
 if the trigger stops being rare, this comes back. The one that would matter most: silence is
 acceptable precisely because invention is impossible, so any future change to how that reply is
 composed re-opens the decision.
+
+**What the independent review found.** It was asked to be suspicious on exactly the right grounds,
+since moving a failing case out of a barred bucket is what lowering a bar looks like, and it
+confirmed every mitigation this change claims is actually implemented: the case still runs, still
+scores, still prints in the failures list, and a collapse or a recovery would both be visible. It
+independently verified the invention-is-unreachable claim end to end, including one adjacent path
+this entry had not considered, a misclassification as a fresh idea rather than a change, which is
+closed because the normalize layer rejects an empty activity and the bench would grade it as a
+failure anyway. Two fixes came out of it. The probability figure was wrong: this entry said a 10/10
+"would happen about 2% of the time", which was a Fisher comparison's number under a sentence
+describing the simpler calculation; corrected to 0.6% above. And the scoreboard's bucket list was
+hard-coded, so a future fifth bucket could be added to the type and silently never printed; it is
+now a `Record<Bucket, string>`, which makes that a compile error instead.
