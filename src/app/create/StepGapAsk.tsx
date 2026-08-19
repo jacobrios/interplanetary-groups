@@ -21,6 +21,7 @@ import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import { PlaybackCard, PlaybackRow, PlaybackGapMarker, rowValueTextStyle } from "./PlaybackCard"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
@@ -45,22 +46,6 @@ interface Props {
   mergeError: MergeErrorKind | null
 }
 
-const rowLabelStyle: React.CSSProperties = {
-  fontSize: "var(--type-eyebrow)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-secondary)",
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  margin: 0,
-}
-
-const rowValueStyle: React.CSSProperties = {
-  fontSize: "var(--type-body)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-primary)",
-  margin: 0,
-}
-
 export default function StepGapAsk({
   founderName,
   gap,
@@ -79,84 +64,51 @@ export default function StepGapAsk({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* Playback card: same shared Orbit bubble as everywhere else Orbit
-          speaks (build-notes §11, polish slice two). The gapped primary is
-          always row zero. The width:100% wrapper is the same pattern
-          MessageFeed uses so the bubble's content area fills the available
-          width rather than shrinking to its content's intrinsic size. */}
+      {/* The playback card (walkthrough.css .cardX / .s2-srow, task 4),
+          same treatment as Step2Playback so gap-ask and playback stay
+          visually identical apart from the marker below. The gapped
+          primary is always row zero. No confirm affordance here: while a
+          gap is open, answering Orbit's question is the one action (see
+          the header comment). */}
       <div style={{ width: "100%", marginBottom: "1rem" }}>
-        <OrbitBubble>
+        <PlaybackCard>
           {gap.groupName !== null && (
-            <div style={{ marginBottom: "0.75rem" }}>
-              <p style={rowLabelStyle}>Group name</p>
+            <PlaybackRow label="Group name">
               <p
                 style={{
+                  ...rowValueTextStyle,
                   fontSize: "var(--type-heading)",
                   lineHeight: "var(--leading-tight)",
                   fontWeight: 600,
-                  color: "var(--text-primary)",
-                  margin: "0.125rem 0 0",
                 }}
               >
                 {gap.groupName}
               </p>
-            </div>
+            </PlaybackRow>
           )}
 
-          <div style={{ marginBottom: "0.5rem" }}>
-            <p style={rowLabelStyle}>Who</p>
-            <p style={rowValueStyle}>{founderName}</p>
-          </div>
+          <PlaybackRow label="Who">
+            <p style={rowValueTextStyle}>{founderName}</p>
+          </PlaybackRow>
 
           {/* The gapped row: known part plus the lime-underlined marker Orbit
               is pointing at. Lime here is the gap-prompt cue, not an action. */}
-          <div style={{ marginBottom: gap.rhythms.length > 1 ? "0.5rem" : 0 }}>
-            <p style={{ ...rowLabelStyle, color: "var(--lime)" }}>{gapRow.label}</p>
-            <p style={rowValueStyle}>
+          <PlaybackRow label={gapRow.label} pending isLast={gap.rhythms.length === 1}>
+            <p style={rowValueTextStyle}>
               {gapRow.known !== null && <>{gapRow.known} </>}
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  fontStyle: "italic",
-                  color: "var(--text-secondary)",
-                  borderBottom: "2px solid var(--lime)",
-                  padding: "0 3px 1px",
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-                {gapRow.marker}
-              </span>
+              <PlaybackGapMarker>{gapRow.marker}</PlaybackGapMarker>
             </p>
-          </div>
+          </PlaybackRow>
 
           {gap.rhythms.slice(1).map((r, i) => {
             const row = formatRhythmRow(r)
             return (
-              <div
-                key={i}
-                style={{ marginBottom: i === gap.rhythms.length - 2 ? 0 : "0.5rem" }}
-              >
-                <p style={rowLabelStyle}>{row.label}</p>
-                <p style={rowValueStyle}>{row.value}</p>
-              </div>
+              <PlaybackRow key={i} label={row.label} isLast={i === gap.rhythms.length - 2}>
+                <p style={rowValueTextStyle}>{row.value}</p>
+              </PlaybackRow>
             )
           })}
-        </OrbitBubble>
+        </PlaybackCard>
       </div>
 
       {/* Orbit's question: deterministic lead-in composed by code around the

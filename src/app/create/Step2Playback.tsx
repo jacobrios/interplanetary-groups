@@ -13,6 +13,7 @@ import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import { PlaybackCard, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -35,22 +36,6 @@ interface Props {
   onBack: () => void
   isCreating: boolean
   error: string | null
-}
-
-const rowLabelStyle: React.CSSProperties = {
-  fontSize: "var(--type-eyebrow)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-secondary)",
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  margin: 0,
-}
-
-const rowValueStyle: React.CSSProperties = {
-  fontSize: "var(--type-body)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-primary)",
-  margin: 0,
 }
 
 export default function Step2Playback({
@@ -90,179 +75,217 @@ export default function Step2Playback({
           (build-notes §11, polish slice two). The width:100% wrapper is the
           same pattern MessageFeed uses so the bubble's content area fills
           the available width rather than shrinking to its content's
-          intrinsic size. Task 4 moves these rows onto their own card; this
-          task only swaps the bubble chrome, so the rows still live here. */}
-      <div style={{ width: "100%", marginBottom: "1.5rem" }}>
+          intrinsic size. Task 4 moves the schedule rows onto their own
+          card below; the bubble now carries only Orbit's spoken line. */}
+      <div style={{ width: "100%", marginBottom: "1rem" }}>
         <OrbitBubble>
           <p
             style={{
               fontSize: "var(--type-body)",
               lineHeight: "var(--leading-normal)",
               color: "var(--text-primary)",
-              margin: "0 0 0.75rem",
+              margin: 0,
             }}
           >
             {INTRO_COPY}
           </p>
-
-          {/* Group name row — inline editable. */}
-          <div style={{ marginBottom: "0.75rem" }}>
-            <label htmlFor="groupName" style={rowLabelStyle}>
-              Group name
-            </label>
-            <input
-              id="groupName"
-              type="text"
-              value={groupName}
-              onChange={(e) => onGroupNameChange(e.target.value)}
-              disabled={isCreating}
-              aria-label="Group name"
-              style={{
-                width: "100%",
-                marginTop: "0.25rem",
-                padding: "0.375rem 0.5rem",
-                backgroundColor: "var(--surface-base)",
-                border: "1px solid var(--hairline)",
-                borderRadius: "0.375rem",
-                color: "var(--text-primary)",
-                fontSize: "var(--type-heading)",
-                lineHeight: "var(--leading-tight)",
-                fontWeight: 600,
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          {/* WHO row. */}
-          <div style={{ marginBottom: "0.5rem" }}>
-            <p style={rowLabelStyle}>Who</p>
-            <p style={rowValueStyle}>{founderName}</p>
-          </div>
-
-          {/* One row per rhythm, primary first; loose rhythms read as
-              understood-but-not-scheduled. Beneath each value line: a captured
-              venue renders the inline standing-place input (editing, the
-              group-name precedent, but quieter: label scale, subtle border);
-              an empty venue renders a tap-to-reveal link that expands into
-              the same input (collecting — see the editing-vs-collecting note
-              above). Neutral colors on purpose, never lime — venue is
-              optional and never blocks Continue, so it must not borrow the
-              gap marker's "Orbit needs this" cue. */}
-          {rhythms.map((r, i) => {
-            const row = formatRhythmRow(r)
-            const venueRevealed = seededVenueIdx.has(i) || tappedVenueIdx.has(i)
-            return (
-              <div key={i} style={{ marginBottom: i === rhythms.length - 1 ? 0 : "0.5rem" }}>
-                <p style={rowLabelStyle}>{row.label}</p>
-                <p style={rowValueStyle}>{row.value}</p>
-                {venueRevealed ? (
-                  <input
-                    id={`venueName-${i}`}
-                    type="text"
-                    value={r.venueName ?? ""}
-                    onChange={(e) => onVenueNameChange(i, e.target.value)}
-                    disabled={isCreating}
-                    maxLength={VENUE_NAME_MAX}
-                    placeholder="Where do you usually meet? (optional)"
-                    aria-label={`Where you usually meet for ${r.activity}`}
-                    // Focus only the tap-revealed input; seeded inputs must
-                    // not steal focus from the card on mount.
-                    autoFocus={tappedVenueIdx.has(i)}
-                    style={{
-                      width: "100%",
-                      marginTop: "0.25rem",
-                      padding: "0.25rem 0.5rem",
-                      backgroundColor: "var(--surface-base)",
-                      border: "1px solid var(--hairline)",
-                      borderRadius: "0.375rem",
-                      color: "var(--text-primary)",
-                      fontSize: "var(--type-label)",
-                      lineHeight: "var(--leading-normal)",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
-                    disabled={isCreating}
-                    aria-label={`Add where you meet for ${r.activity}`}
-                    style={{
-                      display: "block",
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      marginTop: "0.25rem",
-                      color: "var(--text-secondary)",
-                      fontSize: "var(--type-label)",
-                      lineHeight: "var(--leading-normal)",
-                      textDecoration: "underline",
-                      cursor: isCreating ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    Add where you meet
-                  </button>
-                )}
-              </div>
-            )
-          })}
-
-          {/* Quiet timezone reference line. Reference text (meta scale,
-              secondary color), never an action, never teal or lime. Always
-              shown so a wrong inference is visible before confirm. No period,
-              no dashes, plain register. */}
-          <p
-            style={{
-              fontSize: "var(--type-meta)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-secondary)",
-              margin: "0.75rem 0 0",
-            }}
-          >
-            Times in {zoneLabel}
-          </p>
         </OrbitBubble>
       </div>
 
-      {error && (
+      {/* The playback card (walkthrough.css .cardX / .s2-srow, task 4). The
+          confirm button renders as the card's own footer band (.cfA), so it
+          is passed as `footer` rather than nested in the row list below. */}
+      <PlaybackCard
+        footer={
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isCreating || groupName.trim().length === 0}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+              backgroundColor: "var(--action)",
+              padding: "12px 15px",
+              border: "none",
+              // In-flight feedback: the old palette shifted the fill to a
+              // second teal while pending; the new palette has no second
+              // teal, so this dims instead, matching MessageFeed's optimistic-
+              // message idiom (0.65, greyscale-safe, no new token). No
+              // transition: this slice is no-animation, so the change is instant.
+              opacity: isCreating ? 0.65 : 1,
+              cursor: isCreating ? "not-allowed" : "pointer",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "var(--type-label)",
+                fontWeight: 700,
+                color: "var(--action-ink)",
+              }}
+            >
+              {isCreating ? "Setting things up…" : "Looks right, set up invites"}
+            </span>
+            <span
+              style={{
+                width: "26px",
+                height: "26px",
+                borderRadius: "50%",
+                backgroundColor: "rgba(10,33,37,.20)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+              }}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M7 4l6 6-6 6"
+                  stroke="var(--action-ink)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </button>
+        }
+      >
+        {/* Group name row — inline editable. */}
+        <PlaybackRow label="Group name" htmlForLabel="groupName">
+          <input
+            id="groupName"
+            type="text"
+            value={groupName}
+            onChange={(e) => onGroupNameChange(e.target.value)}
+            disabled={isCreating}
+            aria-label="Group name"
+            style={{
+              width: "100%",
+              padding: "0.375rem 0.5rem",
+              backgroundColor: "var(--surface-base)",
+              border: "1px solid var(--hairline)",
+              borderRadius: "0.375rem",
+              color: "var(--text-primary)",
+              fontSize: "var(--type-heading)",
+              lineHeight: "var(--leading-tight)",
+              fontWeight: 600,
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </PlaybackRow>
+
+        {/* WHO row. */}
+        <PlaybackRow label="Who">
+          <p style={rowValueTextStyle}>{founderName}</p>
+        </PlaybackRow>
+
+        {/* One row per rhythm, primary first; loose rhythms read as
+            understood-but-not-scheduled. Beneath each value line: a captured
+            venue renders the inline standing-place input (editing, the
+            group-name precedent, but quieter: label scale, subtle border);
+            an empty venue renders a tap-to-reveal link that expands into
+            the same input (collecting — see the editing-vs-collecting note
+            above). Neutral colors on purpose, never lime — venue is
+            optional and never blocks Continue, so it must not borrow the
+            gap marker's "Orbit needs this" cue. */}
+        {rhythms.map((r, i) => {
+          const row = formatRhythmRow(r)
+          const venueRevealed = seededVenueIdx.has(i) || tappedVenueIdx.has(i)
+          return (
+            <PlaybackRow key={i} label={row.label} isLast={i === rhythms.length - 1}>
+              <p style={rowValueTextStyle}>{row.value}</p>
+              {venueRevealed ? (
+                <input
+                  id={`venueName-${i}`}
+                  type="text"
+                  value={r.venueName ?? ""}
+                  onChange={(e) => onVenueNameChange(i, e.target.value)}
+                  disabled={isCreating}
+                  maxLength={VENUE_NAME_MAX}
+                  placeholder="Where do you usually meet? (optional)"
+                  aria-label={`Where you usually meet for ${r.activity}`}
+                  // Focus only the tap-revealed input; seeded inputs must
+                  // not steal focus from the card on mount.
+                  autoFocus={tappedVenueIdx.has(i)}
+                  style={{
+                    width: "100%",
+                    marginTop: "0.25rem",
+                    padding: "0.25rem 0.5rem",
+                    backgroundColor: "var(--surface-base)",
+                    border: "1px solid var(--hairline)",
+                    borderRadius: "0.375rem",
+                    color: "var(--text-primary)",
+                    fontSize: "var(--type-label)",
+                    lineHeight: "var(--leading-normal)",
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
+                  disabled={isCreating}
+                  aria-label={`Add where you meet for ${r.activity}`}
+                  style={{
+                    display: "block",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    marginTop: "0.25rem",
+                    color: "var(--text-secondary)",
+                    fontSize: "var(--type-label)",
+                    lineHeight: "var(--leading-normal)",
+                    textDecoration: "underline",
+                    cursor: isCreating ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Add where you meet
+                </button>
+              )}
+            </PlaybackRow>
+          )
+        })}
+
+        {/* Quiet timezone reference line. Reference text (meta scale,
+            secondary color), never an action, never teal or lime. Always
+            shown so a wrong inference is visible before confirm. No period,
+            no dashes, plain register. Not a key/value row, so it renders
+            below the row list rather than through PlaybackRow. */}
         <p
           style={{
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
-            color: "var(--danger)",
-            marginBottom: "0.75rem",
+            color: "var(--text-secondary)",
+            margin: "0.75rem 0 0",
           }}
         >
-          {error}
+          Times in {zoneLabel}
         </p>
-      )}
 
-      <button
-        type="button"
-        onClick={onConfirm}
-        disabled={isCreating || groupName.trim().length === 0}
-        style={{
-          width: "100%",
-          padding: "0.75rem 1.5rem",
-          backgroundColor: "var(--action)",
-          // In-flight feedback: the old palette shifted the fill to a
-          // second teal while pending; the new palette has no second
-          // teal, so this dims instead, matching MessageFeed's optimistic-
-          // message idiom (0.65, greyscale-safe, no new token). No
-          // transition: this slice is no-animation, so the change is instant.
-          opacity: isCreating ? 0.65 : 1,
-          color: "var(--action-ink)",
-          fontSize: "var(--type-body)",
-          fontWeight: 600,
-          border: "none",
-          borderRadius: "0.5rem",
-          cursor: isCreating ? "not-allowed" : "pointer",
-        }}
-      >
-        {isCreating ? "Setting things up…" : "Looks right, set up invites"}
-      </button>
+        {error && (
+          <p
+            style={{
+              fontSize: "var(--type-meta)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--danger)",
+              margin: "0.75rem 0 0",
+            }}
+          >
+            {error}
+          </p>
+        )}
+      </PlaybackCard>
 
       <button
         type="button"
