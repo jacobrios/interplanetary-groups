@@ -25,6 +25,7 @@ async function main() {
 
   // Imported after dotenv so ANTHROPIC_API_KEY is present.
   const { CASES } = await import("../evals/detect/cases")
+  type Bucket = (typeof CASES)[number]["bucket"]
   const { runCase } = await import("../evals/detect/run")
 
   const selected = CASES.filter((c) => c.id.includes(filter))
@@ -44,17 +45,25 @@ async function main() {
     console.log(`  ...${Math.min(i + CONCURRENCY, selected.length)}/${selected.length}`)
   }
 
-  const buckets = ["must-recognize", "must-stay-quiet", "ambiguous"] as const
+  // Typed as a full Record, so adding a fifth Bucket variant to cases.ts and
+  // forgetting this line is a compile error rather than a bucket that quietly
+  // stops appearing on the scoreboard. Insertion order is print order:
+  // the two barred buckets first, then the two watched ones.
+  const BUCKET_NOTE: Record<Bucket, string> = {
+    "must-recognize": "",
+    "must-stay-quiet": "",
+    ambiguous: "  (no bar, watched for drift)",
+    accepted: "  (no bar; a known gap the owner accepted, watched for drift)",
+  }
   console.log("\n=== SCOREBOARD ===")
-  for (const b of buckets) {
+  for (const b of Object.keys(BUCKET_NOTE) as Bucket[]) {
     const inBucket = results.filter((r) => r.bucket === b)
     if (inBucket.length === 0) continue
     const passes = inBucket.reduce((n, r) => n + r.passes, 0)
     const total = inBucket.reduce((n, r) => n + r.runs, 0)
     const clean = inBucket.filter((r) => r.passes === r.runs).length
     console.log(
-      `${b}: ${passes}/${total} runs, ${clean}/${inBucket.length} cases clean` +
-        (b === "ambiguous" ? "  (no bar, watched for drift)" : "")
+      `${b}: ${passes}/${total} runs, ${clean}/${inBucket.length} cases clean` + BUCKET_NOTE[b]
     )
   }
 
