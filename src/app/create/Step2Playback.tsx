@@ -236,7 +236,7 @@ export default function Step2Playback({
           style={{
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
-            color: "#f87171",
+            color: "var(--danger)",
             marginBottom: "0.75rem",
           }}
         >
