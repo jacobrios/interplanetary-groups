@@ -34,6 +34,11 @@ export function WizardHeader({ step, onBack }: Props) {
             color: "var(--text-secondary)",
             display: "flex",
             alignItems: "center",
+            justifyContent: "flex-start",
+            width: "20px",
+            height: "30px",
+            marginRight: "-3px",
+            marginLeft: "-4px",
           }}
         >
           <Chevron direction="left" />
@@ -41,8 +46,11 @@ export function WizardHeader({ step, onBack }: Props) {
       )}
       {/* label={null}: the visible "Orbit" text sits right next to the mark,
           so the default accessible label would make a screen reader announce
-          it twice. Same precedent as OrbitNoteScreen. */}
-      <OrbitMark size={36} label={null} />
+          it twice. Same precedent as OrbitNoteScreen.
+          size=44 (was 36): the mark draws at 156% of this slot with position
+          absolute and overflow visible by default, so growing the slot does
+          not clip the orbit path (verified in-browser, see task-7 report). */}
+      <OrbitMark size={44} label={null} />
       <div>
         <p
           style={{
