@@ -89,15 +89,31 @@ export function PlaybackRow({
     letterSpacing: "0.12em",
     textTransform: "uppercase",
     fontWeight: 700,
-    width: "62px",
-    flex: "0 0 auto",
     // The stylesheet's fixed 62px key column assumes short labels (WHO,
-    // BEERS); a longer single-word activity (CLIMBING) has no space to
-    // wrap and would otherwise overflow into the value column with no
-    // visible gap. Wrapping mid-word here keeps every label inside its
-    // own column (the "layout grows with content, never clips" rule),
-    // which is not itself in the stylesheet since its own vocabulary
-    // never produced a label this long.
+    // GROUP NAME), but a rhythm row's label is the founder's own activity
+    // word uppercased (up to two words, see formatRhythmRow), and CLIMBING
+    // at 13px with 0.12em tracking needs 77px. A fixed 62px forced it to
+    // break mid-word ("CLIMBI / NG") at the exact moment the founder is
+    // asked to confirm Orbit read them right.
+    //
+    // min-content plus a 62px floor gives each label the narrowest width it
+    // can take without breaking a word: a label with a space in it (GROUP
+    // NAME) still wraps inside the design's 62px column and keeps the
+    // card's rhythm, while a single word that cannot wrap widens the column
+    // instead of being cut in half ("layout grows with content, never
+    // clips"). Measured at 375px: WHO and GROUP NAME hold 62px, PICKLEBALL
+    // takes 94px, and the value column stays on one line in all three.
+    width: "min-content",
+    minWidth: "62px",
+    flex: "0 0 auto",
+    // Ceiling so a pathological label can never push the value column out
+    // of the row (the card hides its overflow, and clipping is the one
+    // outcome the layout rule forbids). The row is 281px at a 375px
+    // viewport, so 60% is about 17 characters: every plausible activity
+    // word clears it (MOUNTAINEERING lands at 139px on one line, leaving
+    // the value 130px). break-word applies only past the ceiling, where
+    // breaking a made-up 20-letter word beats clipping it.
+    maxWidth: "60%",
     overflowWrap: "break-word",
     // --ink-faint in the stylesheet is #A7AAB6, which is this project's
     // --text-secondary (#A7AAB6), not --text-faint (#6F7280, a dimmer

@@ -49,4 +49,18 @@ describe("ShareInviteLink", () => {
     expect(writeText.mock.calls[0][0]).toContain("/join/tok-3")
     expect(await screen.findByRole("button", { name: "Copied!" })).toBeDefined()
   })
+
+  it("sizes the pill with a min-height and real vertical padding, never a fixed height", () => {
+    // "Layout grows with content, never clips": this shipped as a fixed 46px
+    // height with zero vertical padding, which spills the label out of the
+    // pill at an enlarged device text size. The resting 46px is the design's
+    // (.s3-sharebtn), so it stays, as a floor.
+    render(<ShareInviteLink inviteToken="tok-4" groupName="Climbing Crew" />)
+    const btn = screen.getByRole("button", { name: "Share invite link" })
+
+    expect(btn.style.height).toBe("")
+    expect(btn.style.minHeight).toBe("2.875rem")
+    expect(btn.style.paddingTop).toBe("0.625rem")
+    expect(btn.style.paddingBottom).toBe("0.625rem")
+  })
 })
