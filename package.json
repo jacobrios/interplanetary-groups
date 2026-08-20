@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "db:which": "tsx scripts/db-which.ts",
     "eval:detect": "tsx scripts/eval-detect.ts",
+    "eval:onboarding": "tsx scripts/eval-onboarding.ts",
     "qa:stage-cardstate": "tsx --env-file=.env scripts/qa-stage-cardstate.ts",
     "qa:sweep": "tsx --env-file=.env scripts/qa-sweep.ts"
   },
