@@ -1,11 +1,12 @@
 // evals/onboarding/run.ts
 //
 // Runs onboarding cases against the real model. An extract case calls
-// `extractGroupProfile` exactly as onboarding step 1 does, then puts the raw
-// claim through the product's own normalize layer before anything is graded,
-// so the bench measures the fact the founder would meet and never the model's
-// unvalidated output. Never touches the database, so it is safe to run
-// repeatedly.
+// `extractGroupProfile` exactly as onboarding step 1 does; a merge case calls
+// `mergeGapAnswer` exactly as the gap-ask loop does. Either way the raw claim
+// then goes through the product's own normalize layer before anything is
+// graded, so the bench measures the fact the founder would meet and never the
+// model's unvalidated output. Never touches the database, so it is safe to
+// run repeatedly.
 //
 // Every assertion on a case is evaluated on every run and scored as its own
 // rate. Extraction returns eight fields at once, so a whole-case pass or fail
@@ -17,6 +18,7 @@
 // that quietly did not happen.
 
 import { extractGroupProfile } from "../../src/lib/orbit/extract"
+import { mergeGapAnswer } from "../../src/lib/orbit/merge"
 import type { NormalizedOnboarding } from "../../src/lib/orbit/normalize"
 import { toOutcome, type OnboardingCase, type OnboardingOutcome } from "./cases"
 
@@ -58,14 +60,19 @@ function describe(o: OnboardingOutcome): string {
 
 /**
  * One run of one case, through the real production entry point for its kind.
- * A `case "merge"` branch lands here alongside this one: `mergeGapAnswer`
- * returns the same claim shape against the same schema, so it flows through
- * the same `toOutcome` and grades against the same assertions.
+ * `mergeGapAnswer` returns the same claim shape against the same schema as
+ * extraction, so it flows through the same `toOutcome` and grades against the
+ * same assertions. Deliberately calls `mergeGapAnswer` alone, never through
+ * `enforceActivityCarryOver` / `enforceVenueCarryOver`: those are the server
+ * action's own code-side guard around the model call, not part of it, and
+ * this bench measures what the prompt itself does unassisted.
  */
 async function runOnce(c: OnboardingCase): Promise<OnboardingOutcome> {
   switch (c.kind) {
     case "extract":
       return toOutcome(await extractGroupProfile(c.founderDescription))
+    case "merge":
+      return toOutcome(await mergeGapAnswer(c.input))
   }
 }
 

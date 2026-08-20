@@ -18,6 +18,7 @@
 // no right answer, that is a conversation, not a looser assertion.
 
 import { readClarifyingQuestion, validateQuestion } from "../../src/lib/orbit/gap"
+import type { MergeGapCallInput } from "../../src/lib/orbit/merge"
 import {
   normalizeExtraction,
   type MissingField,
@@ -70,8 +71,22 @@ export interface ExtractCase {
   assertions: Assertion[]
 }
 
-/** A `MergeCase` with `kind: "merge"` joins this union in the merge task. */
-export type OnboardingCase = ExtractCase
+/**
+ * A gap-ask merge round: `mergeGapAnswer`'s exact input shape, so a case is
+ * indistinguishable from a real production call. `description` here is the
+ * "why this case exists" line (matching `ExtractCase`), not the founder's
+ * original text; that text lives inside `input.description`, exactly where
+ * `MergeGapCallInput` puts it.
+ */
+export interface MergeCase {
+  id: string
+  kind: "merge"
+  description: string
+  input: MergeGapCallInput
+  assertions: Assertion[]
+}
+
+export type OnboardingCase = ExtractCase | MergeCase
 
 // ---------------------------------------------------------------------------
 // Shared readers. Assertions stay one expression long so a case reads as a
@@ -331,6 +346,116 @@ export const CASES: OnboardingCase[] = [
       daysAre([3]),
       timeIs("18:00"),
       timeNotAmbiguous,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // Merge cases: one founder answer into a gapped partial state, through
+  // `mergeGapAnswer` directly (never through `enforceActivityCarryOver` /
+  // `enforceVenueCarryOver`, which are the server action's own code-side
+  // guard, not part of the model call). These three measure the prompt's own
+  // "latest word wins" and "copy untouched fields verbatim" rules unassisted
+  // by that guard, which is the point: the guard exists precisely because
+  // the model does not always follow those rules on its own.
+  // -------------------------------------------------------------------------
+
+  {
+    id: "merge-carry-forward",
+    kind: "merge",
+    description:
+      'The documented past failure behind CLAUDE.md\'s stored-state guardrail: current state holds activity "climbing" and the founder answers only the time question. A field the answer never touches must come back character for character, not re-derived from the description into a different stem ("climb").',
+    input: {
+      description: "we climb on Tuesdays",
+      groupName: "Tuesday Climbers",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2],
+          timeLocal: null,
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "time",
+      answer: "7pm",
+    },
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      cadenceWeekly,
+      daysAre([2]),
+      timeIs("19:00"),
+      timeNotAmbiguous,
+      venueIsNull,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+  {
+    id: "merge-ambiguous-time",
+    kind: "merge",
+    description:
+      'The candidate-time resolution rule stated in the merge prompt\'s own worked example: candidate time is "19:00", we asked whether that is morning or evening, and the founder answers "evening". `toStored` nulls an ambiguous time on every path (ready or incomplete), so a time surviving into the normalized primary is itself the proof the ambiguity resolved; there is no separate "resolved" flag to read.',
+    input: {
+      description: "we climb tuesdays at 7",
+      groupName: "Tuesday Climbers",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2],
+          timeLocal: null,
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: "19:00",
+      askedAbout: "ambiguous_time",
+      answer: "evening",
+    },
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      cadenceWeekly,
+      daysAre([2]),
+      timeIs("19:00"),
+      timeNotAmbiguous,
+      venueIsNull,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+  {
+    id: "merge-day-replacement",
+    kind: "merge",
+    description:
+      "Latest-word-wins: we only asked about the time, but the founder's answer contradicts the stored day too (\"actually Saturdays at 10am\"). The days and time must be replaced wholesale by the answer, never merged with the stored Tuesday.",
+    input: {
+      description: "we climb on Tuesdays",
+      groupName: "Tuesday Climbers",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2],
+          timeLocal: null,
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "time",
+      answer: "actually Saturdays at 10am",
+    },
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      cadenceWeekly,
+      daysAre([6]),
+      timeIs("10:00"),
+      timeNotAmbiguous,
+      venueIsNull,
       ...NAME_ASSERTIONS,
     ],
   },
