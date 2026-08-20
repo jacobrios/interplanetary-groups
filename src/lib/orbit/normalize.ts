@@ -38,16 +38,6 @@ export type NormalizedOnboarding =
       candidateTimeLocal: string | null
     }
 
-const WEEKDAY_FULL = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]
-
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const NAME_MAX = 50
 
@@ -238,9 +228,7 @@ export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
 
   return {
     status: "ready",
-    groupName:
-      cleanSuggestedName(suggestedName) ??
-      `${WEEKDAY_FULL[primary.daysOfWeek![0]]} ${titleCaseActivity(primary.activity)}`,
+    groupName: cleanSuggestedName(suggestedName) ?? titleCaseActivity(primary.activity),
     rhythms: stored,
   }
 }

@@ -313,17 +313,17 @@ describe("normalizeExtraction — group name", () => {
   it("falls back deterministically when the suggestion is missing", () => {
     const r = normalizeExtraction(raw([CLIMB], null))
     if (r.status !== "ready") throw new Error("expected ready")
-    expect(r.groupName).toBe("Sunday Climbing")
+    expect(r.groupName).toBe("Climbing")
   })
 
   it("falls back deterministically when the suggestion is whitespace or wrong type", () => {
     const blank = normalizeExtraction(raw([CLIMB], "   "))
     if (blank.status !== "ready") throw new Error("expected ready")
-    expect(blank.groupName).toBe("Sunday Climbing")
+    expect(blank.groupName).toBe("Climbing")
 
     const wrongType = normalizeExtraction(raw([CLIMB], 42))
     if (wrongType.status !== "ready") throw new Error("expected ready")
-    expect(wrongType.groupName).toBe("Sunday Climbing")
+    expect(wrongType.groupName).toBe("Climbing")
   })
 })
 
