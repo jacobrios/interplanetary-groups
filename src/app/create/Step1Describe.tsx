@@ -86,11 +86,15 @@ export default function Step1Describe({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* The one tailed bubble in the product (§7 onboarding exception),
-          shared with Step 2 via TailedOrbitBubble: no avatar, left margin,
-          small tail pointing up at the header. Only the outer vertical
-          spacing is kept local to this step, since it is a layout decision
-          about this screen rather than part of the bubble's own shape. */}
+      {/* TailedOrbitBubble: the tailed, avatar-less treatment for a wizard
+          bubble sitting directly under the header, so the header's Orbit
+          mark reads as the speaker (§7 onboarding exception, amended 20 Aug
+          2026). Step 1 and step 2's opening bubble both qualify and share
+          this component; the gap-ask does not, since its bubble sits below
+          the playback card rather than under the header. Only the outer
+          vertical spacing is kept local to this step, since it is a layout
+          decision about this screen rather than part of the bubble's own
+          shape. */}
       <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
         <TailedOrbitBubble>
           <p style={{ margin: 0 }}>{bubbleCopy}</p>

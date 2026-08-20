@@ -151,7 +151,7 @@ export function PlaybackRow({
  * than beside it in the narrow key column every other row uses. The name is
  * the card's headline and the widest label in the deck ("GROUP NAME"), which
  * used to wrap onto two lines squeezed into the 62px key column next to a
- * large bold input — the ugliest thing on the card (owner phone QA, polish
+ * large bold input, the ugliest thing on the card (owner phone QA, polish
  * slice two). Stacking removes the wrap without touching what makes the row
  * a row: it still sits inside the card's own row list, keeps the same
  * top/bottom padding and hairline divider as every other row, and (via
@@ -160,13 +160,18 @@ export function PlaybackRow({
  * `PlaybackRow` did before this. Editability itself is unchanged: this
  * component only reorders the label and the value, it does not decide
  * whether the value is an input or a paragraph, so the group-name input on
- * Step 2 keeps its own box and stays obviously tappable.
+ * Step 2 keeps its own box and stays obviously tappable. `isLast` drops the
+ * divider and tightens the bottom padding, matching `PlaybackRow`'s own
+ * last-row rule; both current call sites always have a WHO row after this
+ * one, so `isLast` defaults to false and neither screen's rendering changes.
  */
 export function PlaybackNameRow({
   htmlForLabel,
+  isLast = false,
   children,
 }: {
   htmlForLabel?: string
+  isLast?: boolean
   children: ReactNode
 }) {
   const nameKeyStyle: React.CSSProperties = {
@@ -185,8 +190,8 @@ export function PlaybackNameRow({
         flexDirection: "column",
         gap: "0.375rem",
         paddingTop: "9px",
-        paddingBottom: "9px",
-        borderBottom: "1.4px solid var(--hairline)",
+        paddingBottom: isLast ? "2px" : "9px",
+        borderBottom: isLast ? "none" : "1.4px solid var(--hairline)",
       }}
     >
       {htmlForLabel ? (

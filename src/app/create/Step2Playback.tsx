@@ -168,7 +168,7 @@ export default function Step2Playback({
           </button>
         }
       >
-        {/* Group name row — full width, label stacked above the input
+        {/* Group name row, full width, label stacked above the input
             (PlaybackNameRow), inline editable. The input keeps its own box
             so the row still reads as tappable rather than a static
             headline. */}
@@ -206,8 +206,8 @@ export default function Step2Playback({
             venue renders the inline standing-place input (editing, the
             group-name precedent, but quieter: label scale, subtle border);
             an empty venue renders a tap-to-reveal link that expands into
-            the same input (collecting — see the editing-vs-collecting note
-            above). Neutral colors on purpose, never lime — venue is
+            the same input (collecting; see the editing-vs-collecting note
+            above). Neutral colors on purpose, never lime; venue is
             optional and never blocks Continue, so it must not borrow the
             gap marker's "Orbit needs this" cue. */}
         {rhythms.map((r, i) => {
