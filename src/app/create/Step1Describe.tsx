@@ -12,6 +12,7 @@ import Link from "next/link"
 import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
+import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import OrbitPause from "./OrbitPause"
 
 const INTRO_COPY =
@@ -85,57 +86,15 @@ export default function Step1Describe({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* The one tailed bubble in the product: no avatar, left margin, small
-          tail pointing up at the header (§7 onboarding exception). Two
-          stacked triangles (back in --hairline, front in --surface-raised)
-          so the tail reads as a hairline continuation of the bubble's own
-          border, per walkthrough.css .s2r-msg-tail::before/::after. */}
-      <div style={{ position: "relative", marginTop: "1rem", marginBottom: "2rem" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: -11,
-            left: 18,
-            width: 0,
-            height: 0,
-            borderLeft: "9px solid transparent",
-            borderRight: "9px solid transparent",
-            borderBottom: "13px solid var(--hairline)",
-          }}
-        />
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: -10,
-            left: 19,
-            width: 0,
-            height: 0,
-            borderLeft: "8px solid transparent",
-            borderRight: "8px solid transparent",
-            borderBottom: "12px solid var(--surface-raised)",
-          }}
-        />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "16px 16px 16px 5px",
-            padding: "12px 14px",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "var(--type-body)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
-            {bubbleCopy}
-          </p>
-        </div>
+      {/* The one tailed bubble in the product (§7 onboarding exception),
+          shared with Step 2 via TailedOrbitBubble: no avatar, left margin,
+          small tail pointing up at the header. Only the outer vertical
+          spacing is kept local to this step, since it is a layout decision
+          about this screen rather than part of the bubble's own shape. */}
+      <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+        <TailedOrbitBubble>
+          <p style={{ margin: 0 }}>{bubbleCopy}</p>
+        </TailedOrbitBubble>
       </div>
 
       {/* No flex `gap` here: the design's own containers (.s2-body,

@@ -1,10 +1,13 @@
 // src/app/create/Step2Playback.tsx
 //
 // Onboarding Step 2: Orbit plays back what it understood as rows inside its
-// bubble (feed-style bubble with avatar, untailed — the tail belongs to Step
-// 1 only). The group-name row is inline-editable (recorded deviation from
-// the read-only mockup: rename exists nowhere else in the product yet).
-// Every string here is composed deterministically from normalized fields.
+// bubble. The bubble now shares Step 1's tailed treatment (extracted as
+// TailedOrbitBubble): no avatar, tail pointing up at the header's own
+// Orbit mark, so a step sitting directly under the header never shows two
+// Orbit faces stacked on top of each other (polish slice two phone QA).
+// The group-name row is inline-editable (recorded deviation from the
+// read-only mockup: rename exists nowhere else in the product yet). Every
+// string here is composed deterministically from normalized fields.
 
 "use client"
 
@@ -12,7 +15,7 @@ import { useState } from "react"
 import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
-import { OrbitBubble } from "@/components/OrbitBubble"
+import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import { PlaybackCard, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
 
 const INTRO_COPY = "Here's what I understood."
@@ -78,25 +81,18 @@ export default function Step2Playback({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* Shared Orbit bubble, same as everywhere else Orbit speaks
-          (build-notes §11, polish slice two). The width:100% wrapper is the
-          same pattern MessageFeed uses so the bubble's content area fills
-          the available width rather than shrinking to its content's
-          intrinsic size. Task 4 moves the schedule rows onto their own
-          card below; the bubble now carries only Orbit's spoken line. */}
+      {/* Tailed Orbit bubble, shared with Step 1 (TailedOrbitBubble): the
+          header's own Orbit mark sits directly above this step, so the
+          bubble drops its avatar and points a tail up at the header
+          instead, same as Step 1. The width:100% wrapper is the same
+          pattern MessageFeed uses so the bubble's content area fills the
+          available width rather than shrinking to its content's intrinsic
+          size. Task 4 moves the schedule rows onto their own card below;
+          the bubble now carries only Orbit's spoken line. */}
       <div style={{ width: "100%", marginBottom: "1rem" }}>
-        <OrbitBubble>
-          <p
-            style={{
-              fontSize: "var(--type-body)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
-            {INTRO_COPY}
-          </p>
-        </OrbitBubble>
+        <TailedOrbitBubble>
+          <p style={{ margin: 0 }}>{INTRO_COPY}</p>
+        </TailedOrbitBubble>
       </div>
 
       {/* The playback card (walkthrough.css .cardX / .s2-srow, task 4). The
