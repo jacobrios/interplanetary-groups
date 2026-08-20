@@ -272,7 +272,19 @@ prompt carries its own worked example of the wrong shape.
 
 ### Task 4: the prompt stops teaching the weekday shape
 
-Three edits, all approved by the owner in this exact wording.
+Four edits, all approved by the owner in this exact wording.
+
+**Added mid-slice, 20 Aug, on the owner's ruling.** Task 2's bench found that the model returns
+activity "climb" on four runs in five from "we climb on Mondays...", so the event title task 1 shipped
+renders as "Climb" rather than "Climbing", and varies run to run on identical input. The owner ruled
+that the prompt should ask for the naming form rather than accept the variance. So **`FIELD_RULES`'s
+`activity` line at `src/lib/orbit/extract.ts:63`** gains one sentence, inserted between the existing
+first sentence and the existing "Drop location and filler words" sentence, leaving both untouched:
+
+> `Name the thing itself, not the doing of it: a founder who writes "we climb" gives activity "climbing", and "we play board games" gives "board games".`
+
+The bench's `activityIs("climbing")` assertions are correct as written and must NOT be loosened. Their
+red is the before-number for this edit.
 
 **`src/lib/orbit/extract.ts:68`**, the `suggestedGroupName` line in `FIELD_RULES`, becomes:
 
