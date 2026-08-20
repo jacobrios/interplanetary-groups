@@ -86,7 +86,7 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 
 - **Chat voice system,** distinguished by structure and weight, not hue. Orbit speaks as its avatar with no name label, in a soft muted fill. Members speak as a name label with no avatar, in an outlined low-fill bubble. The viewer is right-aligned in the strongest fill, which must not be the teal primary-action color (a teal self-bubble would read as a button) and is not lime (which reads as Orbit). The asymmetry makes AI and humans distinguishable at a glance.
 - **Bubbles for dialogue, notes for reference.** A bubble requires that the user's next action on the screen responds to Orbit. On reference pages, Orbit leaves a labeled note, never a bubble.
-- **One onboarding bubble-tail exception.** The Step 1 bubble drops its avatar, shifts to the left margin, and keeps a small tail pointing up at the header; it is the only tailed bubble in the product. Implementation is a one-off: either an SVG bubble shape (a single stroked path with the base segment left unstroked) or a stacked two-triangle CSS approach. Present in the current gallery.
+- **One onboarding bubble-tail exception.** The Step 1 bubble drops its avatar, shifts to the left margin, and keeps a small tail pointing up at the header; ~~it is the only tailed bubble in the product.~~ **Amended 20 Aug 2026 (polish slice two, owner's phone QA):** it is no longer the only one. The rule is now stated as a condition rather than a screen: a wizard bubble sitting *directly under the header* takes this treatment, which covers step 1 and step 2's opening bubble, both rendering through the shared `TailedOrbitBubble`. The gap-ask is excluded, because its bubble sits below the playback card rather than under the header. Reasoning in the postscript to the polish-slice-two §11 entry. Implementation is a one-off: either an SVG bubble shape (a single stroked path with the base segment left unstroked) or a stacked two-triangle CSS approach. Present in the current gallery.
 - **Avatars are deterministic generated doodles** (Interplanetary celestial theme; the same name always yields the same doodle); photos are not in the MVP. Avatars live on the event detail page, not the compact card.
 
 ### Copy generation
@@ -3766,8 +3766,9 @@ Everything else in step 1 landed; the counter waits on a ruling. **Open question
 and `Step2Playback` moved onto the shared `OrbitBubble` with the design's bottom-left notch, so the whole
 wizard now speaks one bubble grammar. And the wizard's hardcoded error red became a `--danger` token.
 
-**What the slice built.** Step 1 gained the design's two-triangle tail, the only tailed bubble in the
-product, where a back triangle in `--hairline` sits behind a front triangle in `--surface-raised` so the
+**What the slice built.** Step 1 gained the design's two-triangle tail, ~~the only tailed bubble in the
+product~~ (superseded 20 Aug 2026 by this entry's own QA postscript below, which widened the rule and gave
+step 2's opening bubble the same treatment through a shared component), where a back triangle in `--hairline` sits behind a front triangle in `--surface-raised` so the
 tail's slants read as a continuation of the bubble's border; plus the designed field shapes and a pill
 Continue button. The playback rows moved out of the Orbit bubble onto their own `PlaybackCard`, shared by
 the playback and gap-ask steps, carrying the designed key/value rows, the dashed lime gap marker with its
@@ -3858,3 +3859,57 @@ found a squeeze that a full desktop pass had missed. The phone pass is step 1 of
   session's auth ID is reused as a guard against duplicate rows, so a returning anonymous session keeps its
   old name and the entered one is discarded. Pre-existing and unrelated to visual polish, but the playback
   promises a name the product then does not use. **Worth its own look.**
+
+
+### Postscript, 20 Aug 2026: the owner's phone QA, and why the tail rule was widened
+
+The real-phone pass the build could not run found five things. Three were answered from the record, two
+became work.
+
+**The tail rule was written too narrowly, and the owner's eye caught it.** He reported two Orbit faces
+stacked on step 2: the header's mark directly above a bubble carrying its own avatar. That is precisely
+the condition step 1's tail exists to prevent, and it was already a recorded finding from the gap-ask
+slice's feel pass ("the screen shows two Orbit bubbles in a row"), queued for the polish pass, which is
+this slice. This slice's document never picked it up; that is a miss in the planning, not in the
+execution.
+
+The rule said "the Step 1 bubble ... it is the only tailed bubble in the product." But the reason step 1
+drops its avatar and points a tail upward has nothing to do with being step 1: it is that the bubble sits
+directly under the header, so the header's Orbit is visibly the speaker and a second face is redundant.
+The rule had been written around the screen it was first drawn on rather than around the condition that
+earns it. Amended in CLAUDE.md and in §7 above: **a wizard bubble sitting directly under the header takes
+the tailed, avatar-less treatment.** Step 1 and step 2's opening bubble qualify and now share one
+`TailedOrbitBubble` component. The gap-ask does not qualify and keeps its avatar, because its bubble sits
+below the playback card; the ordering difference between the two steps is what makes that correct rather
+than inconsistent.
+
+**The group name got its own full-width row, and the owner's question is why it is not step 3's title.**
+The name had been an ordinary key/value row, so its "GROUP NAME" label wrapped onto two lines inside the
+62px key column. The first proposal was to match step 3's card, which renders the name as a bold title
+with a divider and no label, and which the design's own step 2 board also shows. The owner asked one
+question that killed it: would it still be editable? In the design, nothing on step 2's card is directly
+editable; the design's step 2 carries a message box and you change the name by telling Orbit ("Tell me
+anything you'd like to change and I'll update it above"). Our step 2 has no message box, so the name being
+a tappable input is the affordance that tells a founder they can change it, and step 3's name is a
+non-editable title on a different card. Copying step 3's look would have removed the affordance without
+supplying the design's replacement for it. **Decided: the name keeps its label and its input box, and only
+the layout changes**, from squeezed-beside to stacked-and-full-width. Nothing wraps, it reads as the card's
+headline, and it stays obviously editable. It also removes the widest label from the key column, which
+shrinks the ragged-value-column cost recorded above.
+
+**Declined, not queued: the 500-character cap.** The design's counter reads "0/500", which would impose a
+cap on the founder's description where none exists. Declined outright rather than deferred. The description
+is the raw material Orbit extracts from, so a cap risks cutting a founder off mid-thought at the one moment
+more detail helps; nothing in the product needs it (the column is unbounded text and the model handles
+longer input); and the same board that drew "0/500" also drew a fake blinking text caret, which is mockup
+furniture rather than a considered product rule. Nothing gets worse by never building it, which is the
+recorded test for declining. **The counter is not built and the field stays uncapped.**
+
+**Answered from the record, no change:** the "Never mind, take me back" link on step 1 stays. The owner
+questioned whether it was needed; it exists by his own 27 July decision, where step 1 was one of four dead
+ends the app-wide-navigation slice was built to close, recorded as "step 1 only, since later steps already
+go backwards within the flow." Removing it would recreate the dead end. And step 1's field order (name
+above description, where the design puts description first) stays; the owner looked and did not notice it.
+
+**Two bugs found that are not this slice's, both now the next slice's:** the event title's frozen weekday
+and the group name's prompt. Written up in their own postscript below.
