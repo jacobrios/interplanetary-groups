@@ -107,6 +107,16 @@ describe("promoteGaugeToEvent", () => {
     expect(event!.scheduledKey).toBeNull()  // the cron must not see this as its own
   })
 
+  it("title-cases every word of a multi-word activity, not just the first letter", async () => {
+    const gaugeId = await gaugeWith("board games", ["IN", "IN", "IN"])
+
+    const result = await promoteGaugeToEvent(gaugeId, NOW)
+    expect(result.status).toBe("created")
+
+    const event = await prisma.event.findFirst({ where: { gaugeId } })
+    expect(event!.title).toBe("Board Games")
+  })
+
   it("seeds the gauge answers as RSVPs, so nobody is asked twice", async () => {
     const gaugeId = await gaugeWith("tacos", ["IN", "IN", "IN", "OUT"])
     await promoteGaugeToEvent(gaugeId, NOW)
