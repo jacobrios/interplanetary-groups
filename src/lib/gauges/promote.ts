@@ -16,7 +16,7 @@ import { prisma } from "@/lib/prisma"
 import { MessageAuthor, RsvpStatus } from "@prisma/client"
 
 import { createEventInTx } from "@/lib/events/create"
-import { parseStoredRhythms } from "@/lib/orbit/rhythm"
+import { parseStoredRhythms, titleCaseActivity } from "@/lib/orbit/rhythm"
 import { buildSparkAnnouncement, sparkStartInstant } from "@/lib/orbit/spark-copy"
 import { countIn, hasReachedThreshold } from "./threshold"
 
@@ -95,7 +95,7 @@ export async function promoteGaugeToEvent(
 
       const event = await createEventInTx(tx, {
         groupId: gauge.group.id,
-        title: titleFor(gauge.activity),
+        title: titleCaseActivity(gauge.activity),
         startsAt,
         // No end: nothing in the product knows how long beers lasts, and the
         // field is optional for exactly this reason.
@@ -148,11 +148,6 @@ export async function promoteGaugeToEvent(
 
 /** Signals a rollback of the creation transaction; never escapes this module. */
 class BelowThresholdInTx extends Error {}
-
-/** "beers" becomes "Beers": the card wants a title, not a fragment. */
-function titleFor(activity: string): string {
-  return activity.charAt(0).toUpperCase() + activity.slice(1)
-}
 
 /**
  * The group's standing spot for this activity, when it told us one.
