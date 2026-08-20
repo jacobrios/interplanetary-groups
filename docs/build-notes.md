@@ -314,6 +314,16 @@ rot. The adjacent real decision is recorded in the joining-arc §11 entry:
 SYSTEM rows are excluded from the detection window, so Orbit does not know
 who joined, and whether it should is an open question.
 
+**Closed 20 Aug 2026 (titles-stop-naming-weekdays slice).** The trigger fired
+exactly as written: a slice changed both onboarding prompts, so both benches
+were its first tasks. `npm run eval:onboarding` grades nine cases (six
+extraction, three merge) through the real production path, per assertion
+rather than per case, and its before-and-after numbers are in that slice's §11
+entry. All three model behaviors are benched now, so commitment 2 above (a
+model version change requires all three benched before it lands) is satisfiable
+for the first time. The queue-not-fix-now recommendation recorded above proved
+right: the gap cost nothing until the day it was paid for.
+
 ## 11. Build log (implementation decisions)
 
 *Build phase, begun June 2026. Entries here are decisions made while implementing, ADR-style, one per build slice. They realize and extend the product-design decisions in sections 1 to 10; they do not replace them.*
@@ -3913,3 +3923,78 @@ above description, where the design puts description first) stays; the owner loo
 
 **Two bugs found that are not this slice's, both now the next slice's:** the event title's frozen weekday
 and the group name's prompt. Written up in their own postscript below.
+
+
+### Postscript, 20 Aug 2026: the two bugs the phone QA found, and where they went
+
+The promised write-up, delivered here rather than left as a pointer to nothing.
+
+**The event title had a weekday frozen into it.** The owner's Mon/Wed/Fri walkthrough produced a card
+reading "Climb Monday" over a Friday date, with Orbit's own message below the card saying Friday. Not
+a visual defect and not this slice's to fix: a pixel pass found it because a pixel pass is the only
+thing that had looked at a real multi-day group's card since the title rule was written.
+
+**The group name was named after a day.** The same run suggested "Monday Climbers" for a group that
+meets three days a week. A second run of the identical description suggested "Monday Wednesday Friday
+Climbers", accurate and 32 characters, which clipped inside the step 2 input. The prompt was failing in
+both directions at once.
+
+Both became the next slice, which is the entry directly below: **titles stop naming weekdays, and
+onboarding gets its first eval bench (20 Aug 2026)**. The second bug is also what finally fired the
+standing bench trigger this slice's own decisions had reasonably waived, which is the cleanest possible
+argument that the trigger was written correctly.
+
+
+## §11 entry: titles stop naming weekdays, and onboarding gets its first eval bench (20 Aug 2026)
+
+**The two bugs, and why one hid.** The event title was the activity plus the first weekday of the
+group's rhythm, stamped in at onboarding and copied verbatim onto every occurrence afterwards. It hid
+because the date was always right: nothing broke, and only someone reading the title and the date on
+one card would see the screen contradict itself. The case the tests pinned was the single-day one,
+where the frozen day happened to be true. The group name named a day because the prompt taught it, in
+three places: the shared field rules' only example, the merge prompt's worked example, and the
+deterministic fallback. The spark path had been right all along, so this is a correction.
+
+**The decisions the owner settled.** (1) The weekday leaves the title on every path, single-day groups
+included; "Climbing Sunday" is deliberately lost, because the date sits directly under the title
+everywhere it appears, so the weekday was duplicated information whose only possible future was to go
+stale. (2) The group name stays model-generated with tightened wording rather than becoming
+deterministic. Worth recording, because the owner's own worry pointed the other way: he cannot QA every
+name the model invents, and a controversial one would be bad. He kept the model because the name is
+editable on the playback card before the group exists, so a bad suggestion costs one edit and never
+reaches the group. The wording now forbids weekday names, caps at three words, and bans wordplay,
+because the whole group sees this name. (3) The deterministic fallback became the bare title-cased
+activity, "Climbing". (4) Mid-slice, the bench found a bug nobody went looking for: the model returned
+the activity as "climb" four runs in five, so the day-free title rendered "Climb" and varied on
+identical input; the owner ruled that the prompt should ask for the naming form of the activity, not
+the verb. (5) After the measurement, the residual rate of weekday group names was accepted rather than
+fixed with a code-side reject, declined at slice start and again with the number in hand, on the same
+reasoning as (2).
+
+**Where this bench departs from recognition's.** Recognition scores a case as one pass or fail, because
+a message has one outcome. Extraction returns eight fields at once, so a whole-case verdict hides which
+one drifted. Cases here carry named assertions scored as separate rates, at no extra model cost. The
+name is graded by predicate (no weekday word, three words or fewer, non-empty, plain characters)
+because the model legitimately varies on it; every other field by equality against what the founder
+said.
+
+**The numbers.** Before: "no weekday word" 1/30 across six extraction cases and 0/15 across three merge
+cases, 1/45 combined; activity-is-"climbing" 10/25. After, over two full runs: activity 25/25 and
+25/25; "no weekday word" 44/45 and 42/45, with nothing previously clean regressing. The misses
+concentrate on the fixture with no venue and no second activity, the one giving the model nothing else
+to name the group after. Suite: 92 files / 922 tests green at branch start and at the finish.
+
+**Two review catches, both the process arguing for itself.** The merge bench was skipping two
+production guards, so it was not the real production path on the exact case built to test the failure
+those guards fix; that mistake was mandated by the controller's own task brief, and CLAUDE.md's rule
+beat the brief, the source-wins pattern polish slice two recorded. And a fixture could have passed for
+the wrong reason: an ambiguous-time case whose candidate equalled what the answer resolved to, so a
+model blindly echoing it scored green. Repaired to a pairing where echo and rule diverge.
+
+**Debt and honest limits.** The group name is still model output: the risk is measured now, not removed.
+Nobody rendered one group's card rolling Monday to Wednesday to Friday over real time, because the
+occurrence cron is gated on wall-clock; three independent live onboarding runs stand in. Against that,
+the bug class is now structurally unreachable, because a title containing no weekday cannot go stale.
+No migration: existing dev-test groups keep their old titles and the fix reaches new groups only, safe
+only because that database is test data. No new environment variable and no schema change, so the
+pre-deploy checklist is unchanged.
