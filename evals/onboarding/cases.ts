@@ -397,7 +397,7 @@ export const CASES: OnboardingCase[] = [
     id: "merge-ambiguous-time",
     kind: "merge",
     description:
-      'The candidate-time resolution rule stated in the merge prompt\'s own worked example: candidate time is "19:00", we asked whether that is morning or evening, and the founder answers "evening". `toStored` nulls an ambiguous time on every path (ready or incomplete), so a time surviving into the normalized primary is itself the proof the ambiguity resolved; there is no separate "resolved" flag to read.',
+      'The candidate-time resolution rule from the merge prompt\'s own field rules, deliberately picked so a correct resolution DIFFERS from the candidate: candidate time is "19:00" (the model\'s pm guess for "at 7"), we asked whether that is morning or evening, and the founder answers "in the morning". The rule\'s own text says "morning" maps candidate "19:00" to "07:00", not to the candidate itself, so this pairing is the one that actually exercises the mapping: a model that just echoes candidateTimeLocal regardless of the answer would fail this case, where an "evening" answer (whose correct output equals the candidate) could not tell the two behaviors apart. `toStored` nulls an ambiguous time on every path (ready or incomplete), so a time surviving into the normalized primary is itself the proof the ambiguity resolved; there is no separate "resolved" flag to read.',
     input: {
       description: "we climb tuesdays at 7",
       groupName: "Tuesday Climbers",
@@ -413,14 +413,14 @@ export const CASES: OnboardingCase[] = [
       ],
       candidateTimeLocal: "19:00",
       askedAbout: "ambiguous_time",
-      answer: "evening",
+      answer: "in the morning",
     },
     assertions: [
       statusReady,
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([2]),
-      timeIs("19:00"),
+      timeIs("07:00"),
       timeNotAmbiguous,
       venueIsNull,
       ...NAME_ASSERTIONS,
