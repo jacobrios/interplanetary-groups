@@ -3998,3 +3998,33 @@ the bug class is now structurally unreachable, because a title containing no wee
 No migration: existing dev-test groups keep their old titles and the fix reaches new groups only, safe
 only because that database is test data. No new environment variable and no schema change, so the
 pre-deploy checklist is unchanged.
+
+### Postscript, 20 Aug 2026: the owner's phone QA of this slice
+
+Three findings. One is a real bug and left in its own micro-PR; two are recorded here and not built.
+
+**The group name reads "Climbing Crew", and the owner expected "Climbing".** Worth recording precisely,
+because the mechanism is not the one it looks like. The deterministic fallback does produce the bare
+activity, exactly as decided. "Climbing Crew" came from the model following this slice's own approved
+wording, which says to pair the activity with a plain everyday word for a group of people and offers
+"Climbing Crew" and "Board Game Club" as its examples. So the shape the owner questioned is one the
+build taught, not one Orbit invented. His concern is that the pairing does not survive every activity:
+"Beers Crew" reads badly where "Climbing Crew" reads fine. **Not changed, and the reason to wait is that
+the bench can now answer this instead of us guessing.** A beers case and a board-games case, scored over
+N runs, would say whether the model actually produces the awkward pairing or reaches for "Beer Night"
+and "Game Club" on its own. Queued as a bench-first question rather than a wording change, because
+changing approved copy on a hunch is how the weekday example got written in the first place.
+
+**Step 2 changes shape depending on whether Orbit has everything it needs.** With a gap open, the screen
+carries a message box below the playback card and Orbit speaks in a bubble with its avatar; once the
+gap is closed, that box is gone and the step opens with the tailed header bubble like step 1. The owner
+reported being thrown by it on first sight and explicitly ruled it acceptable for MVP, wanting it noted
+rather than fixed. Recorded because the two layouts are a deliberate consequence of the tail rule
+amended earlier the same day (a bubble directly under the header takes the tailed, avatar-less
+treatment; the gap-ask sits below the playback card and so keeps its avatar), and a future session
+seeing the inconsistency might otherwise "fix" a rule that was reasoned about twice.
+
+**The negative space above Orbit on step 2 was a real bug, fixed separately.** The onboarding page
+centered its whole column vertically, header included, so short steps floated down and read as a header
+that had failed to load. Its own micro-PR, since it is a fix to already-merged polish slice two work and
+touches no file this slice touches.
