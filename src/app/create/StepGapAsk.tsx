@@ -22,7 +22,13 @@ import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import SendCircleButton from "@/components/SendCircleButton"
-import { PlaybackCard, PlaybackRow, PlaybackGapMarker, rowValueTextStyle } from "./PlaybackCard"
+import {
+  PlaybackCard,
+  PlaybackNameRow,
+  PlaybackRow,
+  PlaybackGapMarker,
+  rowValueTextStyle,
+} from "./PlaybackCard"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
@@ -74,7 +80,7 @@ export default function StepGapAsk({
       <div style={{ width: "100%", marginBottom: "1rem" }}>
         <PlaybackCard>
           {gap.groupName !== null && (
-            <PlaybackRow label="Group name">
+            <PlaybackNameRow>
               <p
                 style={{
                   ...rowValueTextStyle,
@@ -85,7 +91,7 @@ export default function StepGapAsk({
               >
                 {gap.groupName}
               </p>
-            </PlaybackRow>
+            </PlaybackNameRow>
           )}
 
           <PlaybackRow label="Who">

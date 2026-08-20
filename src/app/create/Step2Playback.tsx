@@ -16,7 +16,7 @@ import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
-import { PlaybackCard, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
+import { PlaybackCard, PlaybackNameRow, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -168,8 +168,11 @@ export default function Step2Playback({
           </button>
         }
       >
-        {/* Group name row — inline editable. */}
-        <PlaybackRow label="Group name" htmlForLabel="groupName">
+        {/* Group name row — full width, label stacked above the input
+            (PlaybackNameRow), inline editable. The input keeps its own box
+            so the row still reads as tappable rather than a static
+            headline. */}
+        <PlaybackNameRow htmlForLabel="groupName">
           <input
             id="groupName"
             type="text"
@@ -191,7 +194,7 @@ export default function Step2Playback({
               boxSizing: "border-box",
             }}
           />
-        </PlaybackRow>
+        </PlaybackNameRow>
 
         {/* WHO row. */}
         <PlaybackRow label="Who">

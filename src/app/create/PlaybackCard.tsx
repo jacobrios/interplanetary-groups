@@ -147,6 +147,61 @@ export function PlaybackRow({
 }
 
 /**
+ * The group-name row: full width, the label stacked above the value rather
+ * than beside it in the narrow key column every other row uses. The name is
+ * the card's headline and the widest label in the deck ("GROUP NAME"), which
+ * used to wrap onto two lines squeezed into the 62px key column next to a
+ * large bold input — the ugliest thing on the card (owner phone QA, polish
+ * slice two). Stacking removes the wrap without touching what makes the row
+ * a row: it still sits inside the card's own row list, keeps the same
+ * top/bottom padding and hairline divider as every other row, and (via
+ * `htmlForLabel`) still renders a real `<label>` over an editable input on
+ * Step 2, or a plain key over read-only text on the gap-ask, exactly as
+ * `PlaybackRow` did before this. Editability itself is unchanged: this
+ * component only reorders the label and the value, it does not decide
+ * whether the value is an input or a paragraph, so the group-name input on
+ * Step 2 keeps its own box and stays obviously tappable.
+ */
+export function PlaybackNameRow({
+  htmlForLabel,
+  children,
+}: {
+  htmlForLabel?: string
+  children: ReactNode
+}) {
+  const nameKeyStyle: React.CSSProperties = {
+    margin: 0,
+    fontSize: "var(--type-eyebrow)",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    fontWeight: 700,
+    color: "var(--text-secondary)",
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.375rem",
+        paddingTop: "9px",
+        paddingBottom: "9px",
+        borderBottom: "1.4px solid var(--hairline)",
+      }}
+    >
+      {htmlForLabel ? (
+        <label htmlFor={htmlForLabel} style={nameKeyStyle}>
+          Group name
+        </label>
+      ) : (
+        <p style={nameKeyStyle}>Group name</p>
+      )}
+      {children}
+    </div>
+  )
+}
+
+/**
  * The "what time?" style marker Orbit points at a missing field: a dashed
  * lime underline and a lime clock glyph around whatever prompt text the
  * caller passes (the marker's icon is lime; its text stays the row's
