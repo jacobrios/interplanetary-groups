@@ -12,6 +12,7 @@ import Link from "next/link"
 import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
+import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import OrbitPause from "./OrbitPause"
 
 const INTRO_COPY =
@@ -20,6 +21,27 @@ const INTRO_COPY =
 const ERROR_COPY = "Hmm, that didn't go through. Give it another try in a moment."
 
 const PAUSE_COPY = "One sec, I'm working out your schedule."
+
+// The design's field-label grammar, ported from walkthrough.css .s1-namelab
+// (line 200): 13px eyebrow, 0.12em tracking, uppercase, weight 700, in the
+// secondary ink (--ink-faint there is #A7AAB6, this project's
+// --text-secondary). Steps 2 and 3 already speak it (PlaybackRow's key
+// column, step 3's "GROUP INVITE LINK" eyebrow), so step 1's two field
+// labels were the last sentence-case holdouts. Only the type grammar is
+// ported: the rule's own `margin: 13px 4px 6px` is left out, because the
+// vertical rhythm around these fields was tuned against the design's own
+// containers in an earlier fix, and a 4px left inset would pull the label
+// off the input's left edge.
+const fieldLabelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "var(--type-eyebrow)",
+  lineHeight: "var(--leading-normal)",
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  fontWeight: 700,
+  color: "var(--text-secondary)",
+  marginBottom: "0.375rem",
+}
 
 interface Props {
   founderName: string
@@ -64,53 +86,35 @@ export default function Step1Describe({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* The one tailed bubble in the product: no avatar, left margin, small
-          tail pointing up at the header (§7 onboarding exception). */}
-      <div style={{ position: "relative", marginTop: "1rem", marginBottom: "2rem" }}>
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            top: -9,
-            left: 20,
-            width: 0,
-            height: 0,
-            borderLeft: "8px solid transparent",
-            borderRight: "8px solid transparent",
-            borderBottom: "10px solid var(--surface-raised)",
-          }}
-        />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "16px",
-            padding: "0.75rem 1rem",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "var(--type-body)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
-            {bubbleCopy}
-          </p>
-        </div>
+      {/* TailedOrbitBubble: the tailed, avatar-less treatment for a wizard
+          bubble sitting directly under the header, so the header's Orbit
+          mark reads as the speaker (§7 onboarding exception, amended 20 Aug
+          2026). Step 1 and step 2's opening bubble both qualify and share
+          this component; the gap-ask does not, since its bubble sits below
+          the playback card rather than under the header. Only the outer
+          vertical spacing is kept local to this step, since it is a layout
+          decision about this screen rather than part of the bubble's own
+          shape. */}
+      <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+        <TailedOrbitBubble>
+          <p style={{ margin: 0 }}>{bubbleCopy}</p>
+        </TailedOrbitBubble>
       </div>
 
-      <form action={formAction} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {/* No flex `gap` here: the design's own containers (.s2-body,
+          .s2-final-scroll, .s1-foot) contribute no gap of their own, so a
+          uniform gap here would land on top of every ported margin-top
+          below and double-count the spacing (round-2 review finding).
+          Each child instead carries its own explicit marginTop, either a
+          value ported straight from the design or, where a child has no
+          design counterpart of its own (the description field, the pause
+          state), the same 20px that the removed gap used to give it, so
+          nothing collapses to zero and nothing un-flagged changes. */}
+      <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
         <div>
           <label
             htmlFor="founderName"
-            style={{
-              display: "block",
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-secondary)",
-              marginBottom: "0.375rem",
-            }}
+            style={fieldLabelStyle}
           >
             Your name
           </label>
@@ -125,28 +129,23 @@ export default function Step1Describe({
             disabled={isExtracting}
             style={{
               width: "100%",
-              padding: "0.625rem 0.75rem",
+              padding: "11px 14px",
               backgroundColor: "var(--surface-raised)",
               border: "1px solid var(--hairline)",
-              borderRadius: "0.5rem",
+              borderRadius: "12px",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
+              fontWeight: 500,
               outline: "none",
               boxSizing: "border-box",
             }}
           />
         </div>
 
-        <div>
+        <div style={{ marginTop: "1.25rem" }}>
           <label
             htmlFor="description"
-            style={{
-              display: "block",
-              fontSize: "var(--type-label)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-secondary)",
-              marginBottom: "0.375rem",
-            }}
+            style={fieldLabelStyle}
           >
             About your group
           </label>
@@ -160,10 +159,11 @@ export default function Step1Describe({
             disabled={isExtracting}
             style={{
               width: "100%",
-              padding: "0.625rem 0.75rem",
+              minHeight: "150px",
+              padding: "14px 15px",
               backgroundColor: "var(--surface-raised)",
               border: "1px solid var(--hairline)",
-              borderRadius: "0.5rem",
+              borderRadius: "14px",
               color: "var(--text-primary)",
               fontSize: "var(--type-body)",
               lineHeight: "var(--leading-normal)",
@@ -177,24 +177,38 @@ export default function Step1Describe({
 
         {isExtracting ? (
           // The pause: a labeled thinking state in Orbit's voice. Inputs stay
-          // mounted (disabled) so the founder's text is never lost.
-          <OrbitPause copy={PAUSE_COPY} />
+          // mounted (disabled) so the founder's text is never lost. Wrapped
+          // so it carries the same 20px the removed flex gap used to give
+          // it from the description field above (no design source for this
+          // state, so its own spacing is unchanged from before this fix).
+          <div style={{ marginTop: "1.25rem" }}>
+            <OrbitPause copy={PAUSE_COPY} />
+          </div>
         ) : (
           <button
             type="submit"
             disabled={!canSubmit}
             style={{
               width: "100%",
-              padding: "0.75rem 1.5rem",
+              minHeight: "52px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "13px 24px",
               backgroundColor: "var(--action)",
               color: "var(--action-ink)",
               fontSize: "var(--type-body)",
+              lineHeight: "var(--leading-normal)",
               fontWeight: 600,
               border: "none",
-              borderRadius: "0.5rem",
+              borderRadius: "30px",
               cursor: canSubmit ? "pointer" : "not-allowed",
               opacity: canSubmit ? 1 : 0.5,
-              marginTop: "0.5rem",
+              // 32px: .s1-foot's padding-top (14) plus .cta's own
+              // margin-top (18) from the design, combined here since our
+              // button is a direct flex child rather than nested in a
+              // .s1-foot wrapper (round-2 review finding).
+              marginTop: "32px",
             }}
           >
             Continue
@@ -211,7 +225,8 @@ export default function Step1Describe({
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
             textAlign: "center",
-            margin: 0,
+            marginTop: "11px",
+            marginBottom: 0,
           }}
         >
           Orbit reads this to set your days, send reminders, and build a shared group page.

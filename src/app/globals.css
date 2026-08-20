@@ -20,6 +20,7 @@
   --lime-ink: #233006;
   --action: #18bccb;         /* teal: an action that genuinely matters */
   --action-ink: #0a2125;
+  --danger: #f87171;         /* error text and destructive-action borders */
 
   /* Type scale (rem values honor device text size; unitless line-heights) */
   --type-display:  1.75rem;   /* 28px */

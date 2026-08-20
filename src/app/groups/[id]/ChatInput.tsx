@@ -24,6 +24,7 @@
 // persistent primary — it does not violate one-primary-action-per-screen.
 
 import { useId } from "react"
+import SendCircleButton from "@/components/SendCircleButton"
 
 interface Props {
   groupId: string
@@ -108,37 +109,15 @@ export default function ChatInput({
           }}
         />
 
-        {/* Send circle: neutral fill when empty, teal fill the moment there's text.
-            Border stays 1px in both states (only its color switches) so the
-            circle can never change size between them. */}
-        <button
-          type="submit"
+        {/* Send circle: neutral fill when empty, teal fill the moment there's
+            text. The drawing moved to SendCircleButton, which the onboarding
+            gap-ask input shares; the states, sizes and markup are unchanged
+            here. */}
+        <SendCircleButton
+          active={hasText}
           disabled={!hasText || isPending}
-          aria-label="Send message"
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
-            border: hasText ? "1px solid var(--action)" : "1px solid var(--hairline)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: hasText && !isPending ? "pointer" : "default",
-            flexShrink: 0,
-            backgroundColor: hasText ? "var(--action)" : "var(--surface-raised)",
-            color: hasText ? "var(--action-ink)" : "var(--text-faint)",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path
-              d="M10 16V4M10 4L5 9M10 4L15 9"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+          label="Send message"
+        />
       </form>
     </div>
   )

@@ -20,7 +20,15 @@ import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
-import { OrbitMark } from "@/components/OrbitMark"
+import { OrbitBubble } from "@/components/OrbitBubble"
+import SendCircleButton from "@/components/SendCircleButton"
+import {
+  PlaybackCard,
+  PlaybackNameRow,
+  PlaybackRow,
+  PlaybackGapMarker,
+  rowValueTextStyle,
+} from "./PlaybackCard"
 
 const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
@@ -45,30 +53,6 @@ interface Props {
   mergeError: MergeErrorKind | null
 }
 
-const rowLabelStyle: React.CSSProperties = {
-  fontSize: "var(--type-eyebrow)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-secondary)",
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
-  margin: 0,
-}
-
-const rowValueStyle: React.CSSProperties = {
-  fontSize: "var(--type-body)",
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-primary)",
-  margin: 0,
-}
-
-function OrbitAvatar() {
-  return (
-    <span style={{ display: "inline-flex", marginTop: "0.25rem" }}>
-      <OrbitMark size={28} />
-    </span>
-  )
-}
-
 export default function StepGapAsk({
   founderName,
   gap,
@@ -87,106 +71,57 @@ export default function StepGapAsk({
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
-      {/* Playback card: same feed-style Orbit bubble chrome as Step 2, minus
-          the confirm affordance. The gapped primary is always row zero. */}
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1rem" }}
-      >
-        <OrbitAvatar />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "4px 16px 16px 16px",
-            padding: "0.75rem 1rem",
-            flex: 1,
-          }}
-        >
+      {/* The playback card (walkthrough.css .cardX / .s2-srow, task 4),
+          same treatment as Step2Playback so gap-ask and playback stay
+          visually identical apart from the marker below. The gapped
+          primary is always row zero. No confirm affordance here: while a
+          gap is open, answering Orbit's question is the one action (see
+          the header comment). */}
+      <div style={{ width: "100%", marginBottom: "1rem" }}>
+        <PlaybackCard>
           {gap.groupName !== null && (
-            <div style={{ marginBottom: "0.75rem" }}>
-              <p style={rowLabelStyle}>Group name</p>
+            <PlaybackNameRow>
               <p
                 style={{
+                  ...rowValueTextStyle,
                   fontSize: "var(--type-heading)",
                   lineHeight: "var(--leading-tight)",
                   fontWeight: 600,
-                  color: "var(--text-primary)",
-                  margin: "0.125rem 0 0",
                 }}
               >
                 {gap.groupName}
               </p>
-            </div>
+            </PlaybackNameRow>
           )}
 
-          <div style={{ marginBottom: "0.5rem" }}>
-            <p style={rowLabelStyle}>Who</p>
-            <p style={rowValueStyle}>{founderName}</p>
-          </div>
+          <PlaybackRow label="Who">
+            <p style={rowValueTextStyle}>{founderName}</p>
+          </PlaybackRow>
 
           {/* The gapped row: known part plus the lime-underlined marker Orbit
               is pointing at. Lime here is the gap-prompt cue, not an action. */}
-          <div style={{ marginBottom: gap.rhythms.length > 1 ? "0.5rem" : 0 }}>
-            <p style={{ ...rowLabelStyle, color: "var(--lime)" }}>{gapRow.label}</p>
-            <p style={rowValueStyle}>
+          <PlaybackRow label={gapRow.label} pending isLast={gap.rhythms.length === 1}>
+            <p style={rowValueTextStyle}>
               {gapRow.known !== null && <>{gapRow.known} </>}
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.25rem",
-                  fontStyle: "italic",
-                  color: "var(--text-secondary)",
-                  borderBottom: "2px solid var(--lime)",
-                  padding: "0 3px 1px",
-                }}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-                {gapRow.marker}
-              </span>
+              <PlaybackGapMarker>{gapRow.marker}</PlaybackGapMarker>
             </p>
-          </div>
+          </PlaybackRow>
 
           {gap.rhythms.slice(1).map((r, i) => {
             const row = formatRhythmRow(r)
             return (
-              <div
-                key={i}
-                style={{ marginBottom: i === gap.rhythms.length - 2 ? 0 : "0.5rem" }}
-              >
-                <p style={rowLabelStyle}>{row.label}</p>
-                <p style={rowValueStyle}>{row.value}</p>
-              </div>
+              <PlaybackRow key={i} label={row.label} isLast={i === gap.rhythms.length - 2}>
+                <p style={rowValueTextStyle}>{row.value}</p>
+              </PlaybackRow>
             )
           })}
-        </div>
+        </PlaybackCard>
       </div>
 
       {/* Orbit's question: deterministic lead-in composed by code around the
           one validated (or fire-exit template) sentence. */}
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "1.5rem" }}
-      >
-        <OrbitAvatar />
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            borderRadius: "4px 16px 16px 16px",
-            padding: "0.75rem 1rem",
-          }}
-        >
+      <div style={{ width: "100%", marginBottom: "1.5rem" }}>
+        <OrbitBubble>
           <p
             style={{
               fontSize: "var(--type-body)",
@@ -197,7 +132,7 @@ export default function StepGapAsk({
           >
             {bubbleLine}
           </p>
-        </div>
+        </OrbitBubble>
       </div>
 
       {mergeError && (
@@ -205,7 +140,7 @@ export default function StepGapAsk({
           style={{
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
-            color: "#f87171",
+            color: "var(--danger)",
             marginBottom: "0.75rem",
           }}
         >
@@ -218,7 +153,7 @@ export default function StepGapAsk({
           e.preventDefault()
           if (hasText && !isMerging) onSubmit()
         }}
-        style={{ display: "flex", gap: "0.5rem" }}
+        style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
       >
         <label htmlFor="gapAnswer" style={{ display: "none" }}>
           Message Orbit
@@ -236,7 +171,7 @@ export default function StepGapAsk({
             padding: "0.5rem 0.75rem",
             backgroundColor: "var(--surface-raised)",
             border: "1px solid var(--hairline)",
-            borderRadius: "1.5rem",
+            borderRadius: 26,
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
             outline: "none",
@@ -244,37 +179,16 @@ export default function StepGapAsk({
           }}
         />
 
-        {/* Send arrow: dim when empty, teal when the founder has typed. */}
-        <button
-          type="submit"
+        {/* The shared send circle, the same component the group chat
+            composer uses. 40px is walkthrough.css .s2r-send (line 146), the
+            same size as .gh-send; the 36px this shipped at was an unported
+            value. The form centers its children, which is what the old
+            inline alignSelf was doing. */}
+        <SendCircleButton
+          active={hasText}
           disabled={!hasText || isMerging}
-          aria-label="Send answer"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "none",
-            backgroundColor: "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: hasText && !isMerging ? "pointer" : "default",
-            flexShrink: 0,
-            alignSelf: "center",
-            transition: "color 0.15s ease",
-            color: hasText ? "var(--action)" : "var(--placeholder)",
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path
-              d="M10 16V4M10 4L5 9M10 4L15 9"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+          label="Send answer"
+        />
       </form>
 
       {/* One line below the input: hint examples normally, the labeled pause
@@ -286,7 +200,11 @@ export default function StepGapAsk({
           <p
             style={{
               textAlign: "center",
-              fontSize: "var(--type-eyebrow)",
+              // Meta, not eyebrow: the role map reserves the 13px eyebrow
+              // floor for uppercase eyebrows and puts sentence-case
+              // reference text at meta, which is where step 1's own hint
+              // line already sits.
+              fontSize: "var(--type-meta)",
               lineHeight: "var(--leading-normal)",
               color: "var(--placeholder)",
               margin: "0.375rem 0 0",
