@@ -4300,3 +4300,52 @@ hardcoded `#f87171` where `--danger` exists, named here rather than touched.
 
 **No deploy-time obligation.** No new environment variable, no schema change, no migration. The pre-deploy
 checklist is unchanged.
+
+### Postscript, 21 Aug 2026: the owner's QA on this branch
+
+Four notes came back. Two became work, one was answered from the record, and one is an
+environment problem rather than a product one.
+
+**The front door's composition is now the owner's, not the handoff's.** The design pins the Orbit
+mark to the top and the copy plus action to the bottom (`round4-base.css` `.fd-copy { margin-top:
+auto }`), with the README giving the reasoning: the space between absorbs longer translations and
+"the screen opens as a statement rather than a splash." The owner found the emptiness wrong, and
+the measurement backed him rather than the design: at a true 375x812 phone the gap between the
+mark's bottom and the eyebrow's top was **349px, 43% of the screen**. (The controller's first
+hypothesis, that his skinny-desktop QA window was exaggerating it, was measured and disproved
+before it was offered as pushback.) The mark, copy and action are now one contiguous group,
+vertically centred: the gap is 16px and the block sits 177px from the top and 171px from the
+bottom. Internal rhythm is untouched, so every ported value inside the group still means what it
+means in the source; only the composition changed. The mark stays left-aligned with its -9px
+optical margin, which exists to line the sphere rather than its box up with the 24px gutter.
+**This is a deliberate departure from a high-fidelity handoff, made by the owner, and the design
+is not wrong to have drawn it the other way in a fixed 390x844 frame.**
+
+**The event card sat flush against the header's divider, and it was two correct decisions
+colliding.** The design's `.ed-scroll` carries zero top padding because the back link sits inside
+the scroll region there and provides the separation. This product moved the back link into the
+shared `PageHeader` (a recorded decision that beats the design source), so the ported zero left
+the header's 1px hairline and the card's own 1.7px border stacked with nothing between them. Fixed
+by matching the group home, which already left 12px, rather than by inventing a number. The group
+info page was checked for the same collision and does not have it: its first element is the
+identity block, which carries no border.
+
+**"Didn't we already have the join screen?"** No. The owner's demo recording was made against this
+branch. The tell is his own screenshot: "No app to download, no password. You'll land right in the
+group" is copy written in this slice, replacing the line that promised email sign-in the product
+does not have. Recorded because the question will recur: a screen that has just been built for the
+first time looks familiar to whoever has been looking at the design boards.
+
+**Phone QA has been broken since roughly 20 Aug, and the cause looks like a rule this process
+wrote.** The owner has been unable to reach the dev server from his phone for several sessions,
+which matters because the real-phone pass is a gate the build cannot run. Diagnosed on this branch:
+the server binds to all interfaces (`*:3000`), the macOS application firewall is off, the LAN
+address is already in `allowedDevOrigins`, and `http://192.168.1.144:3000` answers 200 from the Mac
+itself, so nothing on the server side is wrong. The listening process's parent chain, however, runs
+`next-server` <- `npm run dev` <- `zsh` <- `Claude.app`. macOS grants Local Network access per
+application, so the permission is being asked of Claude rather than of Terminal. The 20 Aug rule
+change ("the server is mine to start", implemented as a play button in the QA handoff) is what moved
+the owning application, and the timing matches. **Not confirmed:** the permission database was not
+read directly. The test handed over is to run `npm run dev` from Terminal and retry the phone. If
+that is the cause, the pr-handoff checklist's play-button instruction needs amending, because it
+silently disables the phone gate it exists to serve.
