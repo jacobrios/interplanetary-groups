@@ -241,7 +241,12 @@ export default async function GroupInfoPage({ params }: Props) {
             backgroundColor: "var(--surface-raised)",
             border: "1.7px solid var(--hairline)",
             borderRadius: "14px",
-            boxShadow: "4px 5px 0 rgba(43,43,43,.04)",
+            // .gi-card's box-shadow is redefined by the later "Surfaces ·
+            // cards & raised elements" pass (walkthrough.css:570-573), which
+            // wins over the base rule at :482-487 (last definition wins).
+            // Matches PlaybackCard.tsx and EventCard.tsx's standard dark
+            // card shadow.
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
             padding: "13px 17px 5px",
           }}
         >
