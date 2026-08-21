@@ -22,14 +22,18 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
         type="button"
         onClick={reset}
         style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           width: "100%",
+          minHeight: "52px",
           padding: "0.75rem 1.5rem",
           backgroundColor: "var(--action)",
           color: "var(--action-ink)",
           fontSize: "var(--type-body)",
-          fontWeight: 600,
+          fontWeight: 700,
           border: "none",
-          borderRadius: "0.5rem",
+          borderRadius: "28px",
           cursor: "pointer",
         }}
       >
@@ -38,14 +42,18 @@ export default function Error({ reset }: { error: Error; reset: () => void }) {
       <Link
         href="/"
         style={{
-          display: "block",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           width: "100%",
+          minHeight: "52px",
           padding: "0.75rem 1.5rem",
           backgroundColor: "transparent",
           color: "var(--text-primary)",
           fontSize: "var(--type-body)",
+          fontWeight: 700,
           border: "1px solid var(--hairline)",
-          borderRadius: "0.5rem",
+          borderRadius: "28px",
           textAlign: "center",
           textDecoration: "none",
         }}

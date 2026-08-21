@@ -40,7 +40,6 @@ export default async function JoinPage({ params }: Props) {
     // and teal would oversell a consolation prize.
     return (
       <OrbitNoteScreen
-        eyebrow="Invite link"
         note="This invite link isn't working. Ask whoever sent it to share it again and I'll get you into the group."
         linkHref="/create"
         linkLabel="Start your own group"

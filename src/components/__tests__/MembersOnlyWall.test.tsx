@@ -14,5 +14,9 @@ describe("MembersOnlyWall", () => {
     ).toBeTruthy()
     const link = screen.getByRole("link", { name: "Start your own group" })
     expect(link.getAttribute("href")).toBe("/create")
+
+    // The outer "Invite only" eyebrow was deleted 21 Aug: it restated this
+    // note's own opening clause ("This group is invite-only...").
+    expect(screen.queryByText("Invite only")).toBeNull()
   })
 })

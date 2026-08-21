@@ -11,7 +11,6 @@ import OrbitNoteScreen from "./OrbitNoteScreen"
 export default function MembersOnlyWall() {
   return (
     <OrbitNoteScreen
-      eyebrow="Invite only"
       note="This group is invite-only. If you know someone in it, ask them for the invite link, it'll bring you right in."
       linkHref="/create"
       linkLabel="Start your own group"
