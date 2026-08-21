@@ -87,7 +87,7 @@ export default async function GroupInfoPage({ params }: Props) {
 
       <div
         style={{
-          padding: "1.5rem 1rem 2rem",
+          padding: "0 24px 18px",
           width: "100%",
           maxWidth: "28rem",
           margin: "0 auto",

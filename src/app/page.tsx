@@ -52,94 +52,112 @@ export default async function HomePage() {
         padding: "4px 24px 0",
       }}
     >
-      {/* The orbit path overflows the sphere's own box, so this negative
-          left margin optically aligns the sphere (not the box) with the
-          24px page gutter. Source: round4-base.css .fd-mark, README item 01. */}
-      <div style={{ width: 104, height: 104, margin: "6px 0 0 -9px", flex: "0 0 auto" }}>
-        <OrbitMark size={104} />
-      </div>
+      {/* 28rem content column, matching the slice-wide convention (join,
+          event detail, group info, both dead-end screens, OrbitNoteScreen,
+          the onboarding wizard). This wrapper IS the flex column the
+          screen's shape depends on (marginTop: auto below pins the copy
+          block and footer to the bottom while the mark stays at the top);
+          <main> keeps owning the full-bleed background and its own
+          4px/24px/0 padding. */}
+      <div
+        style={{
+          flex: "1 1 auto",
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          maxWidth: "28rem",
+          margin: "0 auto",
+        }}
+      >
+        {/* The orbit path overflows the sphere's own box, so this negative
+            left margin optically aligns the sphere (not the box) with the
+            24px page gutter. Source: round4-base.css .fd-mark, README item 01. */}
+        <div style={{ width: 104, height: 104, margin: "6px 0 0 -9px", flex: "0 0 auto" }}>
+          <OrbitMark size={104} />
+        </div>
 
-      {/* margin-top: auto pins this block (and the footer below it) to the
-          bottom of the screen while the mark stays at the top; the gap
-          between absorbs longer copy. Source: round4-base.css .fd-copy. */}
-      <div style={{ marginTop: "auto", flex: "0 0 auto" }}>
-        <p
-          style={{
-            fontSize: "var(--type-eyebrow)",
-            lineHeight: "var(--leading-normal)",
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "var(--text-faint)",
-            fontWeight: 700,
-            margin: "16px 0 0",
-          }}
-        >
-          Interplanetary Groups
-        </p>
+        {/* margin-top: auto pins this block (and the footer below it) to the
+            bottom of the screen while the mark stays at the top; the gap
+            between absorbs longer copy. Source: round4-base.css .fd-copy. */}
+        <div style={{ marginTop: "auto", flex: "0 0 auto" }}>
+          <p
+            style={{
+              fontSize: "var(--type-eyebrow)",
+              lineHeight: "var(--leading-normal)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color: "var(--text-faint)",
+              fontWeight: 700,
+              margin: "16px 0 0",
+            }}
+          >
+            Interplanetary Groups
+          </p>
 
-        <h1
-          style={{
-            fontSize: "var(--type-display)",
-            fontWeight: 800,
-            lineHeight: "var(--leading-tight)",
-            letterSpacing: "-0.015em",
-            color: "var(--text-primary)",
-            margin: "9px 0 0",
-            textWrap: "balance",
-          }}
-        >
-          Casual plans shouldn&apos;t need a wedding planner.
-        </h1>
+          <h1
+            style={{
+              fontSize: "var(--type-display)",
+              fontWeight: 800,
+              lineHeight: "var(--leading-tight)",
+              letterSpacing: "-0.015em",
+              color: "var(--text-primary)",
+              margin: "9px 0 0",
+              textWrap: "balance",
+            }}
+          >
+            Casual plans shouldn&apos;t need a wedding planner.
+          </h1>
 
-        <p
-          style={{
-            fontSize: "var(--type-body)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
-            margin: "12px 0 0",
-            textWrap: "pretty",
-          }}
-        >
-          But the other option is &ldquo;show up if you want,&rdquo; and then
-          nobody does. Orbit picks a day, asks the group, and keeps track of
-          who&apos;s in.
-        </p>
-      </div>
+          <p
+            style={{
+              fontSize: "var(--type-body)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-secondary)",
+              margin: "12px 0 0",
+              textWrap: "pretty",
+            }}
+          >
+            But the other option is &ldquo;show up if you want,&rdquo; and
+            then nobody does. Orbit picks a day, asks the group, and keeps
+            track of who&apos;s in.
+          </p>
+        </div>
 
-      <div style={{ flex: "0 0 auto", padding: "22px 0 4px" }}>
-        <Link
-          href="/create"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5em",
-            minHeight: 52,
-            padding: "0.5em 1.2em",
-            borderRadius: 28,
-            backgroundColor: "var(--action)",
-            color: "var(--action-ink)",
-            fontSize: "var(--type-body)",
-            lineHeight: "var(--leading-normal)",
-            fontWeight: 700,
-            textDecoration: "none",
-          }}
-        >
-          Start your group
-          <ArrowRight size="1.05em" stroke="var(--action-ink)" strokeWidth={2.4} />
-        </Link>
+        <div style={{ flex: "0 0 auto", padding: "22px 0 4px" }}>
+          <Link
+            href="/create"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5em",
+              minHeight: 52,
+              padding: "0.5em 1.2em",
+              borderRadius: 28,
+              backgroundColor: "var(--action)",
+              color: "var(--action-ink)",
+              fontSize: "var(--type-body)",
+              lineHeight: "var(--leading-normal)",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            Start your group
+            <ArrowRight size="1.05em" stroke="var(--action-ink)" strokeWidth={2.4} />
+          </Link>
 
-        <p
-          style={{
-            fontSize: "var(--type-eyebrow)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-faint)",
-            textAlign: "center",
-            margin: "12px 0 0",
-          }}
-        >
-          Already invited? Open the link you were sent.
-        </p>
+          <p
+            style={{
+              fontSize: "var(--type-eyebrow)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-faint)",
+              textAlign: "center",
+              margin: "12px 0 0",
+            }}
+          >
+            Already invited? Open the link you were sent.
+          </p>
+        </div>
       </div>
     </main>
   )

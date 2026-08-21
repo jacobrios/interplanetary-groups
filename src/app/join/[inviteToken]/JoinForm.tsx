@@ -260,7 +260,7 @@ export default function JoinForm({
           </OrbitBubble>
 
           <div style={cardStyle}>
-            <p style={cardTitleStyle}>{groupName}</p>
+            <h1 style={cardTitleStyle}>{groupName}</h1>
             <div style={rowsStyle}>
               <Row label="WHO" value={memberLabel} />
               {rhythmRows.map((row, i) => (

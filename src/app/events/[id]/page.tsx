@@ -366,7 +366,7 @@ function DetailRow({
         paddingLeft: icon ? undefined : "25px",
       }}
     >
-      {icon && <span style={{ display: "flex", flexShrink: 0 }}>{icon}</span>}
+      {icon}
       <span style={{ flex: "1 1 auto", minWidth: 0 }}>
         <span style={visuallyHiddenStyle}>{label} </span>
         {children}
