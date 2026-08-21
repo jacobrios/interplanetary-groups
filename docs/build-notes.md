@@ -3985,7 +3985,12 @@ thing. It was built on a bench of six cases that all led with the activity, and 
 found the miss concentrated entirely in descriptions where the day was the most distinctive word, every
 one of them a single-day group the owner later ruled was never wrong to name after its day. See the
 fuller annotation a few paragraphs below and the "the weekday rule narrows" entry at the end of this
-document.)
+document.) (Superseded again, same day, multi-day-name-guard fix: the decision itself reversed, not
+only the measurement behind it. Once the rule above narrowed to bar a weekday name on a multi-day group
+only, the reason the owner had twice declined a code-side reject (that it would have silently discarded
+a legitimate single-day name like "Sunday Climbers") no longer applied, because a multi-day group has no
+legitimate weekday name to protect. The owner approved a code-side guard on that narrower ground, and it
+shipped the same day. See the "a code-side guard closes the residual" entry at the end of this document.)
 
 **Where this bench departs from recognition's.** Recognition scores a case as one pass or fail, because
 a message has one outcome. Extraction returns eight fields at once, so a whole-case verdict hides which
@@ -4000,15 +4005,21 @@ said.
 cases, 1/45 combined; activity-is-"climbing" 10/25. After, over two full runs: activity 25/25 and
 25/25; "no weekday word" 44/45 and 42/45, with nothing previously clean regressing. The misses
 concentrate on the fixture with no venue and no second activity, the one giving the model nothing else
-to name the group after. Suite: 92 files / ~~922~~ tests green at branch start and at the finish.
+to name the group after. Suite: 92 files / ~~922~~ 923 tests green at branch start and at the finish.
 (Annotated 20 Aug 2026, titles-stop-naming-weekdays slice, caught in a later
 review-fix pass: this figure was written before that slice's own final fix
 wave landed one more test, so the "922" recorded above was never the true
 finishing number for the slice it described; the suite's real finishing count
 was 92 files / 923 tests, confirmed by the reviewer and by `npx vitest list`.
-Left as originally written per this project's append-only rule rather than
+~~Left as originally written per this project's append-only rule rather than
 corrected in place, since the project's slice-to-slice baseline check depends
-on the number a record actually carries, not on what it should have carried.)
+on the number a record actually carries, not on what it should have carried.~~
+(Corrected 20 Aug 2026, bench-learns-day-prominent-shapes final-fix-wave pass:
+that sentence described the wrong mechanic. The number is struck through and
+the true one, 923, is written in beside it, which is this project's normal
+append-only correction, not a silent overwrite; the sentence above claiming
+it was "left as originally written" was itself the error, since a reader
+following the strikethrough already sees 923 standing.))
 (Annotated 20 Aug 2026, narrow-weekday-rule slice: this combined rate, and the "roughly rare" reading
 of it the team carried forward from here, turned out to be an artifact of six cases that all led with
 the activity. A wider bench built the same day found the miss concentrated entirely in descriptions
@@ -4093,9 +4104,65 @@ still visible on the bench, exactly where it was before this change, because it 
 the owner is tracking on its own. Nothing regressed anywhere else in the ninety-two-file, nine-hundred-
 and-twenty-three-test automated suite, and the app's own type-check stayed clean.
 
-**Why this belongs to a narrower fix, not a new feature.** Nothing about what Orbit can do changed.
+**Why this belongs to a narrower fix, not a new feature.** ~~Nothing about what Orbit can do changed.~~
 This only corrects an instruction that was asking for the wrong thing in a case the product cares about
 (one-day groups, which are the common case), and corrects the measurement that had been quietly baking
 that mistake into "acceptable." The debt this closes: the earlier "residual is accepted" reading in
 CLAUDE.md's running summary was a measurement of the wrong thing, corrected there with a dated note
-rather than rewritten, per this project's own record-keeping rule.
+rather than rewritten, per this project's own record-keeping rule. (Superseded same day,
+multi-day-name-guard fix: that first sentence stopped being true a few hours later. This entry described
+the prompt-and-measurement fix only; a separate, later fix the same day added the code-side guard the
+owner had twice declined, now safe under the narrower rule, so a multi-day group's playback card can now
+show the derived name instead of a weekday-named suggestion the model still produced. That is real
+founder-visible behavior, not covered by "nothing about what Orbit can do changed." Full account in the
+"a code-side guard closes the residual" entry at the end of this document.)
+
+## §11 entry: a code-side guard closes the residual (multi-day-name-guard fix, 20 Aug 2026)
+
+**What it is.** A multi-day group whose suggested name still names a weekday (the model occasionally
+writes "Monday Climbers" for a group that actually meets Monday, Wednesday, and Friday, despite the
+prompt telling it not to) now has that name caught and swapped, in code, for the plain derived name
+("Climbing"), before it ever reaches the founder's playback card. This closes the residual that the
+narrow-weekday-rule slice, earlier the same day, measured but did not fix.
+
+**Why this is a reversal, not a follow-on.** The owner had declined a code-side reject for this twice
+before today, both times for the same reason: rejecting every weekday-named suggestion would have
+silently thrown away a legitimate name too, like "Sunday Climbers" for a group that only ever meets on
+Sunday. That cost was real as long as the naming rule itself was a blanket "never use a weekday." Once
+the narrow-weekday-rule slice changed the rule to bar a weekday name only when a group meets on more
+than one day, the cost disappeared: a multi-day group has no legitimate weekday name to protect, because
+it was never a Monday group to begin with. With the reason for declining gone, the owner approved the
+guard the same day. The lesson worth keeping: a standing decision is only as good as the situation it
+was decided in, and the record has to say when that situation changed, not just what the decision was.
+
+**What a founder sees.** Nothing changes for a single-day group; a weekday-named suggestion still passes
+through untouched ("Saturday Morning Runners" stays "Saturday Morning Runners"). For a multi-day group,
+a weekday-named suggestion from the model no longer reaches the card at all; the founder sees the plain
+activity name instead ("Climbing" rather than "Monday Climbers"), exactly the fallback they would see if
+the model had suggested nothing. The name is still editable before the group exists either way.
+
+**What the guard catches, closed further in this same fix wave.** The word list catches full weekday
+names and their standard abbreviations (three-letter, plus the two four-letter forms "tues" and "thurs"
+the bench itself was already built to test), matched whole-word so a name like "Satellite Crew" or a
+surname like "Mondale" is never mistaken for one. A review pass the same day found and closed one real
+gap: a plural weekday ("Mondays Climbers", "Tuesdays Runners") walked through uncaught, which mattered
+because "Tuesdays and Thursdays we run at 6am" is literally the shape of the bench's own new day-prominent
+case. The guard now catches the plural the same as the singular. The review pass also weighed one
+deliberate false positive and chose to accept it the other way: the bare abbreviation "sun" was dropped
+from the list, because it is a common standalone word in real place and group names ("Sun Valley
+Climbers"), and a model is far more likely to write "Sunday" out in full than to abbreviate it, so
+keeping "sun" cost more legitimate names than it caught. The full word "sunday" is still caught. Either
+choice was low-risk, since the fallback name is always safe and the suggestion is always editable before
+the group exists; this is a judgment call, not a correctness fix, and is recorded so a future reader
+does not "fix" it back the other way without knowing it was already weighed once.
+
+**Verification.** Unit tests in `src/lib/orbit/__tests__/normalize.test.ts` cover the guard directly:
+a multi-day weekday name is rejected and falls back to the derived name, a single-day weekday name is
+kept, a clean multi-day name is kept, near-miss substrings ("Mondale", "Satellite") are not falsely
+caught, the three- and four-letter abbreviations are caught, the plural form is caught, "Sun Valley
+Climbers" is kept while "Sunday Climbers" is still caught, and the guard applies on both the ready and
+the gap-ask incomplete paths. This is deterministic code with no model call in the loop, so it is proven
+by the automated suite rather than the bench; the bench continues to measure the model's own suggestion
+rate separately. Suite: 92 files / 931 tests green at this fix wave's start, 934 at its finish (three new
+cases: the plural, the "sun" exception, and confirming "sunday" itself is still caught). No new
+environment variable, no schema change, no migration; the pre-deploy checklist is unchanged.

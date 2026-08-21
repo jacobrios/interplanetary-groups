@@ -109,7 +109,10 @@ function sameDays(actual: number[] | null, want: number[]): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// The name assertions, applied to every case.
+// The name assertions. The base three (non-empty, three words or fewer,
+// letters/numbers/spaces only) apply to every case; the weekday-word bar
+// applies only when a case's primary rhythm spans more than one day, per
+// nameAssertions below.
 // ---------------------------------------------------------------------------
 
 /**
@@ -372,7 +375,7 @@ export const CASES: OnboardingCase[] = [
       "No place mentioned anywhere. Guards 'never invent a venue', a prompt rule nothing currently proves.",
     founderDescription: "we climb every Sunday at 9am",
     // Sunday only: one day, so a weekday name is allowed, not required.
-    assertions: [statusReady, venueIsNull, ...nameAssertions([0])],
+    assertions: [statusReady, venueIsNull, daysAre([0]), ...nameAssertions([0])],
   },
   {
     id: "extract-two-rhythms",

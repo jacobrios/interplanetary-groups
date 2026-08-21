@@ -145,12 +145,24 @@ function cleanSuggestedName(suggested: string | null): string | null {
  * guard over the model's claim, same spirit as enforceActivityCarryOver and
  * enforceVenueCarryOver in gap.ts. Full names plus three-letter
  * abbreviations, matched as whole words and case-insensitively, plus "tues"
- * and "thurs": the two four-letter abbreviations the bench's own predicate
- * (evals/onboarding/cases.ts) documents as a known, accepted blind spot.
- * Closing it here costs nothing extra and a discarded name always has a
- * safe fallback, so there is no reason to inherit that gap. Whole-word
- * matching is what keeps a name like "Satellite Crew" or a surname like
- * "Mondale" clean.
+ * and "thurs" (the two four-letter abbreviations the bench's own predicate
+ * in evals/onboarding/cases.ts documents as a known, accepted blind spot)
+ * and an optional trailing "s" on every word so a plural ("Mondays
+ * Climbers", the literal shape of the bench's day-prominent case) is caught
+ * the same as the singular. Closing these costs nothing extra and a
+ * discarded name always has a safe fallback, so there is no reason to
+ * inherit either gap. Whole-word matching is what keeps a name like
+ * "Satellite Crew" or a surname like "Mondale" clean.
+ *
+ * One deliberate residual false positive, decided rather than overlooked:
+ * bare "sun" is left out of the abbreviation list, even though "mon",
+ * "tue", "wed", "thu", and "fri" are in it. "Sun" is a common standalone
+ * word in real place and group names ("Sun Valley Climbers", "Rising Sun
+ * Runners"), while a model is far more likely to write "Sunday" out in
+ * full than to abbreviate it to "sun" — the full word "sunday" is still
+ * caught. Weighing a rare true positive against a plausible true name lost
+ * to a safe-but-unwanted fallback, the false positive was judged the worse
+ * cost, and the fallback being editable makes either choice recoverable.
  */
 const WEEKDAY_NAME_WORDS = [
   "sunday",
@@ -160,7 +172,6 @@ const WEEKDAY_NAME_WORDS = [
   "thursday",
   "friday",
   "saturday",
-  "sun",
   "mon",
   "tue",
   "tues",
@@ -170,7 +181,7 @@ const WEEKDAY_NAME_WORDS = [
   "fri",
   "sat",
 ]
-const WEEKDAY_NAME_RE = new RegExp(`\\b(${WEEKDAY_NAME_WORDS.join("|")})\\b`, "i")
+const WEEKDAY_NAME_RE = new RegExp(`\\b(${WEEKDAY_NAME_WORDS.join("|")})s?\\b`, "i")
 
 /**
  * Discards a cleaned suggestion that names a weekday when the primary

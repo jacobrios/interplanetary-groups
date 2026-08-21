@@ -380,6 +380,37 @@ describe("normalizeExtraction — weekday-named suggestion guard", () => {
     }
   })
 
+  it("catches a plural weekday, not only the singular form", () => {
+    // "Tuesdays and Thursdays we run at 6am" is literally the bench's new
+    // day-prominent case shape, so the plural form is not a rare input.
+    for (const name of ["Mondays Climbers", "Tuesdays Runners", "Thursdays Runners"]) {
+      const r = normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], name))
+      if (r.status !== "ready") throw new Error("expected ready")
+      expect(r.groupName).toBe("Climbing")
+    }
+  })
+
+  it("does not fire on 'sun' as an ordinary word inside a real place or group name", () => {
+    // Unlike "mon"/"tue"/"wed"/"thu"/"fri"/"sat", bare "sun" is a common
+    // standalone English word in real place and group names ("Sun Valley",
+    // "Rising Sun"), and a model is far more likely to write out "Sunday"
+    // in full than to abbreviate it to "sun". The full word "sunday" is
+    // still caught below; only the bare three-letter abbreviation is not.
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Sun Valley Climbers")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Sun Valley Climbers")
+  })
+
+  it("still catches the full word 'Sunday' on a multi-day primary", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Sunday Climbers")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Climbing")
+  })
+
   it("applies the same guard on the incomplete path, where the primary's days are already known", () => {
     // A gap in time or cadence never resolves the day count, so the guard
     // must not wait for "ready" to protect the founder from a bad name.
