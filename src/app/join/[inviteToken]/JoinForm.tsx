@@ -17,6 +17,7 @@ import type { CSSProperties } from "react"
 import { joinGroupAction, type JoinGroupState } from "@/app/actions/join-group"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
+import { visuallyHiddenStyle } from "@/components/visually-hidden"
 
 interface RhythmRow {
   label: string
@@ -36,18 +37,9 @@ const initialState: JoinGroupState = {}
 // Standard clip-rect technique: present to the accessibility tree and to
 // screen readers, invisible on screen. `display: none` was ruled out
 // (task brief, resolution C) because it removes the label from the tree
-// entirely rather than just hiding it visually.
-const visuallyHiddenStyle: CSSProperties = {
-  position: "absolute",
-  width: "1px",
-  height: "1px",
-  padding: 0,
-  margin: "-1px",
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-}
+// entirely rather than just hiding it visually. Shared with the
+// event-detail meta rows as of task 3's fix round 1 — see
+// src/components/visually-hidden.ts.
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,

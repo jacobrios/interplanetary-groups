@@ -1,4 +1,5 @@
 // src/app/events/[id]/page.tsx
+import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
@@ -12,6 +13,7 @@ import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
 import { Clock, MapPin } from "@/components/glyphs"
+import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 
@@ -167,11 +169,20 @@ export default async function EventPage({ params }: Props) {
 
             {/* Meta rows (.ed-meta / .ed-mrow): icon-led lines replacing the
                 stacked key/value MetaRow. The "When"/"Where"/"Activity" key
-                labels are deleted; each row's icon (aria-hidden) plus its
-                own text carries the meaning, per the row's text alone —
-                see task-3-report.md for the screen-reader check. */}
+                labels are visually deleted, exactly as the design draws it,
+                but restored as visually-hidden text ahead of each row's
+                value (fix round 1, task 3): the pre-visual MetaRow rendered
+                those words and a screen reader read them, and dropping them
+                to an aria-hidden icon plus bare text was a real regression
+                — a listener heard a bare date, then "The climbing gym",
+                then "climbing" echoing the page heading. See
+                task-3-report.md's fix-round-1 section for the accessibility
+                trace before and after. */}
             <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
-              <DetailRow icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}>
+              <DetailRow
+                icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
+                label="When"
+              >
                 {dateLabel}
               </DetailRow>
 
@@ -180,7 +191,10 @@ export default async function EventPage({ params }: Props) {
                   one, but it is queued as a feature rather than built here
                   (controller resolution F). */}
               {venueLabel && (
-                <DetailRow icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}>
+                <DetailRow
+                  icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
+                  label="Where"
+                >
                   {venueLabel}
                 </DetailRow>
               )}
@@ -191,7 +205,9 @@ export default async function EventPage({ params }: Props) {
                   aligned (controller resolution E, a judgment call, not a
                   ported value). */}
               {event.activityLabel && (
-                <DetailRow icon={null}>{event.activityLabel}</DetailRow>
+                <DetailRow icon={null} label="Activity">
+                  {event.activityLabel}
+                </DetailRow>
               )}
             </div>
           </div>
@@ -293,12 +309,21 @@ export default async function EventPage({ params }: Props) {
 // the design); `paddingLeft` on the no-icon branch is the icon's own
 // footprint (16px width + 9px gap) so every row's text lands in the same
 // column regardless of whether it carries an icon.
+//
+// `label` (fix round 1, task 3) is the word MetaRow used to render visibly
+// ("When" / "Where" / "Activity") — deleted from the visible design per the
+// brief, but restored here as visually-hidden text ahead of the value, so a
+// screen reader still hears what kind of row this is. The trailing space in
+// the rendered text is a separator, not new copy: without it, "When" and
+// the date would run together into one word for a speech synthesizer.
 function DetailRow({
   icon,
+  label,
   children,
 }: {
-  icon: React.ReactNode | null
-  children: React.ReactNode
+  icon: ReactNode | null
+  label: string
+  children: ReactNode
 }) {
   return (
     <div
@@ -314,7 +339,10 @@ function DetailRow({
       }}
     >
       {icon && <span style={{ display: "flex", flexShrink: 0 }}>{icon}</span>}
-      <span style={{ flex: "1 1 auto", minWidth: 0 }}>{children}</span>
+      <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <span style={visuallyHiddenStyle}>{label} </span>
+        {children}
+      </span>
     </div>
   )
 }
