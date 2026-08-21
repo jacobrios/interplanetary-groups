@@ -319,7 +319,14 @@ exactly as written: a slice changed both onboarding prompts, so both benches
 were its first tasks. `npm run eval:onboarding` grades nine cases (six
 extraction, three merge) through the real production path, per assertion
 rather than per case, and its before-and-after numbers are in that slice's §11
-entry. All three model behaviors are benched now, so commitment 2 above (a
+entry. (Annotated 20 Aug 2026, narrow-weekday-rule slice, review-fix pass: the
+case count above is the count at this entry's own close and is left as
+written; two later changes the same day, the bench widening and the
+narrow-weekday-rule fix, grew it to thirteen, and a code-review pass on that
+same branch added one more day-prominent multi-day case on top of that, for
+fourteen, eleven extraction and three merge. Current count lives in
+CLAUDE.md's running summary, not here.) All
+three model behaviors are benched now, so commitment 2 above (a
 model version change requires all three benched before it lands) is satisfiable
 for the first time. The queue-not-fix-now recommendation recorded above proved
 right: the gap cost nothing until the day it was paid for.
@@ -3962,19 +3969,30 @@ stale. (2) The group name stays model-generated with tightened wording rather th
 deterministic. Worth recording, because the owner's own worry pointed the other way: he cannot QA every
 name the model invents, and a controversial one would be bad. He kept the model because the name is
 editable on the playback card before the group exists, so a bad suggestion costs one edit and never
-reaches the group. The wording now forbids weekday names, caps at three words, and bans wordplay,
+reaches the group. The wording now ~~forbids weekday names~~ (superseded 20 Aug 2026, narrow-weekday-rule
+slice: narrowed to bar a weekday name only for a group whose rhythm spans more than one day, since a
+group that meets only on Saturday is rightly named after Saturday; see the fuller annotation a few
+paragraphs below and the "the weekday rule narrows" entry at the end of this document), caps at three
+words, and bans wordplay,
 because the whole group sees this name. (3) The deterministic fallback became the bare title-cased
 activity, "Climbing". (4) Mid-slice, the bench found a bug nobody went looking for: the model returned
 the activity as "climb" four runs in five, so the day-free title rendered "Climb" and varied on
 identical input; the owner ruled that the prompt should ask for the naming form of the activity, not
-the verb. (5) After the measurement, the residual rate of weekday group names was accepted rather than
+the verb. (5) ~~After the measurement, the residual rate of weekday group names was accepted rather than
 fixed with a code-side reject, declined at slice start and again with the number in hand, on the same
-reasoning as (2).
+reasoning as (2).~~ (Superseded 20 Aug 2026, narrow-weekday-rule slice: this reading measured the wrong
+thing. It was built on a bench of six cases that all led with the activity, and a same-day widening
+found the miss concentrated entirely in descriptions where the day was the most distinctive word, every
+one of them a single-day group the owner later ruled was never wrong to name after its day. See the
+fuller annotation a few paragraphs below and the "the weekday rule narrows" entry at the end of this
+document.)
 
 **Where this bench departs from recognition's.** Recognition scores a case as one pass or fail, because
 a message has one outcome. Extraction returns eight fields at once, so a whole-case verdict hides which
 one drifted. Cases here carry named assertions scored as separate rates, at no extra model cost. The
-name is graded by predicate (no weekday word, three words or fewer, non-empty, plain characters)
+name is graded by predicate (~~no weekday word~~ (superseded 20 Aug 2026, narrow-weekday-rule slice: this
+check now applies only when the case's own rhythm spans more than one day, not to every case; see the
+annotation below), three words or fewer, non-empty, plain characters)
 because the model legitimately varies on it; every other field by equality against what the founder
 said.
 
@@ -3982,7 +4000,15 @@ said.
 cases, 1/45 combined; activity-is-"climbing" 10/25. After, over two full runs: activity 25/25 and
 25/25; "no weekday word" 44/45 and 42/45, with nothing previously clean regressing. The misses
 concentrate on the fixture with no venue and no second activity, the one giving the model nothing else
-to name the group after. Suite: 92 files / 922 tests green at branch start and at the finish.
+to name the group after. Suite: 92 files / ~~922~~ tests green at branch start and at the finish.
+(Annotated 20 Aug 2026, titles-stop-naming-weekdays slice, caught in a later
+review-fix pass: this figure was written before that slice's own final fix
+wave landed one more test, so the "922" recorded above was never the true
+finishing number for the slice it described; the suite's real finishing count
+was 92 files / 923 tests, confirmed by the reviewer and by `npx vitest list`.
+Left as originally written per this project's append-only rule rather than
+corrected in place, since the project's slice-to-slice baseline check depends
+on the number a record actually carries, not on what it should have carried.)
 (Annotated 20 Aug 2026, narrow-weekday-rule slice: this combined rate, and the "roughly rare" reading
 of it the team carried forward from here, turned out to be an artifact of six cases that all led with
 the activity. A wider bench built the same day found the miss concentrated entirely in descriptions
