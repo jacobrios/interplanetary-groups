@@ -33,3 +33,77 @@ export function ArrowRight({ size, stroke = "currentColor", strokeWidth = 2.4 }:
     </svg>
   )
 }
+
+// The clock face used to lead the event-detail when-row and (stroked lime)
+// Orbit's onboarding gap marker. Path ported verbatim from the inline glyph
+// that PlaybackCard.tsx carried before this task (task-3 resolution B): a
+// circle plus a short hand at 7-o'clock-to-center-to-2-o'clock. Extracted
+// here so the product has one clock rather than two; PlaybackCard now
+// imports this instead of drawing its own copy.
+export function Clock({ size, stroke = "currentColor", strokeWidth = 2.4 }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+// The event-detail where-row's pin. No path data was available from the
+// handoff for this glyph (walkthrough.css defines only the row's size and
+// stroke color, never a path, and docs/walkthrough.html's markup could not
+// be read — see task-3-report.md); this is an original render of the
+// standard teardrop-plus-dot pin pictogram, drawn to match ArrowRight's
+// shape conventions (viewBox, round caps and joins) rather than ported from
+// a specific source.
+export function MapPin({ size, stroke = "currentColor", strokeWidth = 2.4 }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 21s7-7.58 7-12a7 7 0 1 0-14 0c0 4.42 7 12 7 12z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  )
+}
+
+// The "Add to calendar" button's glyph. Same provenance note as MapPin: no
+// path data was available from the handoff, so this is an original render
+// of a standard calendar pictogram (a ruled box with two hanger ticks),
+// matching ArrowRight's shape conventions.
+export function Calendar({ size, stroke = "currentColor", strokeWidth = 2.4 }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  )
+}

@@ -11,6 +11,7 @@ import ProposalSection from "./ProposalSection"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { Clock, MapPin } from "@/components/glyphs"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 
@@ -107,73 +108,122 @@ export default async function EventPage({ params }: Props) {
         <BackLink href={`/groups/${event.group.id}`} label={event.group.name} />
       </PageHeader>
 
+      {/* Single content column: the page (<main>) owns the full-bleed
+          background, this one wrapper owns both the scroll region's own
+          padding (walkthrough.css .ed-scroll, task 3) and the slice's
+          28rem content-column convention. The page previously nested two
+          wrappers for this (a padded flex column, then a maxWidth column
+          inside it); collapsed to one, matching the group info page. */}
       <div
         style={{
-          flex: 1,
+          flex: "1 1 auto",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          padding: "2rem 1.5rem",
+          width: "100%",
+          maxWidth: "28rem",
+          margin: "0 auto",
+          padding: "0 22px 16px",
         }}
       >
-        <div style={{ width: "100%", maxWidth: "28rem" }}>
-        {/* Event title */}
-        <h1
-          style={{
-            fontSize: "var(--type-display)",
-            lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
-            marginBottom: "1.5rem",
-          }}
-        >
-          {event.title}
-        </h1>
-
         {/* ── Event details card ─────────────────────────────────────── */}
+        {/* Card recipe ported from walkthrough.css .ed-card + the 569-573
+            override (surface, 1.7px hairline border, 14px radius, the
+            product's standard card shadow) — this is EventCard's and
+            PlaybackCard's own recipe now, not this screen's alone.
+            overflow:hidden is load-bearing: it clips the footer band's
+            corners to the card's own radius. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.875rem",
-            marginBottom: "1rem",
+            border: "1.7px solid var(--hairline)",
+            borderRadius: "14px",
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+            overflow: "hidden",
+            marginBottom: "16px",
           }}
         >
-          {/* Date / time */}
-          <MetaRow label="When" value={dateLabel} />
+          <div style={{ padding: "15px 16px" }}>
+            {/* Event title — moved inside the card this task. --type-title
+                (24px), down from the previous --type-display (28px): the
+                role map puts event-detail title at title. */}
+            <h1
+              style={{
+                fontSize: "var(--type-title)",
+                fontWeight: 800,
+                letterSpacing: "-.01em",
+                color: "var(--text-primary)",
+                lineHeight: "var(--leading-tight)",
+                // No ported value exists for the title-to-meta gap — the
+                // source gives .ed-title's own type rules and .ed-meta's
+                // 7px row gap, but no rule for the space between them.
+                // Judgment call (task-3 report): 10px, splitting the
+                // difference between the meta rows' own 7px rhythm and the
+                // title's larger role.
+                marginBottom: "10px",
+              }}
+            >
+              {event.title}
+            </h1>
 
-          {/* Venue — shown only when present; multi-venue UI is deferred (build-notes §8) */}
-          {venueLabel && <MetaRow label="Where" value={venueLabel} />}
+            {/* Meta rows (.ed-meta / .ed-mrow): icon-led lines replacing the
+                stacked key/value MetaRow. The "When"/"Where"/"Activity" key
+                labels are deleted; each row's icon (aria-hidden) plus its
+                own text carries the meaning, per the row's text alone —
+                see task-3-report.md for the screen-reader check. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+              <DetailRow icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}>
+                {dateLabel}
+              </DetailRow>
 
-          {/* Activity label — optional free-text tag */}
-          {event.activityLabel && <MetaRow label="Activity" value={event.activityLabel} />}
+              {/* Venue — shown only when present; multi-venue UI is deferred
+                  (build-notes §8). No MAP link, no chevron: the design draws
+                  one, but it is queued as a feature rather than built here
+                  (controller resolution F). */}
+              {venueLabel && (
+                <DetailRow icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}>
+                  {venueLabel}
+                </DetailRow>
+              )}
 
-          {/* RSVP controls — only when the viewer has a session. groupId is
-              passed so rsvpAction revalidates the group home too, matching
-              the home-card caller (EventCard.tsx): a member who RSVPs here
-              and taps back should see the card's need label already settled,
-              not the pre-tap "Needs your RSVP" from a stale render. */}
+              {/* Activity label — optional free-text tag. The design draws
+                  no third row and no glyph for it; this row gets no icon and
+                  is indented to the same text column so the rows stay
+                  aligned (controller resolution E, a judgment call, not a
+                  ported value). */}
+              {event.activityLabel && (
+                <DetailRow icon={null}>{event.activityLabel}</DetailRow>
+              )}
+            </div>
+          </div>
+
+          {/* RSVP footer band (.ed-band.footer): the screen block draws it
+              lime-tinted (line 419), but the refinement pass at 596-597
+              strips that to transparent with a hairline top border — the
+              last definition wins. RsvpControls itself is unchanged
+              (controller resolution D): the pair stays, both borders teal
+              while unanswered, the chosen answer filled and checkmarked.
+              groupId is passed so rsvpAction revalidates the group home
+              too, matching the home-card caller (EventCard.tsx): a member
+              who RSVPs here and taps back should see the card's need label
+              already settled, not the pre-tap "Needs your RSVP" from a
+              stale render. */}
           {viewer && (
-            <>
-              <hr
-                style={{
-                  border: "none",
-                  borderTop: "1px solid var(--hairline)",
-                  margin: "0.125rem 0",
-                }}
-              />
+            <div
+              style={{
+                borderTop: "1.6px solid var(--hairline)",
+                padding: "13px 16px",
+                backgroundColor: "transparent",
+              }}
+            >
               <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
-            </>
+            </div>
           )}
         </div>
 
         {/* ── Add to calendar ────────────────────────────────────────── */}
         {/* The screen's own primary action, its own region: teal, separate
             from the details card's teal "I'm in" (per-element teal rule).
-            Reuses the same 1rem gap that already separates the details card
+            Reuses the same 16px gap that already separates the details card
             from the roster card below.
 
             Above the time-change vote, as of 17 Aug 2026, reversing the
@@ -187,7 +237,7 @@ export default async function EventPage({ params }: Props) {
             (Putting the button inside the details card was the stronger
             semantic answer and was deliberately not taken; the owner's
             call, 14 Aug QA.) */}
-        <div style={{ marginBottom: "1rem" }}>
+        <div style={{ marginBottom: "16px" }}>
           <AddToCalendarButton eventId={event.id} />
         </div>
 
@@ -202,7 +252,9 @@ export default async function EventPage({ params }: Props) {
         {/* ── Roster card ────────────────────────────────────────────── */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
             IN / OUT / HAVEN'T REPLIED.  Distinction is by grouping + text labels
-            + checkmark on the IN header — never by color alone (§7 a11y rule). */}
+            + checkmark on the IN header — never by color alone (§7 a11y rule).
+            Task 4 owns this card's own restyling; untouched here except for
+            riding inside the collapsed single wrapper above. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
@@ -230,35 +282,39 @@ export default async function EventPage({ params }: Props) {
           )}
         </div>
       </div>
-      </div>
     </main>
   )
 }
 
 // ─── Sub-components (server-only, no "use client") ────────────────────────────
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+// One icon-plus-text meta line (.ed-mrow, task 3), replacing the stacked
+// key/value MetaRow. `icon` is null for the activity row (no drawn glyph in
+// the design); `paddingLeft` on the no-icon branch is the icon's own
+// footprint (16px width + 9px gap) so every row's text lands in the same
+// column regardless of whether it carries an icon.
+function DetailRow({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode | null
+  children: React.ReactNode
+}) {
   return (
-    <div>
-      <p
-        style={{
-          fontSize: "var(--type-label)",
-          lineHeight: "var(--leading-normal)",
-          color: "var(--text-secondary)",
-          marginBottom: "0.125rem",
-        }}
-      >
-        {label}
-      </p>
-      <p
-        style={{
-          fontSize: "var(--type-body)",
-          lineHeight: "var(--leading-normal)",
-          color: "var(--text-primary)",
-        }}
-      >
-        {value}
-      </p>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "9px",
+        fontSize: "var(--type-meta)",
+        lineHeight: "var(--leading-normal)",
+        color: "var(--text-primary)",
+        fontWeight: 600,
+        paddingLeft: icon ? undefined : "25px",
+      }}
+    >
+      {icon && <span style={{ display: "flex", flexShrink: 0 }}>{icon}</span>}
+      <span style={{ flex: "1 1 auto", minWidth: 0 }}>{children}</span>
     </div>
   )
 }

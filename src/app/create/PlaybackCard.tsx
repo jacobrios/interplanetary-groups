@@ -17,6 +17,7 @@
 // stays server-compatible.
 
 import type { ReactNode } from "react"
+import { Clock } from "@/components/glyphs"
 
 const cardOuterStyle: React.CSSProperties = {
   backgroundColor: "var(--surface-raised)",
@@ -227,20 +228,7 @@ export function PlaybackGapMarker({ children }: { children: ReactNode }) {
         marginLeft: "2px",
       }}
     >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="var(--lime)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </svg>
+      <Clock size={12} stroke="var(--lime)" strokeWidth={2} />
       {children}
     </span>
   )
