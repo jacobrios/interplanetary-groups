@@ -204,6 +204,19 @@ function titleIs(want: string): Assertion {
   }
 }
 
+/**
+ * An exact group name, not just the four shape checks in NAME_ASSERTIONS.
+ * Reserved for a case where the founder's own words already spell out a
+ * plausible name, so there is one right answer worth pinning rather than
+ * just a shape to hold.
+ */
+function groupNameIs(want: string): Assertion {
+  return {
+    name: `name is "${want}"`,
+    check: (o) => groupNameOf(o.normalized) === want,
+  }
+}
+
 const cadenceWeekly: Assertion = {
   name: "cadence is weekly",
   check: (o) => primaryOf(o.normalized)?.cadence === "weekly",
@@ -346,6 +359,94 @@ export const CASES: OnboardingCase[] = [
       daysAre([3]),
       timeIs("18:00"),
       timeNotAmbiguous,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // Day-prominent and own-words cases (added 20 Aug 2026). The six cases
+  // above all lead with the activity ("we climb...", "we play..."), so none
+  // of them can see the failure an ad-hoc probe found afterward: the weekday
+  // rule is not a uniform 1-in-15, it is concentrated in descriptions where
+  // the day is the most distinctive thing the founder said. The probe ran
+  // each of the four founder texts below 5 times against the real production
+  // path. These four cases exist so the bench can see that shape itself
+  // rather than take the probe's word for it. Two are expected to fail often;
+  // two are pinned because they already pass, and a bench that only holds
+  // failures cannot show a fix helping later.
+  // -------------------------------------------------------------------------
+
+  {
+    id: "extract-day-prominent-run",
+    kind: "extract",
+    description:
+      "The single most important case in this set. The day is the most distinctive word in the description, ahead of the activity. The probe (20 Aug 2026, 5 runs on the real production path) found a weekday-bearing group name on 5 of 5 runs (\"Saturday Running\" x2, \"Saturday Morning Runners\" x3), and the activity itself slipped from the naming form \"running\" to the doing-word \"run\" on 1 of 5, dragging the title down with it. Expect this case to fail most or every run; that is the finding, not a broken case.",
+    founderDescription: "a few of us run on Saturday mornings at 7am",
+    assertions: [
+      statusReady,
+      activityIs("running"),
+      cadenceWeekly,
+      daysAre([6]),
+      timeIs("07:00"),
+      timeNotAmbiguous,
+      titleIs("Running"),
+      venueIsNull,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+  {
+    id: "extract-day-prominent-beers",
+    kind: "extract",
+    description:
+      "A second day-prominent shape from the same probe (20 Aug 2026, 5 runs), so the finding reads as a shape rather than one word's quirk. The founder names the day before the activity needs any qualifying at all. The probe found the weekday leak on 1 of 5 runs (\"Friday Beers\"), with \"Beer Crew\" and \"Beer Grab\" filling the other four; the activity and title held clean on all 5.",
+    founderDescription: "we grab beers every Friday at 7pm",
+    assertions: [
+      statusReady,
+      activityIs("beers"),
+      cadenceWeekly,
+      daysAre([5]),
+      timeIs("19:00"),
+      timeNotAmbiguous,
+      titleIs("Beers"),
+      venueIsNull,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+  {
+    id: "extract-own-words-book-club",
+    kind: "extract",
+    description:
+      "The founder's own words already spell out a fine group name, so there is nothing for a weekday to displace. The probe (20 Aug 2026, 5 runs) found this one flawless, \"Book Club\" 5 of 5, and it is pinned to that exact string on purpose: a bench that only ever holds failures cannot show a later fix helping, and this case is what the day-prominent cases above should look like if the weekday problem goes away.",
+    founderDescription: "we have book club on Sundays at 4pm",
+    assertions: [
+      statusReady,
+      activityIs("book club"),
+      cadenceWeekly,
+      daysAre([0]),
+      timeIs("16:00"),
+      timeNotAmbiguous,
+      titleIs("Book Club"),
+      groupNameIs("Book Club"),
+      venueIsNull,
+      ...NAME_ASSERTIONS,
+    ],
+  },
+  {
+    id: "extract-own-words-family-dinner",
+    kind: "extract",
+    description:
+      "A second own-words case, kept beside book club for the same reason the two day-prominent cases are kept together: one clean pass could be luck, two is a shape. \"Family dinner\" is already a usable name with nothing for a weekday to crowd out. The probe (20 Aug 2026, 5 runs) found this flawless too, \"Family Dinner\" 5 of 5.",
+    founderDescription: "family dinner every Sunday at 6pm",
+    assertions: [
+      statusReady,
+      activityIs("family dinner"),
+      cadenceWeekly,
+      daysAre([0]),
+      timeIs("18:00"),
+      timeNotAmbiguous,
+      titleIs("Family Dinner"),
+      groupNameIs("Family Dinner"),
+      venueIsNull,
       ...NAME_ASSERTIONS,
     ],
   },
