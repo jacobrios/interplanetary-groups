@@ -65,6 +65,14 @@ const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
 
 const VENUE = { name: "Movement Wrigleyville", address: "3936 N Broadway, Chicago, IL" }
 
+/**
+ * How many members `stage()` seeds. `--finish` reads it to tell "the presenter
+ * has joined" from "nobody has joined yet", so the two must move together: a
+ * fifth seeded member here without this number would make --finish believe a
+ * real browser had joined and delete nothing, silently.
+ */
+const SEEDED_MEMBERS = 4
+
 function requireDevTest(): void {
   const verdict = judge(process.env, EXPECTED_DEV_TEST_REF)
   if (verdict.ok) return
@@ -216,7 +224,7 @@ async function finish(groupId: string) {
     orderBy: { joinedAt: "asc" },
     include: { user: true },
   })
-  if (memberships.length < 5) {
+  if (memberships.length <= SEEDED_MEMBERS) {
     console.error(
       `STOP: this group has ${memberships.length} members, so nobody has joined through the invite link yet.`
     )
@@ -265,20 +273,33 @@ async function reset(groupId: string) {
   const restorePoint = seeded.orbitMessage.createdAt
 
   const memberships = await prisma.membership.findMany({ where: { groupId }, orderBy: { joinedAt: "asc" } })
-  const viewerId = memberships[memberships.length - 1]?.userId
+  // Same guard --finish carries, and for a sharper reason: "the viewer" is
+  // whoever joined last, so on a group nobody has joined that is a seeded
+  // member, and this would delete THEIR seeded RSVP. The group would come back
+  // looking almost right, with the confirmed card quietly reading 3 In · 0 Out
+  // instead of 3 In · 1 Out. Refusing is the only safe answer.
+  if (memberships.length <= SEEDED_MEMBERS) {
+    console.error(
+      `STOP: this group has ${memberships.length} members, so nobody has joined through the invite link yet.`
+    )
+    console.error(`There is no take to reset, and resetting now would delete a seeded member's RSVP.`)
+    console.error(`Nothing was changed.`)
+    process.exit(1)
+  }
+  const viewerId = memberships[memberships.length - 1].userId
 
-  // Order matters for the foreign keys: rows that point at messages go before
-  // the messages themselves.
+  // Order matters twice over. Rows that point at messages go before the
+  // messages themselves; and sparked events go before the gauges that made
+  // them, because Event.gaugeId is onDelete:SetNull. Delete a gauge first and
+  // its event survives with a nulled gaugeId, which is exactly the shape this
+  // next line reads as "not sparked" — the stray confirmed card would then sit
+  // in the rail through every later take.
   const proposals = await prisma.changeProposal.deleteMany({ where: { groupId } })
-  const extraGauges = await prisma.gauge.deleteMany({ where: { groupId, id: { not: seeded.id } } })
   // Sparked events only. The seeded climb has a null gaugeId and survives.
   const sparked = await prisma.event.deleteMany({ where: { groupId, gaugeId: { not: null } } })
-  const votes = viewerId
-    ? await prisma.gaugeVote.deleteMany({ where: { gaugeId: seeded.id, userId: viewerId } })
-    : { count: 0 }
-  const rsvps = viewerId
-    ? await prisma.rsvp.deleteMany({ where: { userId: viewerId, event: { groupId } } })
-    : { count: 0 }
+  const extraGauges = await prisma.gauge.deleteMany({ where: { groupId, id: { not: seeded.id } } })
+  const votes = await prisma.gaugeVote.deleteMany({ where: { gaugeId: seeded.id, userId: viewerId } })
+  const rsvps = await prisma.rsvp.deleteMany({ where: { userId: viewerId, event: { groupId } } })
   const messages = await prisma.message.deleteMany({
     where: { groupId, createdAt: { gt: restorePoint } },
   })
