@@ -229,6 +229,19 @@ export default function JoinForm({
     <main
       style={{
         minHeight: "100dvh",
+        // The .jn-body source also carries `flex: 1 1 auto`. It's inert
+        // here (this <main> is body's sole flex child, so there is no
+        // sibling to grow past and no free space to claim beyond what
+        // minHeight already reserves — see the fix-round-1 postscript in
+        // the task report for the measurements that confirm it), but it's
+        // a distinct property from min-height so it's added anyway with
+        // no cost. `min-height: 0` from the same source rule is NOT
+        // ported: it is the same CSS property as the minHeight: 100dvh
+        // below and would silently replace it, and 100dvh is the
+        // established, load-bearing convention behind every other
+        // headerless screen in this codebase (front door, OrbitNoteScreen,
+        // group info). Kept the value that renders correctly.
+        flex: "1 1 auto",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
@@ -236,71 +249,78 @@ export default function JoinForm({
         padding: "10px 24px 18px",
       }}
     >
-      <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
-        {/* Always include hidden inviteToken and hasSession flags */}
-        <input type="hidden" name="inviteToken" value={inviteToken} />
-        <input type="hidden" name="hasSession" value={currentName ? "1" : ""} />
+      {/* 28rem content wrapper, centred the same way as the group-info
+          page (`width: 100%; maxWidth: 28rem; margin: 0 auto`) and the
+          onboarding wizard screens, so the card and pill controls don't
+          stretch full-bleed on desktop/tablet. <main> keeps owning the
+          full-bleed background and the page's own padding. */}
+      <div style={{ width: "100%", maxWidth: "28rem", margin: "0 auto" }}>
+        <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
+          {/* Always include hidden inviteToken and hasSession flags */}
+          <input type="hidden" name="inviteToken" value={inviteToken} />
+          <input type="hidden" name="hasSession" value={currentName ? "1" : ""} />
 
-        <p style={eyebrowStyle}>You&apos;re invited</p>
+          <p style={eyebrowStyle}>You&apos;re invited</p>
 
-        <OrbitBubble>
-          Hey! I&apos;m Orbit. I keep {groupName} running so nobody has to be
-          the organizer.
-        </OrbitBubble>
+          <OrbitBubble>
+            Hey! I&apos;m Orbit. I keep {groupName} running so nobody has to
+            be the organizer.
+          </OrbitBubble>
 
-        <div style={cardStyle}>
-          <p style={cardTitleStyle}>{groupName}</p>
-          <div style={rowsStyle}>
-            <Row label="WHO" value={memberLabel} />
-            {rhythmRows.map((row, i) => (
-              <Row key={i} label={row.label} value={row.value} />
-            ))}
+          <div style={cardStyle}>
+            <p style={cardTitleStyle}>{groupName}</p>
+            <div style={rowsStyle}>
+              <Row label="WHO" value={memberLabel} />
+              {rhythmRows.map((row, i) => (
+                <Row key={i} label={row.label} value={row.value} />
+              ))}
+            </div>
           </div>
-        </div>
 
-        {state.errors?.general && <p style={generalErrorStyle}>{state.errors.general}</p>}
+          {state.errors?.general && <p style={generalErrorStyle}>{state.errors.general}</p>}
 
-        <div style={fieldWrapStyle}>
-          {currentName === null ? (
-            <>
-              {/* The design shows no visible label, only placeholder text.
-                  A placeholder is not an accessible name (task brief,
-                  resolution C), so a visually hidden label carries it. */}
-              <label htmlFor="memberName" style={visuallyHiddenStyle}>
-                Your name
-              </label>
-              <input
-                id="memberName"
-                name="memberName"
-                type="text"
-                autoComplete="given-name"
-                placeholder="What should the crew call you?"
-                style={inputStyle}
-              />
-              {state.errors?.memberName && (
-                <p style={fieldErrorStyle}>{state.errors.memberName}</p>
-              )}
-            </>
-          ) : (
-            /* RETURNING SESSION — read-only "Joining as {name}" */
-            <p style={returningStateStyle}>
-              Joining as{" "}
-              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
-                {currentName}
-              </span>
-            </p>
-          )}
-        </div>
+          <div style={fieldWrapStyle}>
+            {currentName === null ? (
+              <>
+                {/* The design shows no visible label, only placeholder text.
+                    A placeholder is not an accessible name (task brief,
+                    resolution C), so a visually hidden label carries it. */}
+                <label htmlFor="memberName" style={visuallyHiddenStyle}>
+                  Your name
+                </label>
+                <input
+                  id="memberName"
+                  name="memberName"
+                  type="text"
+                  autoComplete="given-name"
+                  placeholder="What should the crew call you?"
+                  style={inputStyle}
+                />
+                {state.errors?.memberName && (
+                  <p style={fieldErrorStyle}>{state.errors.memberName}</p>
+                )}
+              </>
+            ) : (
+              /* RETURNING SESSION — read-only "Joining as {name}" */
+              <p style={returningStateStyle}>
+                Joining as{" "}
+                <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+                  {currentName}
+                </span>
+              </p>
+            )}
+          </div>
 
-        <button type="submit" disabled={isPending} style={buttonStyle(isPending)}>
-          {isPending ? "Joining…" : `Join ${groupName}`}
-          <ArrowRight size={17} strokeWidth={2.6} stroke="var(--action-ink)" />
-        </button>
+          <button type="submit" disabled={isPending} style={buttonStyle(isPending)}>
+            {isPending ? "Joining…" : `Join ${groupName}`}
+            <ArrowRight size={17} strokeWidth={2.6} stroke="var(--action-ink)" />
+          </button>
 
-        <p style={reassureStyle}>
-          No app to download, no password. You&apos;ll land right in the group.
-        </p>
-      </form>
+          <p style={reassureStyle}>
+            No app to download, no password. You&apos;ll land right in the group.
+          </p>
+        </form>
+      </div>
     </main>
   )
 }
