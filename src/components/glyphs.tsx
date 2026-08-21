@@ -108,14 +108,19 @@ export function Calendar({ size, stroke = "currentColor", strokeWidth = 2.4 }: G
   )
 }
 
-// The roster's IN-group heading mark. Path ported verbatim from
-// walkthrough.css line 642 (`.ed-seclabel .rost-check`): a single
-// checkmark stroke, round caps and joins. That rule's own stroke-width
-// (2.7) and vertical-align/margin values are layout concerns the caller
-// applies inline, not this component's job — same division as every other
-// glyph here (shape only, placement at the call site). Replaces the
-// literal "✓" character the IN heading rendered before this task, which
-// depended on whatever glyph the device font supplied for U+2713.
+// The roster's IN-group heading mark. walkthrough.css line 642
+// (`.ed-seclabel .rost-check`) is a CSS rule, so it carries no path data —
+// only geometry: 12x12 size, round caps and joins, and its own
+// stroke-width (2.7). Those are what's ported; the path itself
+// (`M5 12.5l4.5 4.5L19 7.5`) is an original render of a standard
+// checkmark, same provenance as MapPin and Calendar below (no source path
+// existed to port, so this draws one to match their shape conventions).
+// The stroke-width and vertical-align/margin values are layout concerns
+// the caller applies inline, not this component's job — same division as
+// every other glyph here (shape only, placement at the call site).
+// Replaces the literal "✓" character the IN heading rendered before this
+// task, which depended on whatever glyph the device font supplied for
+// U+2713.
 export function Check({ size, stroke = "currentColor", strokeWidth = 2.4 }: GlyphProps) {
   return (
     <svg

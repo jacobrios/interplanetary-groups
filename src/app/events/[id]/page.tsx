@@ -273,21 +273,25 @@ export default async function EventPage({ params }: Props) {
 
             Card recipe: same as the details card above (walkthrough.css
             .ed-card + the 570-573 override) — surface, 1.7px hairline
-            border, 14px radius, the product's standard shadow — EXCEPT
-            overflow:hidden, which the details card needs to clip its
-            footer band's corners and this card does not. Left off on
-            purpose (controller resolution F): this card can hold a focus
-            ring (RSVP controls elsewhere on the page can tab past it, and
-            a keyboard user landing on something focusable inside a future
-            roster affordance should never have its ring clipped by the
-            card edge). Per-group padding replaces the old outer
-            padding+gap; see RosterSection. */}
+            border, 14px radius, overflow:hidden, the product's standard
+            shadow. Fix round 1 correction: task 4's dispatched resolution F
+            (.superpowers/sdd/2026-08-21-visual-polish-3-design/
+            controller-resolutions.md, "Task 4") originally read
+            overflow:hidden as needed only by the details card's footer
+            band and left it off here on a speculative focus-ring concern.
+            The design source (.ed-card, line 402) sets overflow:hidden
+            with no later pass removing it, which is the resolution's own
+            named escape clause ("unless the design asks for it") — the
+            source asks for it, so it's restored, matching the details
+            card. Per-group padding replaces the old outer padding+gap; see
+            RosterSection. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
             border: "1.7px solid var(--hairline)",
             borderRadius: "14px",
             boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+            overflow: "hidden",
           }}
         >
           {inMembers.length > 0 && (
