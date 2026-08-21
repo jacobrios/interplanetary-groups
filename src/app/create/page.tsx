@@ -17,7 +17,14 @@ export default function CreateGroupPage() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "center",
+        // Top-anchored, never centered. The wizard owns the top of the screen
+        // through WizardHeader, and on every other screen in the product the
+        // header sits against the top edge. Centering the whole column pushed
+        // the header down whenever a step's content was short (the playback and
+        // the gap-ask), which read to a founder as a header that failed to
+        // load. The design agrees: its onboarding body is a top-down column
+        // with the Orbit header row pinned and the content below it growing.
+        justifyContent: "flex-start",
         padding: "2rem 1.5rem",
       }}
     >
