@@ -6,8 +6,8 @@
 // them all on one screen without hunting. It creates a founder (Maya) and
 // two seeded members (Theo, Priya), three members total, and stages:
 //
-//   - THREE upcoming events ("Saturday Climb", "Trivia Night", "Sunday Trail
-//     Run"), each with a venue, soonest first, nobody's RSVP set. This is
+//   - THREE upcoming events ("Climb", "Trivia Night", "Trail Run"), each with
+//     a venue, soonest first, nobody's RSVP set. This is
 //     what puts the carousel into its multi-card peeking layout
 //     (CarouselRail.tsx, whose dot row was deleted 17 Aug 2026) instead of
 //     the single-card one, and leaves every
@@ -227,7 +227,7 @@ async function main() {
   // and three is the display cap. ──────────────────────────────────────────
   const climb = await createEvent({
     groupId: group.id,
-    title: "Saturday Climb",
+    title: "Climb",
     startsAt: zonedWallTimeToUtc(p.year, p.month, p.day + 2, 10, 0, TZ),
     activityLabel: "climbing",
     venue: { name: "Vertical Peak Gym", address: "1200 Elm St" },
@@ -241,7 +241,7 @@ async function main() {
   })
   const trailRun = await createEvent({
     groupId: group.id,
-    title: "Sunday Trail Run",
+    title: "Trail Run",
     startsAt: zonedWallTimeToUtc(p.year, p.month, p.day + 9, 8, 0, TZ),
     activityLabel: "running",
     venue: { name: "Riverside Trailhead", address: "400 River Rd" },

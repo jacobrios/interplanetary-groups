@@ -40,20 +40,27 @@ describe("normalizeExtraction — ready path", () => {
     expect(r.groupName).toBe("Sunday Climbers")
   })
 
-  it("derives a day-free title for every-day rhythms", () => {
-    // A seven-day rhythm's events fall on any weekday, so the title must not
-    // name one ("Walks Sunday" on a Wednesday event would be wrong).
-    const r = normalizeExtraction(
+  it("derives a day-free title regardless of how many days the rhythm covers", () => {
+    // The date already sits under the title on every surface that shows one,
+    // so a weekday in the title would be duplicated information whose only
+    // possible future is to go stale (a Mon/Wed/Fri rhythm's Friday event
+    // still reading "Climbing Monday"). Seven days was never a special case
+    // needing its own rule; every schedulable rhythm gets the bare activity.
+    const threeDay = normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }]))
+    if (threeDay.status !== "ready") throw new Error("expected ready")
+    expect(threeDay.rhythms[0].title).toBe("Climbing")
+
+    const everyDay = normalizeExtraction(
       raw([{ ...CLIMB, activity: "walks", daysOfWeek: [0, 1, 2, 3, 4, 5, 6], timeLocal: "06:00" }])
     )
-    if (r.status !== "ready") throw new Error("expected ready")
-    expect(r.rhythms[0].title).toBe("Walks")
+    if (everyDay.status !== "ready") throw new Error("expected ready")
+    expect(everyDay.rhythms[0].title).toBe("Walks")
   })
 
   it("derives titles deterministically", () => {
     const r = normalizeExtraction(raw([CLIMB, BEERS]))
     if (r.status !== "ready") throw new Error("expected ready")
-    expect(r.rhythms[0].title).toBe("Climbing Sunday") // schedulable: activity + weekday
+    expect(r.rhythms[0].title).toBe("Climbing") // the activity, no weekday
     expect(r.rhythms[1].title).toBe("Beers") // loose: activity only
   })
 
@@ -306,17 +313,17 @@ describe("normalizeExtraction — group name", () => {
   it("falls back deterministically when the suggestion is missing", () => {
     const r = normalizeExtraction(raw([CLIMB], null))
     if (r.status !== "ready") throw new Error("expected ready")
-    expect(r.groupName).toBe("Sunday Climbing")
+    expect(r.groupName).toBe("Climbing")
   })
 
   it("falls back deterministically when the suggestion is whitespace or wrong type", () => {
     const blank = normalizeExtraction(raw([CLIMB], "   "))
     if (blank.status !== "ready") throw new Error("expected ready")
-    expect(blank.groupName).toBe("Sunday Climbing")
+    expect(blank.groupName).toBe("Climbing")
 
     const wrongType = normalizeExtraction(raw([CLIMB], 42))
     if (wrongType.status !== "ready") throw new Error("expected ready")
-    expect(wrongType.groupName).toBe("Sunday Climbing")
+    expect(wrongType.groupName).toBe("Climbing")
   })
 })
 

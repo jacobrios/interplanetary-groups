@@ -7,7 +7,7 @@
 // promotion, the position-zero guarantee, and the completeness gate.
 // Pure and synchronous by design so every rule is unit-testable.
 
-import { cleanVenueName, type StoredRhythm } from "./rhythm"
+import { cleanVenueName, titleCaseActivity, type StoredRhythm } from "./rhythm"
 
 export type MissingField =
   | "time"
@@ -37,16 +37,6 @@ export type NormalizedOnboarding =
        */
       candidateTimeLocal: string | null
     }
-
-const WEEKDAY_FULL = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-]
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const NAME_MAX = 50
@@ -125,24 +115,15 @@ function isSchedulable(c: Candidate): boolean {
   )
 }
 
-function titleCase(s: string): string {
-  return s
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ")
-}
-
 /**
- * Event title, derived deterministically — never extracted. Schedulable
- * rhythms get "{Activity} {Weekday}" ("Climbing Sunday"); an every-day
- * rhythm gets the bare activity, since its events fall on any weekday and
- * naming one would be wrong on most of them.
+ * Event title, derived deterministically, never extracted. The title is the
+ * founder's activity and nothing else: the date sits directly under the
+ * title on every surface that shows one, so naming a weekday in the title
+ * too would be duplicated information whose only possible future is to go
+ * stale (a Mon/Wed/Fri rhythm's Friday event still reading "Climbing Monday").
  */
 function deriveTitle(c: Candidate): string {
-  if (isSchedulable(c) && c.daysOfWeek!.length < 7) {
-    return `${titleCase(c.activity)} ${WEEKDAY_FULL[c.daysOfWeek![0]]}`
-  }
-  return titleCase(c.activity)
+  return titleCaseActivity(c.activity)
 }
 
 /**
@@ -247,9 +228,7 @@ export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
 
   return {
     status: "ready",
-    groupName:
-      cleanSuggestedName(suggestedName) ??
-      `${WEEKDAY_FULL[primary.daysOfWeek![0]]} ${titleCase(primary.activity)}`,
+    groupName: cleanSuggestedName(suggestedName) ?? titleCaseActivity(primary.activity),
     rhythms: stored,
   }
 }

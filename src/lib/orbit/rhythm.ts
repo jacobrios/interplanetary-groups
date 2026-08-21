@@ -15,7 +15,7 @@
 
 export interface GroupRhythm {
   activity: string           // event activity noun, e.g. "climbing" — used in announcement copy
-  title: string              // -> Event.title, e.g. "Climbing Sunday"
+  title: string              // -> Event.title, e.g. "Climbing" (the activity alone, no weekday)
   daysOfWeek: number[]       // 0=Sun … 6=Sat (JS getUTCDay convention)
   timeLocal: string          // "HH:mm" 24h wall-clock local time, e.g. "08:00"
   cadence: "weekly"          // only schedulable cadence in MVP
@@ -56,6 +56,20 @@ export function cleanShortText(v: unknown, max: number): string | null {
 /** Venue string hygiene, shared by both parsers here and sanitize() in normalize.ts. */
 export function cleanVenueName(v: unknown): string | null {
   return cleanShortText(v, VENUE_NAME_MAX)
+}
+
+/**
+ * Title-cases an activity word or phrase for display ("board games" ->
+ * "Board Games"): the one capitalizer for anything that turns a founder's or
+ * member's own words into an event or card title. Shared by normalize.ts
+ * (onboarding rhythm titles) and promote.ts (a sparked event's title), which
+ * used to each keep a private copy that differed only in case.
+ */
+export function titleCaseActivity(s: string): string {
+  return s
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
 }
 
 /**

@@ -43,7 +43,7 @@ ${FIELD_RULES}
 
 Worked example:
 DESCRIPTION: "we climb tuesdays at 7"
-CURRENT UNDERSTANDING: {"suggestedGroupName":"Tuesday Climbers","clarifyingQuestion":null,"rhythms":[{"activity":"climbing","cadence":"weekly","daysOfWeek":[2],"timeLocal":null,"timeAmbiguous":false,"isPrimary":true}]}
+CURRENT UNDERSTANDING: {"suggestedGroupName":"Climbing Crew","clarifyingQuestion":null,"rhythms":[{"activity":"climbing","cadence":"weekly","daysOfWeek":[2],"timeLocal":null,"timeAmbiguous":false,"isPrimary":true}]}
 CANDIDATE TIME: 19:00
 WE ASKED: about whether the time is morning or evening
 ANSWER: "actually saturdays at 10am"

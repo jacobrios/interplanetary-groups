@@ -4,7 +4,7 @@
 // ("Sunset Boulderers") with a founder and two seeded members (three total),
 // then stages every piece the strip needs to prove itself:
 //
-//   - one upcoming event ("Wednesday Climb") with nobody's RSVP set, so the
+//   - one upcoming event ("Climb") with nobody's RSVP set, so the
 //     card shows and the viewer's own RSVP is absent by construction
 //   - one open gauge from a member ("bouldering at the new east side gym",
 //     next Saturday 10:00), the floater's message auto-seeding their own IN
@@ -159,7 +159,7 @@ async function main() {
   const eventStart = zonedWallTimeToUtc(p.year, p.month, p.day + 4, 19, 0, TZ)
   const event = await createEvent({
     groupId: group.id,
-    title: "Wednesday Climb",
+    title: "Climb",
     startsAt: eventStart,
     activityLabel: "climbing",
   })
