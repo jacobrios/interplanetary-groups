@@ -45,13 +45,19 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
         onClick={() => setConfirming(true)}
         style={{
           width: "100%",
+          // Floor, not a fixed height (CLAUDE.md: layout grows with
+          // content, never clips) — 46px per .gi-leave at default text.
+          minHeight: "46px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           padding: "0.75rem 1.5rem",
           backgroundColor: "transparent",
-          color: "var(--text-secondary)",
+          color: "var(--text-primary)",
           fontSize: "var(--type-label)",
           fontWeight: 600,
-          border: "1px solid var(--hairline)",
-          borderRadius: "0.5rem",
+          border: "1.7px solid var(--hairline)",
+          borderRadius: "24px",
           cursor: "pointer",
         }}
       >
@@ -93,7 +99,7 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
       </p>
 
       {errorMsg && (
-        <p style={{ fontSize: "var(--type-meta)", color: "#f87171" }}>{errorMsg}</p>
+        <p style={{ fontSize: "var(--type-meta)", color: "var(--danger)" }}>{errorMsg}</p>
       )}
 
       <div style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}>
@@ -105,10 +111,10 @@ export default function LeaveGroupButton({ groupId, groupName }: Props) {
             minWidth: "8rem",
             padding: "0.625rem 1rem",
             backgroundColor: "transparent",
-            color: "#f87171",
+            color: "var(--danger)",
             fontSize: "var(--type-label)",
             fontWeight: 600,
-            border: "1px solid #f87171",
+            border: "1px solid var(--danger)",
             borderRadius: "0.5rem",
             cursor: isPending ? "not-allowed" : "pointer",
           }}
