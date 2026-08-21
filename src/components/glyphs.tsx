@@ -107,3 +107,29 @@ export function Calendar({ size, stroke = "currentColor", strokeWidth = 2.4 }: G
     </svg>
   )
 }
+
+// The roster's IN-group heading mark. Path ported verbatim from
+// walkthrough.css line 642 (`.ed-seclabel .rost-check`): a single
+// checkmark stroke, round caps and joins. That rule's own stroke-width
+// (2.7) and vertical-align/margin values are layout concerns the caller
+// applies inline, not this component's job — same division as every other
+// glyph here (shape only, placement at the call site). Replaces the
+// literal "✓" character the IN heading rendered before this task, which
+// depended on whatever glyph the device font supplied for U+2713.
+export function Check({ size, stroke = "currentColor", strokeWidth = 2.4 }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  )
+}

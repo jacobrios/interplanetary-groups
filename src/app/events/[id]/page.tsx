@@ -12,7 +12,7 @@ import ProposalSection from "./ProposalSection"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
-import { Clock, MapPin } from "@/components/glyphs"
+import { Clock, MapPin, Check } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
@@ -267,32 +267,56 @@ export default async function EventPage({ params }: Props) {
 
         {/* ── Roster card ────────────────────────────────────────────── */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
-            IN / OUT / HAVEN'T REPLIED.  Distinction is by grouping + text labels
-            + checkmark on the IN header — never by color alone (§7 a11y rule).
-            Task 4 owns this card's own restyling; untouched here except for
-            riding inside the collapsed single wrapper above. */}
+            IN / OUT / HAVEN'T REPLIED. Distinction is by grouping, the
+            heading labels, and (task 4) name brightness — never by color
+            alone (§7 a11y rule; the owner is red/green colourblind).
+
+            Card recipe: same as the details card above (walkthrough.css
+            .ed-card + the 570-573 override) — surface, 1.7px hairline
+            border, 14px radius, the product's standard shadow — EXCEPT
+            overflow:hidden, which the details card needs to clip its
+            footer band's corners and this card does not. Left off on
+            purpose (controller resolution F): this card can hold a focus
+            ring (RSVP controls elsewhere on the page can tab past it, and
+            a keyboard user landing on something focusable inside a future
+            roster affordance should never have its ring clipped by the
+            card edge). Per-group padding replaces the old outer
+            padding+gap; see RosterSection. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.25rem",
+            border: "1.7px solid var(--hairline)",
+            borderRadius: "14px",
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
           }}
         >
           {inMembers.length > 0 && (
-            <RosterSection label="✓ In" members={inMembers} />
+            <RosterSection label="In" members={inMembers} variant="in" isFirst />
           )}
           {outMembers.length > 0 && (
-            <RosterSection label="Can't make it" members={outMembers} />
+            <RosterSection
+              label="Can't make it"
+              members={outMembers}
+              variant="out"
+              isFirst={inMembers.length === 0}
+            />
           )}
           {pendingMembers.length > 0 && (
-            <RosterSection label="Haven't replied" members={pendingMembers} />
+            <RosterSection
+              label="Haven't replied"
+              members={pendingMembers}
+              variant="pending"
+              isFirst={inMembers.length === 0 && outMembers.length === 0}
+            />
           )}
           {event.group.memberships.length === 0 && (
-            <p style={{ fontSize: "var(--type-meta)", color: "var(--text-secondary)" }}>
+            <p
+              style={{
+                fontSize: "var(--type-meta)",
+                color: "var(--text-secondary)",
+                padding: "11px 16px 12px",
+              }}
+            >
               No members yet.
             </p>
           )}
@@ -347,42 +371,103 @@ function DetailRow({
   )
 }
 
+// One roster group (.ed-rgroup): a heading plus a wrapping row of members.
+// `variant` drives the two hue-free status signals this task adds — name
+// brightness, and (for "in" only) the drawn check mark — never color alone.
+// `isFirst` suppresses the divider: the source rule is "every group AFTER
+// the first gets a border-top" (walkthrough.css line 436), computed against
+// which groups actually render (a zero-count bucket never mounts, so the
+// first VISIBLE group must never carry a top border even when it isn't
+// literally the first bucket in the fixed IN/OUT/PENDING order).
 function RosterSection({
   label,
   members,
+  variant,
+  isFirst = false,
 }: {
   label: string
   members: { id: string; name: string }[]
+  variant: "in" | "out" | "pending"
+  isFirst?: boolean
 }) {
+  // Brightness carries state (walkthrough.css lines 643-644 + the 685-689
+  // refinement pass); hue never does. IN reads at full text-primary
+  // brightness, HAVEN'T REPLIED steps down to text-secondary, OUT steps
+  // down again to placeholder — see task-4-report.md for the measured
+  // contrast ratio on that last one.
+  const nameColor =
+    variant === "in"
+      ? "var(--text-primary)"
+      : variant === "pending"
+        ? "var(--text-secondary)"
+        : "var(--placeholder)"
+
   return (
-    <div>
-      {/* Section header: eyebrow style with count */}
+    <div
+      style={{
+        padding: "11px 16px 12px",
+        borderTop: isFirst ? undefined : "1.4px solid var(--hairline)",
+      }}
+    >
+      {/* Section header (.ed-seclabel): eyebrow style with count. The IN
+          heading's checkmark is now the drawn 12px stroked glyph from
+          walkthrough.css line 642 (.ed-seclabel .rost-check), replacing the
+          literal "✓" character that used to render in whatever the device
+          font supplied. The label wording itself is unchanged — still
+          "In · 3", "Can't make it · 1", "Haven't replied · 4" — so this is
+          a pure glyph swap, not a copy change. */}
       <p
         style={{
+          display: "block",
           fontSize: "var(--type-eyebrow)",
           lineHeight: "var(--leading-normal)",
-          color: "var(--text-secondary)",
+          letterSpacing: ".14em",
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          marginBottom: "0.625rem",
+          color: "var(--text-secondary)",
+          fontWeight: 700,
+          marginBottom: "8px",
         }}
       >
+        {variant === "in" && (
+          <span
+            style={{
+              display: "inline-block",
+              verticalAlign: "-1px",
+              marginRight: "5px",
+            }}
+          >
+            <Check size={12} stroke="var(--text-primary)" strokeWidth={2.7} />
+          </span>
+        )}
         {label}&nbsp;·&nbsp;{members.length}
       </p>
 
-      {/* Member rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      {/* Member rows (.ed-people / .ed-person): flex-wrap replaces the old
+          vertical stack, which is what lets a nine-person roster fit a
+          phone. minWidth:0 + overflowWrap on the name is the "layout grows
+          with content" answer for a single name too long to fit one line —
+          it wraps within itself rather than overflowing the card. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
         {members.map((member) => (
           <div
             key={member.id}
-            style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              minWidth: 0,
+              maxWidth: "100%",
+            }}
           >
-            <RosterAvatar name={member.name} size={28} />
+            <RosterAvatar name={member.name} />
             <span
               style={{
-                fontSize: "var(--type-body)",
+                fontSize: "var(--type-label)",
+                fontWeight: 600,
                 lineHeight: "var(--leading-normal)",
-                color: "var(--text-primary)",
+                color: nameColor,
+                minWidth: 0,
+                overflowWrap: "anywhere",
               }}
             >
               {member.name}

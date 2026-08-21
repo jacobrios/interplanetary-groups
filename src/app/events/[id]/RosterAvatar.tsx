@@ -6,22 +6,32 @@ interface Props {
 }
 
 /**
- * Deterministic placeholder avatar: initials on a hue seeded from the member's name,
- * so the same name always looks the same across renders and sessions.
+ * Deterministic placeholder avatar: initials on a uniform identity-anchor
+ * circle, so the same name always looks the same across renders and
+ * sessions, and every avatar on the roster reads at the same brightness
+ * regardless of the member's RSVP status.
  *
- * Avatar color encodes IDENTITY, not status — it does not violate the no-color-alone
- * status rule (§7: "Status by brightness plus icon or label, never by hue").  Status
- * is conveyed entirely by section grouping and text labels in the roster.
+ * Task 4 (visual-polish-3) removed the per-name hue this component used to
+ * carry. The design's refinement pass (walkthrough.css lines 685-689,
+ * `.ed-av, .ed-people.dim .ed-av`) is explicit that roster avatars are
+ * "uniform identity anchors, decoupled from status": every avatar sits at
+ * the same background/border/glyph brightness, including in the dimmed
+ * (OUT) group. That line is also the LAST of three competing `.ed-av`
+ * definitions in the stylesheet (440, 603-604, 685-689) and therefore the
+ * one that wins per the project's "last definition wins" rule — see
+ * task-4-report.md for the other two and why they lose.
  *
- * Tech debt: the designed avatar is a celestial doodle generated per member (build-notes
- * §11, event-detail slice).  This placeholder ships first; the richer avatar is a
- * deliberate fast-follow once the visual design is finalised.
+ * Colour carrying no meaning does not belong on the one screen where status
+ * must never be read from hue (the product owner is red/green colourblind).
+ * Status is conveyed entirely by section grouping, the heading labels, and
+ * — as of this task — name brightness (IN/HAVEN'T REPLIED/OUT), never by
+ * the avatar.
+ *
+ * Tech debt, unchanged by this task: the designed avatar is a celestial
+ * doodle generated per member (build-notes §11, event-detail slice). This
+ * initials placeholder is the honest stand-in; the doodle stays queued.
  */
-export default function RosterAvatar({ name, size = 32 }: Props) {
-  const hue = nameToHue(name)
-  // Muted saturation, mid-dark lightness — readable on --surface-raised (#262b37).
-  const bg = `hsl(${hue}, 32%, 38%)`
-
+export default function RosterAvatar({ name, size = 30 }: Props) {
   const initials = name
     .trim()
     .split(/\s+/)
@@ -39,8 +49,9 @@ export default function RosterAvatar({ name, size = 32 }: Props) {
         width: `${size}px`,
         height: `${size}px`,
         borderRadius: "50%",
-        backgroundColor: bg,
-        color: "var(--text-primary)",
+        backgroundColor: "var(--surface-raised)",
+        border: "1.6px solid var(--hairline)",
+        color: "var(--text-secondary)",
         fontSize: "var(--type-eyebrow)",
         fontWeight: 600,
         flexShrink: 0,
@@ -50,17 +61,4 @@ export default function RosterAvatar({ name, size = 32 }: Props) {
       {initials || "?"}
     </span>
   )
-}
-
-/**
- * Maps a name string to a hue (0–359) deterministically.
- * Uses a simple weighted char-code sum so adjacent characters contribute different weights,
- * producing good spread for short names.
- */
-function nameToHue(name: string): number {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash + name.charCodeAt(i) * (i + 1)) % 360
-  }
-  return hash
 }
