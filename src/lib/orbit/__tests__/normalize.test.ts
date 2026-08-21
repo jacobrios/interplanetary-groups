@@ -327,6 +327,123 @@ describe("normalizeExtraction — group name", () => {
   })
 })
 
+describe("normalizeExtraction — weekday-named suggestion guard", () => {
+  // Owner-approved 20 Aug 2026: the extraction prompt now bans weekday names
+  // only for a multi-day group, which removed the reason the owner had
+  // twice declined a code-side guard (rejecting a weekday name outright
+  // would have silently discarded a legitimate "Sunday Climbers" from a
+  // single-day founder). Under the narrowed prompt that cost is gone, so a
+  // multi-day suggestion that still names a weekday is a plain model error
+  // and this guard discards it, matching the claim-to-fact pattern in gap.ts
+  // (enforceActivityCarryOver, enforceVenueCarryOver).
+
+  it("rejects a weekday-named suggestion on a multi-day primary, falling back to the derived name", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Monday Climbers")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Climbing") // deterministic fallback, never invented
+  })
+
+  it("keeps a weekday-named suggestion on a single-day primary", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [0] }], "Sunday Climbers"))
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Sunday Climbers")
+  })
+
+  it("keeps a clean (weekday-free) suggestion on a multi-day primary", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Climbing Crew")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Climbing Crew")
+  })
+
+  it("does not fire on a weekday-looking substring inside another word", () => {
+    // "Mondale" contains "mon" but not as a whole word; "Satellite Crew"
+    // contains "sat" the same way. Neither should trip the guard.
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Mondale Satellite Crew")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Mondale Satellite Crew")
+  })
+
+  it("catches three-letter and the two four-letter weekday abbreviations, not only full names", () => {
+    // "Tues" and "Thurs" are the bench's own documented blind spot
+    // (evals/onboarding/cases.ts); this guard closes it rather than
+    // inheriting it.
+    for (const name of ["Tue Runners", "Tues Runners", "Thu Runners", "Thurs Runners"]) {
+      const r = normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], name))
+      if (r.status !== "ready") throw new Error("expected ready")
+      expect(r.groupName).toBe("Climbing")
+    }
+  })
+
+  it("catches a plural weekday, not only the singular form", () => {
+    // "Tuesdays and Thursdays we run at 6am" is literally the bench's new
+    // day-prominent case shape, so the plural form is not a rare input.
+    for (const name of ["Mondays Climbers", "Tuesdays Runners", "Thursdays Runners"]) {
+      const r = normalizeExtraction(raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], name))
+      if (r.status !== "ready") throw new Error("expected ready")
+      expect(r.groupName).toBe("Climbing")
+    }
+  })
+
+  it("does not fire on 'sun' as an ordinary word inside a real place or group name", () => {
+    // Unlike "mon"/"tue"/"wed"/"thu"/"fri"/"sat", bare "sun" is a common
+    // standalone English word in real place and group names ("Sun Valley",
+    // "Rising Sun"), and a model is far more likely to write out "Sunday"
+    // in full than to abbreviate it to "sun". The full word "sunday" is
+    // still caught below; only the bare three-letter abbreviation is not.
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Sun Valley Climbers")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Sun Valley Climbers")
+  })
+
+  it("still catches the full word 'Sunday' on a multi-day primary", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5] }], "Sunday Climbers")
+    )
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.groupName).toBe("Climbing")
+  })
+
+  it("applies the same guard on the incomplete path, where the primary's days are already known", () => {
+    // A gap in time or cadence never resolves the day count, so the guard
+    // must not wait for "ready" to protect the founder from a bad name.
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [1, 3, 5], timeLocal: null }], "Monday Climbers")
+    )
+    expect(r).toMatchObject({ status: "incomplete", missing: "time" })
+    if (r.status !== "incomplete") return
+    // No derived fallback on the incomplete path (it needs a schedulable
+    // primary) — a discarded suggestion here is null, exactly like "no
+    // usable suggestion" everywhere else on this path.
+    expect(r.groupName).toBeNull()
+  })
+
+  it("leaves a single-day incomplete suggestion untouched", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: [0], timeLocal: null }], "Sunday Climbers")
+    )
+    expect(r).toMatchObject({ status: "incomplete", missing: "time" })
+    if (r.status !== "incomplete") return
+    expect(r.groupName).toBe("Sunday Climbers")
+  })
+
+  it("does not fire when the day count is not yet known at all", () => {
+    const r = normalizeExtraction(
+      raw([{ ...CLIMB, daysOfWeek: null, timeLocal: null }], "Monday Climbers")
+    )
+    expect(r).toMatchObject({ status: "incomplete", missing: "both" })
+    if (r.status !== "incomplete") return
+    expect(r.groupName).toBe("Monday Climbers")
+  })
+})
+
 describe("normalizeExtraction — venueName", () => {
   it("carries a trimmed venueName per rhythm on the ready path", () => {
     const r = normalizeExtraction(

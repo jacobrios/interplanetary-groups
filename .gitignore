@@ -46,3 +46,10 @@ next-env.d.ts
 # Scoped to worktrees/ on purpose: .claude/settings.json and .claude/hooks/
 # are tracked and must stay that way.
 .claude/worktrees/
+
+# working reports and scratch from agent sessions (never committed; a report
+# was committed by mistake on this branch via 189978c, caught and removed
+# before it ever reached main, and this closes that gap). The nested
+# .superpowers/sdd/.gitignore already ignores everything under sdd/ on its
+# own; this rule is broader by design and does not conflict with it.
+.superpowers/
