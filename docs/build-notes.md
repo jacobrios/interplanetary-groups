@@ -3983,6 +3983,12 @@ cases, 1/45 combined; activity-is-"climbing" 10/25. After, over two full runs: a
 25/25; "no weekday word" 44/45 and 42/45, with nothing previously clean regressing. The misses
 concentrate on the fixture with no venue and no second activity, the one giving the model nothing else
 to name the group after. Suite: 92 files / 922 tests green at branch start and at the finish.
+(Annotated 20 Aug 2026, narrow-weekday-rule slice: this combined rate, and the "roughly rare" reading
+of it the team carried forward from here, turned out to be an artifact of six cases that all led with
+the activity. A wider bench built the same day found the miss concentrated entirely in descriptions
+where the day was the most distinctive word, and every one of those misses was a single-day group,
+which the owner later ruled was never wrong to begin with. Full story and the corrected numbers in the
+"the weekday rule narrows" entry at the end of this document.)
 
 **Two review catches, both the process arguing for itself.** The merge bench was skipping two
 production guards, so it was not the real production path on the exact case built to test the failure
@@ -4028,3 +4034,42 @@ seeing the inconsistency might otherwise "fix" a rule that was reasoned about tw
 centered its whole column vertically, header included, so short steps floated down and read as a header
 that had failed to load. Its own micro-PR, since it is a fix to already-merged polish slice two work and
 touches no file this slice touches.
+
+## §11 entry: the weekday rule narrows (narrow-weekday-rule slice, 20 Aug 2026)
+
+**What it is.** The rule that stopped Orbit naming groups after a day of the week was too broad. It
+said "never," but the true problem is only a group with more than one meeting day: "Mon/Wed/Fri
+Climbers" is a bad name because the group is not a Monday group, while "Saturday Morning Runners" is a
+perfectly good name for a group that only ever meets on Saturday. The reading given at the time this
+originally shipped, "roughly rare," was itself built on a bench of six cases that all happened to lead
+with the activity ("we climb...", "we play..."), so it never had a case shaped the way founders actually
+write when the day is the most memorable thing about their group. A same-day bench widening surfaced
+that shape and showed the earlier reading was misleading, not merely imprecise.
+
+**The real breakdown.** Every single failure the wider bench found, on every case, was a single-day
+group. The one case built specifically around a founder's report of a stale multi-day title (Monday,
+Wednesday, Friday climbing) has passed clean, 10 out of 10 runs, both before this change and after it;
+it never had a weekday-name problem at all. The two new cases that did fail often, "a few of us run on
+Saturday mornings" and "we grab beers every Friday," are both one-day groups. Naming them after their
+day was never a mistake. The rule was punishing the exact behavior it should have allowed.
+
+**The owner's ruling.** Only bar a weekday name when the group meets on more than one day. Orbit's
+instructions were reworded to say exactly that, and the bench's own weekday check was changed to match:
+it only applies to the one case that actually spans multiple days, and every single-day case no longer
+treats a weekday name as a defect.
+
+**The numbers after the change, two full bench runs.** The weekday check came back perfectly clean on
+both runs, for every case: the one multi-day case held its own 10-for-10 record, and every single-day
+case that used to be graded on this check no longer shows a weekday name as a problem, because it is no
+longer being asked to avoid one. Nothing else moved: the unrelated, already-known rough edge where the
+model occasionally shortens "running" to "run" (and drags the event title down with it) is untouched and
+still visible on the bench, exactly where it was before this change, because it is a separate question
+the owner is tracking on its own. Nothing regressed anywhere else in the ninety-two-file, nine-hundred-
+and-twenty-three-test automated suite, and the app's own type-check stayed clean.
+
+**Why this belongs to a narrower fix, not a new feature.** Nothing about what Orbit can do changed.
+This only corrects an instruction that was asking for the wrong thing in a case the product cares about
+(one-day groups, which are the common case), and corrects the measurement that had been quietly baking
+that mistake into "acceptable." The debt this closes: the earlier "residual is accepted" reading in
+CLAUDE.md's running summary was a measurement of the wrong thing, corrected there with a dated note
+rather than rewritten, per this project's own record-keeping rule.

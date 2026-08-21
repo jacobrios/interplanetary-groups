@@ -139,8 +139,11 @@ const WEEKDAY_RE = new RegExp(`\\b(${WEEKDAY_WORDS.join("|")})\\b`, "i")
 
 /**
  * Every name assertion requires a real string, so a null or blank name reads
- * as four red lines rather than three vacuous greens. A missing name is a
- * total failure of the field and the board should say so four times over.
+ * as red lines rather than vacuous greens. A missing name is a total failure
+ * of the field and the board should say so every time over.
+ *
+ * These three hold for every case regardless of shape. The weekday check
+ * does not belong here: see `NO_WEEKDAY_NAME` and `nameAssertions` below.
  */
 const NAME_ASSERTIONS: Assertion[] = [
   {
@@ -148,13 +151,6 @@ const NAME_ASSERTIONS: Assertion[] = [
     check: (o) => {
       const n = groupNameOf(o.normalized)
       return typeof n === "string" && n.trim().length > 0
-    },
-  },
-  {
-    name: "name: no weekday word",
-    check: (o) => {
-      const n = groupNameOf(o.normalized)
-      return typeof n === "string" && n.trim().length > 0 && !WEEKDAY_RE.test(n)
     },
   },
   {
@@ -173,6 +169,33 @@ const NAME_ASSERTIONS: Assertion[] = [
     },
   },
 ]
+
+/**
+ * Bars a weekday word from the group name. Owner's ruling (20 Aug 2026,
+ * narrowing the original blanket rule after the day-prominent cases showed
+ * where it actually broke): a group that meets on more than one day is not
+ * a Monday group, but a group that only ever meets on Saturday is rightly
+ * named "Saturday Morning Runners". So this assertion only belongs on a case
+ * whose primary rhythm spans more than one day; see `nameAssertions` below.
+ */
+const NO_WEEKDAY_NAME: Assertion = {
+  name: "name: no weekday word",
+  check: (o) => {
+    const n = groupNameOf(o.normalized)
+    return typeof n === "string" && n.trim().length > 0 && !WEEKDAY_RE.test(n)
+  },
+}
+
+/**
+ * The full set of name assertions for one case, with the weekday bar applied
+ * only when the case's own rhythm spans more than one day. Pass `multiDay`
+ * explicitly at the case site (never inferred from the case id or founder
+ * text) so the reader can see, next to each case, whether a weekday name is
+ * being barred and why.
+ */
+function nameAssertions(multiDay: boolean): Assertion[] {
+  return multiDay ? [...NAME_ASSERTIONS, NO_WEEKDAY_NAME] : NAME_ASSERTIONS
+}
 
 // ---------------------------------------------------------------------------
 // Structured assertion builders, so a case reads as what the founder said.
@@ -205,7 +228,7 @@ function titleIs(want: string): Assertion {
 }
 
 /**
- * An exact group name, not just the four shape checks in NAME_ASSERTIONS.
+ * An exact group name, not just the shape checks in `nameAssertions`.
  * Reserved for a case where the founder's own words already spell out a
  * plausible name, so there is one right answer worth pinning rather than
  * just a shape to hold.
@@ -273,7 +296,8 @@ export const CASES: OnboardingCase[] = [
       timeNotAmbiguous,
       titleIs("Climbing"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Mon/Wed/Fri: more than one day, so a weekday name is barred.
+      ...nameAssertions(true),
     ],
   },
   {
@@ -291,7 +315,8 @@ export const CASES: OnboardingCase[] = [
       timeNotAmbiguous,
       titleIs("Board Games"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Thursday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -306,7 +331,8 @@ export const CASES: OnboardingCase[] = [
       cadenceWeekly,
       daysAre([2]),
       questionIsAskable,
-      ...NAME_ASSERTIONS,
+      // Tuesday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -331,7 +357,8 @@ export const CASES: OnboardingCase[] = [
       daysAre([2]),
       timeIs("19:00"),
       timeNotAmbiguous,
-      ...NAME_ASSERTIONS,
+      // Tuesday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -340,7 +367,8 @@ export const CASES: OnboardingCase[] = [
     description:
       "No place mentioned anywhere. Guards 'never invent a venue', a prompt rule nothing currently proves.",
     founderDescription: "we climb every Sunday at 9am",
-    assertions: [statusReady, venueIsNull, ...NAME_ASSERTIONS],
+    // Sunday only: one day, so a weekday name is allowed, not required.
+    assertions: [statusReady, venueIsNull, ...nameAssertions(false)],
   },
   {
     id: "extract-two-rhythms",
@@ -359,28 +387,38 @@ export const CASES: OnboardingCase[] = [
       daysAre([3]),
       timeIs("18:00"),
       timeNotAmbiguous,
-      ...NAME_ASSERTIONS,
+      // The primary (climbing) rhythm is Wednesday only; the loose beers
+      // rhythm names no day at all, so there is still only one day.
+      ...nameAssertions(false),
     ],
   },
 
   // -------------------------------------------------------------------------
   // Day-prominent and own-words cases (added 20 Aug 2026). The six cases
   // above all lead with the activity ("we climb...", "we play..."), so none
-  // of them can see the failure an ad-hoc probe found afterward: the weekday
-  // rule is not a uniform 1-in-15, it is concentrated in descriptions where
-  // the day is the most distinctive thing the founder said. The probe ran
-  // each of the four founder texts below 5 times against the real production
+  // of them can see what an ad-hoc probe found afterward: the weekday rule
+  // was not a uniform 1-in-15, it was concentrated in descriptions where the
+  // day is the most distinctive thing the founder said. The probe ran each
+  // of the four founder texts below 5 times against the real production
   // path. These four cases exist so the bench can see that shape itself
-  // rather than take the probe's word for it. Two are expected to fail often;
-  // two are pinned because they already pass, and a bench that only holds
-  // failures cannot show a fix helping later.
+  // rather than take the probe's word for it.
+  //
+  // Amended 20 Aug 2026, narrow-weekday-rule slice: the probe's finding was
+  // read as a bug at first, but both cases below are single-day groups, and
+  // "Saturday Morning Runners" is a fine name for a group that only ever
+  // meets on Saturday. The owner ruled the original prompt rule too broad,
+  // FIELD_RULES now only bars a weekday name on a multi-day group, and these
+  // two cases no longer bar it either (see `nameAssertions`). They stay in
+  // the bench for the shape they still guard: the day staying the most
+  // distinctive word in the description, and the activity/title holding
+  // steady rather than sliding toward the day.
   // -------------------------------------------------------------------------
 
   {
     id: "extract-day-prominent-run",
     kind: "extract",
     description:
-      "The single most important case in this set. The day is the most distinctive word in the description, ahead of the activity. The probe (20 Aug 2026, 5 runs on the real production path) found a weekday-bearing group name on 5 of 5 runs (\"Saturday Running\" x2, \"Saturday Morning Runners\" x3), and the activity itself slipped from the naming form \"running\" to the doing-word \"run\" on 1 of 5, dragging the title down with it. Expect this case to fail most or every run; that is the finding, not a broken case.",
+      "The single most important case in this set. The day is the most distinctive word in the description, ahead of the activity. Originally added to catch a weekday-bearing group name (probe: 5 of 5 runs, \"Saturday Running\" x2, \"Saturday Morning Runners\" x3); narrowed 20 Aug 2026 once the owner ruled that a single-day group naming itself after that day is correct, not a bug. What still counts as a failure here: the activity itself slipping from the naming form \"running\" to the doing-word \"run\" (probe: 1 of 5), which drags the title down with it.",
     founderDescription: "a few of us run on Saturday mornings at 7am",
     assertions: [
       statusReady,
@@ -391,14 +429,15 @@ export const CASES: OnboardingCase[] = [
       timeNotAmbiguous,
       titleIs("Running"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Saturday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
     id: "extract-day-prominent-beers",
     kind: "extract",
     description:
-      "A second day-prominent shape from the same probe (20 Aug 2026, 5 runs), so the finding reads as a shape rather than one word's quirk. The founder names the day before the activity needs any qualifying at all. The probe found the weekday leak on 1 of 5 runs (\"Friday Beers\"), with \"Beer Crew\" and \"Beer Grab\" filling the other four; the activity and title held clean on all 5.",
+      "A second day-prominent shape from the same probe (5 runs), so the finding reads as a shape rather than one word's quirk. The founder names the day before the activity needs any qualifying at all. The probe found a weekday-bearing name (\"Friday Beers\") on 1 of 5 runs, with \"Beer Crew\" and \"Beer Grab\" filling the other four; the activity and title held clean on all 5. Narrowed 20 Aug 2026 alongside the run case: \"Friday Beers\" is a fine name for a group that only meets on Friday, so this case no longer bars a weekday word either.",
     founderDescription: "we grab beers every Friday at 7pm",
     assertions: [
       statusReady,
@@ -409,7 +448,8 @@ export const CASES: OnboardingCase[] = [
       timeNotAmbiguous,
       titleIs("Beers"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Friday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -428,7 +468,9 @@ export const CASES: OnboardingCase[] = [
       titleIs("Book Club"),
       groupNameIs("Book Club"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Sunday only: one day, so a weekday name is allowed, not required
+      // (moot here since the name is pinned to "Book Club" anyway).
+      ...nameAssertions(false),
     ],
   },
   {
@@ -447,7 +489,9 @@ export const CASES: OnboardingCase[] = [
       titleIs("Dinner"),
       groupNameIs("Family Dinner"),
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Sunday only: one day, so a weekday name is allowed, not required
+      // (moot here since the name is pinned to "Family Dinner" anyway).
+      ...nameAssertions(false),
     ],
   },
 
@@ -459,6 +503,12 @@ export const CASES: OnboardingCase[] = [
   // "latest word wins" and "copy untouched fields verbatim" rules unassisted
   // by that guard, which is the point: the guard exists precisely because
   // the model does not always follow those rules on its own.
+  //
+  // All three land on a single day (Tuesday, or Saturday after
+  // day-replacement), so they use `nameAssertions(false)` like every other
+  // single-day case: a weekday name is allowed here too, not just in
+  // extraction, since the merge prompt shares FIELD_RULES verbatim with
+  // extraction and the two calls cannot be held to different rules.
   // -------------------------------------------------------------------------
 
   {
@@ -491,7 +541,8 @@ export const CASES: OnboardingCase[] = [
       timeIs("19:00"),
       timeNotAmbiguous,
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Tuesday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -524,7 +575,8 @@ export const CASES: OnboardingCase[] = [
       timeIs("07:00"),
       timeNotAmbiguous,
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Tuesday only: one day, so a weekday name is allowed, not required.
+      ...nameAssertions(false),
     ],
   },
   {
@@ -557,7 +609,9 @@ export const CASES: OnboardingCase[] = [
       timeIs("10:00"),
       timeNotAmbiguous,
       venueIsNull,
-      ...NAME_ASSERTIONS,
+      // Saturday only (the replaced day): one day, so a weekday name is
+      // allowed, not required.
+      ...nameAssertions(false),
     ],
   },
 ]
