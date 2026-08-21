@@ -55,15 +55,24 @@ export default async function HomePage() {
       {/* 28rem content column, matching the slice-wide convention (join,
           event detail, group info, both dead-end screens, OrbitNoteScreen,
           the onboarding wizard). This wrapper IS the flex column the
-          screen's shape depends on (marginTop: auto below pins the copy
-          block and footer to the bottom while the mark stays at the top);
-          <main> keeps owning the full-bleed background and its own
-          4px/24px/0 padding. */}
+          screen's shape depends on; <main> keeps owning the full-bleed
+          background and its own 4px/24px/0 padding.
+
+          Owner's QA call (21 Aug 2026): the handoff's marginTop: auto on
+          the copy block (round4-base.css .fd-copy) left a 349px / 43%
+          empty gap on a 375x812 phone between the mark and the eyebrow.
+          The mark, copy block and footer now read as one contiguous group,
+          centered vertically in the viewport via justifyContent: "center"
+          below, rather than the mark pinned to the top and the rest pinned
+          to the bottom. The internal rhythm (mark's own margin, eyebrow's
+          16px, headline's 9px, lede's 12px, footer's 22px 0 4px) is
+          unchanged; only the composition moved. */}
       <div
         style={{
           flex: "1 1 auto",
           display: "flex",
           flexDirection: "column",
+          justifyContent: "center",
           width: "100%",
           maxWidth: "28rem",
           margin: "0 auto",
@@ -71,15 +80,16 @@ export default async function HomePage() {
       >
         {/* The orbit path overflows the sphere's own box, so this negative
             left margin optically aligns the sphere (not the box) with the
-            24px page gutter. Source: round4-base.css .fd-mark, README item 01. */}
+            24px page gutter. Source: round4-base.css .fd-mark, README item 01.
+            Left-aligned deliberately: the owner's "centered on the screen"
+            reads as the group being vertically centered, not the mark itself
+            going horizontally centered, which would throw away this optical
+            alignment against the gutter. */}
         <div style={{ width: 104, height: 104, margin: "6px 0 0 -9px", flex: "0 0 auto" }}>
           <OrbitMark size={104} />
         </div>
 
-        {/* margin-top: auto pins this block (and the footer below it) to the
-            bottom of the screen while the mark stays at the top; the gap
-            between absorbs longer copy. Source: round4-base.css .fd-copy. */}
-        <div style={{ marginTop: "auto", flex: "0 0 auto" }}>
+        <div style={{ flex: "0 0 auto" }}>
           <p
             style={{
               fontSize: "var(--type-eyebrow)",

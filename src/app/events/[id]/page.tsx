@@ -115,7 +115,18 @@ export default async function EventPage({ params }: Props) {
           padding (walkthrough.css .ed-scroll, task 3) and the slice's
           28rem content-column convention. The page previously nested two
           wrappers for this (a padded flex column, then a maxWidth column
-          inside it); collapsed to one, matching the group info page. */}
+          inside it); collapsed to one, matching the group info page.
+
+          Owner's QA call (21 Aug 2026): the design's zero top padding
+          assumed the back link sits inside this scroll region, above the
+          card, providing its own separation from the header. This product
+          moved the back link into the shared PageHeader instead (a
+          recorded decision that beats the design source), which left
+          nothing between the header's bottom hairline and the details
+          card's own top border, so the two hairlines ran together. 12px
+          top padding closes the gap, matching the measured space between
+          the header and the first card on the group home
+          (/groups/[id]'s 0.75rem card-region padding). */}
       <div
         style={{
           flex: "1 1 auto",
@@ -124,7 +135,7 @@ export default async function EventPage({ params }: Props) {
           width: "100%",
           maxWidth: "28rem",
           margin: "0 auto",
-          padding: "0 22px 16px",
+          padding: "12px 22px 16px",
         }}
       >
         {/* ── Event details card ─────────────────────────────────────── */}
