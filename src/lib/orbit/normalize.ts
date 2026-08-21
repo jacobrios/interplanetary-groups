@@ -138,6 +138,65 @@ function cleanSuggestedName(suggested: string | null): string | null {
 }
 
 /**
+ * Weekday words the naming prompt is now allowed to use for a single-day
+ * group ("Saturday Morning Runners") but never for a group that meets on
+ * more than one day ("Monday Climbers" for a Mon/Wed/Fri rhythm) — the
+ * prompt carries that rule in prose (extract.ts), this is the code-side
+ * guard over the model's claim, same spirit as enforceActivityCarryOver and
+ * enforceVenueCarryOver in gap.ts. Full names plus three-letter
+ * abbreviations, matched as whole words and case-insensitively, plus "tues"
+ * and "thurs": the two four-letter abbreviations the bench's own predicate
+ * (evals/onboarding/cases.ts) documents as a known, accepted blind spot.
+ * Closing it here costs nothing extra and a discarded name always has a
+ * safe fallback, so there is no reason to inherit that gap. Whole-word
+ * matching is what keeps a name like "Satellite Crew" or a surname like
+ * "Mondale" clean.
+ */
+const WEEKDAY_NAME_WORDS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sun",
+  "mon",
+  "tue",
+  "tues",
+  "wed",
+  "thu",
+  "thurs",
+  "fri",
+  "sat",
+]
+const WEEKDAY_NAME_RE = new RegExp(`\\b(${WEEKDAY_NAME_WORDS.join("|")})\\b`, "i")
+
+/**
+ * Discards a cleaned suggestion that names a weekday when the primary
+ * rhythm spans more than one day. The owner had twice declined a
+ * code-side guard here because rejecting every weekday name would have
+ * silently discarded a legitimate "Sunday Climbers" from a single-day
+ * founder; the prompt narrowing that removed that cost is what makes this
+ * guard safe to add (20 Aug 2026, narrow-weekday-rule slice). Fires only
+ * when the day count is actually known and greater than one — an unknown
+ * or single-day primary passes the name through untouched, same as the
+ * rest of this file degrading an unusable claim rather than guessing.
+ * Returns null on discard, exactly like "no usable suggestion": the caller
+ * already knows how to fall back for its own path (the derived title on
+ * ready, nothing invented on incomplete, per cleanSuggestedName's own doc
+ * comment above).
+ */
+function rejectWeekdayNameOnMultiDay(
+  name: string | null,
+  daysOfWeek: number[] | null
+): string | null {
+  if (name === null) return null
+  if (daysOfWeek === null || daysOfWeek.length <= 1) return name
+  return WEEKDAY_NAME_RE.test(name) ? null : name
+}
+
+/**
  * Which single gap Orbit should ask about, for an unschedulable primary.
  * Priority: an ambiguous time is asked before an unconfident cadence (a
  * stated weekday implies weekly per the prompt, so that overlap is rare, and
@@ -221,14 +280,16 @@ export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
       status: "incomplete",
       missing: classifyGap(primary),
       rhythms: stored,
-      groupName: cleanSuggestedName(suggestedName),
+      groupName: rejectWeekdayNameOnMultiDay(cleanSuggestedName(suggestedName), primary.daysOfWeek),
       candidateTimeLocal: primary.timeAmbiguous ? primary.timeLocal : null,
     }
   }
 
   return {
     status: "ready",
-    groupName: cleanSuggestedName(suggestedName) ?? titleCaseActivity(primary.activity),
+    groupName:
+      rejectWeekdayNameOnMultiDay(cleanSuggestedName(suggestedName), primary.daysOfWeek) ??
+      titleCaseActivity(primary.activity),
     rhythms: stored,
   }
 }
