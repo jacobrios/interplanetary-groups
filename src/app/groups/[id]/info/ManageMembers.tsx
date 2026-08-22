@@ -79,7 +79,7 @@ export default function ManageMembers({ groupId, founderId, members }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
       {errorMsg && (
-        <p style={{ fontSize: "var(--type-meta)", color: "#f87171" }}>{errorMsg}</p>
+        <p style={{ fontSize: "var(--type-meta)", color: "var(--danger)" }}>{errorMsg}</p>
       )}
 
       {members.map((m) => (
@@ -144,10 +144,10 @@ export default function ManageMembers({ groupId, founderId, members }: Props) {
                   style={{
                     padding: "0.375rem 0.75rem",
                     backgroundColor: "transparent",
-                    color: "#f87171",
+                    color: "var(--danger)",
                     fontSize: "var(--type-label)",
                     fontWeight: 600,
-                    border: "1px solid #f87171",
+                    border: "1px solid var(--danger)",
                     borderRadius: "0.5rem",
                     cursor: isPending ? "not-allowed" : "pointer",
                   }}

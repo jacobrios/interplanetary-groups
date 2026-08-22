@@ -13,13 +13,12 @@ import Link from "next/link"
 import { OrbitMark } from "@/components/OrbitMark"
 
 interface Props {
-  eyebrow: string
   note: string
   linkHref: string
   linkLabel: string
 }
 
-export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: Props) {
+export default function OrbitNoteScreen({ note, linkHref, linkLabel }: Props) {
   return (
     <main
       style={{
@@ -34,19 +33,6 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
-        <p
-          style={{
-            fontSize: "var(--type-eyebrow)",
-            lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            marginBottom: "0.75rem",
-          }}
-        >
-          {eyebrow}
-        </p>
-
         {/* Orbit speaks here, unlike on the not-found and error screens: a
             real person is looking at a real screen, and a warm voice
             genuinely helps.
@@ -54,37 +40,45 @@ export default function OrbitNoteScreen({ eyebrow, note, linkHref, linkLabel }: 
             A labeled note, not a bubble. CLAUDE.md allows a bubble only
             when the user's next on-screen action responds to Orbit, and
             there is nothing to reply to here, so a bubble would promise a
-            conversation that cannot happen. Same treatment as the note on
-            walkthrough screen 09. */}
+            conversation that cannot happen.
+
+            Ported from the drawn source, `.ed-slip` (walkthrough.css lines
+            456-459): the mark sits absolutely positioned in the padding
+            inset so the label and body run full width beside it, rather
+            than stacked above it. The outer eyebrow that used to precede
+            this box is deleted (owner, 21 Aug): it restated this note's
+            own opening clause, so the screen said "invite-only" (or
+            "invite link") twice within about fifteen words. */}
         <div
           style={{
+            position: "relative",
+            border: "1.6px solid var(--hairline)",
+            borderRadius: "12px",
+            padding: "14px 14px 12px 48px",
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.625rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <OrbitMark size={20} label={null} />
-            <span
-              style={{
-                fontSize: "var(--type-eyebrow)",
-                color: "var(--text-secondary)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
-              A note from Orbit
-            </span>
+          <div style={{ position: "absolute", left: "11px", top: "12px" }}>
+            <OrbitMark size={28} label={null} />
           </div>
+          <span
+            style={{
+              display: "block",
+              fontSize: "var(--type-eyebrow)",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--text-secondary)",
+              fontWeight: 700,
+              marginBottom: "3px",
+            }}
+          >
+            A note from Orbit
+          </span>
           <p
             style={{
-              fontSize: "var(--type-body)",
+              fontSize: "var(--type-meta)",
               lineHeight: "var(--leading-normal)",
-              color: "var(--text-primary)",
+              color: "var(--text-secondary)",
               margin: 0,
             }}
           >

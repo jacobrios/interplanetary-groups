@@ -87,13 +87,18 @@ export default async function GroupInfoPage({ params }: Props) {
 
       <div
         style={{
-          padding: "1.5rem 1rem 2rem",
+          padding: "0 24px 18px",
           width: "100%",
           maxWidth: "28rem",
           margin: "0 auto",
           display: "flex",
           flexDirection: "column",
-          gap: "1.5rem",
+          // No uniform gap here. Every value below carries its own margin
+          // from the source (.gi-identity, .gi-seclabel, .gi-card, .gi-hint);
+          // a container gap on top of those margins double-counts the
+          // spacing, exactly the defect the previous slice shipped and
+          // recorded ("consistency is not correctness"). Task 5 report has
+          // the measured before/after.
           flex: "1 1 auto",
         }}
       >
@@ -104,7 +109,7 @@ export default async function GroupInfoPage({ params }: Props) {
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            gap: "0.75rem",
+            padding: "10px 0 4px",
           }}
         >
           {/* Lime emblem: group brand moment, not an action (lime is never a button) */}
@@ -119,8 +124,8 @@ export default async function GroupInfoPage({ params }: Props) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "var(--type-title)",
-              fontWeight: 700,
+              fontSize: "var(--type-display)",
+              fontWeight: 800,
               letterSpacing: "0.02em",
             }}
           >
@@ -129,28 +134,38 @@ export default async function GroupInfoPage({ params }: Props) {
           <h1
             style={{
               fontSize: "var(--type-display)",
-              fontWeight: 700,
+              fontWeight: 800,
               lineHeight: "var(--leading-tight)",
               letterSpacing: "-0.01em",
+              marginTop: "12px",
             }}
           >
             {group.name}
           </h1>
-          <p style={{ fontSize: "var(--type-meta)", color: "var(--text-secondary)" }}>
+          <p
+            style={{
+              fontSize: "var(--type-label)",
+              color: "var(--text-secondary)",
+              fontWeight: 600,
+              marginTop: "4px",
+            }}
+          >
             {memberCount} {memberCount === 1 ? "member" : "members"}
           </p>
         </div>
 
         {/* ── Invite link: members and founder only (spec decision 5) ───── */}
         {isMember && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <p
               style={{
                 fontSize: "var(--type-eyebrow)",
                 lineHeight: "var(--leading-normal)",
                 color: "var(--text-secondary)",
                 textTransform: "uppercase",
-                letterSpacing: "0.08em",
+                letterSpacing: "0.14em",
+                fontWeight: 700,
+                margin: "18px 2px 7px",
               }}
             >
               Group invite link
@@ -159,9 +174,9 @@ export default async function GroupInfoPage({ params }: Props) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.625rem",
-                border: "1px solid var(--hairline)",
-                borderRadius: "0.625rem",
+                gap: "9px",
+                border: "1.6px solid var(--hairline)",
+                borderRadius: "10px",
                 // walkthrough.css names this pill in the same selector as
                 // Step 3's invite-link pill (`.s3-link, .gi-linkrow`), so the
                 // design treats them as one element; both now read on
@@ -169,7 +184,7 @@ export default async function GroupInfoPage({ params }: Props) {
                 // directly on the page (not nested in a raised card) and so
                 // didn't reproduce the fix-wave-1 collapse bug on its own.
                 backgroundColor: "var(--surface-base)",
-                padding: "0.75rem",
+                padding: "11px 12px",
               }}
             >
               {/* Globe glyph from the handoff, decorative */}
@@ -188,8 +203,9 @@ export default async function GroupInfoPage({ params }: Props) {
               </svg>
               <span
                 style={{
-                  fontSize: "var(--type-meta)",
+                  fontSize: "var(--type-label)",
                   color: "var(--text-primary)",
+                  fontWeight: 500,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -199,24 +215,42 @@ export default async function GroupInfoPage({ params }: Props) {
                 /join/{group.inviteToken}
               </span>
             </div>
-            <ShareInviteLink inviteToken={group.inviteToken} groupName={group.name} />
-            {isFounder && <ResetInviteLink groupId={group.id} />}
+            {/* ShareInviteLink is out of bounds (resolution B): its own
+                46px teal pill is untouched. This wrapper only supplies the
+                11px gap the source draws between the link row and the
+                button (.gi-sharebtn margin-top), without editing the
+                shared component itself. */}
+            <div style={{ marginTop: "11px" }}>
+              <ShareInviteLink inviteToken={group.inviteToken} groupName={group.name} />
+            </div>
+            {isFounder && (
+              // Not drawn in the handoff (resolution D, "our own design").
+              // 12px echoes the identity block's own name-to-emblem margin
+              // above; nothing in the source specifies this gap.
+              <div style={{ marginTop: "12px" }}>
+                <ResetInviteLink groupId={group.id} />
+              </div>
+            )}
           </div>
         )}
 
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}
         <div
           style={{
+            marginTop: "16px",
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
+            border: "1.7px solid var(--hairline)",
+            borderRadius: "14px",
+            // .gi-card's box-shadow is redefined by the later "Surfaces ·
+            // cards & raised elements" pass (walkthrough.css:570-573), which
+            // wins over the base rule at :482-487 (last definition wins).
+            // Matches PlaybackCard.tsx and EventCard.tsx's standard dark
+            // card shadow.
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+            padding: "13px 17px 5px",
           }}
         >
-          <InfoRow label="Who">
+          <InfoRow label="Who" isFirst>
             {isFounder ? (
               <ManageMembers
                 groupId={group.id}
@@ -248,7 +282,9 @@ export default async function GroupInfoPage({ params }: Props) {
           style={{
             fontSize: "var(--type-meta)",
             color: "var(--text-secondary)",
+            fontWeight: 500,
             textAlign: "center",
+            marginTop: "9px",
           }}
         >
           Want to change something? Just tell Orbit in the chat.
@@ -267,17 +303,47 @@ export default async function GroupInfoPage({ params }: Props) {
 
 // ── Sub-component (server-only) ─────────────────────────────────────────────
 
-function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+function InfoRow({
+  label,
+  children,
+  isFirst,
+}: {
+  label: string
+  children: React.ReactNode
+  isFirst?: boolean
+}) {
   return (
-    <div style={{ display: "flex", gap: "0.75rem", alignItems: "baseline" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "12px",
+        alignItems: "flex-start",
+        padding: "9px 0 10px",
+        // .gi-row + .gi-row draws the hairline; the first row has none.
+        // Replaces the card's container gap (resolution A).
+        borderTop: isFirst ? "none" : "1.4px solid var(--hairline)",
+      }}
+    >
       <span
         style={{
-          flex: "0 0 4.5rem",
+          // The stylesheet's fixed 58px key column assumes short labels
+          // (WHO); a rhythm row's label is the founder's own activity word
+          // uppercased and can run longer (CLIMBING, MOUNTAINEERING). Floor
+          // plus content sizing, capped at 60% so a pathological label can
+          // never crowd out the value column — same pattern as PlaybackCard's
+          // key column ("layout grows with content, never clips").
+          width: "min-content",
+          minWidth: "58px",
+          maxWidth: "60%",
+          flex: "0 0 auto",
+          overflowWrap: "break-word",
           fontSize: "var(--type-eyebrow)",
           lineHeight: "var(--leading-normal)",
           color: "var(--text-secondary)",
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
+          letterSpacing: "0.14em",
+          fontWeight: 700,
+          paddingTop: "2.5px",
         }}
       >
         {label}
@@ -286,9 +352,10 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
         style={{
           flex: "1 1 auto",
           minWidth: 0,
-          fontSize: "var(--type-body)",
+          fontSize: "var(--type-meta)",
           lineHeight: "var(--leading-normal)",
           color: "var(--text-primary)",
+          fontWeight: 500,
         }}
       >
         {children}

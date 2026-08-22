@@ -4166,3 +4166,211 @@ by the automated suite rather than the bench; the bench continues to measure the
 rate separately. Suite: 92 files / 931 tests green at this fix wave's start, 934 at its finish (three new
 cases: the plural, the "sun" exception, and confirming "sunday" itself is still caught). No new
 environment variable, no schema change, no migration; the pre-deploy checklist is unchanged.
+
+
+## §11 entry: polish slice three, the remaining screens (21 Aug 2026)
+
+**What the slice was.** The last of the three visual-polish slices. Slice one dressed the foundations and
+the group home, slice two the onboarding wizard, and this one the five screens that were left: the front
+door, the join screen, event detail, group info, and the three dead-end screens (not-found, error, and the
+members-only wall). Spec and plan in one document,
+`docs/superpowers/specs/2026-08-21-visual-polish-3-design.md`, riding this branch from before any code.
+No behavior changed anywhere. Copy changed in exactly two authorized places, both named below.
+
+**Where the design lived, and the one screen that had a real handoff.** Only the front door was drawn in
+the rd-2 round itself (README item 01, values in `round4-base.css`). Join, event detail and group info live
+in the unchanged `walkthrough.css` (`.jn-` 208-265, `.ed-` 391-459, `.gi-` 461-522) plus the override passes
+at 524-698, the same situation slice two found for the wizard. The three dead-end screens are drawn nowhere.
+
+**The OrbitPause precedent half-applied, and the half that did not was the useful half.** The owner's slice-two
+ruling was that an undrawn screen keeps its shape and only spacing and voice get tuned. That held for the
+dead-end screens' *shape*, but the note element inside `OrbitNoteScreen` turned out to be drawn after all,
+as `.ed-slip` on the event detail board, which is the treatment the component's own comment said it copied.
+So the note got a real port (the Orbit mark absolutely positioned in a 48px padding inset so the text runs
+full width beside it rather than stacked under it, body dropping to `--type-meta`/`--text-secondary`) while
+the screen around it was left alone. Worth carrying forward: "nobody drew this screen" and "nobody drew this
+element" are different claims, and the second one is worth checking before invoking the first.
+
+**The owner's four decisions at the brainstorm, all settled before code.** Copy travels with any element the
+slice rebuilds and stays put everywhere else, which is what authorized the join screen's new copy. The event
+screen keeps our RSVP pair rather than the board's "You're in / Change" band, because the card-state-grammar
+slice settled that after the board was drawn and the band would cost a tap. The board's "A note from Orbit"
+slip on the event screen was declined: its copy promises a nudge before a confirmed event, and it was verified
+that nothing sends one, the one-bump rule being a gauge mechanism only. The venue "MAP" link was queued as a
+feature rather than polish. Both polish-slice-two carryovers stayed queued.
+
+**Two pieces of copy changed, and one of them was a correctness fix.** The join screen gained the design's
+"You're invited" eyebrow, an Orbit bubble introducing itself by the group's name, and a reassurance line
+reading "No app to download, no password. You'll land right in the group." That line replaced "No sign-up
+needed. You can add an email later to keep access," which promised email sign-in the product does not have.
+Retiring it was the point rather than a side effect. Separately, and by the owner's ruling on 21 Aug, the
+members-only wall and the bad-invite screen lost their outer eyebrow: they stacked two small uppercase labels
+before the one sentence that mattered, and the outer one restated the note's own opening clause, so
+"invite-only" appeared twice inside about fifteen words. The note's own label stays, because it names the
+speaker and it is the part the design drew.
+
+**Email was sized rather than built.** The owner asked mid-brainstorm whether email could come before MVP.
+The answer recorded: capture alone is small, since `ContactMethod` already exists, but sign-in needs a
+verified sending domain, which is a first-use-of-an-external-service seam and cannot be verified without it,
+and capture without sign-in is the promise-with-nothing-behind-it that triage already rejected. Post-MVP
+stands, unchanged.
+
+**What the review process caught that the implementers did not, worth recording because it is the argument
+for the process.**
+
+1. *A test that could not fail, proven by mutation rather than by reading.* The eyebrow deletion was guarded
+   by a test asserting the strings "Invite only" and "Invite link" were absent from `OrbitNoteScreen`. A
+   reviewer restored the deleted prop and re-added it at the caller: `MembersOnlyWall.test.tsx` failed
+   correctly, and `OrbitNoteScreen.test.tsx` passed unchanged, because that test's own render never passes an
+   eyebrow prop, so the queried strings could never appear. Rewritten as a structural assertion (exactly one
+   eyebrow-styled element renders) and then *proven* to fail-then-pass by a deliberate mutation. The standing
+   rule says a passing test is only evidence if it could have failed; this is the first time in this project
+   that rule was enforced by actually breaking the code to check.
+2. *A deleted label is a deleted accessible name.* Task 3 replaced the event card's "When"/"Where"/"Activity"
+   key labels with icon rows, per the design. Read back through the accessibility tree, the venue row became
+   a bare "The climbing gym" and the activity row a bare "climbing" echoing the page heading. The implementer
+   found it, flagged it rather than shipping it, and an independent reviewer confirmed it. Ruled a
+   *restoration* rather than a product decision, which is what made it the controller's to settle: the three
+   original words came back as visually hidden text, nothing invented, no visual change. The technique was
+   extracted to `src/components/visually-hidden.ts` and is now shared with the join screen.
+3. *The last-definition trap fired again, on the one selector nobody grepped.* Task 5 gave the group info card
+   the base rule's light-mode shadow (`4px 5px 0 rgba(43,43,43,.04)`) instead of the 570-573 override
+   (`0 1px 3px rgba(0,0,0,.35)`), shipping a near-invisible shadow on a dark card. The same task had run the
+   override check correctly everywhere else, including the genuinely subtle `.gi-leave` case where it merged
+   the base rule's border-width with the override's border-color. One selector just never got the grep.
+4. *Two things only a whole-branch review could see, both about what a screen LOST.* The join screen's `<h1>`
+   was deleted and replaced by nothing, leaving the product's most-shared URL with an empty document outline;
+   it was the only heading removed anywhere on the branch. And the front door dropped the app-wide 28rem
+   content column, so on anything wider than a phone the headline ran the full window and the CTA became an
+   absurdly wide pill, on the one screen an evaluating engineer opens first. Neither was visible to a
+   task-scoped review, because each was an absence rather than a change.
+5. *A citation nobody could check.* A code comment justified an omission by citing "controller resolution F,"
+   which existed only inside a dispatch prompt, so the reviewer had to report it as unverifiable. Resolutions
+   now live in a file the reviewer can read. The omission was also wrong on its merits: the resolution said
+   "unless the design asks for it," and the design did ask.
+
+**Registered as new debt, not fixed, with the reasoning.** At enlarged device text a long single-word label
+(the measured case was "MOUNTAINEERING") still breaks mid-word once it hits the key column's 60% ceiling,
+because that ceiling is relative to a roughly fixed row width while the text scales with root font-size.
+Three screens carry it: group info, the join card, and `PlaybackCard`. This is *not* the column-raggedness
+tradeoff slice two accepted, which was a made-up word at default size; this is a real word at accessibility
+text sizes, and it is the same class as the CLIMBI/NG bug slice two fixed. Not fixed here because the recorded
+answer already exists and is queued (a card-level grid, `minmax(58px, max-content) 1fr`) and belongs at the
+pattern rather than at three instances.
+
+**Surfaced for the owner, shipped as is.** A declined member's name now renders at a measured 4.4992:1 against
+`--surface-raised`, a hair under the 4.5:1 WCAG AA floor, where before this slice every roster name was
+near-white. It is the design system's own token pairing rather than an invention, the shortfall is 0.02% of
+the threshold, and nothing about *status* depends on it: the grouping and the "Can't make it · N" heading
+carry the meaning and the whole ladder is hue-free, so the colourblind-safety rule is intact. Raising it would
+collapse a three-step ladder to two and a fourth token is barred by the slice's own constraints. Also queued:
+on the group info page `LeaveGroupButton` is a pill because it was drawn while `ManageMembers` and
+`ResetInviteLink` stay rectangular because they were not, which is visibly inconsistent on one screen; not
+fixed because at least two of those sites are confirmation-panel containers rather than buttons and the rest
+sit inside destructive-action flows on surfaces no designer drew.
+
+**Two shared modules were created, both sanctioned rather than incidental.** `src/components/glyphs.tsx` was
+built up across four tasks (`ArrowRight`, `Clock`, `MapPin`, `Calendar`, `Check`) and absorbed the inline clock
+that already lived in `PlaybackCard`, so the product has one clock rather than two. Neither `MapPin` nor
+`Calendar` nor `Check` is a true port: the handoff carries their size and stroke but no path data, and
+`docs/walkthrough.html` could not be read (the packed file returns false negatives to grep, the trap CLAUDE.md
+already records), so those three paths are original renders and say so in the code.
+`src/components/visually-hidden.ts` came out of the accessibility restoration and has two consumers. Neither
+module carries tests, deliberately: decorative SVG constants and a style object have no logic and no accessible
+content, so a test could not meaningfully fail. One coupling worth naming: the onboarding gap marker now
+depends on the shared `Clock`, and that screen has no tests, so a future change to the shared viewBox would
+alter onboarding silently.
+
+**Files touched beyond the slice document's named list**, per the standing rule: `src/components/Chevron.tsx`
+(an additive optional `size` prop defaulting to its previous hardcoded 14, needed for the back link's 18px
+chevron), `src/app/events/[id]/AddToCalendarButton.tsx` (the slice document specified this button's shape in
+task 3's own section), and `src/app/create/PlaybackCard.tsx` (the clock migration above).
+
+**Verification, and what it could not reach.** Baseline at branch start: 92 files / 934 tests green, matching
+the narrow-weekday-rule slice's finishing number exactly, no pre-existing failure. Finish: **92 files / 935
+tests green**, `tsc --noEmit` clean. The one new test is the structural eyebrow guard. Every screen was
+rendered at 375x812 and checked by computed value rather than by eye, against real seeded dev-test data for
+event detail and group info (`scripts/qa-stage-polish.ts`, then joining through the printed invite link to get
+a real member session). The front door was additionally measured at 768 and 1280 after the content-column fix.
+Two gaps stated plainly: no real-phone pass was run by the build, because the device is the owner's and that
+is step 1 of this PR's QA script; and the event detail page's live server-rendered output was verified through
+a fixture harness for part of task 3, before the seeding approach was authorized at task 4. Nothing about the
+`0.5rem` sweep was fixed outside this slice's screens: `ChatInput.tsx` and `choice.tsx` still carry a
+hardcoded `#f87171` where `--danger` exists, named here rather than touched.
+
+**No deploy-time obligation.** No new environment variable, no schema change, no migration. The pre-deploy
+checklist is unchanged.
+
+### Postscript, 21 Aug 2026: the owner's QA on this branch
+
+Four notes came back. Two became work, one was answered from the record, and one is an
+environment problem rather than a product one.
+
+**The front door's composition is now the owner's, not the handoff's.** The design pins the Orbit
+mark to the top and the copy plus action to the bottom (`round4-base.css` `.fd-copy { margin-top:
+auto }`), with the README giving the reasoning: the space between absorbs longer translations and
+"the screen opens as a statement rather than a splash." The owner found the emptiness wrong, and
+the measurement backed him rather than the design: at a true 375x812 phone the gap between the
+mark's bottom and the eyebrow's top was **349px, 43% of the screen**. (The controller's first
+hypothesis, that his skinny-desktop QA window was exaggerating it, was measured and disproved
+before it was offered as pushback.) The mark, copy and action are now one contiguous group,
+vertically centred: the gap is 16px and the block sits 177px from the top and 171px from the
+bottom. Internal rhythm is untouched, so every ported value inside the group still means what it
+means in the source; only the composition changed. The mark stays left-aligned with its -9px
+optical margin, which exists to line the sphere rather than its box up with the 24px gutter.
+**This is a deliberate departure from a high-fidelity handoff, made by the owner, and the design
+is not wrong to have drawn it the other way in a fixed 390x844 frame.**
+
+**The event card sat flush against the header's divider, and it was two correct decisions
+colliding.** The design's `.ed-scroll` carries zero top padding because the back link sits inside
+the scroll region there and provides the separation. This product moved the back link into the
+shared `PageHeader` (a recorded decision that beats the design source), so the ported zero left
+the header's 1px hairline and the card's own 1.7px border stacked with nothing between them. Fixed
+by matching the group home, which already left 12px, rather than by inventing a number. The group
+info page was checked for the same collision and does not have it: its first element is the
+identity block, which carries no border.
+
+**"Didn't we already have the join screen?"** No. The owner's demo recording was made against this
+branch. The tell is his own screenshot: "No app to download, no password. You'll land right in the
+group" is copy written in this slice, replacing the line that promised email sign-in the product
+does not have. Recorded because the question will recur: a screen that has just been built for the
+first time looks familiar to whoever has been looking at the design boards.
+
+**Phone QA has been broken since roughly 20 Aug, and the cause looks like a rule this process
+wrote.** The owner has been unable to reach the dev server from his phone for several sessions,
+which matters because the real-phone pass is a gate the build cannot run. Diagnosed on this branch:
+the server binds to all interfaces (`*:3000`), the macOS application firewall is off, the LAN
+address is already in `allowedDevOrigins`, and `http://192.168.1.144:3000` answers 200 from the Mac
+itself, so nothing on the server side is wrong. The listening process's parent chain, however, runs
+`next-server` <- `npm run dev` <- `zsh` <- `Claude.app`. macOS grants Local Network access per
+application, so the permission is being asked of Claude rather than of Terminal. The 20 Aug rule
+change ("the server is mine to start", implemented as a play button in the QA handoff) is what moved
+the owning application, and the timing matches. **Not confirmed:** the permission database was not
+read directly. The test handed over is to run `npm run dev` from Terminal and retry the phone. If
+that is the cause, the pr-handoff checklist's play-button instruction needs amending, because it
+silently disables the phone gate it exists to serve.
+
+**Correction, 21 Aug 2026 (same day): the phone diagnosis above was wrong.** The owner ran the test
+and `http://192.168.1.144:3000` worked from his phone. The Local Network permission theory is
+therefore not the cause, and the 20 Aug rule change is not to blame. ~~The listening process's
+parent chain... macOS grants Local Network access per application~~ stands as an accurate
+description of what was measured, but it was the wrong explanation.
+
+The actual cause is simpler and sat in this process's own output: **every QA link handed to the
+owner has been a `localhost:3000` link, and `localhost` on a phone resolves to the phone.** Those
+links could never have reached the Mac from another device. What looked like an environment fault
+that appeared around 20 Aug was a handoff defect that had been there the whole time, visible only
+once the owner started using the links from a phone rather than retyping an address.
+
+Two things follow. **QA links for a phone pass must use the machine's LAN address, not `localhost`**
+(currently `192.168.1.144`, a DHCP lease that can change and is already mirrored in
+`next.config.ts`'s `allowedDevOrigins`). And **the `a.localhost` sibling-host trick for a fresh
+session does not work from a phone either**, for the same reason; the phone equivalent is a private
+browsing tab. A deep link to a members-only screen also assumes the phone's own session is a member
+of that group, which is a separate session from the desktop's, so a phone pass on a members-only
+screen needs the invite link first and the deep link second.
+
+Recorded at this length because the failure mode is the interesting part: a diagnosis that measured
+real things correctly (binding, firewall, origins, process tree) and drew a confident wrong
+conclusion from them, while the actual bug was in the instructions being handed over rather than in
+the machine being investigated.

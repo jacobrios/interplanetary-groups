@@ -1,4 +1,5 @@
 // src/app/events/[id]/page.tsx
+import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
@@ -11,6 +12,8 @@ import ProposalSection from "./ProposalSection"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { Clock, MapPin, Check } from "@/components/glyphs"
+import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 
@@ -107,73 +110,147 @@ export default async function EventPage({ params }: Props) {
         <BackLink href={`/groups/${event.group.id}`} label={event.group.name} />
       </PageHeader>
 
+      {/* Single content column: the page (<main>) owns the full-bleed
+          background, this one wrapper owns both the scroll region's own
+          padding (walkthrough.css .ed-scroll, task 3) and the slice's
+          28rem content-column convention. The page previously nested two
+          wrappers for this (a padded flex column, then a maxWidth column
+          inside it); collapsed to one, matching the group info page.
+
+          Owner's QA call (21 Aug 2026): the design's zero top padding
+          assumed the back link sits inside this scroll region, above the
+          card, providing its own separation from the header. This product
+          moved the back link into the shared PageHeader instead (a
+          recorded decision that beats the design source), which left
+          nothing between the header's bottom hairline and the details
+          card's own top border, so the two hairlines ran together. 12px
+          top padding closes the gap, matching the measured space between
+          the header and the first card on the group home
+          (/groups/[id]'s 0.75rem card-region padding). */}
       <div
         style={{
-          flex: 1,
+          flex: "1 1 auto",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          padding: "2rem 1.5rem",
+          width: "100%",
+          maxWidth: "28rem",
+          margin: "0 auto",
+          padding: "12px 22px 16px",
         }}
       >
-        <div style={{ width: "100%", maxWidth: "28rem" }}>
-        {/* Event title */}
-        <h1
-          style={{
-            fontSize: "var(--type-display)",
-            lineHeight: "var(--leading-tight)",
-            fontWeight: 700,
-            marginBottom: "1.5rem",
-          }}
-        >
-          {event.title}
-        </h1>
-
         {/* ── Event details card ─────────────────────────────────────── */}
+        {/* Card recipe ported from walkthrough.css .ed-card + the 569-573
+            override (surface, 1.7px hairline border, 14px radius, the
+            product's standard card shadow) — this is EventCard's and
+            PlaybackCard's own recipe now, not this screen's alone.
+            overflow:hidden is load-bearing: it clips the footer band's
+            corners to the card's own radius. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.875rem",
-            marginBottom: "1rem",
+            border: "1.7px solid var(--hairline)",
+            borderRadius: "14px",
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+            overflow: "hidden",
+            marginBottom: "16px",
           }}
         >
-          {/* Date / time */}
-          <MetaRow label="When" value={dateLabel} />
+          <div style={{ padding: "15px 16px" }}>
+            {/* Event title — moved inside the card this task. --type-title
+                (24px), down from the previous --type-display (28px): the
+                role map puts event-detail title at title. */}
+            <h1
+              style={{
+                fontSize: "var(--type-title)",
+                fontWeight: 800,
+                letterSpacing: "-.01em",
+                color: "var(--text-primary)",
+                lineHeight: "var(--leading-tight)",
+                // No ported value exists for the title-to-meta gap — the
+                // source gives .ed-title's own type rules and .ed-meta's
+                // 7px row gap, but no rule for the space between them.
+                // Judgment call (task-3 report): 10px, splitting the
+                // difference between the meta rows' own 7px rhythm and the
+                // title's larger role.
+                marginBottom: "10px",
+              }}
+            >
+              {event.title}
+            </h1>
 
-          {/* Venue — shown only when present; multi-venue UI is deferred (build-notes §8) */}
-          {venueLabel && <MetaRow label="Where" value={venueLabel} />}
+            {/* Meta rows (.ed-meta / .ed-mrow): icon-led lines replacing the
+                stacked key/value MetaRow. The "When"/"Where"/"Activity" key
+                labels are visually deleted, exactly as the design draws it,
+                but restored as visually-hidden text ahead of each row's
+                value (fix round 1, task 3): the pre-visual MetaRow rendered
+                those words and a screen reader read them, and dropping them
+                to an aria-hidden icon plus bare text was a real regression
+                — a listener heard a bare date, then "The climbing gym",
+                then "climbing" echoing the page heading. See
+                task-3-report.md's fix-round-1 section for the accessibility
+                trace before and after. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+              <DetailRow
+                icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
+                label="When"
+              >
+                {dateLabel}
+              </DetailRow>
 
-          {/* Activity label — optional free-text tag */}
-          {event.activityLabel && <MetaRow label="Activity" value={event.activityLabel} />}
+              {/* Venue — shown only when present; multi-venue UI is deferred
+                  (build-notes §8). No MAP link, no chevron: the design draws
+                  one, but it is queued as a feature rather than built here
+                  (controller resolution F). */}
+              {venueLabel && (
+                <DetailRow
+                  icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
+                  label="Where"
+                >
+                  {venueLabel}
+                </DetailRow>
+              )}
 
-          {/* RSVP controls — only when the viewer has a session. groupId is
-              passed so rsvpAction revalidates the group home too, matching
-              the home-card caller (EventCard.tsx): a member who RSVPs here
-              and taps back should see the card's need label already settled,
-              not the pre-tap "Needs your RSVP" from a stale render. */}
+              {/* Activity label — optional free-text tag. The design draws
+                  no third row and no glyph for it; this row gets no icon and
+                  is indented to the same text column so the rows stay
+                  aligned (controller resolution E, a judgment call, not a
+                  ported value). */}
+              {event.activityLabel && (
+                <DetailRow icon={null} label="Activity">
+                  {event.activityLabel}
+                </DetailRow>
+              )}
+            </div>
+          </div>
+
+          {/* RSVP footer band (.ed-band.footer): the screen block draws it
+              lime-tinted (line 419), but the refinement pass at 596-597
+              strips that to transparent with a hairline top border — the
+              last definition wins. RsvpControls itself is unchanged
+              (controller resolution D): the pair stays, both borders teal
+              while unanswered, the chosen answer filled and checkmarked.
+              groupId is passed so rsvpAction revalidates the group home
+              too, matching the home-card caller (EventCard.tsx): a member
+              who RSVPs here and taps back should see the card's need label
+              already settled, not the pre-tap "Needs your RSVP" from a
+              stale render. */}
           {viewer && (
-            <>
-              <hr
-                style={{
-                  border: "none",
-                  borderTop: "1px solid var(--hairline)",
-                  margin: "0.125rem 0",
-                }}
-              />
+            <div
+              style={{
+                borderTop: "1.6px solid var(--hairline)",
+                padding: "13px 16px",
+                backgroundColor: "transparent",
+              }}
+            >
               <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
-            </>
+            </div>
           )}
         </div>
 
         {/* ── Add to calendar ────────────────────────────────────────── */}
         {/* The screen's own primary action, its own region: teal, separate
             from the details card's teal "I'm in" (per-element teal rule).
-            Reuses the same 1rem gap that already separates the details card
+            Reuses the same 16px gap that already separates the details card
             from the roster card below.
 
             Above the time-change vote, as of 17 Aug 2026, reversing the
@@ -187,7 +264,7 @@ export default async function EventPage({ params }: Props) {
             (Putting the button inside the details card was the stronger
             semantic answer and was deliberately not taken; the owner's
             call, 14 Aug QA.) */}
-        <div style={{ marginBottom: "1rem" }}>
+        <div style={{ marginBottom: "16px" }}>
           <AddToCalendarButton eventId={event.id} />
         </div>
 
@@ -201,35 +278,64 @@ export default async function EventPage({ params }: Props) {
 
         {/* ── Roster card ────────────────────────────────────────────── */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
-            IN / OUT / HAVEN'T REPLIED.  Distinction is by grouping + text labels
-            + checkmark on the IN header — never by color alone (§7 a11y rule). */}
+            IN / OUT / HAVEN'T REPLIED. Distinction is by grouping, the
+            heading labels, and (task 4) name brightness — never by color
+            alone (§7 a11y rule; the owner is red/green colourblind).
+
+            Card recipe: same as the details card above (walkthrough.css
+            .ed-card + the 570-573 override) — surface, 1.7px hairline
+            border, 14px radius, overflow:hidden, the product's standard
+            shadow. Fix round 1 correction: task 4's dispatched resolution F
+            (.superpowers/sdd/2026-08-21-visual-polish-3-design/
+            controller-resolutions.md, "Task 4") originally read
+            overflow:hidden as needed only by the details card's footer
+            band and left it off here on a speculative focus-ring concern.
+            The design source (.ed-card, line 402) sets overflow:hidden
+            with no later pass removing it, which is the resolution's own
+            named escape clause ("unless the design asks for it") — the
+            source asks for it, so it's restored, matching the details
+            card. Per-group padding replaces the old outer padding+gap; see
+            RosterSection. */}
         <div
           style={{
             backgroundColor: "var(--surface-raised)",
-            border: "1px solid var(--hairline)",
-            borderRadius: "0.75rem",
-            padding: "1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.25rem",
+            border: "1.7px solid var(--hairline)",
+            borderRadius: "14px",
+            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+            overflow: "hidden",
           }}
         >
           {inMembers.length > 0 && (
-            <RosterSection label="✓ In" members={inMembers} />
+            <RosterSection label="In" members={inMembers} variant="in" isFirst />
           )}
           {outMembers.length > 0 && (
-            <RosterSection label="Can't make it" members={outMembers} />
+            <RosterSection
+              label="Can't make it"
+              members={outMembers}
+              variant="out"
+              isFirst={inMembers.length === 0}
+            />
           )}
           {pendingMembers.length > 0 && (
-            <RosterSection label="Haven't replied" members={pendingMembers} />
+            <RosterSection
+              label="Haven't replied"
+              members={pendingMembers}
+              variant="pending"
+              isFirst={inMembers.length === 0 && outMembers.length === 0}
+            />
           )}
           {event.group.memberships.length === 0 && (
-            <p style={{ fontSize: "var(--type-meta)", color: "var(--text-secondary)" }}>
+            <p
+              style={{
+                fontSize: "var(--type-meta)",
+                color: "var(--text-secondary)",
+                padding: "11px 16px 12px",
+              }}
+            >
               No members yet.
             </p>
           )}
         </div>
-      </div>
       </div>
     </main>
   )
@@ -237,68 +343,146 @@ export default async function EventPage({ params }: Props) {
 
 // ─── Sub-components (server-only, no "use client") ────────────────────────────
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+// One icon-plus-text meta line (.ed-mrow, task 3), replacing the stacked
+// key/value MetaRow. `icon` is null for the activity row (no drawn glyph in
+// the design); `paddingLeft` on the no-icon branch is the icon's own
+// footprint (16px width + 9px gap) so every row's text lands in the same
+// column regardless of whether it carries an icon.
+//
+// `label` (fix round 1, task 3) is the word MetaRow used to render visibly
+// ("When" / "Where" / "Activity") — deleted from the visible design per the
+// brief, but restored here as visually-hidden text ahead of the value, so a
+// screen reader still hears what kind of row this is. The trailing space in
+// the rendered text is a separator, not new copy: without it, "When" and
+// the date would run together into one word for a speech synthesizer.
+function DetailRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: ReactNode | null
+  label: string
+  children: ReactNode
+}) {
   return (
-    <div>
-      <p
-        style={{
-          fontSize: "var(--type-label)",
-          lineHeight: "var(--leading-normal)",
-          color: "var(--text-secondary)",
-          marginBottom: "0.125rem",
-        }}
-      >
-        {label}
-      </p>
-      <p
-        style={{
-          fontSize: "var(--type-body)",
-          lineHeight: "var(--leading-normal)",
-          color: "var(--text-primary)",
-        }}
-      >
-        {value}
-      </p>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "9px",
+        fontSize: "var(--type-meta)",
+        lineHeight: "var(--leading-normal)",
+        color: "var(--text-primary)",
+        fontWeight: 600,
+        paddingLeft: icon ? undefined : "25px",
+      }}
+    >
+      {icon}
+      <span style={{ flex: "1 1 auto", minWidth: 0 }}>
+        <span style={visuallyHiddenStyle}>{label} </span>
+        {children}
+      </span>
     </div>
   )
 }
 
+// One roster group (.ed-rgroup): a heading plus a wrapping row of members.
+// `variant` drives the two hue-free status signals this task adds — name
+// brightness, and (for "in" only) the drawn check mark — never color alone.
+// `isFirst` suppresses the divider: the source rule is "every group AFTER
+// the first gets a border-top" (walkthrough.css line 436), computed against
+// which groups actually render (a zero-count bucket never mounts, so the
+// first VISIBLE group must never carry a top border even when it isn't
+// literally the first bucket in the fixed IN/OUT/PENDING order).
 function RosterSection({
   label,
   members,
+  variant,
+  isFirst = false,
 }: {
   label: string
   members: { id: string; name: string }[]
+  variant: "in" | "out" | "pending"
+  isFirst?: boolean
 }) {
+  // Brightness carries state (walkthrough.css lines 643-644 + the 685-689
+  // refinement pass); hue never does. IN reads at full text-primary
+  // brightness, HAVEN'T REPLIED steps down to text-secondary, OUT steps
+  // down again to placeholder — see task-4-report.md for the measured
+  // contrast ratio on that last one.
+  const nameColor =
+    variant === "in"
+      ? "var(--text-primary)"
+      : variant === "pending"
+        ? "var(--text-secondary)"
+        : "var(--placeholder)"
+
   return (
-    <div>
-      {/* Section header: eyebrow style with count */}
+    <div
+      style={{
+        padding: "11px 16px 12px",
+        borderTop: isFirst ? undefined : "1.4px solid var(--hairline)",
+      }}
+    >
+      {/* Section header (.ed-seclabel): eyebrow style with count. The IN
+          heading's checkmark is now the drawn 12px stroked glyph from
+          walkthrough.css line 642 (.ed-seclabel .rost-check), replacing the
+          literal "✓" character that used to render in whatever the device
+          font supplied. The label wording itself is unchanged — still
+          "In · 3", "Can't make it · 1", "Haven't replied · 4" — so this is
+          a pure glyph swap, not a copy change. */}
       <p
         style={{
+          display: "block",
           fontSize: "var(--type-eyebrow)",
           lineHeight: "var(--leading-normal)",
-          color: "var(--text-secondary)",
+          letterSpacing: ".14em",
           textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          marginBottom: "0.625rem",
+          color: "var(--text-secondary)",
+          fontWeight: 700,
+          marginBottom: "8px",
         }}
       >
+        {variant === "in" && (
+          <span
+            style={{
+              display: "inline-block",
+              verticalAlign: "-1px",
+              marginRight: "5px",
+            }}
+          >
+            <Check size={12} stroke="var(--text-primary)" strokeWidth={2.7} />
+          </span>
+        )}
         {label}&nbsp;·&nbsp;{members.length}
       </p>
 
-      {/* Member rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      {/* Member rows (.ed-people / .ed-person): flex-wrap replaces the old
+          vertical stack, which is what lets a nine-person roster fit a
+          phone. minWidth:0 + overflowWrap on the name is the "layout grows
+          with content" answer for a single name too long to fit one line —
+          it wraps within itself rather than overflowing the card. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
         {members.map((member) => (
           <div
             key={member.id}
-            style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              minWidth: 0,
+              maxWidth: "100%",
+            }}
           >
-            <RosterAvatar name={member.name} size={28} />
+            <RosterAvatar name={member.name} />
             <span
               style={{
-                fontSize: "var(--type-body)",
+                fontSize: "var(--type-label)",
+                fontWeight: 600,
                 lineHeight: "var(--leading-normal)",
-                color: "var(--text-primary)",
+                color: nameColor,
+                minWidth: 0,
+                overflowWrap: "anywhere",
               }}
             >
               {member.name}

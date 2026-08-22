@@ -15,11 +15,13 @@ const PATHS = {
 
 export default function Chevron({
   direction,
+  size = 14,
 }: {
   direction: "left" | "right"
+  size?: number
 }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path
         d={PATHS[direction]}
         stroke="currentColor"

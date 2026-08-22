@@ -1,6 +1,8 @@
 // src/app/join/[inviteToken]/page.tsx
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
+import { parseStoredRhythms } from "@/lib/orbit/rhythm"
+import { formatRhythmRow } from "@/lib/orbit/playback"
 import JoinForm from "./JoinForm"
 import OrbitNoteScreen from "@/components/OrbitNoteScreen"
 
@@ -10,7 +12,15 @@ interface Props {
 
 export default async function JoinPage({ params }: Props) {
   const { inviteToken } = await params
-  const group = await prisma.group.findUnique({ where: { inviteToken } })
+  // One query, extended (visual-polish slice, task 2): the join screen now
+  // shows what someone is joining before they join it, so it needs the
+  // member count and the stored rhythms alongside the group row already
+  // fetched here. _count needs an explicit include; recurringActivities is
+  // already a scalar column returned by the unfiltered findUnique below.
+  const group = await prisma.group.findUnique({
+    where: { inviteToken },
+    include: { _count: { select: { memberships: true } } },
+  })
 
   if (!group) {
     // Orbit speaks here, unlike on the not-found and error screens: a real
@@ -30,7 +40,6 @@ export default async function JoinPage({ params }: Props) {
     // and teal would oversell a consolation prize.
     return (
       <OrbitNoteScreen
-        eyebrow="Invite link"
         note="This invite link isn't working. Ask whoever sent it to share it again and I'll get you into the group."
         linkHref="/create"
         linkLabel="Start your own group"
@@ -40,11 +49,31 @@ export default async function JoinPage({ params }: Props) {
 
   const user = await getCurrentUser()
 
+  // Rhythm rows, reused verbatim from the group-info page (formatter-
+  // composed, venue appended the same way) rather than a second formatter.
+  //
+  // Disclosure note (owner, 21 Aug, recorded here so it is not
+  // rediscovered): this shows the group's rhythms and member count to
+  // someone who is not yet a member. That is intended — the invite link is
+  // the credential, and telling someone what they are joining is this
+  // screen's whole job. It does not loosen the members-only wall, which
+  // governs the group's own surfaces once someone has joined.
+  const rhythms = parseStoredRhythms(group.recurringActivities) ?? []
+  const rhythmRows = rhythms.map((r) => {
+    const row = formatRhythmRow(r)
+    return {
+      label: row.label,
+      value: r.venueName ? `${row.value} · ${r.venueName}` : row.value,
+    }
+  })
+
   return (
     <JoinForm
       groupName={group.name}
       inviteToken={inviteToken}
       currentName={user?.name ?? null}
+      memberCount={group._count.memberships}
+      rhythmRows={rhythmRows}
     />
   )
 }

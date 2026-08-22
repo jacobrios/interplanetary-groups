@@ -24,14 +24,17 @@ export default function NotFound() {
       <Link
         href="/"
         style={{
-          display: "block",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           width: "100%",
+          minHeight: "52px",
           padding: "0.75rem 1.5rem",
           backgroundColor: "var(--action)",
           color: "var(--action-ink)",
           fontSize: "var(--type-body)",
-          fontWeight: 600,
-          borderRadius: "0.5rem",
+          fontWeight: 700,
+          borderRadius: "28px",
           textAlign: "center",
           textDecoration: "none",
         }}
