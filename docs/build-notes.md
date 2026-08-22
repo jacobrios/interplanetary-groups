@@ -4349,3 +4349,28 @@ the owning application, and the timing matches. **Not confirmed:** the permissio
 read directly. The test handed over is to run `npm run dev` from Terminal and retry the phone. If
 that is the cause, the pr-handoff checklist's play-button instruction needs amending, because it
 silently disables the phone gate it exists to serve.
+
+**Correction, 21 Aug 2026 (same day): the phone diagnosis above was wrong.** The owner ran the test
+and `http://192.168.1.144:3000` worked from his phone. The Local Network permission theory is
+therefore not the cause, and the 20 Aug rule change is not to blame. ~~The listening process's
+parent chain... macOS grants Local Network access per application~~ stands as an accurate
+description of what was measured, but it was the wrong explanation.
+
+The actual cause is simpler and sat in this process's own output: **every QA link handed to the
+owner has been a `localhost:3000` link, and `localhost` on a phone resolves to the phone.** Those
+links could never have reached the Mac from another device. What looked like an environment fault
+that appeared around 20 Aug was a handoff defect that had been there the whole time, visible only
+once the owner started using the links from a phone rather than retyping an address.
+
+Two things follow. **QA links for a phone pass must use the machine's LAN address, not `localhost`**
+(currently `192.168.1.144`, a DHCP lease that can change and is already mirrored in
+`next.config.ts`'s `allowedDevOrigins`). And **the `a.localhost` sibling-host trick for a fresh
+session does not work from a phone either**, for the same reason; the phone equivalent is a private
+browsing tab. A deep link to a members-only screen also assumes the phone's own session is a member
+of that group, which is a separate session from the desktop's, so a phone pass on a members-only
+screen needs the invite link first and the deep link second.
+
+Recorded at this length because the failure mode is the interesting part: a diagnosis that measured
+real things correctly (binding, firewall, origins, process tree) and drew a confident wrong
+conclusion from them, while the actual bug was in the instructions being handed over rather than in
+the machine being investigated.
