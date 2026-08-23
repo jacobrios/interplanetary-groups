@@ -87,6 +87,27 @@ project's append-only rule for this document; the new item below states the
 actual command and names the true count, which supersedes the risk of
 someone reading item 5's example literally and stopping early.
 
+This same question, whether the 14 files actually add up to today's
+schema, is the reason this task exists, so it earns its own confidence
+level rather than a pass/fail. What I did: I ran a tool that builds the
+database structure the 14 migrations should produce, straight from
+`schema.prisma`, with no database involved, and set it side by side with my
+own line-by-line trace of what the 14 files do when applied in order. The
+result: they agree on every table, every column, every enum value, and
+every index, including two details easy to get wrong by eye (one field
+that ends up optional rather than required, and which uniqueness rules
+survive versus which were replaced along the way). That is real,
+specific evidence, and it is the strongest check available without a
+database. It is not the same as proof. The one fully conclusive test is
+running the real migrations against a real empty database, which is
+exactly what slice B does. That is fine, not a gap to be nervous about:
+production starts with zero rows, so if something in this history does
+turn out to be wrong, the cost is a failed command and a fix, not lost
+data or a broken group. The honest way to read this section: strong
+reason to expect the deploy to go cleanly, confirmed by an independent
+second read of all 14 files, with the actual proof arriving the moment
+`migrate deploy` runs.
+
 **6. `migrate deploy` is the right command, not `migrate dev`, including for
 a database that has no `_prisma_migrations` table yet.** `migrate deploy` is
 built for exactly this: point it at a database with no migration history at
