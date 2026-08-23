@@ -62,4 +62,48 @@ describe("join route metadata", () => {
       expect(blob).not.toContain(leak)
     }
   })
+
+  // Round-1 review finding: Next merges `openGraph` and `twitter` as whole
+  // objects per route segment, not field by field. The live-group branch's
+  // `openGraph: { title, description }` therefore REPLACED the root layout's
+  // openGraph object outright, image included, while the dead-token branch
+  // (which set no openGraph key at all) kept the parent's image by
+  // accident. That made a live and a dead link structurally
+  // distinguishable by the presence of the image and the card type, which
+  // is the exact leak the wording test above cannot see because it only
+  // inspects strings. This test asserts on shape and on an actual image
+  // being present, not merely on the two branches happening to agree.
+  it("gives a live token the same Open Graph image and card shape as a dead one", async () => {
+    const group = await fixture()
+    const live = await generateMetadata({
+      params: Promise.resolve({ inviteToken: group.inviteToken }),
+    })
+    const dead = await generateMetadata({
+      params: Promise.resolve({ inviteToken: "not-a-real-token" }),
+    })
+
+    // Metadata['openGraph'] and ['twitter'] are typed as discriminated unions
+    // (article/website/... and summary/summary_large_image/...) whose common
+    // base type carries neither `type` nor `card`. The "in" guards below are
+    // the same narrowing style already used for `images` just above; they
+    // read the field when it is there and read as undefined otherwise,
+    // rather than widening the assertions with a blanket `any` cast.
+    const liveImages = live.openGraph && "images" in live.openGraph ? live.openGraph.images : undefined
+    const deadImages = dead.openGraph && "images" in dead.openGraph ? dead.openGraph.images : undefined
+    const liveOgType = live.openGraph && "type" in live.openGraph ? live.openGraph.type : undefined
+    const deadOgType = dead.openGraph && "type" in dead.openGraph ? dead.openGraph.type : undefined
+    const liveCard = live.twitter && "card" in live.twitter ? live.twitter.card : undefined
+    const deadCard = dead.twitter && "card" in dead.twitter ? dead.twitter.card : undefined
+
+    // An actual image, not just "the field exists and is empty".
+    expect(liveImages).toBeTruthy()
+    expect(Array.isArray(liveImages) ? liveImages.length > 0 : Boolean(liveImages)).toBe(true)
+
+    expect(JSON.stringify(liveImages)).toBe(JSON.stringify(deadImages))
+    expect(liveOgType).toBe("website")
+    expect(liveOgType).toBe(deadOgType)
+    expect(live.openGraph?.siteName).toBe(dead.openGraph?.siteName)
+    expect(liveCard).toBe("summary_large_image")
+    expect(liveCard).toBe(deadCard)
+  })
 })

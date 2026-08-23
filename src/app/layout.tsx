@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { siteUrl } from "@/lib/site-url";
+import { SITE_TITLE as TITLE, SITE_DESCRIPTION as DESCRIPTION } from "@/lib/metadata";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-const TITLE = "Interplanetary Groups";
-const DESCRIPTION =
-  "Casual plans shouldn't need a wedding planner. Orbit picks a day, asks the group, and keeps track of who's in.";
 
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
