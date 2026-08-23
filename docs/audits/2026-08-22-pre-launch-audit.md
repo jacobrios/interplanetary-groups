@@ -575,3 +575,23 @@ correspondingly narrower than they read. And lane 2's two headline access findin
 evidence to a truncating write against their own findings file; the conclusion was
 independently re-derived and holds, but the reasoning behind it was never adversarially
 verified, and the report says so.
+
+---
+
+# Postscript, 23 Aug 2026: one finding the audit missed, found in conversation
+
+**Losing a session does not lock a member out. It duplicates them.** The recorded cost of
+having no email sign-in is that "a member who loses their session meets the wall until email
+sign-in exists, and the invite link is their way back." That is too kind. They still have the
+link, they tap it, they have no session, so they join as a *second* member: the group now
+holds two of them, their earlier answers belong to an identity nobody can reach, and every
+count is quietly wrong in the one product whose whole claim is accurate attendance. Nobody
+sees an error. One cache clear, or one switch from phone to laptop, is enough.
+
+This is the strongest argument for moving the email arc forward, and it is recorded here
+because no lane found it and neither did the critic: it surfaced in the owner's own question
+the day after. Noted, not fixed, like everything else in this document.
+
+**Also registered nowhere:** the second-viewer problem (nobody sees a message, a vote, or a
+plan being created until they reload) appears in this audit's critic section and in no
+register anywhere else. It needs a §8 entry before it can be sequenced.
