@@ -49,7 +49,7 @@ model Group {
   name                String
   description         String? // founder's onboarding free text; source material for future gap-ask/RAG slices; nothing reads it yet
   founderId           String
-  inviteToken         String             @unique @default(cuid())
+  inviteToken         String             @unique @default(uuid(4))
   recurringActivities Json?
   timeZone            String             @default("UTC")
   createdAt           DateTime           @default(now())
