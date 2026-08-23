@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,25 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITLE = "Interplanetary Groups";
+const DESCRIPTION =
+  "Casual plans shouldn't need a wedding planner. Orbit picks a day, asks the group, and keeps track of who's in.";
+
 export const metadata: Metadata = {
-  title: "Interplanetary Groups",
-  description:
-    "Casual plans shouldn't need a wedding planner. Orbit picks a day, asks the group, and keeps track of who's in.",
+  metadataBase: siteUrl(),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: TITLE,
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

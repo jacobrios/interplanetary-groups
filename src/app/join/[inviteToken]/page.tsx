@@ -1,4 +1,5 @@
 // src/app/join/[inviteToken]/page.tsx
+import type { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
@@ -8,6 +9,33 @@ import OrbitNoteScreen from "@/components/OrbitNoteScreen"
 
 interface Props {
   params: Promise<{ inviteToken: string }>
+}
+
+// The shared invite link's preview card. Orbit's voice, and it never
+// distinguishes a dead token from a live one: a preview that said "invalid
+// invite" would turn every mis-typed link into a probe. A failure here must
+// never take the page down, so the lookup is best-effort.
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { inviteToken } = await params
+
+  const group = await prisma.group
+    .findUnique({ where: { inviteToken }, select: { name: true } })
+    .catch(() => null)
+
+  if (!group) {
+    return { title: "Interplanetary Groups" }
+  }
+
+  const title = `Join ${group.name}`
+  const description =
+    "You've been invited. No app to download, no password. You'll land right in the group."
+
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+    twitter: { title, description },
+  }
 }
 
 export default async function JoinPage({ params }: Props) {

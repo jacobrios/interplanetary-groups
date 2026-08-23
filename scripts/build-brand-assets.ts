@@ -36,8 +36,25 @@ async function appleIcon() {
   console.log("wrote src/app/apple-icon.png (180x180)")
 }
 
+async function openGraphImage() {
+  // 1200x630 is the size every major unfurler crops to. The mark is generous
+  // because it is the only thing in the frame: no text is drawn here, so this
+  // asset never depends on a font being installed.
+  const MARK = 420
+  const mark = await sharp(SVG).resize(MARK, MARK).png().toBuffer()
+  const out = await sharp({
+    create: { width: 1200, height: 630, channels: 4, background: SURFACE_BASE },
+  })
+    .composite([{ input: mark, top: (630 - MARK) / 2, left: (1200 - MARK) / 2 }])
+    .png()
+    .toBuffer()
+  writeFileSync(join(ROOT, "src/app/opengraph-image.png"), out)
+  console.log("wrote src/app/opengraph-image.png (1200x630)")
+}
+
 async function main() {
   await appleIcon()
+  await openGraphImage()
 }
 
 main().catch((err) => {
