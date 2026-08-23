@@ -395,6 +395,16 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Correction, 18 Aug 2026 (time-change-ending slice): eleven items now. Same reading as above: check all of them.*
 
+12. **Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the Vercel dashboard** (Environment Variables → Production) **before the build runs, not merely before the first visitor.**
+    *Why it blocks deploy:* `src/lib/supabase/env.ts:4` throws by name when either is missing, so every page of the site fails on its first request. The checklist read as complete without them, which is the dangerous shape: the deploy goes green and the site is entirely down. Because both are `NEXT_PUBLIC_`, they are inlined at build time, so setting them after a green build does nothing until the next build. That timing distinction is the whole reason this is a checklist item rather than a fix-it-when-it-breaks.
+    *Detail:* pre-launch audit, finding 1 (22 Aug 2026). The thrown error names the missing variable, so diagnosis is fast once somebody looks.
+
+13. **Turn on anonymous sign-ins in the production Supabase project** (Authentication → Sign In / Providers → Anonymous sign-ins).
+    *Why it blocks deploy:* every identity in the product starts as an anonymous session, and both doors mint one (`src/app/actions/create-group.ts:70`, `src/app/actions/join-group.ts:38`). Production is a different Supabase project from the one everything was built against, and this is a dashboard switch that does not carry over. With it off, the founder completes the entire onboarding wizard and gets "Could not create a session. Please try again." forever, and so does everyone who opens the invite link. The message points at nothing, which is what makes this expensive to diagnose and cheap to prevent.
+    *Detail:* pre-launch audit, finding 2 (22 Aug 2026). Anonymous-first identity is a founding decision, build-notes §3.
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice): thirteen items now. Same reading as above: check all of them. Both additions come from the pre-launch audit's fix-before-deploy findings, and both take the whole site down rather than degrading one feature, which is a class the first eleven items did not contain.*
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
