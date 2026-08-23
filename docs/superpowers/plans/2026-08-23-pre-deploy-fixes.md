@@ -1125,7 +1125,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Create: `src/app/__tests__/robots.test.ts`
 
 **Interfaces:**
-- Consumes: `siteUrl` from `src/lib/site-url.ts` (task 6).
+- Consumes: nothing. (An earlier draft imported `siteUrl` for a sitemap line; that line was dropped, so this task has no dependency on task 6.)
 - Produces: nothing other tasks read.
 
 **Settled.** The front door is indexable; group, event and join routes are not. Those URLs are credentials or contain them. Link unfurlers ignore `robots.txt` by design, so task 6 is unaffected.
@@ -1165,8 +1165,8 @@ describe("robots", () => {
     expect(list).toContain("/join/")
   })
 
-  it("points at an absolute host rather than a relative path", () => {
-    expect(String(robots().sitemap ?? "")).toMatch(/^https?:\/\//)
+  it("does not advertise a sitemap this product does not have", () => {
+    expect(robots().sitemap).toBeUndefined()
   })
 })
 ```
@@ -1194,7 +1194,6 @@ Create `src/app/robots.ts`. Next's convention is documented at `node_modules/nex
 // Link unfurlers ignore robots.txt by design, which is why the invite link's
 // preview (src/app/join/[inviteToken]/page.tsx) still works.
 import type { MetadataRoute } from "next"
-import { siteUrl } from "@/lib/site-url"
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -1203,7 +1202,9 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/groups/", "/events/", "/join/", "/create"],
     },
-    sitemap: new URL("/sitemap.xml", siteUrl()).toString(),
+    // Deliberately no `sitemap` key: this product has no /sitemap.xml, and a
+    // file whose whole job is telling crawlers what is true should not open by
+    // pointing at something that is not there.
   }
 }
 ```
@@ -1228,7 +1229,9 @@ Disallow: /join/
 Disallow: /create
 ```
 
-Note in the PR body that the `Sitemap:` line points at a `/sitemap.xml` this product does not have. That is harmless (crawlers 404 and move on) and it is the one loose end this task leaves. If you would rather not leave it, drop the `sitemap` key and delete the third test with it; either answer is defensible, so pick one and say which in the PR.
+There is no `Sitemap:` line, deliberately.
+
+Note there is deliberately no `Sitemap:` line. That was an open choice in an earlier draft and it is now settled: this product has no `/sitemap.xml`, and a file whose whole job is telling crawlers what is true should not open by pointing at something that is not there.
 
 - [ ] **Step 6: Run the full suite**
 
