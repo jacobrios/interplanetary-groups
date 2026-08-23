@@ -340,6 +340,13 @@ right: the gap cost nothing until the day it was paid for.
 
 Seven High-priority items come due at the moment of the first production deploy. Check all seven before pushing.
 
+*Read this first, added 23 Aug 2026 (pre-deploy-fixes slice, final review). This list grew one item at a time across two months, so it reads as a pile of things to check rather than an order to work in, and every item assumes a reader who has deployed something before. Four things it never says out loud, all of which matter to someone doing this for the first time. Nothing below renumbers or replaces any item; it is the shape of the day the items sit inside.*
+
+- ***Create the production Supabase project before anything else.** It is a second, separate project from the dev-test one, made in the Supabase dashboard, and it is genuinely step one. Items 3, 5, 13, 14 and 15 all need either its connection strings or one of its settings, and not one of them says to create it, because whoever wrote each item already had it. Nothing else on this list can be finished until it exists.*
+- ***Every production environment variable goes in before any build runs.** Those are items 1, 3, 4, 12 and 15. The two values in item 12 are baked into the site when it is built, so adding them to a site that has already been built changes nothing at all until it is built again. This is the single most likely way to end up with a green deploy and a dead site.*
+- ***Importing the repo into Vercel starts a build on its own,** without anyone pressing deploy, which is what turns the point above from a preference into a hazard. Items 2 and 15 both warn to do something "before the build runs" as though the reader picks the moment; they do not. If a build has already run, nothing is broken and nothing is lost: put the variables in, then redeploy the project so a fresh build picks them up.*
+- ***A green deploy and a working site are not the same thing.** Vercel reports success when the code compiled, which says nothing about whether the site loads for a person. Item 16, at the end of this list, is the step that actually finds out.*
+
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
    *Detail:* Orbit scheduled-event slice §11 — "CRON_SECRET is a new required production env var."
@@ -420,6 +427,12 @@ Seven High-priority items come due at the moment of the first production deploy.
     *Detail:* this one is read at **build** time, by the Prisma CLI, not at request time by the app, which is what makes its failure shape different from items 3 and 12: a build that never goes green rather than a site that deploys and then breaks on the first visitor. The value is the Supabase **session** pooler URL (port 5432), a different connection string from `DATABASE_URL`'s transaction pooler (port 6543); the data-foundation slice below explains why the project carries both and why the literal "direct" host is not used. `README.md` already states the same consequence for a local checkout: "Leaving `DIRECT_URL` out is not a quiet degradation: every Prisma CLI command fails to start, including `prisma generate`, which otherwise never touches a database." Pre-deploy-fixes slice, final review (23 Aug 2026).
 
 *Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): fifteen items now. Same reading as above: check all of them. Read item 15 before item 2, despite the numbering; the append-only rule keeps the numbers where they are, and item 2 now carries a pointer to it.*
+
+16. **With everything above in place, redeploy the project, then open the site and use it once.**
+    *Why it blocks deploy:* the deploy is not finished until somebody has seen the site work, and every failure this list warns about is invisible from the Vercel dashboard. A missing database URL (item 3) or a missing Supabase pair (item 12) gives a green build and a site that breaks on its first visitor. Anonymous sign-ins left switched off (item 13) gives a site that looks perfectly fine and cannot create a single group. The redeploy is not optional if any build ran before the variables were set, including the one Vercel starts by itself at import, because item 12's two values are baked in when the site is built and that build baked in their absence.
+    *Detail:* the walk is short. Open the site's front door and confirm it renders. Take "Start your group" all the way through to a real created group. Then open the invite link it hands back in a private browser window, which is a different person as far as the product is concerned, and join with it. That one path exercises the database, the anonymous session, the model call and the invite token together, which is most of items 1 through 15 in a single pass. Anything that fails names itself in the Vercel function logs for that request. Pre-deploy-fixes slice, final review (23 Aug 2026).
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): sixteen items now. Same reading as above: check all of them. Item 16 is the only one meant to be done last rather than checked off in any order.*
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -4446,11 +4459,26 @@ plan had counted on.
 Next merges metadata objects shallowly, per route segment, rather than field by
 field. The join page set an `openGraph` block holding a title and a description, and
 that block replaced the root's entire one, image included, instead of filling gaps in
-it. Every unit test passed, and no unit test could have failed: calling
+it. Every unit test passed, ~~and no unit test could have failed: calling
 `generateMetadata` directly never exercises Next's segment-merging engine at all, so
 a test asserting on the returned object is asserting on the half of the system that
-was already correct. It was found by rendering the page. Both branches now restate
+was already correct~~. It was found by rendering the page. Both branches now restate
 the complete shape rather than inheriting any of it.
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): the struck clause
+claimed more than the facts support, and this branch's own new test disproves it. What
+is true is narrower and still worth having: no test that **already existed** could have
+failed. Every test on that file checked the words the page sets, and none checked the
+shape those words end up in after Next combines them with the ones the site sets
+everywhere else, because nobody writes that check until they already know the combining
+step replaces whole blocks instead of filling in the gaps. Once that is known it is
+plainly checkable, and this branch checked it: the fourth test in
+`src/app/join/[inviteToken]/__tests__/metadata.test.ts` asks whether a live invite link
+carries a preview image at all, and it would have failed against the old code, which
+gave it none. So the lesson is not that a bug of this kind is out of reach of tests. It
+is that opening the page in a browser is what turned something nobody knew to look for
+into something a test can state, and the test exists only because somebody looked
+first.*
 
 That bug had a second edge worth recording. The dead-token branch set no `openGraph`
 key and therefore kept the parent's by accident, image and all, while the live branch
