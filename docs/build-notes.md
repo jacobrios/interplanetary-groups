@@ -4401,3 +4401,61 @@ Recorded at this length because the failure mode is the interesting part: a diag
 real things correctly (binding, firewall, origins, process tree) and drew a confident wrong
 conclusion from them, while the actual bug was in the instructions being handed over rather than in
 the machine being investigated.
+
+### Pre-deploy fixes: slice A of the deploy pair (23 Aug 2026)
+
+The pre-launch audit's three fix-before-deploy findings, the two postscript items
+nobody owned, and the doc corrections the audit was read-only and therefore left
+standing. Nine tasks, then a final-review fix wave.
+
+**Seven decisions settled with the owner in one sitting.**
+
+1. **Two slices, not one.** A is code, proven locally, merged to main. B is the
+   deploy, no code, run against main. The seam exists so the first production build
+   is cut from main rather than from a branch still waiting on a deploy that has
+   not happened yet.
+2. **A free `*.vercel.app` host.** A custom domain is deferred, with the cost stated
+   rather than discovered later: moving to one breaks every invite link anyone has
+   already shared.
+3. **The link preview names the group, over one static image for everything.**
+   Rejected: a generic preview does not earn the tap, and a per-group rendered image
+   is more surface for no gain. Accepted cost, knowingly: unfurling services read a
+   group's name with nobody tapping. Consistent with polish slice three, where the
+   join screen already shows the group to anyone holding the link, because the link
+   is the credential.
+4. **The framework bump lands here.** `next` 16.2.9 to 16.3.2 resolves twelve
+   advisories, one of them an endpoint disclosure that only becomes reachable the
+   moment the URL is public.
+5. **Migrations are proven against production itself**, in slice B, because
+   production starts empty and applying them is checklist item 5 regardless. All
+   fourteen files were read here first.
+6. **Front door indexable, nothing else.** Group, event and join routes stay out of
+   search results; unfurling is unaffected either way.
+7. **Audit finding 4 moves into this slice**, out of the triage list: one group's
+   bad data must not switch Orbit off for every group that hour.
+
+**Three premises the work corrected mid-flight.** The invite-token fix needed no
+migration: the column was declared with no database default, so `@default(cuid())`
+was always a client-side generator, proven by an empty schema diff rather than
+assumed. The cron fix was scoped as a one-line change and turned out to be a body
+extraction, because the database call most likely to fail sat outside the guard that
+was meant to protect it. And the deploy checklist held eleven items, not the ten the
+plan had counted on.
+
+**The most valuable thing in the slice came from a bug no test could have caught.**
+Next merges metadata objects shallowly, per route segment, rather than field by
+field. The join page set an `openGraph` block holding a title and a description, and
+that block replaced the root's entire one, image included, instead of filling gaps in
+it. Every unit test passed, and no unit test could have failed: calling
+`generateMetadata` directly never exercises Next's segment-merging engine at all, so
+a test asserting on the returned object is asserting on the half of the system that
+was already correct. It was found by rendering the page. Both branches now restate
+the complete shape rather than inheriting any of it.
+
+That bug had a second edge worth recording. The dead-token branch set no `openGraph`
+key and therefore kept the parent's by accident, image and all, while the live branch
+lost it. A live invite link and a dead one were structurally distinguishable in their
+preview markup, which reopened the exact leak this slice had been careful to close in
+the wording. A fix chosen for correctness closed a privacy hole nobody was hunting
+for, which is an argument for self-contained over inherited on top of the testability
+one.
