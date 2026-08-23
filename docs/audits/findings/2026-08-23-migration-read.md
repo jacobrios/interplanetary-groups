@@ -40,7 +40,7 @@ generator always writes when it adds a uniqueness rule. They are not a live
 risk here, because the production database starts with zero rows in every
 table.
 
-**2. Two enum values were added, none renamed, and both additions are safe.**
+**2. Three enum values were added, none renamed, and all three additions are safe.**
 `ProposalAnswer` gained `SUPERSEDED` (28 Jul) and later `LAPSED` (18 Aug).
 `MessageAuthor` gained `SYSTEM` (11 Aug). Postgres will not let you use a
 brand-new enum value inside the same transaction that added it, and Prisma
