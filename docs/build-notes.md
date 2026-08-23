@@ -405,6 +405,12 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Correction, 23 Aug 2026 (pre-deploy-fixes slice): thirteen items now. Same reading as above: check all of them. Both additions come from the pre-launch audit's fix-before-deploy findings, and both take the whole site down rather than degrading one feature, which is a class the first eleven items did not contain.*
 
+14. **Run `prisma migrate deploy` against the production database, never `prisma migrate dev`.** All 14 migrations apply in one run, in order, against a database with no `_prisma_migrations` table yet.
+    *Why it blocks deploy:* `migrate deploy` is built for exactly this case, an empty database with no migration history: it creates its own bookkeeping table and applies every pending migration without asking anything. `migrate dev` is the local development command and can prompt to reset (wipe) whatever database it is pointed at when it sees drift; that prompt has no place anywhere near the production database, and this project's day-to-day habit is typing `migrate dev` against dev-test, which is exactly what makes the wrong command a real risk rather than a theoretical one.
+    *Detail:* pre-deploy migration read, Task 9 (23 Aug 2026). The read also confirmed the other five checklist entries about migrations (5, 7, 8, 10, 11) together cover the full set of 14; the four named individually were chosen because each has a distinct silent-failure shape worth calling out, not because the other nine are somehow optional.
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, migration read): fourteen items now. Same reading as above: check all of them.*
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
