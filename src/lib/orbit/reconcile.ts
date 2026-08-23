@@ -31,6 +31,7 @@ import { hasUpcomingScheduledEvent } from "@/lib/events/upcoming-list"
 export type ReconcileResult =
   | { groupId: string; status: "created"; eventId: string }
   | { groupId: string; status: "skipped"; reason: "no_rhythm" | "upcoming_exists" | "duplicate" }
+  | { groupId: string; status: "failed"; reason: string }
 
 /**
  * Reconcile scheduled events across all groups.
@@ -60,76 +61,96 @@ export async function reconcileScheduledEvents(
   const results: ReconcileResult[] = []
 
   for (const group of groups) {
-    const { id: groupId, recurringActivities, timeZone } = group
-
-    // Step a: parse rhythm — skip if missing or invalid
-    const rhythm = parseRhythm(recurringActivities)
-    if (!rhythm) {
-      results.push({ groupId, status: "skipped", reason: "no_rhythm" })
-      continue
-    }
-
-    // Step b: skip if the STANDING rhythm already has an upcoming occurrence.
-    // Deliberately not "any upcoming event": a sparked event is not evidence
-    // that the schedule has run, and counting it would silently withhold the
-    // group's recurring event until the spark had passed.
-    const alreadyScheduled = await hasUpcomingScheduledEvent(groupId, now)
-    if (alreadyScheduled) {
-      results.push({ groupId, status: "skipped", reason: "upcoming_exists" })
-      continue
-    }
-
-    // Step c: compute the next occurrence of this rhythm after `now`.
-    // The same zone drives the announcement copy below, so the event's instant
-    // and the words describing it can never disagree (build-notes §11).
-    const zone = timeZone ?? "UTC"
-    const startsAt = computeNextOccurrence(rhythm, zone, now)
-
-    // Step d+e: create the event and the announcement
-    // P2002 guard: if a concurrent run snuck in a duplicate, catch and skip.
     try {
-      const event = await createEvent({
-        groupId,
-        title: rhythm.title,
-        startsAt,
-        activityLabel: rhythm.activity,
-        // The scheduled path's own idempotency key, replacing the dropped
-        // @@unique([groupId, startsAt]). Two cron runs racing on the same
-        // occurrence still collide on P2002 and come back as a skip.
-        scheduledKey: `${groupId}:${startsAt.toISOString()}`,
-        // Standing-place snapshot: the rhythm's venue becomes this event's
-        // Venue row ({name} only; label/address/url are per-event concerns,
-        // left null). A later change to the rhythm's standing place will not
-        // alter events already created — deliberate, see build-notes §11.
-        venue: rhythm.venueName ? { name: rhythm.venueName } : null,
-      })
-
-      // Step e: announce in the group feed, in the group's timezone so the
-      // stored copy matches the pinned card exactly.
-      await createMessage({
-        groupId,
-        authorType: MessageAuthor.ORBIT,
-        authorId: null,
-        body: buildAnnouncement(event, rhythm, zone),
-      })
-
-      // Step f: record success
-      results.push({ groupId, status: "created", eventId: event.id })
+      results.push(await reconcileOneGroup(group, now))
     } catch (err) {
-      // Step g: Prisma unique-constraint violation (the unique scheduledKey).
-      // Also the deliberate landing spot for a moved occurrence: a time change
-      // leaves the key alone, so after a moved-earlier event passes, the
-      // attempt to recreate its original slot lands here and skips. Relocate,
-      // not free (see the scheduledKey schema comment and the reconcile test
-      // pinning this).
-      if ((err as { code?: string }).code === "P2002") {
-        results.push({ groupId, status: "skipped", reason: "duplicate" })
-        continue
-      }
-      // Any other error is unexpected — re-throw so the cron handler can log it
-      throw err
+      // One bad group must not take the sweep down. This runs first of three
+      // in the hourly cron (src/app/api/cron/orbit/route.ts), so a throw here
+      // used to cost every later group its recurring plan AND both sibling
+      // sweeps (last calls, idea goodbyes, stalled vote closures) for that
+      // hour. Both siblings already survive a bad row; this one did not.
+      // Pre-launch audit, finding 4. Logged, never swallowed silently:
+      // endgame.ts:148 is the pattern.
+      console.error("[orbit-reconcile] group failed:", group.id, err)
+      results.push({
+        groupId: group.id,
+        status: "failed",
+        reason: err instanceof Error ? err.message : String(err),
+      })
     }
   }
 
   return results
+}
+
+async function reconcileOneGroup(
+  group: { id: string; recurringActivities: unknown; timeZone: string | null },
+  now: Date
+): Promise<ReconcileResult> {
+  const { id: groupId, recurringActivities, timeZone } = group
+
+  // Step a: parse rhythm — skip if missing or invalid
+  const rhythm = parseRhythm(recurringActivities)
+  if (!rhythm) {
+    return { groupId, status: "skipped", reason: "no_rhythm" }
+  }
+
+  // Step b: skip if the STANDING rhythm already has an upcoming occurrence.
+  // Deliberately not "any upcoming event": a sparked event is not evidence
+  // that the schedule has run, and counting it would silently withhold the
+  // group's recurring event until the spark had passed.
+  const alreadyScheduled = await hasUpcomingScheduledEvent(groupId, now)
+  if (alreadyScheduled) {
+    return { groupId, status: "skipped", reason: "upcoming_exists" }
+  }
+
+  // Step c: compute the next occurrence of this rhythm after `now`.
+  // The same zone drives the announcement copy below, so the event's instant
+  // and the words describing it can never disagree (build-notes §11).
+  const zone = timeZone ?? "UTC"
+  const startsAt = computeNextOccurrence(rhythm, zone, now)
+
+  // Step d+e: create the event and the announcement
+  // P2002 guard: if a concurrent run snuck in a duplicate, catch and skip.
+  try {
+    const event = await createEvent({
+      groupId,
+      title: rhythm.title,
+      startsAt,
+      activityLabel: rhythm.activity,
+      // The scheduled path's own idempotency key, replacing the dropped
+      // @@unique([groupId, startsAt]). Two cron runs racing on the same
+      // occurrence still collide on P2002 and come back as a skip.
+      scheduledKey: `${groupId}:${startsAt.toISOString()}`,
+      // Standing-place snapshot: the rhythm's venue becomes this event's
+      // Venue row ({name} only; label/address/url are per-event concerns,
+      // left null). A later change to the rhythm's standing place will not
+      // alter events already created — deliberate, see build-notes §11.
+      venue: rhythm.venueName ? { name: rhythm.venueName } : null,
+    })
+
+    // Step e: announce in the group feed, in the group's timezone so the
+    // stored copy matches the pinned card exactly.
+    await createMessage({
+      groupId,
+      authorType: MessageAuthor.ORBIT,
+      authorId: null,
+      body: buildAnnouncement(event, rhythm, zone),
+    })
+
+    // Step f: record success
+    return { groupId, status: "created", eventId: event.id }
+  } catch (err) {
+    // Step g: Prisma unique-constraint violation (the unique scheduledKey).
+    // Also the deliberate landing spot for a moved occurrence: a time change
+    // leaves the key alone, so after a moved-earlier event passes, the
+    // attempt to recreate its original slot lands here and skips. Relocate,
+    // not free (see the scheduledKey schema comment and the reconcile test
+    // pinning this).
+    if ((err as { code?: string }).code === "P2002") {
+      return { groupId, status: "skipped", reason: "duplicate" }
+    }
+    // Any other error is unexpected — re-throw so the cron handler can log it
+    throw err
+  }
 }
