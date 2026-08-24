@@ -157,6 +157,7 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 - **Group-naming nudge** (§5): a day or two in, Orbit prompts the group to pick a fun name together, the first demonstration of Orbit driving engagement beyond logistics. Launch, not demo, on the trigger: it fires a day or two after group creation, so a walkthrough cannot show it without contrivance, which is exactly what puts it in this bucket rather than demo-critical.
 - **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature, and only relevant once the thing is actually being put in front of someone. *(Correction, 11 Aug 2026: the checklist has grown to ten items; the five named here were the count when this line was drafted, left per the append-only rule. The §11 checklist itself is the source of truth.)*
 - **Second-viewer freshness (registered 23 Aug 2026, from the pre-launch audit's completeness critic, confirmed by hand in the audit's 23 Aug postscript).** Every state change in the product is delivered by `revalidatePath`, which refreshes only the browser that fired the action. A search across `src/` finds no `setInterval`, no `EventSource`, no `WebSocket`, and no `visibilitychange`. So a second member sees nothing, not another member's message, not Orbit's reply, not a vote landing, not the third yes creating a plan, until they navigate or reload. In a group-chat product that is the shape of the product, not a detail. Found by the audit's completeness critic; no lane brief and no prior finding names it. Sequencing is the owner's call.
+- **A recurring group tells its own members to float an idea it already has (registered 24 Aug 2026, from the owner's phone QA).** A group with a standing weekly rhythm (found on a Sundays-at-10am group, the day after its Sunday) shows the card region's empty state, "Nothing planned yet, float an idea in chat," in the window between one occurrence passing and the next being created by the hourly Vercel cron (`reconcileScheduledEvents`). In production that window is up to an hour; on a development machine, where nothing runs that job, it never closes on its own. The copy is not merely blank, it actively tells a member to do the one thing they should not need to do in a group that already meets every week, so the screen reads as though the group has no rhythm at all. What makes it sharper: Orbit's own chat announcement of the passed event is still sitting in the feed directly above the empty card region, so a member sees Orbit having just confirmed a plan while the card region denies one exists, with nothing on screen telling them the two are not actually in conflict (chat is a log of what was announced, the card region shows what is upcoming). Related but not the same problem as audit finding 5 (a standing plan on two or more days a week only ever has one occurrence on the calendar at a time): that finding is about the scheduler never holding more than one upcoming occurrence per rhythm, while this one is about the gap in time before even a single occurrence exists, and it reproduces on a single-day rhythm the same as a multi-day one. Sequencing is the owner's call.
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
@@ -4487,3 +4488,25 @@ preview markup, which reopened the exact leak this slice had been careful to clo
 the wording. A fix chosen for correctness closed a privacy hole nobody was hunting
 for, which is an argument for self-contained over inherited on top of the testability
 one.
+
+**Correction, 24 Aug 2026 (owner's phone QA on this branch): Task 5's favicon severity
+was recorded too generously.** Task 5 deleted `src/app/favicon.ico` in favor of
+`src/app/icon.svg` plus `src/app/apple-icon.png`, and logged the tradeoff as ~~an
+accepted limitation: "a client that demands `.ico` specifically gets a 404 rather than
+a fallback icon."~~ That was not a rare edge case. Verified from the network log of a
+page correctly declaring the SVG icon: Chrome requests `/favicon.ico` on its own, on
+every page load, regardless of what the `<link rel="icon">` tag says, and got a 404.
+So the real cost was a 404 on every visitor's first load in production, every time,
+plus a permanent red "1 Issue" badge on Next's dev overlay, which would have quietly
+misled every future QA pass on this project. Fixed the same day (commit `678eb99`):
+`scripts/build-brand-assets.ts` now also generates a real `favicon.ico` from the same
+Orbit mark, a PNG payload wrapped in an ICO container, since `sharp` cannot write
+`.ico` directly. Confirmed afterward on the owner's own running server: `/favicon.ico`
+returns 200, the page shows zero console errors, and all three icon links are present.
+
+**The lesson, worth carrying past this one fix.** A severity recorded too generously
+in the notes is worse than a wrong line of code, because the generous note is exactly
+what tells the next reader there is nothing left to check here. The original wording
+was not false, it was too kind to the gap it was describing, and being too kind is
+what let it clear a whole-branch review untouched. It was caught by a person looking
+at a real screen, which is also the only reason it was caught at all.
