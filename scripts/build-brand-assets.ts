@@ -52,9 +52,44 @@ async function openGraphImage() {
   console.log("wrote src/app/opengraph-image.png (1200x630)")
 }
 
+async function faviconIco() {
+  // sharp cannot write .ico, but a valid ICO may hold a PNG payload directly,
+  // which every browser this product targets reads. 32x32, opaque background
+  // to match the other icons (a transparent tile would read dark-on-dark on
+  // a light tab strip).
+  const SIZE = 32
+  const mark = await sharp(SVG).resize(SIZE, SIZE).png().toBuffer()
+  const png = await sharp({
+    create: { width: SIZE, height: SIZE, channels: 4, background: SURFACE_BASE },
+  })
+    .composite([{ input: mark, top: 0, left: 0 }])
+    .png()
+    .toBuffer()
+
+  const header = Buffer.alloc(22)
+  // ICONDIR
+  header.writeUInt16LE(0, 0) // reserved
+  header.writeUInt16LE(1, 2) // type: 1 = icon
+  header.writeUInt16LE(1, 4) // count: one image
+  // ICONDIRENTRY
+  header.writeUInt8(SIZE, 6) // width
+  header.writeUInt8(SIZE, 7) // height
+  header.writeUInt8(0, 8) // colorCount
+  header.writeUInt8(0, 9) // reserved
+  header.writeUInt16LE(1, 10) // planes
+  header.writeUInt16LE(32, 12) // bitCount
+  header.writeUInt32LE(png.length, 14) // bytesInRes
+  header.writeUInt32LE(22, 18) // imageOffset
+
+  const out = Buffer.concat([header, png])
+  writeFileSync(join(ROOT, "src/app/favicon.ico"), out)
+  console.log(`wrote src/app/favicon.ico (${SIZE}x${SIZE}, ${out.length} bytes)`)
+}
+
 async function main() {
   await appleIcon()
   await openGraphImage()
+  await faviconIco()
 }
 
 main().catch((err) => {
