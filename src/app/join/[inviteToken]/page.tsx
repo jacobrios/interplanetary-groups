@@ -1,13 +1,83 @@
 // src/app/join/[inviteToken]/page.tsx
+import type { Metadata } from "next"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
+import { SITE_TITLE, SITE_DESCRIPTION, OG_IMAGE } from "@/lib/metadata"
 import JoinForm from "./JoinForm"
 import OrbitNoteScreen from "@/components/OrbitNoteScreen"
 
 interface Props {
   params: Promise<{ inviteToken: string }>
+}
+
+// The shared invite link's preview card. Orbit's voice, and it never
+// distinguishes a dead token from a live one: a preview that said "invalid
+// invite" would turn every mis-typed link into a probe. A failure here must
+// never take the page down, so the lookup is best-effort.
+//
+// Round-1 review finding, load-bearing for both branches below: Next merges
+// `openGraph` and `twitter` as whole objects per route segment, not field
+// by field, so a segment that declares its own `openGraph` REPLACES the
+// root layout's rather than filling gaps in it. The first version of this
+// function set `openGraph: { title, description }` on the live-group
+// branch, which silently dropped the image and card type the root layout
+// declared, while the dead-token branch (which set no `openGraph` key at
+// all) kept them by accident. That made a live and a dead invite link
+// structurally distinguishable by the presence of the image alone, which
+// is exactly what the never-distinguish-them rule above exists to prevent.
+// Both branches now restate the complete shape (type, siteName, image,
+// card) instead of relying on inheritance, so they stay provably identical
+// wherever only the title and description are supposed to differ.
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { inviteToken } = await params
+
+  const group = await prisma.group
+    .findUnique({ where: { inviteToken }, select: { name: true } })
+    .catch(() => null)
+
+  if (!group) {
+    return {
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      openGraph: {
+        type: "website",
+        siteName: SITE_TITLE,
+        title: SITE_TITLE,
+        description: SITE_DESCRIPTION,
+        images: [OG_IMAGE],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: SITE_TITLE,
+        description: SITE_DESCRIPTION,
+        images: [OG_IMAGE.url],
+      },
+    }
+  }
+
+  const title = `Join ${group.name}`
+  const description =
+    "You've been invited. No app to download, no password. You'll land right in the group."
+
+  return {
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      siteName: SITE_TITLE,
+      title,
+      description,
+      images: [OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [OG_IMAGE.url],
+    },
+  }
 }
 
 export default async function JoinPage({ params }: Props) {

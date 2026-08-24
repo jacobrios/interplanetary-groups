@@ -156,6 +156,8 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 - **Access-control / membership gating.** No surface is membership-gated today (group home, event detail, group info all viewable by any session). **Not required for the portfolio demo; required before any real person uses the product.** CLAUDE.md points at this slice as the home for that standing gap. Labeled explicitly because leaving it unlabeled is how it stays ambiguous forever. *Amended 11 Aug 2026 (triage round two): the write-gating half moved into the MVP push (the share-readiness hardening slice in the demo-critical list above), because the first shared link goes straight to an investor's real-group pressure test, which is real use arriving at MVP time. Viewing gates and anything beyond the honest non-member state stay here.* *Superseded in part 11 Aug 2026 (share-readiness slice): the view-gating half shipped too, by the owner's decision during that slice's brainstorm. The group home, event detail, group info and the calendar file are all members-only now. What remains here is anything beyond the wall: a request-to-join flow, and any deliberate loosening of the wall itself.*
 - **Group-naming nudge** (§5): a day or two in, Orbit prompts the group to pick a fun name together, the first demonstration of Orbit driving engagement beyond logistics. Launch, not demo, on the trigger: it fires a day or two after group creation, so a walkthrough cannot show it without contrivance, which is exactly what puts it in this bucket rather than demo-critical.
 - **Pre-first-deploy checklist:** the five High-priority items in the §11 "before first Vercel deploy" block (CRON_SECRET, prisma generate wired into build, connection_limit=1, ANTHROPIC_API_KEY, pending migrations applied to production). A deploy gate rather than a feature, and only relevant once the thing is actually being put in front of someone. *(Correction, 11 Aug 2026: the checklist has grown to ten items; the five named here were the count when this line was drafted, left per the append-only rule. The §11 checklist itself is the source of truth.)*
+- **Second-viewer freshness (registered 23 Aug 2026, from the pre-launch audit's completeness critic, confirmed by hand in the audit's 23 Aug postscript).** Every state change in the product is delivered by `revalidatePath`, which refreshes only the browser that fired the action. A search across `src/` finds no `setInterval`, no `EventSource`, no `WebSocket`, and no `visibilitychange`. So a second member sees nothing, not another member's message, not Orbit's reply, not a vote landing, not the third yes creating a plan, until they navigate or reload. In a group-chat product that is the shape of the product, not a detail. Found by the audit's completeness critic; no lane brief and no prior finding names it. Sequencing is the owner's call.
+- **A recurring group tells its own members to float an idea it already has (registered 24 Aug 2026, from the owner's phone QA).** A group with a standing weekly rhythm (found on a Sundays-at-10am group, the day after its Sunday) shows the card region's empty state, "Nothing planned yet, float an idea in chat," in the window between one occurrence passing and the next being created by the hourly Vercel cron (`reconcileScheduledEvents`). In production that window is up to an hour; on a development machine, where nothing runs that job, it never closes on its own. The copy is not merely blank, it actively tells a member to do the one thing they should not need to do in a group that already meets every week, so the screen reads as though the group has no rhythm at all. What makes it sharper: Orbit's own chat announcement of the passed event is still sitting in the feed directly above the empty card region, so a member sees Orbit having just confirmed a plan while the card region denies one exists, with nothing on screen telling them the two are not actually in conflict (chat is a log of what was announced, the card region shows what is upcoming). Related but not the same problem as audit finding 5 (a standing plan on two or more days a week only ever has one occurrence on the calendar at a time): that finding is about the scheduler never holding more than one upcoming occurrence per rhythm, while this one is about the gap in time before even a single occurrence exists, and it reproduces on a single-day rhythm the same as a multi-day one. Sequencing is the owner's call.
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
@@ -339,6 +341,13 @@ right: the gap cost nothing until the day it was paid for.
 
 Seven High-priority items come due at the moment of the first production deploy. Check all seven before pushing.
 
+*Read this first, added 23 Aug 2026 (pre-deploy-fixes slice, final review). This list grew one item at a time across two months, so it reads as a pile of things to check rather than an order to work in, and every item assumes a reader who has deployed something before. Four things it never says out loud, all of which matter to someone doing this for the first time. Nothing below renumbers or replaces any item; it is the shape of the day the items sit inside.*
+
+- ***Create the production Supabase project before anything else.** It is a second, separate project from the dev-test one, made in the Supabase dashboard, and it is genuinely step one. Items 3, 5, 13, 14 and 15 all need either its connection strings or one of its settings, and not one of them says to create it, because whoever wrote each item already had it. Nothing else on this list can be finished until it exists.*
+- ***Every production environment variable goes in before any build runs.** Those are items 1, 3, 4, 12 and 15. The two values in item 12 are baked into the site when it is built, so adding them to a site that has already been built changes nothing at all until it is built again. This is the single most likely way to end up with a green deploy and a dead site.*
+- ***Importing the repo into Vercel starts a build on its own,** without anyone pressing deploy, which is what turns the point above from a preference into a hazard. Items 2 and 15 both warn to do something "before the build runs" as though the reader picks the moment; they do not. If a build has already run, nothing is broken and nothing is lost: put the variables in, then redeploy the project so a fresh build picks them up.*
+- ***A green deploy and a working site are not the same thing.** Vercel reports success when the code compiled, which says nothing about whether the site loads for a person. Item 16, at the end of this list, is the step that actually finds out.*
+
 1. **Set `CRON_SECRET` in the Vercel dashboard** (Environment Variables → Production).
    *Why it blocks deploy:* the Orbit cron endpoint (`/api/cron/orbit`) returns 401 by design in production when the secret is absent. The value is a randomly generated secret; never commit it to the repo.
    *Detail:* Orbit scheduled-event slice §11 — "CRON_SECRET is a new required production env var."
@@ -346,9 +355,11 @@ Seven High-priority items come due at the moment of the first production deploy.
 2. **Wire `prisma generate` into the build** (e.g. add `"prisma generate"` as a Vercel build command prefix, or add a `postinstall` script in `package.json`).
    *Why it blocks deploy:* Prisma 7 does not auto-generate the client on install. After the Orbit slice the schema includes the `Group.timeZone` column and the `MessageAuthor.ORBIT` enum — a stale generated client will fail at runtime the first time either is touched.
    *Detail:* Data-foundation slice §11 — "`prisma generate` does not auto-run in Prisma 7."
+   *Amended 23 Aug 2026 (pre-deploy-fixes slice, final review): do item 15 before this one. `prisma generate` cannot start at all without `DIRECT_URL` set, so wiring it into the build without that variable in place makes the first production build fail at the step this item creates.*
 
 3. **Add `connection_limit=1` to the production `DATABASE_URL`.**
    *Why it blocks deploy:* Vercel runs each serverless function as its own short-lived process, and each one opens its own Prisma connection pool. Without a per-connection cap, concurrent traffic can exhaust Supabase's connection ceiling and produce intermittent "too many connections" errors that never appear in local testing because local testing is never concurrent.
+   *Amended 23 Aug 2026 (pre-deploy-fixes slice, final review): read this as **set `DATABASE_URL` in the Vercel dashboard** (Environment Variables → Production), **with `connection_limit=1` on it**, rather than as a tweak to a value that is already there. The original wording presumed the variable existed, and nothing else on this list ever says to create it, so a person working through the list literally sets four named variables and no database URL at all. `src/lib/prisma.ts:10` throws "DATABASE_URL environment variable is not set" on the first request to any page, which is the same whole-site-down shape as item 12, not one degraded feature.*
    *Detail:* `pgbouncer=true` and `connection_limit=1` do different jobs and both are needed. `pgbouncer=true` tells Prisma it is talking to a transaction-mode pooler and to stop using prepared statements (correctness). `connection_limit=1` caps what each function instance opens (pool exhaustion). Setting one without the other leaves the other failure mode live.
 
 4. **Set `ANTHROPIC_API_KEY` in the Vercel dashboard** (Environment Variables → Production).
@@ -393,6 +404,36 @@ Seven High-priority items come due at the moment of the first production deploy.
     *Detail:* time-change-ending slice, Task 1. Applied to dev-test only, per the two-databases rule. Additive enum value: safe to apply ahead of the code, and it must be, since a deploy of the code against an older database would fail on the first sweep.
 
 *Correction, 18 Aug 2026 (time-change-ending slice): eleven items now. Same reading as above: check all of them.*
+
+12. **Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in the Vercel dashboard** (Environment Variables → Production) **before the build runs, not merely before the first visitor.**
+    *Why it blocks deploy:* `src/lib/supabase/env.ts:4` throws by name when either is missing, so every page of the site fails on its first request. The checklist read as complete without them, which is the dangerous shape: the deploy goes green and the site is entirely down. Because both are `NEXT_PUBLIC_`, they are inlined at build time, so setting them after a green build does nothing until the next build. That timing distinction is the whole reason this is a checklist item rather than a fix-it-when-it-breaks.
+    *Detail:* pre-launch audit, finding 1 (22 Aug 2026). The thrown error names the missing variable, so diagnosis is fast once somebody looks.
+
+13. **Turn on anonymous sign-ins in the production Supabase project** (Authentication → Sign In / Providers → Anonymous sign-ins).
+    *Why it blocks deploy:* every identity in the product starts as an anonymous session, and both doors mint one (`src/app/actions/create-group.ts:70`, `src/app/actions/join-group.ts:38`). Production is a different Supabase project from the one everything was built against, and this is a dashboard switch that does not carry over. With it off, the founder completes the entire onboarding wizard and gets "Could not create a session. Please try again." forever, and so does everyone who opens the invite link. The message points at nothing, which is what makes this expensive to diagnose and cheap to prevent.
+    *Detail:* pre-launch audit, finding 2 (22 Aug 2026). Anonymous-first identity is a founding decision, build-notes §3.
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice): thirteen items now. Same reading as above: check all of them. Both additions come from the pre-launch audit's fix-before-deploy findings, and both take the whole site down rather than degrading one feature, which is a class the first eleven items did not contain.*
+
+14. **Run `prisma migrate deploy` against the production database, never `prisma migrate dev`.** All 14 migrations apply in one run, in order, against a database with no `_prisma_migrations` table yet.
+    *Why it blocks deploy:* `migrate deploy` is built for exactly this case, an empty database with no migration history: it creates its own bookkeeping table and applies every pending migration without asking anything. `migrate dev` is the local development command and can prompt to reset (wipe) whatever database it is pointed at when it sees drift; that prompt has no place anywhere near the production database, and this project's day-to-day habit is typing `migrate dev` against dev-test, which is exactly what makes the wrong command a real risk rather than a theoretical one.
+    *Detail:* pre-deploy migration read, Task 9 (23 Aug 2026). The read also confirmed the other five checklist entries about migrations (5, 7, 8, 10, 11) together cover the full set of 14; the four named individually were chosen because each has a distinct silent-failure shape worth calling out, not because the other nine are somehow optional.
+
+    *Amended 23 Aug 2026 (pre-deploy-fixes slice, final review): the item named the safe command but not the safe method, and the method is the dangerous half. Point the CLI at production with a one-off inline override on that single command, `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, rather than by editing `.env`, so nothing in the checkout still points at production the moment the command exits. Then run `npm run db:which` immediately, before touching anything else, and confirm it prints the dev-test ref. Why the method matters more than the command name: the Prisma CLI reads `DIRECT_URL` out of `.env` (`prisma.config.ts:1` loads it), and `.env` is also what the test suite reads. This project's tests are integration tests that create and delete real records, so an `.env` edited to production and not reverted means the next `npm test` writes rows into the production database and then deletes them again. That is the one rule in this project with no undo, "two databases, never crossed" (CLAUDE.md), broken by a step that felt like it was over.*
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, migration read): fourteen items now. Same reading as above: check all of them.*
+
+15. **Set `DIRECT_URL` in the Vercel dashboard** (Environment Variables → Production), **before running the build that item 2 sets up.**
+    *Why it blocks deploy:* `prisma.config.ts:13` resolves `env("DIRECT_URL")` eagerly, the moment the config file loads, so every Prisma CLI command fails to start without it. That includes `prisma generate`, which otherwise never touches a database at all. Item 2 wires `prisma generate` into the Vercel build, so with this variable missing the very first production build fails at the step item 2 creates, and no version of the site ever reaches anyone. Nothing else on this list mentioned the variable.
+    *Detail:* this one is read at **build** time, by the Prisma CLI, not at request time by the app, which is what makes its failure shape different from items 3 and 12: a build that never goes green rather than a site that deploys and then breaks on the first visitor. The value is the Supabase **session** pooler URL (port 5432), a different connection string from `DATABASE_URL`'s transaction pooler (port 6543); the data-foundation slice below explains why the project carries both and why the literal "direct" host is not used. `README.md` already states the same consequence for a local checkout: "Leaving `DIRECT_URL` out is not a quiet degradation: every Prisma CLI command fails to start, including `prisma generate`, which otherwise never touches a database." Pre-deploy-fixes slice, final review (23 Aug 2026).
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): fifteen items now. Same reading as above: check all of them. Read item 15 before item 2, despite the numbering; the append-only rule keeps the numbers where they are, and item 2 now carries a pointer to it.*
+
+16. **With everything above in place, redeploy the project, then open the site and use it once.**
+    *Why it blocks deploy:* the deploy is not finished until somebody has seen the site work, and every failure this list warns about is invisible from the Vercel dashboard. A missing database URL (item 3) or a missing Supabase pair (item 12) gives a green build and a site that breaks on its first visitor. Anonymous sign-ins left switched off (item 13) gives a site that looks perfectly fine and cannot create a single group. The redeploy is not optional if any build ran before the variables were set, including the one Vercel starts by itself at import, because item 12's two values are baked in when the site is built and that build baked in their absence.
+    *Detail:* the walk is short. Open the site's front door and confirm it renders. Take "Start your group" all the way through to a real created group. Then open the invite link it hands back in a private browser window, which is a different person as far as the product is concerned, and join with it. That one path exercises the database, the anonymous session, the model call and the invite token together, which is most of items 1 through 15 in a single pass. Anything that fails names itself in the Vercel function logs for that request. Pre-deploy-fixes slice, final review (23 Aug 2026).
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): sixteen items now. Same reading as above: check all of them. Item 16 is the only one meant to be done last rather than checked off in any order.*
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -4374,3 +4415,100 @@ Recorded at this length because the failure mode is the interesting part: a diag
 real things correctly (binding, firewall, origins, process tree) and drew a confident wrong
 conclusion from them, while the actual bug was in the instructions being handed over rather than in
 the machine being investigated.
+
+### Pre-deploy fixes: slice A of the deploy pair (23 Aug 2026)
+
+The pre-launch audit's three fix-before-deploy findings, the two postscript items
+nobody owned, and the doc corrections the audit was read-only and therefore left
+standing. Nine tasks, then a final-review fix wave.
+
+**Seven decisions settled with the owner in one sitting.**
+
+1. **Two slices, not one.** A is code, proven locally, merged to main. B is the
+   deploy, no code, run against main. The seam exists so the first production build
+   is cut from main rather than from a branch still waiting on a deploy that has
+   not happened yet.
+2. **A free `*.vercel.app` host.** A custom domain is deferred, with the cost stated
+   rather than discovered later: moving to one breaks every invite link anyone has
+   already shared.
+3. **The link preview names the group, over one static image for everything.**
+   Rejected: a generic preview does not earn the tap, and a per-group rendered image
+   is more surface for no gain. Accepted cost, knowingly: unfurling services read a
+   group's name with nobody tapping. Consistent with polish slice three, where the
+   join screen already shows the group to anyone holding the link, because the link
+   is the credential.
+4. **The framework bump lands here.** `next` 16.2.9 to 16.3.2 resolves twelve
+   advisories, one of them an endpoint disclosure that only becomes reachable the
+   moment the URL is public.
+5. **Migrations are proven against production itself**, in slice B, because
+   production starts empty and applying them is checklist item 5 regardless. All
+   fourteen files were read here first.
+6. **Front door indexable, nothing else.** Group, event and join routes stay out of
+   search results; unfurling is unaffected either way.
+7. **Audit finding 4 moves into this slice**, out of the triage list: one group's
+   bad data must not switch Orbit off for every group that hour.
+
+**Three premises the work corrected mid-flight.** The invite-token fix needed no
+migration: the column was declared with no database default, so `@default(cuid())`
+was always a client-side generator, proven by an empty schema diff rather than
+assumed. The cron fix was scoped as a one-line change and turned out to be a body
+extraction, because the database call most likely to fail sat outside the guard that
+was meant to protect it. And the deploy checklist held eleven items, not the ten the
+plan had counted on.
+
+**The most valuable thing in the slice came from a bug no test could have caught.**
+Next merges metadata objects shallowly, per route segment, rather than field by
+field. The join page set an `openGraph` block holding a title and a description, and
+that block replaced the root's entire one, image included, instead of filling gaps in
+it. Every unit test passed, ~~and no unit test could have failed: calling
+`generateMetadata` directly never exercises Next's segment-merging engine at all, so
+a test asserting on the returned object is asserting on the half of the system that
+was already correct~~. It was found by rendering the page. Both branches now restate
+the complete shape rather than inheriting any of it.
+
+*Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): the struck clause
+claimed more than the facts support, and this branch's own new test disproves it. What
+is true is narrower and still worth having: no test that **already existed** could have
+failed. Every test on that file checked the words the page sets, and none checked the
+shape those words end up in after Next combines them with the ones the site sets
+everywhere else, because nobody writes that check until they already know the combining
+step replaces whole blocks instead of filling in the gaps. Once that is known it is
+plainly checkable, and this branch checked it: the fourth test in
+`src/app/join/[inviteToken]/__tests__/metadata.test.ts` asks whether a live invite link
+carries a preview image at all, and it would have failed against the old code, which
+gave it none. So the lesson is not that a bug of this kind is out of reach of tests. It
+is that opening the page in a browser is what turned something nobody knew to look for
+into something a test can state, and the test exists only because somebody looked
+first.*
+
+That bug had a second edge worth recording. The dead-token branch set no `openGraph`
+key and therefore kept the parent's by accident, image and all, while the live branch
+lost it. A live invite link and a dead one were structurally distinguishable in their
+preview markup, which reopened the exact leak this slice had been careful to close in
+the wording. A fix chosen for correctness closed a privacy hole nobody was hunting
+for, which is an argument for self-contained over inherited on top of the testability
+one.
+
+**Correction, 24 Aug 2026 (owner's phone QA on this branch): Task 5's favicon severity
+was recorded too generously.** Task 5 deleted `src/app/favicon.ico` in favor of
+`src/app/icon.svg` plus `src/app/apple-icon.png`, and logged the tradeoff, in the
+slice document and the PR body rather than here, as an accepted limitation: a client
+that demands `.ico` specifically gets a 404 rather than a fallback icon. That wording
+is left standing where it was written, because the point of this correction is that it
+read as reasonable at the time. It was not a rare edge case. Verified from the network log of a
+page correctly declaring the SVG icon: Chrome requests `/favicon.ico` on its own, on
+every page load, regardless of what the `<link rel="icon">` tag says, and got a 404.
+So the real cost was a 404 on every visitor's first load in production, every time,
+plus a permanent red "1 Issue" badge on Next's dev overlay, which would have quietly
+misled every future QA pass on this project. Fixed the same day (commit `678eb99`):
+`scripts/build-brand-assets.ts` now also generates a real `favicon.ico` from the same
+Orbit mark, a PNG payload wrapped in an ICO container, since `sharp` cannot write
+`.ico` directly. Confirmed afterward on the owner's own running server: `/favicon.ico`
+returns 200, the page shows zero console errors, and all three icon links are present.
+
+**The lesson, worth carrying past this one fix.** A severity recorded too generously
+in the notes is worse than a wrong line of code, because the generous note is exactly
+what tells the next reader there is nothing left to check here. The original wording
+was not false, it was too kind to the gap it was describing, and being too kind is
+what let it clear a whole-branch review untouched. It was caught by a person looking
+at a real screen, which is also the only reason it was caught at all.
