@@ -117,12 +117,19 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 You'll need a Postgres database (this project uses Supabase), a Supabase project for auth, and an Anthropic API key.
 
 ```bash
-npm install
-cp .env.example .env     # then fill in your own values
+cp .env.example .env     # then fill in your own values, BEFORE npm install
+npm install              # its postinstall step runs prisma generate for you
 npx prisma migrate deploy
-npx prisma generate
 npm run dev
 ```
+
+**The `.env` copy comes first, and that order is load-bearing.** `npm install`
+runs `prisma generate` as a postinstall step, `prisma.config.ts` resolves
+`DIRECT_URL` the moment it loads, and a fresh clone has no `.env` because it is
+gitignored. Installing first therefore fails with `Cannot resolve environment
+variable: DIRECT_URL` from a step you did not ask for. Copy the file first and the
+install generates the client on its own, which is also what the Vercel build
+relies on.
 
 **Two database URLs, and they are not interchangeable.** `DATABASE_URL` is the pooled connection the app uses at runtime through the Prisma driver adapter. `DIRECT_URL` is the unpooled one the Prisma CLI uses for migrations, and it's read by `prisma.config.ts` rather than by the schema. Both can point at the same database. Leaving `DIRECT_URL` out is not a quiet degradation: every Prisma CLI command fails to start, including `prisma generate`, which otherwise never touches a database.
 

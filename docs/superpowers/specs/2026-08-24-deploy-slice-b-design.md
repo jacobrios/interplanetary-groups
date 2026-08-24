@@ -29,7 +29,12 @@ invocation.
 
 **Debt it is expected to open.** A production database nobody can inspect without
 a second checkout. One environment holding secrets that exist nowhere else. A
-`CRON_SECRET` with no rotation path. And whatever the day teaches.
+`CRON_SECRET` with no rotation path. And, surfaced by this slice's own review: when
+the database pool is saturated, an ordinary query waits forever (no acquisition
+timeout is set) while a write inside a transaction gives up after two seconds and
+fails. Nobody chose either number. Queued, not fixed here: it needs traffic we do
+not have to know which way to tune it, and guessing now would be the same mistake
+this slice just corrected. And whatever the day teaches.
 
 ---
 
@@ -131,18 +136,28 @@ never reads it: `pg-connection-string` copies unknown query parameters onto the
 config verbatim, where they are ignored, and `pg-pool` falls back to its default
 maximum of 10. Following item 3 as written produces a tick mark and no protection.
 
-**The number is 3, not 1, and the reasoning is recorded because the obvious answer
-is wrong here.** Prisma's standard serverless advice is 1, written for a world
-where one function instance served one request at a time. Vercel's Fluid Compute
-(listed on the Hobby tier in the plan comparison, so it is already active) lets one
-instance serve several concurrent requests, and this app makes many sequential
-database round trips per write (audit F-6-13). A pool of 1 would make concurrent
-requests on the same instance queue behind each other, turning a connection-safety
-knob into a latency problem. A pool of 3 keeps a single instance from serializing
-while staying far below Supavisor's client ceiling even at tens of simultaneous
-instances. The real exhaustion risk at portfolio traffic is low either way, which
-is why the audit graded this "queue"; the point of the fix is that the checklist
-should stop claiming a protection that is not there.
+**The number is 10, and getting there took two tries.** *(Amended after review, 24
+Aug 2026. The first attempt set 3, on the premise that this app makes many
+sequential round trips per write, so a ceiling of 1 would serialize them. The
+review checked the premise against the hottest path instead of the write paths and
+it does not hold there: `src/app/groups/[id]/page.tsx:82` issues up to
+`CARD_REGION_CAP` (5, `src/lib/cards/region.ts:8`) concurrent rsvp lookups in one
+`Promise.all`, so a single group-home render wants five connections at once. Any
+ceiling below six throttles the most-viewed screen in the product on every render,
+and Fluid Compute lets one instance serve several such renders concurrently. The
+review also established what saturation actually costs: `pg-pool` sets no
+acquisition timeout by default, so plain queries queue indefinitely, while an
+interactive transaction aborts at Prisma's 2000ms `maxWait` and throws P2028.
+Cutting the ceiling to 3 would have shrunk the margin before that by 3.3x on the
+write paths F-6-13 already flags as the longest.)*
+
+So the honest conclusion is close to a decline: **no cap below the pg default of 10
+is warranted for this product.** Capping lower buys headroom only in a spike large
+enough to need many simultaneous instances, which the audit graded low risk, and
+charges for it on every ordinary render. The line is still written explicitly rather
+than left to the default, because the value of this change was never the number. It
+is that the next reader finds the real knob, and the reason both URL parameters are
+not it, in the file where they will look.
 
 **Type-safety already confirmed:** `@prisma/adapter-pg/dist/index.d.ts:42` types
 the first constructor argument as `pg.Pool | pg.PoolConfig | string`, and `max` is
@@ -156,14 +171,30 @@ test that asserts the constant equals itself.
 ### Task 3 — set `connection_limit=1` on the URL anyway, and record that it is inert
 
 Per the owner's decision, the parameter still goes on the production
-`DATABASE_URL` (Task 10). It is harmless. `pgbouncer=true` on the same URL is
-**not** inert and is genuinely required: it tells Prisma it is talking to a
-transaction-mode pooler and to stop using prepared statements. Checklist item 3's
-own detail line has this right.
+`DATABASE_URL` (Task 10). It is harmless.
 
-The decision record in PR 2 must say plainly that `connection_limit` does nothing
-here and that `max` in `src/lib/prisma.ts` is what carries the protection, so no
-future reader re-derives the wrong belief from the checklist.
+***Amended after review, 24 Aug 2026: `pgbouncer=true` is inert too, and this
+document originally said the opposite.*** The first draft repeated checklist item
+3's detail line, that `pgbouncer=true` "is genuinely required" because it stops
+Prisma using prepared statements. The review checked it the same way F-6-9 checked
+`connection_limit`, and got the same answer: `pgbouncer` appears nowhere in
+`@prisma/adapter-pg`, nowhere in the Prisma client runtime, and nowhere in `pg`,
+`pg-pool` or `pg-connection-string`. Verified independently before this amendment
+was written.
+
+**The safety it was supposed to buy is real, and comes from somewhere else.**
+`@prisma/adapter-pg/dist/index.js:655` sets a statement's `name` only from
+`pgOptions?.statementNameGenerator?.(query)`. `src/lib/prisma.ts` supplies no
+options object, so every statement goes out unnamed, which is exactly what
+transaction-mode pooling requires. Nothing about that depends on the URL.
+
+**Why this correction matters more than the first one.** Task 3's stated purpose is
+to stop a future reader inheriting a false belief, and the first draft corrected one
+false belief while installing a second of the same shape into the permanent record.
+The thing that must reach build-notes in PR 2 is therefore all three parts: neither
+URL parameter does anything; `max` in `src/lib/prisma.ts` is the pool ceiling; and
+the absence of a `statementNameGenerator` is what makes pooling safe, so adding one
+later would break pooling no matter what the URL says.
 
 ### Task 4 — review, then merge PR 1
 
@@ -252,6 +283,13 @@ that credential is never pasted into this conversation.
 1. `npm run db:which` → must print dev-test. If it prints anything else, stop.
 2. The owner copies the production **session pooler** connection string (port
    **5432**, not 6543) from the Supabase dashboard.
+2b. **Pre-flight eyeball, added after review.** Before running anything, confirm the
+   copied string contains the **production** project ref from Task 6b and `:5432`.
+   Task 6b asked for that ref precisely so it could be checked here, and the first
+   draft then never used it. The asymmetry means this is robustness rather than
+   rescue (pasting the dev-test string by mistake is a harmless no-op, and step 5
+   would expose it as 14 still pending), but a step with no undo should not rely on
+   its own mistakes being the survivable kind.
 3. The owner runs, in this checkout, with the real string in place of the
    placeholder:
    `DIRECT_URL="<production session pooler URL>" npx prisma migrate deploy`
@@ -302,6 +340,16 @@ Also on this screen or immediately after: set the function region to match Task 
 Confirm Vercel detected Next.js and did not need a build command override; the
 `postinstall` from Task 1 is what carries `prisma generate`.
 
+**Preview deploys now fail earlier than they used to, and that is fine but should
+be said out loud** *(added after review, 24 Aug 2026)*. With Preview scope left
+empty by the owner's decision, `DIRECT_URL` is unset there, `prisma.config.ts`
+resolves it eagerly, and so `npm install` itself fails on every future branch push,
+rather than the build failing later or the site being broken. Cheaper and louder
+than the alternative, so no change of course. Two consequences worth knowing: every
+future PR will carry a red Vercel check that means nothing, and if that becomes
+annoying, preview deployments can be switched off entirely in the project's Git
+settings. Offer that to the owner once he has seen one.
+
 ### Task 10 — the six environment variables, Production scope only
 
 All six go to **Production** only. Preview and Development stay empty, per the
@@ -329,7 +377,7 @@ likely way to end up with a green deploy and a dead site.
 **`CRON_SECRET` is generated by the owner**, not read out in chat, with
 `openssl rand -hex 32`. Vercel sends it automatically as
 `Authorization: Bearer <CRON_SECRET>` on cron invocations, and
-`src/app/api/cron/orbit/route.ts:31` verifies it. With the secret absent in
+`src/app/api/cron/orbit/route.ts:32` verifies it. With the secret absent in
 production the route returns 401 by design, so Orbit's hourly job would exist and
 do nothing.
 
