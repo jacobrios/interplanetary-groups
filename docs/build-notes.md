@@ -4491,9 +4491,11 @@ one.
 
 **Correction, 24 Aug 2026 (owner's phone QA on this branch): Task 5's favicon severity
 was recorded too generously.** Task 5 deleted `src/app/favicon.ico` in favor of
-`src/app/icon.svg` plus `src/app/apple-icon.png`, and logged the tradeoff as ~~an
-accepted limitation: "a client that demands `.ico` specifically gets a 404 rather than
-a fallback icon."~~ That was not a rare edge case. Verified from the network log of a
+`src/app/icon.svg` plus `src/app/apple-icon.png`, and logged the tradeoff, in the
+slice document and the PR body rather than here, as an accepted limitation: a client
+that demands `.ico` specifically gets a 404 rather than a fallback icon. That wording
+is left standing where it was written, because the point of this correction is that it
+read as reasonable at the time. It was not a rare edge case. Verified from the network log of a
 page correctly declaring the SVG icon: Chrome requests `/favicon.ico` on its own, on
 every page load, regardless of what the `<link rel="icon">` tag says, and got a 404.
 So the real cost was a 404 on every visitor's first load in production, every time,
