@@ -435,6 +435,13 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Correction, 23 Aug 2026 (pre-deploy-fixes slice, final review): sixteen items now. Same reading as above: check all of them. Item 16 is the only one meant to be done last rather than checked off in any order.*
 
+***CLOSED, 25 August 2026 (the deploy).** All sixteen items are done and the product is live at `https://interplanetary-groups.vercel.app`. This list is kept in full rather than deleted: it is the only place that records what the first deploy was supposed to require, and the deploy entry at the end of §11 records what it actually required, which is not the same list. Four things a future reader should carry off it:*
+
+- ***Item 3 was wrong about both of its parameters, not one.** `connection_limit` was already known inert (audit F-6-9). `pgbouncer=true` is inert too, on the same evidence: neither appears anywhere in `@prisma/adapter-pg`, the Prisma client runtime, `pg`, `pg-pool` or `pg-connection-string`. The pool ceiling is `max` in `src/lib/prisma.ts`, and transaction-mode pooling is safe here because the adapter emits unnamed statements, not because of anything on the URL.*
+- ***Item 6 understated Hobby.** Hobby does not quietly run an hourly cron daily; it **refuses the deployment**. The `vercel.json` in this repo cannot deploy to a Hobby account at all.*
+- ***Items 12 and 15 needed a companion nobody wrote: the value must be the value.** Supabase presents its key as `SUPABASE_PUBLISHABLE_KEY=sb_publishable_…`, and pasting that whole line into a dashboard value field is what blocked this deploy for two hours. Same hazard on every credential the list names.*
+- ***One item the list never had, and should have: the production Supabase project's Data API.** Checked on the day and found already disabled, so it cost nothing. It belonged on the list anyway, because with it enabled every table is readable by anyone holding the browser-shipped key, and Prisma-made tables carry no row-level security. Reasoning in the deploy entry.*
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -4512,3 +4519,166 @@ what tells the next reader there is nothing left to check here. The original wor
 was not false, it was too kind to the gap it was describing, and being too kind is
 what let it clear a whole-branch review untouched. It was caught by a person looking
 at a real screen, which is also the only reason it was caught at all.
+
+### The deploy: slice B of the deploy pair (24-25 August 2026)
+
+The product reached a public URL for the first time, at
+`https://interplanetary-groups.vercel.app`. No feature work. One small code PR,
+then a day of the owner's hands on dashboards, then this record.
+
+**Seven decisions.**
+
+1. **Vercel Pro, $20/mo.** Not bought for capacity. `vercel.json` asks for hourly
+   cron, and Vercel's Hobby tier does not merely degrade that to daily, it
+   **fails the deployment outright** ("Hobby accounts are limited to daily cron
+   jobs"). The alternative was a free external scheduler whose failure mode is
+   silence: the app would look perfect while three shipped behaviours quietly
+   stopped existing. Pro also carries cold start prevention and $20 of usage
+   credit, and it serves a second project on the same bill.
+2. **A custom domain stays deferred**, and the reasoning was corrected in
+   passing: attaching one is free on either tier, so what Pro adds is the
+   registration, limited to a second-tier TLD. The generated address was cleaned
+   to `interplanetary-groups.vercel.app` before any invite link existed, which is
+   the only cheap moment to do it.
+3. **`prisma generate` lives in `package.json`, not a Vercel field.** A dashboard
+   setting is invisible to anyone reading the repo and has to be recreated if the
+   project ever is. The owner's stated reason was the stronger one: a repo line is
+   a thing he never has to type correctly.
+4. **The pooling item was fixed in code, and the fix turned out to be a
+   correction rather than a protection.** See below.
+5. **Preview deploys stay unconfigured**, so production credentials live in
+   exactly one place. This nearly failed silently: Vercel's import form defaults
+   new variables to "Production and Preview," which would have pointed every
+   future branch build at the production database. Caught while fixing something
+   else.
+6. **Functions run in `cle1`**, matching the database's `us-east-2`, rather than
+   the `iad1` default a region away. Confirmed live from the response header
+   `x-vercel-id: cle1::cle1::…`.
+7. **The first production group is permanent**, because the product has no group
+   deletion. Accepted knowingly rather than discovered.
+
+**What the day actually cost, and the two things that caused it.** The deploy was
+blocked for roughly two hours by one wrong character sequence: Supabase hands you
+`SUPABASE_PUBLISHABLE_KEY=sb_publishable_…`, and the whole line went into Vercel's
+value box, so Supabase received a key with a variable name glued to its front and
+rejected it. The founder reached the end of the wizard and got "Could not create a
+session. Please try again."
+
+The mistake was trivial. **Finding it was not, and that is the part worth
+recording**, because two separate design choices conspired to make a one-character
+problem unreadable:
+
+- **`src/app/actions/create-group.ts:73` throws Supabase's error away.** The code
+  reads `if (error || !data.user)` and returns a friendly string without ever
+  logging `error`. Supabase said exactly what was wrong; nobody ever saw it. The
+  pre-deploy checklist's item 13 calls this failure "expensive to diagnose"; it is
+  expensive *because* of this line.
+- **The variables had been stored as Vercel "Secret" type, which is write-only.**
+  Nobody, including their author, could read them back. Two of the six are
+  `NEXT_PUBLIC_` values that ship to browsers by design, so there was no secret to
+  protect and the only effect was blindness. Recreating them as "Config" was what
+  broke the deadlock.
+
+Both are the same shape: a value that decides whether the product works, stored
+where nobody can look at it, failing with a message that names nothing.
+
+**What the review caught before any of that.** The pooling fix was first written
+as `max: 3`, on the premise that this app makes long sequential runs of database
+calls. True of the writes, false of the busiest read: `groups/[id]/page.tsx:82`
+fans out to `CARD_REGION_CAP` (5) concurrent roster lookups, so any ceiling below
+six would have throttled the most-viewed screen in the product on every render.
+The honest conclusion is close to a decline: **no cap below the pg default of 10
+is warranted here.** The line exists to record where the real knob is, not to
+change a number.
+
+The same review found the document repeating checklist item 3's claim that
+`pgbouncer=true` does real work. It does not. `pgbouncer` appears nowhere in
+`@prisma/adapter-pg`, the Prisma client runtime, `pg`, `pg-pool` or
+`pg-connection-string`, verified by grep. The safety it is credited with, no
+prepared statements under transaction-mode pooling, comes from the adapter naming
+a statement only when a `statementNameGenerator` is supplied, and none is. So
+**both** URL parameters are decoration, `max` is the ceiling, and adding a
+`statementNameGenerator` later would break pooling no matter what the URL says.
+
+**The security question that was raised and answered.** Planning flagged that the
+production Supabase project might have its Data API enabled, which would expose
+every Prisma-made table (they get no row-level security automatically) to anyone
+holding the browser-shipped publishable key, walking around the members-only wall
+entirely. **Checked: it is disabled.** Whether by the owner at creation or by
+Supabase's current default is not established and is deliberately not claimed.
+
+What *is* newly recorded is the coupling, because nothing in the repo said it:
+**the Data API being off is what makes "no RLS policies" safe.** Supabase's own
+anonymous-sign-in screen warns about exactly this. Anyone switching the Data API
+on later, to use a Supabase client library for something small, opens the hole in
+that same moment, with no error and no warning.
+
+**Verification.** Suite 97 files / 955 tests before and after the code PR, green,
+zero skipped, matching PR #80's finishing number; `tsc` clean; `npm run build`
+exit 0; `npm audit --omit=dev` holding at 8. `npm run db:which` printed dev-test
+before the production migration and immediately after it, which is the whole
+safety argument for the inline one-off override. All 14 migrations applied to
+production in one run, `migrate status` reporting the schema up to date: the
+migration read of 23 August said only a real run could prove the history builds a
+working database, and it does.
+
+In production, verified independently rather than reported: the front door
+renders; `/favicon.ico` returns 200 as `image/vnd.microsoft.icon` (slice A's late
+fix, proven where it matters); `/icon.svg`, `/apple-icon.png` and
+`/opengraph-image.png` all 200; `robots.txt` allows `/` and disallows `/groups/`,
+`/events/`, `/join/` and `/create`; a bogus group id gives a branded 404 naming
+Orbit and nothing about any group; a bad invite token gives Orbit's note. The
+cron endpoint returns 401 unauthenticated, and Vercel's own scheduled invocation
+at the top of the hour returned **200**, which is the only thing that actually
+proves `CRON_SECRET` is right.
+
+By the owner, on his phone: the full walk. Group created end to end, RSVP
+recorded, group info correct, invite link copied, joined from a private tab as a
+second person, the "joined" line appearing in the feed, and Orbit answering a
+floated idea with "Beers this Thursday?" plus chips and a live tally. **Both model
+calls are therefore proven in production**, extraction and detection, which was
+the last real unknown. The texted link preview was confirmed by the owner; that
+one is his observation, not something reachable from here.
+
+**Findings this day produced, none fixed here.**
+
+1. **`create-group.ts:73` and `join-group.ts:43` discard Supabase's error.** The
+   product's most expensive-to-diagnose failure is expensive by construction. A
+   one-line log would have saved two hours.
+2. **The two `NEXT_PUBLIC_` Supabase variables never reach a browser.** Nothing
+   client-side imports them; only `server.ts` and `proxy-session.ts` read them.
+   The prefix therefore buys nothing and costs something real: their values are
+   baked in at build time, so changing a Supabase setting requires a full rebuild
+   rather than saving a value.
+3. **Audit finding F-6-2 is confirmed on a real phone, not theoretical.** Sending
+   a message takes three to four seconds on a six-message group, because the app
+   reloads the entire chat history and re-renders twice per send. The product
+   consequence: the chat gets slower the more the group talks, which is backwards
+   for a chat-shaped product. Recommend ranking it above where the audit left it.
+4. **There is no way into a second group from inside the app.** `/create` typed
+   directly is the only route, and once a session holds two groups the front door
+   sends it to the most recent, leaving the older one reachable only by URL. This
+   is smaller than the multi-group home that is deliberately out of scope, and
+   should be queued separately so it does not wait on something unplanned.
+5. **Four dependency install scripts did not run on Vercel** (`@prisma/engines`,
+   `esbuild`, `prisma`, `unrs-resolver`), blocked by npm's `allow-scripts` gate.
+   The build went green and the product works, so nothing is known to be broken.
+   Unexplained, and recorded rather than dismissed.
+6. **The Supabase project is on the free tier, which pauses after about a week
+   idle.** The hourly cron incidentally prevents this by touching the database
+   every hour. Named because it is an accidental dependency: if the cron ever
+   stops, the site dies about a week later for a reason nobody would connect to
+   it.
+7. **Vercel's spend default is to keep billing rather than to pause**, the
+   opposite of the Anthropic arrangement. A pause threshold is unset.
+8. **Anthropic credit stood at ~$16, shared with a second project burning ~$35/mo.**
+   Today's traffic costs fractions of a cent, but an empty balance takes Orbit
+   dark. Top up before the link goes to anyone.
+
+**Queued at the owner's explicit request:** after the email sign-in slice, revisit
+web push versus a thin native notification shell. He asked to be reminded.
+
+*Correction, 25 August 2026: checklist item 16 is complete, and with it every one
+of the sixteen. The list above this entry now describes something that has
+happened. It is left in place unchanged, per the append-only rule, as the record
+of what the day was supposed to contain.*
