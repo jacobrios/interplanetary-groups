@@ -2,11 +2,8 @@
 
 Slice branch: `email-sign-in`. Opened 25 August 2026.
 
-**Status: design in progress.** The front section below is incomplete on purpose;
-it is filled in once the owner has settled the open questions. What is complete
-and durable already is the notification-channel record, because that decision was
-made in conversation and had no home in the repo, which is the failure mode this
-project keeps finding.
+**Status: design approved by the owner, 25 August 2026. Plan below, no code
+written.**
 
 ---
 
@@ -14,34 +11,44 @@ project keeps finding.
 
 ### Settled, do not relitigate
 
-- **Anonymous-first stays.** Experience before PII is a founding decision
-  (build-notes §3). Email upgrades an existing anonymous identity. It never
-  becomes a gate in front of the front door.
-- **Emails are never displayed anywhere in the UI**, even after capture. Member
-  lists are names only. The email is given to Orbit, not to the group
-  (CLAUDE.md, build-notes §3).
-- **Supabase does auth only.** The Data API on the production project is off,
-  and that is what makes "no RLS policies" safe. Nothing in this slice switches
-  it on, and nothing in this slice reaches for a Supabase client library to
-  touch data (build-notes §11, the deploy entry).
-- **Production and dev-test are separate Supabase projects and are never
-  crossed.** `npm run db:which` before anything database-related.
-- **Test-suite baseline, recorded before any code:** 97 files / 955 tests,
-  green, zero skipped, run on the branch at its cut. Matches main's finishing
-  number at `a4f7c9f`, so nothing landed outside a PR.
+Anonymous-first stays; email upgrades an identity, it never gates the front
+door. Emails are never displayed in the UI, to anyone, including their owner.
+Supabase does auth only and its Data API stays off. Production and dev-test are
+never crossed. Optional forever, asked twice. A six-digit code, not a link. No
+merge for identities that already duplicated. Full reasoning in the two round
+sections below; do not re-derive it.
+
+**Baseline, recorded before any code:** 97 files / 955 tests, green, zero
+skipped, matching main at `a4f7c9f`.
 
 ### Not in this slice
 
-*(To be completed once the design is settled. Every exclusion names where it
-does belong instead.)*
+Notifications of any kind, including the digest (digest slice). Merging existing
+duplicates (the founder's remove button). The rejoin hole (audit finding 10). A
+per-member read position (first task of the digest slice). Unsubscribe, and any
+seat for it (digest slice). Editing an attached email beyond re-running the
+attach flow (the post-MVP edit-path slice).
 
 ### How this slice will be verified
 
-*(Written before any code. To be completed.)*
+Automated: the two-ask eligibility rule as a pure function tested at the
+seven-day boundary with injected time; the auth seam against a mocked Supabase
+client, every failure branch; a guard test that no email reaches a rendered
+surface, proven by making it fail first. By hand here: every screen and failure
+state in a browser. **By hand, needing a real inbox:** a code arriving and a
+sign-in on a second device. That is reachable on dev-test before Resend exists,
+because Supabase's built-in sender delivers to the owner (an organisation
+member) and refuses everyone else. Test numbers before and after in the PR.
 
 ### Debt this slice is expected to open
 
-*(To be completed.)*
+The email is stored twice, in Supabase as the credential and in `ContactMethod`
+as the app's copy, and they could drift; accepted over a service-role key that
+would bypass every protection in the product. A second identity is orphaned
+rather than merged when someone signs in while sitting in one, by decision. A
+member who mistypes an address they never check cannot see it, by rule, and
+re-running the attach flow is the whole recovery. And a new deploy-time
+obligation: the Resend account, the DNS records, three Supabase settings.
 
 ---
 
@@ -225,20 +232,228 @@ where to look first. Not this slice's to settle, and nothing here depends on it.
 
 ---
 
-## Open questions (the owner's, being settled before any build)
+---
 
-1. Whether attaching an email is optional or eventually required, and what the
-   product does about someone who declines.
-2. What happens to identities that have already duplicated. The live group has
-   real rows in it.
-3. Where the ask lives. CLAUDE.md and build-notes §3 both say Orbit asks after a
-   member's first RSVP with a concrete reason attached; that was written before
-   any of today's screens existed.
-4. How the magic link is actually delivered, and what that costs.
+# The plan
 
-Plus three notification-adjacent decisions that this slice makes and the
-notification work inherits:
+Eleven tasks. Every task names what proves it. A task that cannot be proven is
+not done, and "could not verify" is a complete answer that must be said out loud
+rather than skipped past.
 
-- a. The sending service.
-- b. Unsubscribe handling.
-- c. Whether the data model gets a per-member read position now.
+**Sequencing note that shapes the whole plan.** Supabase's built-in sender
+delivers only to members of the Supabase organisation, and the owner is one. So
+the entire flow is buildable and provable on dev-test, with real codes arriving
+in the owner's real inbox, before Resend exists. Resend is what lets *anyone
+else* receive mail, which makes it a production obligation rather than a
+blocker. Task 1 exists to prove that assumption before ten tasks are built on
+top of it.
+
+---
+
+## Task 1. Prove the auth mechanism before building anything on it
+
+A throwaway script, run by hand against **dev-test**, that walks the real
+Supabase calls end to end and prints what comes back. No UI, no committed code
+beyond the script itself under the existing hand-run script convention.
+
+What it must establish, because each one is an assumption the rest of the plan
+rests on:
+
+1. An anonymous user can attach an email via `supabase.auth.updateUser({ email })`.
+2. **Which `type` `verifyOtp` needs for that confirmation.** The documented value
+   for an email change is `email_change`; whether an anonymous user's first
+   attach uses that or `email` is *not established* and must not be guessed.
+   This is the single most likely place the plan is wrong.
+3. That the email template can be made to deliver a **six-digit code** rather
+   than a link, via `{{ .Token }}`.
+4. That `signInWithOtp({ email, shouldCreateUser: false })` refuses an unknown
+   address, and what the error looks like, since product copy depends on it.
+5. That `verifyOtp({ type: "email" })` returns a session for the **original**
+   user, whose `supabaseAuthId` still matches the existing Prisma `User` row.
+6. What a rate-limit response looks like, since the built-in sender allows two
+   messages an hour and the flow will hit it during development.
+
+**Proves it:** the script's own output, pasted into the task record, plus a code
+that actually arrives in the owner's inbox. **If any assumption fails, stop and
+re-plan rather than working around it.**
+
+---
+
+## Task 2. The migration
+
+Two columns on `User`:
+
+- `emailAskCount Int @default(0)`
+- `emailAskedAt DateTime?`
+
+`ContactMethod` already exists with `type EMAIL`, `isVerified` and `isPreferred`,
+has never been written to, and needs no change. That is the seat this project
+built early and is now cashing in.
+
+Generated through the Prisma CLI, never hand-edited (a hook blocks direct edits
+to migrations, correctly). `npm run db:which` before and after.
+
+**Proves it:** `migrate status` clean on dev-test, and the existing Prisma smoke
+test still green.
+
+---
+
+## Task 3. The eligibility rule, as a pure function
+
+`shouldOfferEmail({ user, latestRsvpAt, hasVerifiedEmail, now })` returning
+`"first" | "second" | null`. All of the product rule lives here and nowhere else:
+
+- Never, if a verified EMAIL `ContactMethod` exists.
+- Never, if `emailAskCount >= 2`.
+- **First ask:** `emailAskCount === 0` and the member has at least one RSVP.
+- **Second ask:** `emailAskCount === 1`, at least **seven days** have passed
+  since `emailAskedAt`, and their latest RSVP is more recent than
+  `emailAskedAt`. The freshness check is what keeps the second ask attached to a
+  moment when a reminder is actually wanted, and it needs no new field because
+  `Rsvp.respondedAt` already exists.
+
+**Proves it:** unit tests at the boundary, including exactly seven days, one
+second under, and one second over. Time is injected, never read from the clock,
+so the machine's timezone cannot be what makes it green.
+
+---
+
+## Task 4. The auth seam
+
+`src/lib/auth/email.ts`, four functions, each returning a normalized result
+rather than a raw Supabase response, so no user-facing branch ever reads raw
+model or service output. This mirrors the claim-to-fact discipline
+`normalize.ts` already enforces for the model.
+
+- `requestEmailAttach(email)` → `ok | invalid_email | email_taken | rate_limited | service_error`
+- `confirmEmailAttach(email, code)` → `ok | wrong_code | expired | service_error`
+- `requestSignInCode(email)` → `ok | invalid_email | unknown_email | rate_limited | service_error`
+- `confirmSignInCode(email, code)` → `{ ok, userId } | wrong_code | expired | no_user | service_error`
+
+`confirmEmailAttach` also writes the `ContactMethod` row (EMAIL, verified,
+preferred) for the current Prisma user, in the same call, so an attached email
+can never exist in Supabase without the app knowing.
+
+**One thing this task must not repeat.** The deploy cost two hours because
+`create-group.ts:73` threw Supabase's error away. Every `service_error` branch
+here logs the underlying error before returning its friendly string.
+
+**Proves it:** unit tests against a mocked Supabase client for all four, every
+branch.
+
+---
+
+## Task 5. The ask on the group home
+
+A per-viewer element, rendered, never posted to the feed. Two states: email
+entry, then code entry. Dismissing is the decline.
+
+Server actions: `offerDismissed()` (increments `emailAskCount`, stamps
+`emailAskedAt`), plus wrappers over task 4's request and confirm. The ask is
+also stamped when it is *shown*, not only when dismissed, so a member who
+ignores it rather than dismissing it still only ever sees two.
+
+Copy is Orbit's voice, plain, warm, no em dashes, and it states the concrete
+reason: reminders, and getting back in from any device. The founder's copy
+carries the extra clause build-notes §3 already specifies, that losing the
+session means losing founder powers.
+
+Visual grammar: this is **not** a chat bubble (nothing in the feed responds to
+it), it is a note. Teal only on the confirm action, which is a genuine action.
+
+**Proves it:** rendered in a browser here, both states, plus the dismiss path;
+plus a test that the element does not render for a member with no RSVP, for a
+member with a verified email, or for a member at count 2.
+
+---
+
+## Task 6. The permanent affordance on group info
+
+A quiet row. For a member with no email: a way to add one. For a member with
+one: "Email reminders are on," plus a way to change it. **The address itself is
+never printed, even to its owner.** The rule says emails are never displayed
+anywhere in the UI; reading it literally costs nothing and removes an argument
+later.
+
+Styling follows the page's existing quiet text links (`ManageMembers`,
+`ResetInviteLink`), not a pill, and never teal.
+
+**Proves it:** rendered in a browser, both states.
+
+---
+
+## Task 7. The invite screen stops manufacturing duplicates
+
+`JoinForm` gains a second path for a visitor with no session. "I'm new here"
+stays the default and stays one step, because most taps genuinely are new
+people. "I've been here before" opens email and code.
+
+On success the person is routed into the group they are already a member of, or
+joined to this one if they are not.
+
+**This is the task that actually fixes the bug the slice exists for**, and it
+must not regress the ordinary join, which is the product's activation point.
+
+**Proves it:** browser walkthrough of both paths, plus the existing join tests
+still green.
+
+---
+
+## Task 8. A way back in without an invite link
+
+A `/signin` route (email, then code), plus an entry point on the front door. The
+front door already carries "Already invited? Open the link you were sent"; that
+line gains a sibling for someone who has been here before.
+
+An unknown email is answered honestly ("I don't have an account with that
+email") rather than with the vague version, because the vague version leaves a
+typo waiting forever for mail that is never coming, and knowing whether an
+address is on an account buys an attacker nothing without the inbox.
+
+**Proves it:** browser walkthrough including the unknown-email and wrong-code
+states.
+
+---
+
+## Task 9. The guard test
+
+A test asserting no email address reaches any rendered surface: the group home,
+group info, event detail, the roster, and the feed. Written so it **could
+fail**: it is checked by deliberately printing an address in one component,
+watching the test go red, and reverting.
+
+---
+
+## Task 10. Documentation, and one amendment that must land
+
+- **build-notes §3 is amended.** Its claim that Orbit asks for the email in
+  chat after the first RSVP is now wrong, and the reasoning (the feed is public,
+  and the composer would post the address into it) goes with the amendment as a
+  dated note.
+- **"Where Orbit decides to speak or stay quiet" gains its line**, per the
+  standing rule that any slice adding such a decision adds its row.
+- **CLAUDE.md's current-state section** rewritten, and the struck claim about a
+  lost session meeting the wall (already corrected once) updated to say what is
+  now true.
+- **build-notes §11** gets the slice entry, 400 to 600 words, carrying the
+  notification-channel decision recorded above.
+- **The pre-deploy checklist** gains the Resend account, the DNS records and the
+  three Supabase settings.
+
+---
+
+## Task 11. Production setup, the owner's hands
+
+Written as a numbered list for the owner, with exact values, because these are
+his accounts and not reachable from here:
+
+1. Resend account, domain `account.interplanetarygroups.com`.
+2. The DNS records, pasted into Vercel's DNS panel.
+3. Supabase custom SMTP pointed at Resend.
+4. The two email templates switched to `{{ .Token }}`.
+5. Auto-renew and WHOIS privacy on the domain.
+
+**Proves it:** the owner receives a code at a real address on the live site, and
+a second person who is not in the Supabase organisation does too. That last one
+is the only proof that Resend is actually working rather than the built-in
+sender quietly covering for it.
