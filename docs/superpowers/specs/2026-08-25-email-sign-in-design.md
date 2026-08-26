@@ -196,6 +196,35 @@ expensive half of that decision was forced by something else.
 
 ---
 
+**The domain is `interplanetarygroups.com`, $12/year, bought through Vercel
+(25 August 2026).** `casualgroups.com` was available and considered as insurance
+against a branding change; the owner declined to buy it. The name was chosen to
+match what a member reads on the join screen seconds before the login email
+lands, because a sender that matches the product they just saw reads as
+legitimate to a person and to a spam filter. Length was weighed and dismissed:
+nobody types this domain, since invite links are texted and tapped and a sender
+line is read rather than typed.
+
+Three things settled with it, none of them purchase decisions:
+
+- **Auto-renew on, WHOIS privacy on.** A lapsed domain takes the app's address
+  and every login email in the same hour, which is the same shape as the
+  free-tier Supabase pause already recorded at the deploy entry: an accidental
+  dependency nobody would connect to the symptom.
+- **No mailbox.** `no-reply@` only sends. Nothing needs to receive.
+- **Send from a subdomain, not the root**, per Resend's own recommendation, to
+  keep sending reputation separate from the website's. `account.` carries login
+  codes; when the digest arrives it gets `updates.` and its own reputation, so a
+  digest that collects spam complaints can never drag login codes down with it.
+  This is the first place the recorded notification-channel decision has changed
+  a choice inside this slice.
+
+*Raised and deliberately parked: the thing members will actually talk about is
+**Orbit**, not "Interplanetary Groups." If branding is ever revisited that is
+where to look first. Not this slice's to settle, and nothing here depends on it.*
+
+---
+
 ## Open questions (the owner's, being settled before any build)
 
 1. Whether attaching an email is optional or eventually required, and what the
