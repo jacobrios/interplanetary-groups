@@ -150,6 +150,52 @@ notification-adjacent decisions where "build the seat" is the wrong answer.
 
 ---
 
+## Settled with the owner, 25 August 2026 (round two)
+
+**Q1, the second ask fires on the next RSVP at least seven days after the first
+ask.** The owner's number, against a recommended fourteen. Nothing else changes:
+two asks is the whole allowance, and the field on `User` that remembers the
+decline also paces the second ask, so there is no separate machinery.
+
+**Q2. No automatic merge. Prevent the duplicate, and clean up the existing ones
+by hand.** Three findings decided it, all verified in the code rather than
+assumed. First, the founder's existing remove button already cleans this up:
+`deriveRoster` walks the current member list and looks up each person's answer,
+so a removed ghost's answers leave every count immediately, today, with no code.
+Second, the rejoin hole is real and stays open (audit finding 10: a removed ghost
+tapping the invite link again resurrects their old rows). Third, and new: the
+cheap merge is unsafe, because `Message.author` is `onDelete: SetNull`, so
+deleting a ghost account leaves its chat messages in the feed still marked
+`authorType: MEMBER` with no author attached. A safe merge has to reassign every
+row individually, which was priced at roughly a third of this slice.
+
+So the fix moves upstream: an invite link tapped by an unrecognised visitor asks
+whether they have been here before **before any account is created**. That is
+what stops the duplicate at its source, and the set it cannot help (identities
+already duplicated) stops growing the day this lands. The two or so in the live
+group are removed by hand from the group info page.
+
+**(c). The per-member read position is declined here and becomes the first task
+of the digest slice.** The owner's three precedents (many-to-many, venue options,
+the invite token) were all expensive to retrofit: a join table plus every query
+rewritten, a one-to-many, a unique column needing a backfill. A read position
+retrofits as one nullable column on `Membership` with no backfill and no query
+changes, so the usual argument does not apply. What actually costs something
+cannot be bought early at all: the bookmark is worth nothing unless it is being
+written, and writing it means deciding what counts as "read" (opening the group?
+scrolling to the bottom?). Deciding that with nothing reading it is a guess with
+no way to check it, and every member's value would still be null on the day the
+digest ships. It belongs next to the feature that depends on it.
+
+**The app moves to the new custom domain, not only the email sending.** The
+domain is being bought for email regardless; attaching it to the Vercel project
+is free on the existing plan, the `vercel.app` address keeps working so no
+existing invite link breaks, and this is the cheapest moment to do it. This
+reverses deploy decision 2's deferral, and the reason it reverses is that the
+expensive half of that decision was forced by something else.
+
+---
+
 ## Open questions (the owner's, being settled before any build)
 
 1. Whether attaching an email is optional or eventually required, and what the
