@@ -14,7 +14,7 @@ written.**
 Anonymous-first stays; email upgrades an identity, it never gates the front
 door. Emails are never displayed in the UI, to anyone, including their owner.
 Supabase does auth only and its Data API stays off. Production and dev-test are
-never crossed. Optional forever, asked twice. A six-digit code, not a link. No
+never crossed. Optional forever, asked twice. A one-time code, not a link. No
 merge for identities that already duplicated. Full reasoning in the two round
 sections below; do not re-derive it.
 
@@ -126,7 +126,7 @@ pattern the time-change-ending slice established for the vote confirmation line.
 Capturing at onboarding step 3 and the join screen was considered and declined:
 it would capture the most, and it is the thing anonymous-first exists to prevent.
 
-**Q4. A six-digit code, not a magic link.** A link in an email opens in the mail
+**Q4. A one-time code, not a magic link.** (Written as "six-digit" until task 1 measured it at **eight**; see the findings.) A link in an email opens in the mail
 app's in-app browser, a different browser with different storage from the one the
 person is sitting in. build-notes §3 already names in-app browsers as a session
 fragility risk; this points the fix at the same root cause. A code is typed into
@@ -264,7 +264,7 @@ rests on:
    for an email change is `email_change`; whether an anonymous user's first
    attach uses that or `email` is *not established* and must not be guessed.
    This is the single most likely place the plan is wrong.
-3. That the email template can be made to deliver a **six-digit code** rather
+3. That the email template can be made to deliver a **one-time code** rather
    than a link, via `{{ .Token }}`.
 4. That `signInWithOtp({ email, shouldCreateUser: false })` refuses an unknown
    address, and what the error looks like, since product copy depends on it.
@@ -457,3 +457,64 @@ his accounts and not reachable from here:
 a second person who is not in the Supabase organisation does too. That last one
 is the only proof that Resend is actually working rather than the built-in
 sender quietly covering for it.
+
+---
+
+# Task 1 findings (26 August 2026). All six questions answered; the plan holds.
+
+Run by hand against **dev-test** (`npm run db:which` confirmed before every send),
+with real mail to the owner's own inbox. Script: `scripts/spike-email-auth.ts`.
+
+**Q1. An anonymous identity can attach an email, and it is upgraded in place.**
+`updateUser({ email })` on an anonymous user returned no error and set
+`new_email` to the address while leaving `email` empty and `is_anonymous` true,
+so Supabase holds the address as pending until it is confirmed. This is the
+premise anonymous-first rests on and it is now proven rather than assumed.
+
+**Q2. The confirmation type is `email_change`.** This was the single most likely
+place for the plan to be wrong, and the script tried four candidates in order
+rather than guessing. `email_change` succeeded; `email`, `signup` and
+`magiclink` did not. **The user id was identical before and after**
+(`cf9e29b2-9123-49dc-8f2e-441ec8fc9eb6`), and `is_anonymous` flipped to false.
+The identity is upgraded, never replaced.
+
+**Q3. The code works, and it is EIGHT digits, not six.** `{{ .Token }}` renders.
+Supabase chose the **"Change email address"** template for an anonymous attach,
+which the deliberately-different subject lines are what proved. Two consequences:
+every "six-digit" in this document was wrong and is corrected above, and the
+code input must accept the length Supabase actually sends rather than a length
+anybody assumed.
+
+**Q4. An unknown address is refused as `otp_disabled` / 422** ("Signups not
+allowed for otp") when `shouldCreateUser: false`. Recorded caveat: that same
+code is what Supabase returns if OTP sign-in were switched off project-wide, so
+the error alone cannot separate "no such account" from "misconfigured." Accepted,
+because the second is a setup error caught once rather than a runtime condition.
+
+**Q5. Signing in fresh returns the ORIGINAL identity.** `signInWithOtp` then
+`verifyOtp({ type: "email" })` returned `cf9e29b2-9123-49dc-8f2e-441ec8fc9eb6`,
+the same id the attach produced. This is the whole slice in one line: the person
+comes back as themselves instead of as a second member.
+
+**Q6. Rate limits were NOT empirically hit, and that is stated rather than
+implied.** Configuration was read, not tested: minimum interval per user is 60
+seconds, and Supabase raises the ceiling to 30 emails an hour once custom SMTP
+is on. The 60-second floor is real enough to design against (task 4 already has
+a `rate_limited` branch) but no test in this spike proved its behaviour.
+
+**Two findings the spike produced that nobody asked for.**
+
+1. **Expired and wrong codes are indistinguishable.** Both return
+   `otp_expired` / 403, "Token has expired or is invalid." So the product cannot
+   honestly say "that code expired" or "that code is wrong"; one message must
+   cover both. Copy written any other way would be a lie the code cannot back up.
+2. **Deliverability evidence, first of its kind here.** The mail arrived in the
+   Gmail **Inbox**, not spam, rendered as `Orbit
+   <no-reply@account.interplanetarygroups.com>`. Gmail is the strictest common
+   inbox, so this is the best single datapoint available, and it is one provider
+   rather than proof for all of them.
+
+**Verdict: no re-plan needed.** Tasks 2 through 11 stand as written, with three
+edits folded in: `email_change` is the named confirmation type in task 4, the
+code length is read from what Supabase sends rather than fixed at six, and the
+wrong-or-expired copy is merged into one honest message.
