@@ -92,6 +92,64 @@ switch later.
 
 ---
 
+## Settled with the owner, 25 August 2026 (round one)
+
+**Q1. Attaching an email is optional, permanently, and Orbit asks twice.**
+Optional because "eventually required" is only a gate with a delay on it, and it
+would fire while someone is trying to do something else. The owner overruled the
+single-ask recommendation: the first ask lands before a member has reason to
+trust the product, and the case for reminders gets stronger as the group proves
+itself, so a second ask at a later moment is a fair one rather than a nag. Two
+asks is the whole allowance; after a second decline Orbit never asks again and
+the group info page stays the permanent way in. A decline must be remembered in
+data, which needs a field on `User` that does not exist today (surfaced as a
+design element with no data home, not added silently).
+
+**Q3. The ask lives on the group home, rendered per viewer, with the group info
+page as its permanent home.** The build-notes §3 placement (Orbit asks in chat
+after the first RSVP) no longer fits and is amended by this slice. Two reasons it
+cannot stand: the group feed is the product's one conversation surface and it is
+public, so an ask addressed to one member is clutter for everyone else and
+repeats per member; and the only input on that screen is the chat composer, so
+answering the ask would post the member's email into the group feed, breaking
+"emails are never displayed anywhere in the UI" outright. The §3 *trigger*
+survives untouched: the first RSVP is still when "I want a reminder for this" is
+true. Only the surface moves. Rendering per viewer rather than posting reuses the
+pattern the time-change-ending slice established for the vote confirmation line.
+Capturing at onboarding step 3 and the join screen was considered and declined:
+it would capture the most, and it is the thing anonymous-first exists to prevent.
+
+**Q4. A six-digit code, not a magic link.** A link in an email opens in the mail
+app's in-app browser, a different browser with different storage from the one the
+person is sitting in. build-notes §3 already names in-app browsers as a session
+fragility risk; this points the fix at the same root cause. A code is typed into
+the browser they are already in, and it survives the email arriving on a laptop
+while the person is holding a phone.
+
+**Q4 / (a). Resend, free tier, and the domain it forces.** Supabase's built-in
+sender is unusable, not merely weak: 2 messages an hour, and only to members of
+the Supabase organisation, with no delivery guarantee, by Supabase's own docs.
+Every real sending service requires a domain the owner controls DNS for, and
+`interplanetary-groups.vercel.app` is not one. So **email sign-in forces the
+custom domain that deploy decision 2 deferred**; roughly $12 to $20 a year, with
+the sending itself at $0. Resend's free tier is 3,000 emails a month and 100 a
+day, which covers login codes now and a daily digest to roughly 100 members
+later, so transactional-only versus transactional-plus-digest does not change the
+choice at this product's scale. One provider, one domain, one bill for both is
+the actual reason to pick it, rather than the price. **This is the first
+deploy-time obligation since the deploy** and goes on the pre-deploy checklist in
+this slice's PR.
+
+**(b). Unsubscribe: build nothing, and deliberately build no seat either.** A
+login code is transactional and needs no unsubscribe. The digest will need one.
+But an unsubscribe is a per-channel preference and the channels are not decided
+(digest, event-triggered, both, separately), so a boolean guessed now is more
+likely wrong than right and costs one migration to fix either way. Recorded as a
+deliberate decline rather than an oversight, because it is the one of the three
+notification-adjacent decisions where "build the seat" is the wrong answer.
+
+---
+
 ## Open questions (the owner's, being settled before any build)
 
 1. Whether attaching an email is optional or eventually required, and what the
