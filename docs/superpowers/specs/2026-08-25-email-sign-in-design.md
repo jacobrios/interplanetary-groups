@@ -518,3 +518,87 @@ a `rate_limited` branch) but no test in this spike proved its behaviour.
 edits folded in: `email_change` is the named confirmation type in task 4, the
 code length is read from what Supabase sends rather than fixed at six, and the
 wrong-or-expired copy is merged into one honest message.
+
+---
+
+# The ask: triggers and copy, settled 26 August 2026
+
+## When the ask fires
+
+**Two asks per person, ever, not per group.** The fields live on `User`. What a
+member gains is getting *their identity* back, which is not a per-group thing,
+and being asked once per group is the nagging this product exists to avoid.
+
+**The counter counts declines, not appearances.** The offer stays on screen until
+it is answered: attaching answers it, dismissing answers it, ignoring it does
+not. This was a correction to the original plan, made when the owner's own
+reasoning ("the first time we ask, they may not fully trust the product") showed
+an ask is an *episode* rather than a glimpse. Counting impressions would spend
+both asks on someone who never looked, and it would send the second ask to the
+wrong person: the one it is for is the member who said no while still deciding
+whether to trust the product.
+
+**First ask: on the member's first contribution of any kind.** Three count, and
+the breadth is deliberate: an RSVP, a chat message, or a gauge vote. RSVP alone
+is too narrow *in this product specifically*, because the spark flow starts with
+someone talking in chat, so a member can contribute constantly for weeks without
+an RSVP ever coming up. The gauge vote was added on top of the owner's own list:
+it is the product's core interaction, it is one tap rather than typing, and it is
+the exact thing whose accuracy the product promises.
+
+**Second ask: seven days AND a fresh contribution.** Not "whichever comes first."
+The owner proposed the timer as an alternative and asked whether best practice
+settled it. It does, and so does this product's own north star. An ask that fires
+on a timer arrives on a quiet screen where nothing happened, so it has to argue
+for itself from scratch, which is exactly when it reads as pestering; and every
+nudge here must justify itself, staying quiet when in doubt. The accepted cost,
+stated rather than hidden: **some people will never get a second ask.** That is
+preferred over pestering.
+
+**An OUT RSVP counts.** Saying no to Thursday is not saying no to reminders, and
+treating a decline as disengagement would be the product reading silence into a
+clear answer.
+
+## The copy
+
+Settled with the owner over four rounds. Two things he changed that were better
+than the draft, kept here because the reasoning generalises: **Orbit owns the
+gap** ("I haven't asked for a way to remember you"), rather than implying the
+member failed to do something; and **the second ask points at the group name at
+the top of the screen**, a thing a member can see, rather than naming "group
+info," a page they would have to go find.
+
+The frame is loss aversion, at the owner's direction, and it is not a dark
+pattern here because three things hold: the loss is real, the decline is one
+neutral tap, and there is no invented urgency, no countdown, and no third ask.
+
+**First ask.**
+
+> I haven't asked for a way to remember you. Add your email so you can log back
+> in if necessary. This way you don't lose access to this group.
+
+Buttons: **Save** / **Not now**. Founder's version appends the clause
+build-notes §3 requires: *It also means you won't lose the group you started.*
+
+**Second ask.**
+
+> You're still a temporary member. Without your email, you can't log back in if
+> something happens. If now is not a good time, no worries. Just tap [group name]
+> at the top of the screen whenever you're ready. I won't bother you like this
+> again.
+
+Buttons: **Save** / **No thanks**. `[group name]` renders the real name.
+
+**Two objections the owner heard and overruled, recorded so they are not
+re-raised as new.** That "log back in" is system language for someone who never
+knowingly made an account: he judged that logging in is universally understood
+even by people who know nothing about where a session is stored. And that "you
+don't lose access to this group" is inaccurate, since a member keeps the invite
+link and loses their identity rather than their access: he judged the two
+readings to be the same thing from the member's side, access as their original
+self being the thing that is lost. Both are his calls, made with the objection
+in front of him.
+
+**No specific expiry is ever named in copy**, deliberately. Storage does expire,
+but what applies to this app's setup was not verified, and copy naming a number
+nobody can stand behind is worse than copy that stays general.
