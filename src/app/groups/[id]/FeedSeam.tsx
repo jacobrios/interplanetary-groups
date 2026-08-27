@@ -3,10 +3,17 @@
 // The boundary between the pinned card region and the chat feed, and nothing
 // else. It owns two marks and has no opinion about what sits on either side:
 //
-//   - a full-bleed hairline where the feed begins, the same grammar that
-//     already ends the header (PageHeader's borderBottom)
+//   - a full-bleed hairline where the feed begins
 //   - an 18px scrim over the feed's first pixels, the composer's own scrim
 //     grammar turned upside down
+//
+// Amended 26 Aug 2026 (header-rule slice): this hairline used to be
+// described as sharing its grammar with the header's own bottom border
+// (PageHeader's borderBottom). That border is gone. This hairline stays
+// exactly as it was; the cross-reference is what's stale. With the header
+// rule removed, this seam is now the only rule left on the screen marking
+// where the card region ends and the feed begins, which is a stronger
+// reason for it to exist, not a weaker one.
 //
 // Why it exists as a piece rather than three properties on the page: the page
 // is server-rendered and cannot be unit tested, and the scrim carries a real

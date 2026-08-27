@@ -242,10 +242,15 @@ export default async function GroupPage({ params }: Props) {
       {/* Multi-card: side padding moves onto CarouselRail so the rail can
           bleed past the screen edge for the peek. Single-card: padding stays
           here, there is no rail to carry it. The strip's "air above" is gone
-          along with the strip itself. */}
+          along with the strip itself.
+
+          Top padding is 0 (header-rule slice, 26 Aug 2026): with
+          PageHeader's own hairline gone, the header's 14px bottom padding is
+          now the only gap between the bar and this region, so no extra top
+          padding is needed here to hold the two apart. */}
       <div
         style={{
-          padding: `0.75rem ${entries.length > 1 ? 0 : "1rem"} 0.75rem`,
+          padding: `0 ${entries.length > 1 ? 0 : "1rem"} 0.75rem`,
           flexShrink: 0,
         }}>
         {entries.length > 0 ? (

@@ -103,13 +103,19 @@ export default async function GroupInfoPage({ params }: Props) {
         }}
       >
         {/* ── Identity block (handoff: emblem, name, count) ─────────────── */}
+        {/* Top padding is 0 (header-rule slice, 26 Aug 2026): with the
+            content wrapper above already at zero top padding, this 10px was
+            the last bit of air between the header's old bottom hairline and
+            the emblem. With that hairline gone, the header's own 14px
+            bottom padding is the only gap this screen needs. Bottom padding
+            (4px, name-to-invite-link spacing) is unrelated and unchanged. */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            padding: "10px 0 4px",
+            padding: "0 0 4px",
           }}
         >
           {/* Lime emblem: group brand moment, not an action (lime is never a button) */}

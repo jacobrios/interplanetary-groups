@@ -126,7 +126,14 @@ export default async function EventPage({ params }: Props) {
           card's own top border, so the two hairlines ran together. 12px
           top padding closes the gap, matching the measured space between
           the header and the first card on the group home
-          (/groups/[id]'s 0.75rem card-region padding). */}
+          (/groups/[id]'s 0.75rem card-region padding).
+
+          Amended 26 Aug 2026 (header-rule slice): that 12px goes back to 0.
+          The reason it was added is void now that PageHeader no longer
+          carries a bottom hairline; there is only one line left to run
+          into anything, and the header's own 14px bottom padding already
+          holds it clear of the details card's top border. History kept
+          rather than deleted, per this project's append-only records. */}
       <div
         style={{
           flex: "1 1 auto",
@@ -135,7 +142,7 @@ export default async function EventPage({ params }: Props) {
           width: "100%",
           maxWidth: "28rem",
           margin: "0 auto",
-          padding: "12px 22px 16px",
+          padding: "0 22px 16px",
         }}
       >
         {/* ── Event details card ─────────────────────────────────────── */}
