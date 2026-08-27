@@ -10,6 +10,8 @@
 // screen can override the two lines that read as Orbit speaking in the first
 // person, without touching the mechanism underneath.
 
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import EmailAttachFlow, { DEFAULT_DONE_MESSAGE } from "../EmailAttachFlow"
@@ -426,5 +428,159 @@ describe("EmailAttachFlow, the sheet variant", () => {
     expect(screen.getByTestId("slot").textContent).toBe(
       "I sent a code to sam@example.com. Enter it here and you're set."
     )
+  })
+})
+
+// ── Added 27 Aug 2026, the step-legibility fix ─────────────────────────────
+// The owner ran the flow on the group info page and could barely tell the
+// screen had changed after he entered his address: "It looks so similar, at
+// least at first glance." Two causes, one test block each below. Nothing
+// above this line was edited.
+
+describe("EmailAttachFlow, the field's own eyebrow", () => {
+  // Cause 1. The visible EMAIL / CODE eyebrow existed only in the sheet, so on
+  // the inline surface the only things that changed between the two steps were
+  // a sentence of prose and a placeholder. Everything structural stayed put.
+
+  it("names the step above the field on the inline surface", async () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+    expect(screen.getByText("Email")).toBeDefined()
+
+    await reachCodeStep()
+    expect(screen.getByText("Code")).toBeDefined()
+    expect(screen.queryByText("Email")).toBeNull()
+  })
+
+  it("names the step above the field in the sheet", async () => {
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
+    expect(screen.getByText("Email")).toBeDefined()
+
+    await reachCodeStep()
+    expect(screen.getByText("Code")).toBeDefined()
+    expect(screen.queryByText("Email")).toBeNull()
+  })
+
+  it.each(["inline", "sheet"] as const)(
+    "hides the eyebrow from assistive tech on the %s surface, because the field is already named",
+    (variant) => {
+      // The real accessible name is the visually hidden <label htmlFor> on the
+      // input. Announcing both would read the field's name twice, which is why
+      // the sheet's eyebrow shipped aria-hidden and why the inline one copies
+      // it rather than inventing a second convention.
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      const eyebrow = screen.getByText("Email")
+
+      expect(eyebrow.getAttribute("aria-hidden")).toBe("true")
+      // Still exactly one accessible name for the field, not two.
+      expect(screen.getAllByLabelText("Your email address")).toHaveLength(1)
+    }
+  )
+
+  it.each(["inline", "sheet"] as const)(
+    "binds the eyebrow to the field it names on the %s surface",
+    (variant) => {
+      // A label floating anywhere near a field is not a label. It has to be
+      // the element immediately before the field's own row, or the fix is
+      // decoration.
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      const eyebrow = screen.getByText("Email")
+      const input = screen.getByLabelText("Your email address")
+
+      expect(eyebrow.nextElementSibling).not.toBeNull()
+      expect(eyebrow.nextElementSibling!.contains(input)).toBe(true)
+    }
+  )
+
+  it("gives the eyebrow more room above it than below it, so it binds downward", () => {
+    // Proximity is the whole mechanism: the label has to read as the head of
+    // the field group rather than as the last line of the prose above it.
+    // Judged for the inline row rather than copied from the sheet, whose
+    // 52px column is looser than this 40px one.
+    render(<EmailAttachFlow {...baseProps()} />)
+    const eyebrow = screen.getByText("Email")
+    const form = eyebrow.closest("form") as HTMLFormElement
+
+    const above = parseFloat(form.style.marginTop)
+    const below = parseFloat(eyebrow.style.marginBottom)
+    expect(above).toBeGreaterThan(below)
+  })
+})
+
+describe("EmailAttachFlow, the code field reads as a code field", () => {
+  // Cause 2. Round 10's handoff (docs/design/design_handoff_round10) drew the
+  // code input with its own treatment and no task ever ported it, so eight
+  // digits rendered in the same proportional face as an email address.
+
+  it.each(["inline", "sheet"] as const)(
+    "gives the code input the drawn mono treatment on the %s surface",
+    async (variant) => {
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      await reachCodeStep()
+      const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+      expect(code.style.fontFamily).toBe("var(--font-mono)")
+      expect(code.style.fontSize).toBe("var(--type-title)")
+      expect(code.style.letterSpacing).toBe("0.26em")
+      expect(code.style.fontVariantNumeric).toBe("tabular-nums")
+    }
+  )
+
+  it.each(["inline", "sheet"] as const)(
+    "leaves the email input alone on the %s surface",
+    (variant) => {
+      // Only the code step differs. The email field is unchanged.
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      const field = screen.getByLabelText("Your email address") as HTMLInputElement
+
+      expect(field.style.fontFamily).toBe("")
+      expect(field.style.letterSpacing).toBe("")
+      expect(field.style.fontSize).toBe("var(--type-body)")
+    }
+  )
+
+  it.each(["inline", "sheet"] as const)(
+    "grows the field's own box on the %s surface so the taller type is not clipped",
+    async (variant) => {
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      const emailBox = (screen.getByLabelText("Your email address")
+        .parentElement as HTMLElement).style.minHeight
+
+      await reachCodeStep()
+      const codeBox = (screen.getByLabelText("The code from your email")
+        .parentElement as HTMLElement).style.minHeight
+
+      expect(parseFloat(codeBox)).toBeGreaterThan(parseFloat(emailBox))
+    }
+  )
+
+  it("keeps the code input free of any length rule on the inline surface", async () => {
+    // jsdom reports -1 for an unset maxLength. The service sends eight digits
+    // today and the plan said six; the auth seam's only length rule is that an
+    // empty string cannot be a code. No maxLength, and no segmented boxes: the
+    // handoff records why, which is that paste has to work.
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(code.maxLength).toBe(-1)
+    expect(screen.getAllByLabelText("The code from your email")).toHaveLength(1)
+  })
+
+  it("resolves --font-mono and --type-title to something real, so neither var() is a no-op", () => {
+    // The assertions above pin token NAMES, and a token name can be spelled
+    // right while resolving to nothing. globals.css is the single source for
+    // both, so read it. The size check is the iOS one: a focused input that
+    // computes under 16px zooms the whole page, and --type-title is the size
+    // the code field now asks for.
+    const css = readFileSync(
+      path.join(process.cwd(), "src/app/globals.css"),
+      "utf8"
+    )
+
+    expect(css).toMatch(/--font-mono:\s*var\(--font-geist-mono\)/)
+
+    const title = css.match(/--type-title:\s*([\d.]+)rem/)
+    expect(title).not.toBeNull()
+    expect(parseFloat(title![1]) * 16).toBeGreaterThanOrEqual(16)
   })
 })

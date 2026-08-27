@@ -385,6 +385,45 @@ export default function EmailAttachFlow({
     </>
   )
 
+  /**
+   * The eyebrow over the field, and the reason it is shared rather than drawn
+   * inside the sheet's branch where it started.
+   *
+   * It is the only thing on either surface that names which of the two steps
+   * the member is standing on. The owner met the inline surface, which never
+   * had one, and could barely tell the screen had changed after he entered his
+   * address: a sentence of prose and a placeholder both swapped, and every
+   * structural thing on screen stayed exactly where it was. So this stops
+   * being a sheet detail and becomes the flow's own.
+   *
+   * aria-hidden on purpose, which the sheet's copy already was: the real
+   * accessible name is the visually hidden <label htmlFor> inside the field
+   * below, which reads "Your email address" / "The code from your email".
+   * Announcing both would read the field's name twice.
+   *
+   * SPACING IS PER SURFACE, judged rather than copied. The sheet's column is
+   * loose (a 52px field, 16px between groups) and takes 7px under the label.
+   * The inline row is denser (a 40px field in a page that also carries a
+   * member list) and takes 5px, so the label still binds down to its field
+   * harder than it binds up to the prose above it. That relationship, not
+   * either number, is what the test pins.
+   */
+  const stepEyebrow = (
+    <span
+      aria-hidden="true"
+      style={{
+        fontSize: "var(--type-eyebrow)",
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: "var(--text-faint)",
+        fontWeight: 700,
+        marginBottom: isSheet ? 7 : 5,
+      }}
+    >
+      {isCodeStep ? "Code" : "Email"}
+    </span>
+  )
+
   /** The field itself, in whichever shell this variant draws around it. */
   const field = (
     <div
@@ -398,7 +437,10 @@ export default function EmailAttachFlow({
               display: "flex",
               alignItems: "center",
               width: "100%",
-              minHeight: 52,
+              // The code step is taller because its type is taller: round 10's
+              // `.ea-code` is 60px against `.ea-input`'s 52px. Grows with the
+              // content rather than clipping it.
+              minHeight: isCodeStep ? 60 : 52,
               padding: "12px 14px",
               backgroundColor: "var(--surface-base)",
               border: "1.6px solid var(--hairline)",
@@ -409,7 +451,10 @@ export default function EmailAttachFlow({
               flex: "1 1 11rem",
               display: "flex",
               alignItems: "center",
-              minHeight: 40,
+              // Same reason as the sheet's 60, scaled to this denser row: at
+              // 24px the code type alone is taller than the 40px box that
+              // holds a 17px address, so the box has to grow with it.
+              minHeight: isCodeStep ? 52 : 40,
               backgroundColor: "var(--surface-base)",
               border: "1px solid var(--hairline)",
               borderRadius: 26,
@@ -470,6 +515,32 @@ export default function EmailAttachFlow({
           fontSize: "var(--type-body)",
           outline: "none",
           caretColor: "var(--text-primary)",
+          // THE CODE STEP IS DELIBERATELY NOT THE EMAIL STEP, and if a later
+          // pass is tempted to harmonise the two inputs, this is the reason
+          // not to. Round 10's handoff drew `.ea-code` with its own treatment
+          // and no task ever ported it, so eight digits rendered in the same
+          // proportional face as an address; the owner then met the flow on
+          // his phone and could barely tell the screen had changed. Mono with
+          // tabular figures and a wide track is what makes a string of digits
+          // legible AS digits at a glance, and it is the only thing on this
+          // row that does that job, since the box, the border and the button
+          // are all shared with the step before it.
+          //
+          // One input, never eight boxes, and no length rule anywhere: the
+          // handoff records why, which is that paste has to work and that
+          // eight boxes read as a puzzle.
+          //
+          // --type-title is 24px, comfortably over the 16px below which iOS
+          // zooms the page on focus, so the constraint the email field's 17px
+          // exists to satisfy is satisfied here with room to spare.
+          ...(isCodeStep
+            ? {
+                fontFamily: "var(--font-mono)",
+                fontSize: "var(--type-title)",
+                letterSpacing: "0.26em",
+                fontVariantNumeric: "tabular-nums",
+              }
+            : null),
         }}
       />
     </div>
@@ -652,24 +723,7 @@ export default function EmailAttachFlow({
                 the promise travels with the field instead of drifting under
                 Save. */}
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {/* Decorative, and aria-hidden on purpose. The real label is the
-                  visually hidden <label htmlFor> inside the field above, which
-                  says "Your email address" / "The code from your email"; this
-                  eyebrow is the drawn 13px "EMAIL" a sighted member reads.
-                  Announcing both would read the field's name twice. */}
-              <span
-                aria-hidden="true"
-                style={{
-                  fontSize: "var(--type-eyebrow)",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--text-faint)",
-                  fontWeight: 700,
-                  marginBottom: 7,
-                }}
-              >
-                {isCodeStep ? "Code" : "Email"}
-              </span>
+              {stepEyebrow}
               {field}
               {assurance}
             </div>
@@ -687,20 +741,34 @@ export default function EmailAttachFlow({
           </form>
         ) : (
           <>
+            {/* A column now, where it used to be a bare row, and the column is
+                the whole point: it is what gives the eyebrow somewhere to sit
+                above the field it names. The row itself is unchanged and is
+                now nested one level in, so its wrapping behaviour is exactly
+                what it was.
+
+                12px above the eyebrow against the 8px this form used to take,
+                because the thing directly above it is a sentence of prose and
+                a 13px uppercase label at 8px reads as that sentence's last
+                line rather than as the head of a field group. */}
             <form
               onSubmit={handleSubmit}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                // Wraps rather than clips: at an enlarged device text size the
-                // field and the button stack instead of squeezing.
-                flexWrap: "wrap",
-                marginTop: 8,
-              }}
+              style={{ display: "flex", flexDirection: "column", marginTop: 12 }}
             >
-              {field}
-              {save}
+              {stepEyebrow}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  // Wraps rather than clips: at an enlarged device text size the
+                  // field and the button stack instead of squeezing.
+                  flexWrap: "wrap",
+                }}
+              >
+                {field}
+                {save}
+              </div>
             </form>
 
             {assurance}
