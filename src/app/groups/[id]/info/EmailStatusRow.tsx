@@ -51,7 +51,15 @@ const DONE_MESSAGE = "Saved. This email can be used to sign back in any time."
 // Orbit is the one talking.
 const REQUEST_ERROR_MESSAGES = {
   invalid_email: "That address doesn't look right. Check it and try again.",
-  email_taken: "That email is already saved to someone here. Try a different one.",
+  // Same rewrite as EmailAttachFlow's default, 27 Aug 2026, and it had to
+  // happen here too: this is a separately worded copy of the same idea, and
+  // fixing only the other one would have left this path dead-ending the very
+  // people it was rewritten for, a member typing their own address after a
+  // lost session made a second copy of them. Kept word for word identical to
+  // the default here, unlike the four around it: it carries no pronoun, no
+  // Orbit voice to neutralise, and the owner settled this exact sentence.
+  email_taken:
+    "That email is already on an account. If it's yours, sign in with it instead of adding another.",
   rate_limited: "That was quick. Wait a minute before asking for another code.",
   service_error: "Something went wrong. Give it another try in a bit.",
 } as const

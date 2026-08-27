@@ -19,11 +19,28 @@
 // is the one talking.
 
 import { useEffect, useId, useState, useTransition } from "react"
+import Link from "next/link"
 import {
   requestEmailAttachAction,
   confirmEmailAttachAction,
 } from "@/app/actions/email-ask"
 import type { AttachRequestResult } from "@/lib/auth/email"
+
+/**
+ * Where the email_taken message points. It lives here rather than in the copy
+ * so both callers get it: the group home's note and the group info page's row,
+ * which overrides every word of the error strings but not the structure around
+ * them. A sentence telling somebody to sign in has to have a door behind it,
+ * or it is worse than the wording it replaced.
+ *
+ * No return path on it, deliberately. Signing in changes who the viewer is,
+ * and a link carrying "come back to this group afterwards" would be sending a
+ * newly resolved identity at a group it may not be a member of, which lands on
+ * the members-only wall. The front door already works out where a signed-in
+ * person belongs, and /signin hands them to it.
+ */
+const SIGN_IN_HREF = "/signin"
+const SIGN_IN_LABEL = "Sign in with that email"
 
 /**
  * Exported so a caller reusing the default map (or writing its own) has the
@@ -32,7 +49,19 @@ import type { AttachRequestResult } from "@/lib/auth/email"
  */
 export const DEFAULT_REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, string> = {
   invalid_email: "That address doesn't look right. Mind checking it?",
-  email_taken: "That email is already saved to someone here. Try another one.",
+  // Rewritten by the owner, 27 Aug 2026, and the reasoning is worth keeping
+  // because the old wording read fine. Think about who actually reaches this
+  // branch: overwhelmingly a member who attached their email, lost their
+  // session, came back through the invite link as a second copy of themselves,
+  // and is now typing their own real address. The old copy ("already saved to
+  // someone here. Try another one.") told that person the address belonged to
+  // somebody else and invited them to use a different one, which cements the
+  // duplicate permanently and makes it signed-in-able. "Here" was also a claim
+  // the code cannot back up: Supabase identities are project-global, not
+  // per group. The sentence now points at signing in, and SIGN_IN_HREF below
+  // is what keeps it from being a promise the product cannot keep.
+  email_taken:
+    "That email is already on an account. If it's yours, sign in with it instead of adding another.",
   rate_limited: "That was quick. You can ask for a new code once a minute.",
   service_error: "Something went wrong on my end. Give it another try in a bit.",
 }
@@ -125,6 +154,11 @@ export default function EmailAttachFlow({
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  // Rides alongside errorMsg rather than being derived from it, because the
+  // caller may have replaced the copy with words of its own (the group info
+  // page does replace all five), and matching on a string the caller controls
+  // would be a route that silently disappears the day somebody rewords it.
+  const [offerSignIn, setOfferSignIn] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [isPending, startTransition] = useTransition()
 
@@ -140,6 +174,7 @@ export default function EmailAttachFlow({
   function sendCode(target: string, { resending }: { resending: boolean }) {
     startTransition(async () => {
       setErrorMsg(null)
+      setOfferSignIn(false)
       const { result } = await requestEmailAttachAction(target)
       if (result === "ok") {
         setStep("code")
@@ -150,6 +185,9 @@ export default function EmailAttachFlow({
       // still be sitting in their inbox and still work.
       if (!resending) setStep("email")
       setErrorMsg(requestErrorMessages[result])
+      // The one refusal with somewhere else to go. Everything else is a thing
+      // to fix in place.
+      setOfferSignIn(result === "email_taken")
     })
   }
 
@@ -278,6 +316,30 @@ export default function EmailAttachFlow({
         </p>
       )}
 
+      {/* The door behind the sentence above. A quiet link rather than a
+          button: the member came here to add an email, and this is the
+          product admitting they may already have done that, which is not a
+          moment to compete with the screen's real action. 44px tall so it is
+          a real tap target on a phone. */}
+      {offerSignIn && (
+        <p style={{ margin: "2px 0 0" }}>
+          <Link
+            href={SIGN_IN_HREF}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              minHeight: 44,
+              color: "var(--text-secondary)",
+              fontSize: "var(--type-meta)",
+              lineHeight: leading,
+              textDecoration: "underline",
+            }}
+          >
+            {SIGN_IN_LABEL}
+          </Link>
+        </p>
+      )}
+
       {step !== "done" && (
         <>
           <form
@@ -332,8 +394,12 @@ export default function EmailAttachFlow({
                   // The complaint is about what was typed, so it stops being
                   // true the moment they start fixing it. Leaving it under the
                   // field while they retype reads as the product still saying
-                  // no to something they have already changed.
-                  if (errorMsg) setErrorMsg(null)
+                  // no to something they have already changed. The sign-in
+                  // route goes with it: it was an answer to that address.
+                  if (errorMsg) {
+                    setErrorMsg(null)
+                    setOfferSignIn(false)
+                  }
                 }}
                 disabled={isPending}
                 style={{

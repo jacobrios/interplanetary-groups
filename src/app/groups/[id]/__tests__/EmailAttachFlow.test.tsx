@@ -171,7 +171,8 @@ describe("EmailAttachFlow, overriding the Orbit-voiced lines", () => {
         {...baseProps({
           requestErrorMessages: {
             invalid_email: "That address doesn't look right. Check it and try again.",
-            email_taken: "That email is already saved to someone here. Try a different one.",
+            email_taken:
+              "That email is already on an account. If it's yours, sign in with it instead of adding another.",
             rate_limited: "That was quick. Wait a minute before asking for another code.",
             service_error: "Something went wrong. Give it another try in a bit.",
           },

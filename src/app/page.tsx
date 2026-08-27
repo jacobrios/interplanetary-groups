@@ -167,6 +167,38 @@ export default async function HomePage() {
           >
             Already invited? Open the link you were sent.
           </p>
+
+          {/* The email-sign-in slice's door on the front page, and a sibling
+              of the note above rather than a second button: the screen's one
+              real action is starting a group, and neither of these notes is
+              that. It exists for the member who has none of the other ways
+              in, the one who cleared their cookies or moved from phone to
+              laptop and has long since lost the invite link. Without it their
+              only route is to be made into a second copy of themselves.
+
+              The link is --text-secondary against the note's --text-faint so
+              the tappable half is the brighter half, which is the only signal
+              carrying that here; underline does the rest. */}
+          <p
+            style={{
+              fontSize: "var(--type-eyebrow)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-faint)",
+              textAlign: "center",
+              margin: "6px 0 0",
+            }}
+          >
+            Been here before?{" "}
+            <Link
+              href="/signin"
+              style={{
+                color: "var(--text-secondary)",
+                textDecoration: "underline",
+              }}
+            >
+              Sign in with your email
+            </Link>
+          </p>
         </div>
       </div>
     </main>
