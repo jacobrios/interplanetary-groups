@@ -42,15 +42,19 @@ vi.mock("next/navigation", () => ({
 import { requestSignInCodeAction, confirmSignInAction } from "../signin"
 
 let errorLog: ReturnType<typeof vi.spyOn>
+let warnLog: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   vi.clearAllMocks()
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {})
+  warnLog = vi.spyOn(console, "warn").mockImplementation(() => {})
+  // The real shape: signOut RETURNS { error } rather than throwing.
   signOut.mockResolvedValue({ error: null })
 })
 
 afterEach(() => {
   errorLog.mockRestore()
+  warnLog.mockRestore()
 })
 
 describe("requestSignInCodeAction", () => {
@@ -69,6 +73,28 @@ describe("requestSignInCodeAction", () => {
     expect(await requestSignInCodeAction("nobody@example.com")).toEqual({
       result: "unknown_email",
     })
+  })
+
+  // The one classified outcome worth a log line. The auth seam logs only
+  // service_error, on the reasoning that a classified result is a product
+  // state rather than an incident, and that reasoning is right everywhere
+  // except here: this endpoint is unauthenticated and uncapped, so its rate
+  // limit is the whole of its abuse ceiling. Without this, one script burning
+  // the mail allowance takes sign-in down for everybody and leaves no trace
+  // anywhere that anything happened.
+  it("leaves a trace when the mail allowance is what refused, since nothing else would", async () => {
+    requestSignInCode.mockResolvedValue({ result: "rate_limited" })
+
+    expect(await requestSignInCodeAction("sam@example.com")).toEqual({ result: "rate_limited" })
+    expect(warnLog).toHaveBeenCalledTimes(1)
+  })
+
+  it("stays quiet about the outcomes that are ordinary product states", async () => {
+    for (const result of ["ok", "invalid_email", "unknown_email"] as const) {
+      requestSignInCode.mockResolvedValue({ result })
+      await requestSignInCodeAction("sam@example.com")
+    }
+    expect(warnLog).not.toHaveBeenCalled()
   })
 
   // The whole point of this endpoint: the person calling it usually has no
@@ -126,13 +152,37 @@ describe("confirmSignInAction", () => {
     expect(signOut).toHaveBeenCalledTimes(1)
   })
 
-  it("still answers honestly when signing that session out itself fails", async () => {
+  // The shape that actually happens, and the one the first version of this
+  // file got wrong. signOut REPORTS a service failure in its return value
+  // rather than throwing it: on a non-404/401/403 API error, and on a network
+  // failure, GoTrueClient returns { error } before it ever clears the session.
+  // So a try/catch on its own leaves the orphan cookie live AND silent, which
+  // is the exact state the sign-out exists to prevent.
+  it("reports a sign-out that fails by returning an error rather than throwing", async () => {
+    confirmSignInCode.mockResolvedValue({ result: "no_user" })
+    signOut.mockResolvedValue({ error: { message: "service unavailable" } })
+
+    expect(await confirmSignInAction("sam@example.com", "12345678")).toEqual({
+      result: "no_user",
+    })
+    expect(errorLog).toHaveBeenCalledTimes(1)
+    expect(String(errorLog.mock.calls[0]?.[0])).toMatch(/orphan cookie is still live/)
+  })
+
+  it("still answers honestly when signing that session out throws instead", async () => {
     confirmSignInCode.mockResolvedValue({ result: "no_user" })
     signOut.mockRejectedValue(new Error("network down"))
 
     expect(await confirmSignInAction("sam@example.com", "12345678")).toEqual({
       result: "no_user",
     })
-    expect(errorLog).toHaveBeenCalled()
+    expect(errorLog).toHaveBeenCalledTimes(1)
+  })
+
+  it("says nothing when the sign-out worked, so a log line means something", async () => {
+    confirmSignInCode.mockResolvedValue({ result: "no_user" })
+
+    await confirmSignInAction("sam@example.com", "12345678")
+    expect(errorLog).not.toHaveBeenCalled()
   })
 })

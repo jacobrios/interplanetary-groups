@@ -53,9 +53,12 @@ export default function SignInPage() {
       >
         {/* Smaller than the front door's 104px hero: this screen's job is a
             form, and the mark is here to say who is speaking rather than to
-            introduce the product. The same negative left margin optically
-            aligns the sphere, not its box, with the page gutter, because the
-            orbit path overflows the sphere's own box. */}
+            introduce the product. The negative left margin does the same job
+            as the front door's, at this mark's scale rather than at the same
+            value: the orbit path overflows the sphere's own box, so the offset
+            optically aligns the sphere, not its box, with the page gutter, and
+            it is -5px against 64px where the front door is -9px against 104px.
+            Unverified in a browser like everything else on this screen. */}
         <div style={{ width: 64, height: 64, margin: "0 0 0 -5px", flex: "0 0 auto" }}>
           <OrbitMark size={64} />
         </div>

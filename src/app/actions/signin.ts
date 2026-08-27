@@ -32,6 +32,19 @@ import {
 export type ConfirmSignInActionResult = "bad_code" | "no_user" | "service_error"
 
 /**
+ * One place for both ways the sign-out can fail, because the sentence they
+ * both earn is the same one and it is not a small sentence: the session cookie
+ * for an identity nothing in the app can resolve is still in this browser, and
+ * the next thing this person does will be done as that identity.
+ */
+function logSignOutFailure(cause: unknown) {
+  console.error(
+    "[signin] could not sign out an unresolvable session, so the orphan cookie is still live:",
+    cause
+  )
+}
+
+/**
  * Step one: ask Supabase to send a code to somebody the product already knows.
  *
  * Deliberately has no session guard, and cannot have one: the usual caller has
@@ -45,7 +58,25 @@ export type ConfirmSignInActionResult = "bad_code" | "no_user" | "service_error"
 export async function requestSignInCodeAction(
   email: string
 ): Promise<{ result: SignInRequestResult }> {
-  return requestSignInCode(email)
+  const outcome = await requestSignInCode(email)
+
+  // The one classified outcome this file logs, against the auth seam's own
+  // rule that a classified result is a product state rather than an incident
+  // (email.ts, logServiceFailure). That rule is right everywhere else and
+  // wrong here, for a reason specific to this endpoint: it is unauthenticated
+  // and uncapped, so Supabase's rate limit is the entire abuse ceiling, and a
+  // script burning the mail allowance would take sign-in down for everybody
+  // and leave no trace anywhere that anything had happened. warn rather than
+  // error, because one member tapping resend too fast reaches this too and
+  // that is not an incident; what makes it useful is the shape in the log
+  // rather than any single line.
+  if (outcome.result === "rate_limited") {
+    console.warn(
+      "[signin] a sign-in code was refused by the mail rate limit; if this is not isolated, sign-in is down for everybody"
+    )
+  }
+
+  return outcome
 }
 
 /**
@@ -100,12 +131,19 @@ export async function confirmSignInAction(
     if (outcome.result === "no_user") {
       try {
         const supabase = await createClient()
-        await supabase.auth.signOut()
+        // Both ways this can fail are handled, because they are not the same
+        // way. signOut REPORTS a service failure in its return value rather
+        // than throwing it: on a non-404/401/403 API error, and on a network
+        // failure, GoTrueClient returns { error } before it ever clears the
+        // session. So a try/catch on its own would let the failure that
+        // matters most pass in silence, leaving the orphan cookie live and
+        // unmentioned, which is precisely the state the block above argues is
+        // strictly worse than anything else on offer. The catch still earns
+        // its place: createClient() itself can throw.
+        const { error } = await supabase.auth.signOut()
+        if (error) logSignOutFailure(error)
       } catch (err) {
-        // Reported rather than swallowed, but it does not change what the
-        // person is told: either way we could not sign them in, and the
-        // message for that is already the honest one.
-        console.error("[signin] signing the unresolvable session out failed:", err)
+        logSignOutFailure(err)
       }
     }
     return { result: outcome.result }
