@@ -13,6 +13,8 @@ model User {
   id              String            @id @default(cuid())
   name            String
   supabaseAuthId  String?           @unique
+  emailAskCount   Int               @default(0)
+  emailAskedAt    DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   contactMethods  ContactMethod[]
