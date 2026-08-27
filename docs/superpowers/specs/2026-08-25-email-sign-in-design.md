@@ -692,3 +692,95 @@ this file is the only copy of all of it.~~
 pushed as `origin/email-sign-in` with nine commits, so this file is no longer
 the only copy and the machine is no longer a single point of failure for it.
 Everything above about what must not be re-derived still stands.*
+
+---
+
+# Folded in out of lane, 26 August 2026: the header rule comes off
+
+**This was not in the eleven-task plan and it is not email sign-in.** It is
+recorded here rather than in a separate document because it ships inside this
+slice's PR, and the standing rule requires every touch to a file the slice
+document never named to be declared. Read this as the declared deviation.
+
+**Where it came from.** A Claude Design change request, "Round 9 - Header Rule",
+frame B ("Card up to the line"), which the owner had in hand before this session
+resumed. It removes the full-bleed hairline that closes the group header, and
+removes the air that sat below it, so the content region's top border lands
+exactly where the hairline was. The header keeps its own 14px of breathing room.
+
+**Why it rides this slice instead of its own micro-PR, decided with the owner.**
+The concurrent-micro-PR route is ruled out by the owner's own rule, which allows
+one only when it touches no file the slice touches: this touches
+`src/app/groups/[id]/page.tsx`, and task 5 touches it too, to thread the ask's
+eligibility down to the client island. Beyond permission, it is the better
+answer: task 5 spends roughly 100px of the very screen budget this hands about
+13px back to, and the owner QAs on his real phone, so shipping them together is
+one phone pass against the final layout rather than two against a moving
+baseline.
+
+**The scope is wider than the design request knew, and the owner widened it
+deliberately.** The hairline does not belong to the group home. It lives on the
+shared `PageHeader` component, which the group home, the group info page and the
+event detail screen all wrap themselves in, so removing it there removes it from
+all three. Surfaced as a question rather than guessed at. The owner's answer, 26
+August 2026: take it off all three, **and pull the content below each header up
+by the same amount**, so no page is left carrying more dead air under its header
+than the group home has. His reasoning is a consistency one and it is right: a
+hairline removed on three screens but a gap closed on only one would leave the
+other two looking loose next to the screen people spend their time on.
+
+**Measured before building, because the design request's own numbers do not
+reproduce against this build.** The request predicts the feed going 306px to
+322px, +16px; it was drawn against a reference whose card region carried 15px of
+top padding, where this build carries 12px (`0.75rem`), and against a feed of
+306px where the card-region-height slice measured 289.7px. The honest figure is
+about 13px, and the phone is what settles it, not this paragraph.
+
+All three screens land on the **same 14px gap** under the header, which is the
+header's own bottom padding and is explicitly not to be touched:
+
+| Screen | Gap today | Gap after | Recovered |
+|---|---|---|---|
+| Group home | 27px (14 header + 1 hairline + 12 card region) | 14px | 13px |
+| Event detail | 27px (14 + 1 + 12) | 14px | 13px |
+| Group info | 25px (14 + 1 + 10) | 14px | 11px |
+
+Group info recovers less only because it already sat 2px tighter: its content
+wrapper carries zero top padding, so the 10px lives on the identity block's own
+padding and that is the line that changes. Event detail's 12px turns out to have
+been set deliberately on 21 August 2026 to match the group home, recorded in its
+own code comment, so the three were already meant to agree and this keeps them
+agreeing.
+
+**What must not change**, carried from the design request and verified against
+the code:
+
+- **The feed's seam hairline stays.** With the header rule gone it becomes the
+  only rule on the screen, and it is what makes the card-region and feed
+  boundary read. `FeedSeam.tsx` records its own hairline as "the same grammar
+  that already ends the header", so the request and the repo agree here. Do not
+  remove it for consistency.
+- No token, fill, radius, type-size or colour change anywhere.
+- The header's own `padding-top` and `padding-bottom` stay at 14px
+  (`0.875rem`).
+- The event card, the idea card, the card rail, the RSVP buttons, the composer
+  and the chat bubbles are untouched.
+
+**Open, and asked for: the reference file itself.** `Round 9 - Header Rule -
+Interplanetary Groups.html` is not in `docs/design/`. This project's rule is that
+visual code is built from the real handoff rather than a description of it, and
+frames B, C and D exist only in that file. The change request quotes the exact
+CSS deltas, which is enough to build frame B, but the fallbacks are not
+inspectable without it.
+
+**The fallback if 14px reads tight on the phone**, from the request: frame C is
+a header `padding-bottom` of 10px and a content `padding-top` of 8px, giving an
+18px gap. Frame D is a 6px gap and the request itself calls it probably too
+tight. Ship B unless the device says otherwise.
+
+**One thing to check on the real phone, and to flag rather than silently
+reverse.** Today the header rule is the line that content passes under when the
+region below scrolls. The header is sticky. Removing the rule takes that cue
+away for the card region specifically; the feed keeps its own seam. Confirm the
+card region scrolling under a now-borderless header still reads correctly. If it
+does not, say so rather than putting the rule back.
