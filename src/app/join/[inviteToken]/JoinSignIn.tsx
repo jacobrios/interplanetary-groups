@@ -24,18 +24,19 @@
 // would mean injecting the two service calls, making the error map generic,
 // and replacing the done state with an escape hatch: four new seams on a
 // component with two working callers, to save a field-state hook. The one
-// thing genuinely shared IS shared, below: the sentence about a code that did
-// not work, which must never drift into claiming it expired.
+// thing genuinely shared IS shared, out of src/lib/auth/email-code-flow.ts:
+// the sentence about a code that did not work, which must never drift into
+// claiming it expired, and the resend countdown.
 
-import { useEffect, useId, useState, useTransition } from "react"
+import { useId, useState, useTransition } from "react"
 import {
   requestJoinSignInCodeAction,
   confirmJoinSignInAction,
   type ConfirmJoinSignInResult,
 } from "@/app/actions/join-signin"
 import type { SignInRequestResult } from "@/lib/auth/email"
-import { DEFAULT_BAD_CODE_MESSAGE } from "@/app/groups/[id]/EmailAttachFlow"
-import { inputStyle, buttonStyle } from "./join-controls"
+import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
+import { inputStyle, buttonStyle } from "@/components/pill-controls"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 
 const PROMPT_MESSAGE = "Welcome back. What's the email you saved with me? I'll send you a code."
@@ -74,15 +75,6 @@ const CONFIRM_ERROR: Record<ConfirmJoinSignInResult, string> = {
   // failed, so trying again costs them nothing and usually works.
   join_failed: "Something went wrong getting you into the group. Give it another try in a bit.",
 }
-
-/**
- * The seam's rate limit has a sixty-second floor per user, so the resend names
- * the wait in plain words instead of letting somebody walk into an error. Same
- * chained-timeout approach EmailAttachFlow uses: a backgrounded tab counts down
- * slower than real time, and erring long is the safe direction, since the only
- * cost is a few extra seconds before a link they may not need at all.
- */
-const RESEND_WAIT_SECONDS = 60
 
 const messageStyle = {
   margin: 0,
@@ -134,14 +126,8 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [secondsLeft, setSecondsLeft] = useState(0)
   const [isPending, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [secondsLeft])
+  const { secondsLeft, start: startResendCountdown } = useResendCountdown()
 
   const address = email.trim()
   const typedCode = code.trim()
@@ -153,7 +139,7 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
       const { result } = await requestJoinSignInCodeAction(target)
       if (result === "ok") {
         setStep("code")
-        setSecondsLeft(RESEND_WAIT_SECONDS)
+        startResendCountdown()
         return
       }
       // A failed resend leaves them on the code step: the first code may still

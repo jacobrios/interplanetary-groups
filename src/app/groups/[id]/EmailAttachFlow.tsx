@@ -6,11 +6,15 @@
 // EmailAskNote (task 5) so task 6's permanent row on the group info page runs
 // through the exact same request/confirm/error handling rather than a second
 // copy that could quietly drift from it. What moved here: the field state,
-// the two service calls, the error copy, and the resend countdown. What stays
-// with each caller: the box the flow sits in, the message shown before the
-// member starts typing, and what "back out" means (EmailAskNote's cancel
-// answers Orbit's ask and counts against it; the info page's cancel just
-// closes the row and counts nothing).
+// the two service calls, and the error copy. What stays with each caller: the
+// box the flow sits in, the message shown before the member starts typing, and
+// what "back out" means (EmailAskNote's cancel answers Orbit's ask and counts
+// against it; the info page's cancel just closes the row and counts nothing).
+//
+// Two things this file used to own now sit in src/lib/auth/email-code-flow.ts,
+// because the invite screen and /signin grew the same code flow and were
+// reaching into this route to get them: the bad-code sentence and the resend
+// countdown. Look for them there, not here.
 //
 // The code-sent and done messages default to task 5's settled, tested copy,
 // so lifting this code out cannot change what a member already sees there. A
@@ -18,13 +22,14 @@
 // to you" reads as Orbit speaking, and the group info page never says Orbit
 // is the one talking.
 
-import { useEffect, useId, useState, useTransition } from "react"
+import { useId, useState, useTransition } from "react"
 import Link from "next/link"
 import {
   requestEmailAttachAction,
   confirmEmailAttachAction,
 } from "@/app/actions/email-ask"
 import type { AttachRequestResult } from "@/lib/auth/email"
+import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
 
 /**
  * Where the email_taken message points. It lives here rather than in the copy
@@ -66,31 +71,12 @@ export const DEFAULT_REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, s
   service_error: "Something went wrong on my end. Give it another try in a bit.",
 }
 
-/**
- * One message covering both, because the service returns the identical error
- * for a wrong code and an expired one and the auth seam collapses them into a
- * single bad_code result. Copy that said "that code expired" would be a lie the
- * code cannot back up.
- */
-export const DEFAULT_BAD_CODE_MESSAGE =
-  "That code didn't work. It might be typed wrong, or it might have expired. Ask for a new code and try again."
-
 const DEFAULT_CODE_SENT_MESSAGE = (address: string) =>
   `I sent a code to ${address}. Enter it here and you're set.`
 
 /** Exported so a caller reusing the default can assert against it rather than retyping it. */
 export const DEFAULT_DONE_MESSAGE =
   "Thanks, that's saved. You can get back in with your email any time."
-
-/**
- * The seam's rate limit has a sixty-second floor per user, so the resend names
- * the wait in plain words instead of letting the member walk into an error.
- * The countdown runs on chained timeouts rather than the clock, so a
- * backgrounded tab counts down slower than real time; erring long is the safe
- * direction here, since the only cost is a few extra seconds before a link the
- * member may not need at all.
- */
-const RESEND_WAIT_SECONDS = 60
 
 export interface EmailAttachFlowProps {
   /** Shown above the field while the member is still typing an address. */
@@ -159,14 +145,8 @@ export default function EmailAttachFlow({
   // page does replace all five), and matching on a string the caller controls
   // would be a route that silently disappears the day somebody rewords it.
   const [offerSignIn, setOfferSignIn] = useState(false)
-  const [secondsLeft, setSecondsLeft] = useState(0)
   const [isPending, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [secondsLeft])
+  const { secondsLeft, start: startResendCountdown } = useResendCountdown()
 
   const address = email.trim()
   const typedCode = code.trim()
@@ -178,7 +158,7 @@ export default function EmailAttachFlow({
       const { result } = await requestEmailAttachAction(target)
       if (result === "ok") {
         setStep("code")
-        setSecondsLeft(RESEND_WAIT_SECONDS)
+        startResendCountdown()
         return
       }
       // A failed resend leaves the member on the code step: the first code may

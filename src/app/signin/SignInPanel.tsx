@@ -20,16 +20,15 @@
 // JoinSignIn is the same two steps for the same purpose, but it takes an
 // invite token, calls a different server action that joins a group on the way
 // through, and its way out is "I'm new here" back to a form that is not on
-// this screen. What the two genuinely share IS shared: the control shapes
-// (join-controls) and the sentence about a code that did not work, which must
-// never drift into claiming it expired.
-//
-// The resend countdown is a third copy of about fifteen lines. Not extracted
-// on purpose: task 7 disclosed the second copy and the extraction is queued to
-// be decided once that review lands, rather than done twice by two people at
-// once.
+// this screen. What the three genuinely share IS shared: the control shapes
+// (src/components/pill-controls.ts), and out of src/lib/auth/email-code-flow.ts
+// the sentence about a code that did not work, which must never drift into
+// claiming it expired, plus the resend countdown. That countdown was a third
+// copy of about fifteen lines until the consolidation pass; it is one hook now,
+// so reading the seam's real rate-limit setting is one change rather than
+// three that have to agree.
 
-import { useEffect, useId, useState, useTransition } from "react"
+import { useId, useState, useTransition } from "react"
 import Link from "next/link"
 import {
   requestSignInCodeAction,
@@ -37,8 +36,8 @@ import {
   type ConfirmSignInActionResult,
 } from "@/app/actions/signin"
 import type { SignInRequestResult } from "@/lib/auth/email"
-import { DEFAULT_BAD_CODE_MESSAGE } from "@/app/groups/[id]/EmailAttachFlow"
-import { inputStyle, buttonStyle } from "@/app/join/[inviteToken]/join-controls"
+import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
+import { inputStyle, buttonStyle } from "@/components/pill-controls"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 
 // "Welcome back" is the screen's own heading, so this does not say it again.
@@ -78,15 +77,6 @@ const CONFIRM_ERROR: Record<ConfirmSignInActionResult, string> = {
   service_error: "Something went wrong on my end. Give it another try in a bit.",
 }
 
-/**
- * The seam's rate limit has a sixty-second floor per user, so the resend names
- * the wait in plain words instead of letting somebody walk into an error. The
- * countdown runs on chained timeouts rather than the clock, so a backgrounded
- * tab counts down slower than real time; erring long is the safe direction,
- * since the only cost is a few extra seconds before a code they may not need.
- */
-const RESEND_WAIT_SECONDS = 60
-
 const messageStyle = {
   margin: 0,
   fontSize: "var(--type-meta)",
@@ -125,14 +115,8 @@ export default function SignInPanel() {
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [secondsLeft, setSecondsLeft] = useState(0)
   const [isPending, startTransition] = useTransition()
-
-  useEffect(() => {
-    if (secondsLeft <= 0) return
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [secondsLeft])
+  const { secondsLeft, start: startResendCountdown } = useResendCountdown()
 
   const address = email.trim()
   const typedCode = code.trim()
@@ -144,7 +128,7 @@ export default function SignInPanel() {
       const { result } = await requestSignInCodeAction(target)
       if (result === "ok") {
         setStep("code")
-        setSecondsLeft(RESEND_WAIT_SECONDS)
+        startResendCountdown()
         return
       }
       // A failed resend leaves them on the code step: the first code may still

@@ -13,7 +13,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import JoinSignIn from "../JoinSignIn"
-import { DEFAULT_BAD_CODE_MESSAGE } from "@/app/groups/[id]/EmailAttachFlow"
+import { DEFAULT_BAD_CODE_MESSAGE } from "@/lib/auth/email-code-flow"
 import type { SignInRequestResult } from "@/lib/auth/email"
 import type { ConfirmJoinSignInResult } from "@/app/actions/join-signin"
 

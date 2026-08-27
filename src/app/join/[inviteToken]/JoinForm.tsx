@@ -28,7 +28,7 @@ import { joinGroupAction, type JoinGroupState } from "@/app/actions/join-group"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
-import { inputStyle, buttonStyle } from "./join-controls"
+import { inputStyle, buttonStyle } from "@/components/pill-controls"
 import JoinSignIn from "./JoinSignIn"
 
 interface RhythmRow {
