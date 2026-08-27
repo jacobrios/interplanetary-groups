@@ -114,7 +114,7 @@ async function attach(email: string) {
         }
       : null,
   })
-  console.log("\nCheck the inbox. Q3: did it arrive as a 6-digit CODE or a LINK?")
+  console.log("\nCheck the inbox. Q3: did it arrive as an 8-digit CODE or a LINK?")
 }
 
 // ── Q2: which verifyOtp type does an anonymous attach need? ──────────────────

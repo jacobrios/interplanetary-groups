@@ -10,7 +10,7 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor, GaugeAnswer } from "@prisma/client"
-import { loadEmailAskInputs, recordEmailOfferDismissed } from "../email-ask"
+import { loadEmailAskInputs, recordEmailOfferDismissed, hasVerifiedEmail } from "../email-ask"
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 const userIds: string[] = []
@@ -168,6 +168,37 @@ describe("loadEmailAskInputs", () => {
     })
     const verified = await loadEmailAskInputs({ userId: member.id, groupId: group.id })
     expect(verified.hasVerifiedEmail).toBe(true)
+  })
+})
+
+describe("hasVerifiedEmail", () => {
+  it("is false for a member with no email on file, and does not need a group", async () => {
+    const member = await makeUser("Groupless")
+    expect(await hasVerifiedEmail(member.id)).toBe(false)
+  })
+
+  it("is false for an unverified address and true once one is verified, the same rule loadEmailAskInputs applies", async () => {
+    const member = await makeUser("SharedCheck")
+
+    await prisma.contactMethod.create({
+      data: {
+        userId: member.id,
+        type: "EMAIL",
+        value: `shared-unverified-${stamp}@example.com`,
+        isVerified: false,
+      },
+    })
+    expect(await hasVerifiedEmail(member.id)).toBe(false)
+
+    await prisma.contactMethod.create({
+      data: {
+        userId: member.id,
+        type: "EMAIL",
+        value: `shared-verified-${stamp}@example.com`,
+        isVerified: true,
+      },
+    })
+    expect(await hasVerifiedEmail(member.id)).toBe(true)
   })
 })
 

@@ -20,8 +20,11 @@
 // cost two hours because create-group.ts:73 threw Supabase's error away, and
 // this seam carries more failure modes than that one did.
 //
-// What is never logged: the address itself. It is the member's, given to Orbit
-// rather than to the group, and a server log is not a place it needs to be.
+// What is never logged deliberately: the address itself. It is the member's,
+// given to Orbit rather than to the group, and a server log is not a place it
+// needs to be. This is not an absolute guarantee: logServiceFailure logs
+// whatever message a thrown error carries, and some Prisma error classes echo
+// the offending value, which could still be the address.
 
 import { createClient } from "@/lib/supabase/server"
 import { prisma } from "@/lib/prisma"
@@ -350,6 +353,15 @@ export async function requestSignInCode(email: string): Promise<{ result: SignIn
  * Supabase knows the identity, but no app row points at it. That is what an
  * identity created outside the product's own join paths looks like, and the
  * caller has something honest to say about it.
+ *
+ * By the time `no_user` reaches the caller, `verifyOtp` has already written a
+ * live Supabase session cookie for that unresolvable identity. This function
+ * does not sign it back out. The caller must decide deliberately whether to,
+ * rather than inheriting whatever the request happened to already be carrying:
+ * left alone, a member who was already signed in loses that session (replaced
+ * by one the app can never resolve to a person) and gains nothing, and the
+ * invite link still gets them back in, but as a fresh duplicate member, the
+ * exact bug this slice exists to close.
  */
 export async function confirmSignInCode(email: string, code: string): Promise<ConfirmSignInResult> {
   const address = normalizeEmail(email)

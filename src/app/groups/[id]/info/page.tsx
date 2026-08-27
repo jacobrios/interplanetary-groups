@@ -19,6 +19,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
+import { hasVerifiedEmail } from "@/lib/auth/email-ask"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { groupInitials } from "@/lib/groups/initials"
@@ -56,13 +57,11 @@ export default async function GroupInfoPage({ params }: Props) {
   // Any member, including the founder: losing a session is not a
   // founder-specific problem, and this is what stands between that member and
   // rejoining as a second person the next time they tap the invite link
-  // (CLAUDE.md, "Identity, auth, and known gaps").
-  const hasVerifiedEmail =
-    viewer !== null &&
-    (await prisma.contactMethod.findFirst({
-      where: { userId: viewer.id, type: "EMAIL", isVerified: true },
-      select: { id: true },
-    })) !== null
+  // (CLAUDE.md, "Identity, auth, and known gaps"). Shared with
+  // loadEmailAskInputs (src/lib/auth/email-ask.ts) so this page and the group
+  // home can never disagree about whether the same member has an email
+  // attached.
+  const viewerHasVerifiedEmail = viewer !== null && (await hasVerifiedEmail(viewer.id))
 
   // WHO ordering (spec decision 12): founder first, then join order. The
   // query already sorts by joinedAt; this hoists the founder to the front.
@@ -270,7 +269,7 @@ export default async function GroupInfoPage({ params }: Props) {
           >
             Email reminders
           </p>
-          <EmailStatusRow hasVerifiedEmail={hasVerifiedEmail} />
+          <EmailStatusRow hasVerifiedEmail={viewerHasVerifiedEmail} />
         </div>
 
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}

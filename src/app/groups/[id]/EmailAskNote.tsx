@@ -75,7 +75,6 @@ function secondAsk(groupName: string): string {
 }
 
 export interface EmailAskNoteProps {
-  groupId: string
   groupName: string
   viewerIsFounder: boolean
   askState: EmailAskState
@@ -86,7 +85,6 @@ export interface EmailAskNoteProps {
 }
 
 export default function EmailAskNote({
-  groupId,
   groupName,
   viewerIsFounder,
   askState,
@@ -126,7 +124,7 @@ export default function EmailAskNote({
   // 12px of its own top padding, so anything here would be a second gap doing
   // the first one's job.
   return (
-    <div style={{ padding: "0 16px 0", flexShrink: 0 }} data-group-id={groupId}>
+    <div style={{ padding: "0 16px 0", flexShrink: 0 }}>
       {/* The labeled-note treatment, ported from OrbitNoteScreen. No eyebrow
           here, unlike that screen: this note sits under a feed the member has
           been reading Orbit in all along, and an "A NOTE FROM ORBIT" band

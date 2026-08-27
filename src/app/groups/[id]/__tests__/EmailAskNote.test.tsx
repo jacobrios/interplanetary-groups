@@ -44,7 +44,6 @@ const NINE_DAYS_AGO = new Date("2026-08-17T18:00:00Z")
 /** A member who has contributed and has never answered an offer: first ask. */
 function firstAskProps(overrides: Record<string, unknown> = {}) {
   return {
-    groupId: "g-1",
     groupName: "Climbing Crew",
     viewerIsFounder: false,
     askState: { emailAskCount: 0, emailAskedAt: null },

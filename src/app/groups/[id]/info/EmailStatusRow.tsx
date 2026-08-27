@@ -10,10 +10,14 @@
 // toward the two-ask limit; showing it costs nothing because a member has to
 // go looking for it rather than being interrupted by it.
 //
-// The address itself is never printed here, not even to its own owner. The
-// rule is "emails are never displayed anywhere in the UI"; reading it
-// literally costs nothing and removes an argument later. What renders instead
-// is a boolean's worth of state: reminders are on, or they are not.
+// The address itself is never printed here, not even to its own owner: this
+// component never reads or renders a previously stored address, only the
+// boolean's worth of state that hasVerifiedEmail carries (reminders are on, or
+// they are not). The one exception is CODE_SENT_MESSAGE below, and it is not a
+// break in the rule: it echoes back, within the same interaction, exactly what
+// the member just typed into this browser, never a value fetched or stored.
+// The rule is "emails are never displayed anywhere in the UI"; reading it
+// literally costs nothing and removes an argument later.
 //
 // Reuses EmailAttachFlow (lifted out of EmailAskNote for task 6) for the
 // actual request/confirm mechanics, with its own framing: a plain quiet link

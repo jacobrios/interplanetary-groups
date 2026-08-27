@@ -253,7 +253,6 @@ export default async function GroupPage({ params }: Props) {
     viewer && askState
       ? {
           ...((await emailAskInputs) ?? { latestContributionAt: null, hasVerifiedEmail: false }),
-          groupId: group.id,
           groupName: group.name,
           viewerIsFounder: group.founderId === viewer.id,
           askState,

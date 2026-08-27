@@ -197,7 +197,7 @@ describe("EmailStatusRow, errors", () => {
 })
 
 describe("EmailStatusRow, no em dash anywhere it renders", () => {
-  it("holds across both collapsed states and the expanded flow", async () => {
+  it("holds for the verified collapsed state and the expanded flow", async () => {
     const { unmount } = render(<EmailStatusRow hasVerifiedEmail={true} />)
     expect(document.body.textContent).not.toMatch(/[\u2013\u2014]/)
     fireEvent.click(screen.getByRole("button", { name: "Change email" }))

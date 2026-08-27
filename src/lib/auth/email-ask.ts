@@ -15,6 +15,23 @@ export interface EmailAskInputs {
 }
 
 /**
+ * Whether this person has a verified email on file, full stop: not scoped to
+ * any group, because an email is attached to the person rather than to a
+ * membership. Shared by loadEmailAskInputs below and by the group info page,
+ * which has no group-scoped question to ask here (it already knows the viewer
+ * is a member) but needs the same answer. Keeping one definition means the
+ * group home and the info page can never quietly disagree about whether the
+ * same member has an email attached.
+ */
+export async function hasVerifiedEmail(userId: string): Promise<boolean> {
+  const contactMethod = await prisma.contactMethod.findFirst({
+    where: { userId, type: "EMAIL", isVerified: true },
+    select: { id: true },
+  })
+  return contactMethod !== null
+}
+
+/**
  * What the group home reads before deciding whether to offer.
  *
  * Contribution is the broad definition on purpose, because this product's
@@ -60,10 +77,7 @@ export async function loadEmailAskInputs({
       orderBy: { updatedAt: "desc" },
       select: { updatedAt: true },
     }),
-    prisma.contactMethod.findFirst({
-      where: { userId, type: "EMAIL", isVerified: true },
-      select: { id: true },
-    }),
+    hasVerifiedEmail(userId),
   ])
 
   const moments = [rsvp?.respondedAt, message?.createdAt, vote?.updatedAt].filter(
@@ -75,7 +89,7 @@ export async function loadEmailAskInputs({
       moments.length === 0
         ? null
         : moments.reduce((latest, d) => (d.getTime() > latest.getTime() ? d : latest)),
-    hasVerifiedEmail: verifiedEmail !== null,
+    hasVerifiedEmail: verifiedEmail,
   }
 }
 
