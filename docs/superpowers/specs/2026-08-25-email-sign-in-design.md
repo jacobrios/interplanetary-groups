@@ -602,3 +602,64 @@ in front of him.
 **No specific expiry is ever named in copy**, deliberately. Storage does expire,
 but what applies to this app's setup was not verified, and copy naming a number
 nobody can stand behind is worse than copy that stays general.
+
+---
+
+# Paused 26 August 2026, and the one question still open
+
+**Paused at a clean seam, not abandoned.** Task 1 is done and its findings are
+recorded above. Tasks 2 through 11 are untouched and nothing is half-built. The
+pause is to build a **preview environment** first: a second public copy of the
+product wired to the dev-test database. That is not a detour, it is this slice's
+verification. Proving email sign-in works means a second device, a real inbox and
+realistically a second person, and a dev server on the owner's home wifi cannot
+be opened by a friend.
+
+## The open question: where the ask sits on the group home
+
+Raised with the owner and **not settled**. It is the last product decision before
+task 5 can be built, and it is genuinely his, because it spends screen space he
+has already fought for once.
+
+**The constraint.** The card-region-height slice measured the pinned card region
+at 47.7% of the owner's phone screen with the feed down to 208px, and got it to
+34% with the feed back to 289.7px. Anything added to this screen takes from that
+again.
+
+**Three placements, with the cost of each.**
+
+- **A. Between the header and the cards.** Seen immediately; pushes the cards and
+  the entire feed down, spending exactly the space the height-budget slice won
+  back. Worst option on the owner's own prior reasoning.
+- **B. At the top of the chat feed, scrolling with it.** Costs zero pinned
+  height and sits where Orbit already speaks. It scrolls away, so a member deep
+  in a conversation may never see it.
+- **C. Just above the message composer, pinned.** Always visible, outside the
+  card budget, and where the member's hands already are. It permanently shortens
+  the feed, and because the offer is sticky until answered, "permanently" is
+  literal for an undecided member.
+
+**Recommended: C**, with the reservation stated rather than buried: an
+undecided member has a smaller chat forever. Mitigated by keeping it to one line
+of copy plus the field. The owner was offered a mockup of all three and had not
+chosen when the slice paused.
+
+## Decided already, and not to be reopened at task 5
+
+- **It is a note, not a chat bubble.** The rule allows a bubble when the member's
+  next action answers Orbit, which is true here, but a bubble only one viewer can
+  see, sitting in a shared feed, would read as a message everyone else can see.
+  That is worse than the rule it satisfies.
+- **Save is teal; dismiss is a quiet text link.** Teal marks an action that
+  genuinely matters, and soft declines stay soft.
+- **After Save, the same space becomes the code entry**, with a resend link that
+  names the sixty-second wait in plain words rather than showing an error.
+- **It reuses the existing input shape and send button** from the wizard and the
+  chat. Nobody drew this element, so borrowing beats inventing.
+
+## What a future session must not re-derive
+
+Everything settled is above in this document: the seven opening decisions, the
+domain, the eleven-task plan, task 1's six findings, and the ask's triggers and
+copy with the owner's two overrules recorded. **The branch was never pushed**, so
+this file is the only copy of all of it.
