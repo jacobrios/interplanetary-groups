@@ -4745,13 +4745,22 @@ decided.
 **Test baseline 97 files / 955 tests at slice start, matching main. Finishing at
 111 / 1146, green, zero skipped.**
 
-*Declared deviation on length: this entry runs about five times the 400-to-600
-target. It is a deliberate call, reviewed and upheld rather than an overrun; a
-review that went looking for padding proposed cutting nothing. The slice ran eleven tasks
-across three days, and the working ledger that holds its rulings, its three premise
-corrections and its six generalising lessons is gitignored, so anything not
-carried here is simply lost. Everything below records something decided or
-learned; the "what shipped" retelling was cut instead.*
+*Declared deviation on length: this entry runs about ~~three~~ **five** times the
+400-to-600 target. It is a deliberate call rather than an overrun. The slice ran
+eleven tasks across three days, and the working ledger that holds its rulings, its
+~~two~~ **three** premise corrections and its ~~three~~ **six** generalising
+lessons is gitignored, so anything not carried here is simply lost. Everything
+below records something decided or learned; the "what shipped" retelling was cut
+instead.*
+
+*Amended 27 August 2026 (fix round 2), and struck rather than rewritten on
+purpose, because this paragraph sits in the entry where the sweep-every-restatement
+lesson lives and it had been quietly edited in place. **The original numbers were
+accurate when they were written**: the entry measured about 1,861 words then and
+about 2,990 now, and fix round 1 added one premise correction and three lessons.
+The length itself was reviewed and upheld; a review that went looking for padding
+proposed cutting nothing, on the grounds that §11 is where reasoning and rejected
+alternatives live while the slice document is intended-versus-shipped.*
 
 ### The notification-channel decision, recorded because it lived only in chat
 
