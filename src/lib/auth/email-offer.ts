@@ -22,8 +22,8 @@ export interface ShouldOfferEmailInput {
    * The most recent moment this member did ANYTHING in the group: an RSVP
    * (either status, since declining Thursday is not declining reminders), a
    * chat message they wrote, or a gauge vote. Deliberately broader than
-   * "latest RSVP" — the spark flow starts in chat, so a member can be active
-   * for weeks before an RSVP ever comes up. This function does not query
+   * "latest RSVP", since the spark flow starts in chat, so a member can be
+   * active for weeks before an RSVP ever comes up. This function does not query
    * anything; the caller is responsible for computing the true latest of the
    * three and passing it here.
    */
