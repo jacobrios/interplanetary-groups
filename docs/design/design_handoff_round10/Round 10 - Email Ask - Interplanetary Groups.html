@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Round 10 · Orbit's email ask · Interplanetary Groups</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="design_handoff_round4/walkthrough.css" />
+<link rel="stylesheet" href="design_handoff_round4/pending-surface.css" />
+<link rel="stylesheet" href="design_handoff_round4/round4-base.css" />
+<link rel="stylesheet" href="round5/round5-cards.css" />
+<link rel="stylesheet" href="round6/round6-proposal.css" />
+<link rel="stylesheet" href="round7/round7-seam.css" />
+<link rel="stylesheet" href="design_handoff_round10/email-ask.css" />
+<style>
+body { background: #808080; }
+.board-eyebrow { color: #2b2b2b; }
+.board-title { color: #111214; }
+.board-sub { color: #1f2024; }
+.bd-cap { color: #1f2024; }
+.bd-ttl, .bd-num { color: #111214; }
+a { color: #14313a; }
+a:hover { color: #0a2125; }
+.r10-661 { position: relative; width: 390px; height: 661px; flex: 0 0 auto; background: var(--surface-base); border: 1px solid #3a3d49; border-radius: 12px; overflow: hidden; display: flex; }
+.r10-661 .gh-body { flex: 1 1 auto; min-width: 0; width: 100%; min-height: 0; display: flex; flex-direction: column; }
+.r10-661 .gh-feed { overflow: hidden; justify-content: flex-end; }
+.r10-661 .gh-feed > :first-child { margin-top: auto; }
+.r10-grid { display: grid; grid-template-columns: repeat(3, 390px); gap: 40px 26px; align-items: start; margin-top: 44px; }
+/* the round 9 header setting, as locked: no rule, card up to where it sat */
+.r10-661 .gh-head { padding-top: 14px; padding-bottom: 14px; }
+.r10-661 .gh-pinned { padding-top: 0; }
+.r10-661 .gh-sub { white-space: nowrap; }
+.mnum { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #101114; background: rgba(255,255,255,.34); padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+.mnum.up { background: rgba(255,255,255,.62); }
+.rules { margin-top: 72px; max-width: 82ch; font-size: 13.5px; line-height: 1.68; color: #23242a; }
+.rules h2 { font-family: var(--display); font-weight: 800; font-size: 22px; color: #111214; margin: 26px 0 8px; letter-spacing: -.01em; }
+.rules h2:first-child { margin-top: 0; }
+.rules p { margin: 0 0 12px; text-wrap: pretty; }
+.rules b { color: #0d0e11; }
+.rules ul { margin: 2px 0 14px; padding-left: 18px; }
+.rules li { margin: 7px 0; }
+.rules code, .bd-cap code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,.13); padding: 1px 5px; border-radius: 5px; }
+.bd-label .pick { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: #0a2125; background: #7fd8e0; padding: 2px 7px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<div class="board-wrap">
+<p class="board-eyebrow">Interplanetary Groups · round 10</p>
+<h1 class="board-title">Orbit asks for an email</h1>
+<p class="board-sub">Three modal weights and the inline version done properly, all on the measured 390 &times; 661 page, all behind the round 9 header setting. Copy is verbatim from the brief. The ask is one labeled note from Orbit, one field, one teal Save, and a dismiss that is never teal. Nine frames: each modal at both dismiss treatments, the inline comparison, then the code step and the second ask in the recommended shell.</p>
+<div class="r10-grid">
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">A1</span><span class="bd-ttl">Full screen &middot; X only</span></div>
+<div class="r10-661" data-screen-label="A1">
+<div class="ea-full">
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div class="ea-spacer"></div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+<p class="ea-hint">Used to log you back in. Orbit will not add you to anything else.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">The ask owns all 661px. Nothing of the group is visible, so nothing competes, but the member also loses the thing the second ask points at. Dismiss is the X alone, in a 44px target on <code>--surface-raised</code> so it reads as a control and not as decoration.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">A2</span><span class="bd-ttl">Full screen &middot; X plus Not now</span></div>
+<div class="r10-661" data-screen-label="A2">
+<div class="ea-full">
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div class="ea-spacer"></div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+<div class="ea-notnow">Not now</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">Same frame with the explicit decline under Save, underlined at 17px in <code>--text-secondary</code>. On a full screen the second exit earns its place: with no chat behind it there is no other way out that a member can see.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">B1</span><span class="bd-ttl">Bottom sheet &middot; X only</span></div>
+<div class="r10-661" data-bg data-screen-label="B1">
+<div class="ea-scrim bottom">
+<div class="ea-sheet">
+<div class="ea-grab"></div>
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">The first ask sits at the 65% floor: <span class="mnum" data-mh="B1" data-sel=".ea-sheet">·</span> of sheet, <span class="mnum" data-above="B1">·</span> of group legible above it. Longer copy or larger device text pushes past the floor, as frame F shows. Dismiss is the X and the scrim.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">B2</span><span class="bd-ttl">Bottom sheet &middot; X plus Not now</span><span class="pick">recommended</span></div>
+<div class="r10-661" data-bg data-screen-label="B2">
+<div class="ea-scrim bottom">
+<div class="ea-sheet">
+<div class="ea-grab"></div>
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+<div class="ea-notnow">Not now</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">The recommendation. It reads as an interruption rather than a page, the group stays visible so the member can see what they are being kept out of, and the decline is a labeled control instead of a guess. Three ways out: X, Not now, and the scrim.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">C1</span><span class="bd-ttl">Centred card &middot; X only</span></div>
+<div class="r10-661" data-bg data-screen-label="C1">
+<div class="ea-scrim center">
+<div class="ea-card">
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap"><span class="mnum" data-mh="C1" data-sel=".ea-card">·</span> tall, floating with 18px side margins. The lightest of the three, and the one whose Save sits furthest from the thumb.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">C2</span><span class="bd-ttl">Centred card &middot; X plus Not now</span></div>
+<div class="r10-661" data-bg data-screen-label="C2">
+<div class="ea-scrim center">
+<div class="ea-card">
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+</div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+<div class="ea-notnow">Not now</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">The card carrying both exits. At this size the second control starts to crowd: X, Not now and a tappable scrim inside 400px of height is three declines for one accept.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">D</span><span class="bd-ttl">Inline, done properly</span></div>
+<div class="r10-661" data-bg="inline" data-screen-label="D"></div>
+<p class="bd-cap">For comparison. Still pinned above the composer, but at 17px with the mark in a reserved 34px column, so every line of copy starts at the same left edge. It costs <span class="mnum" data-mh="inline">·</span> of permanent height for as long as the member stays undecided, against a modal's one visit.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">E</span><span class="bd-ttl">After Save &middot; the code step</span></div>
+<div class="r10-661" data-bg data-screen-label="E">
+<div class="ea-scrim bottom">
+<div class="ea-sheet">
+<div class="ea-grab"></div>
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I sent an eight digit code to <b>jesse@fastmail.com</b>. Type it in and you're set.</div>
+</div>
+<div>
+<div class="ea-lab">Eight digit code</div>
+<div class="ea-input ea-code typed">48261<span class="ea-caret"></span></div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Confirm code</div>
+<p class="ea-hint">No code yet? <b>You can ask for a new one in 60 seconds.</b></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">The same sheet, second state. One field, not eight boxes: the code is eight digits, and a segmented input at that length breaks paste and reads as a puzzle. Mono with <code>.26em</code> tracking keeps the digits countable. The resend names the wait in words instead of running a timer the member has to watch.</p>
+</div>
+
+<div class="bd-item">
+<div class="bd-label"><span class="bd-num">F</span><span class="bd-ttl">The second ask &middot; day 7 or later</span></div>
+<div class="r10-661" data-bg data-screen-label="F">
+<div class="ea-scrim bottom">
+<div class="ea-sheet">
+<div class="ea-grab"></div>
+<div class="ea-top"><div class="ea-x"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></div></div>
+<div class="ea-pad">
+<div class="ea-note">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">You're still a temporary member. Without your email, you can't log back in if something happens. If now is not a good time, no worries. Just tap <b>Climbing Crew</b> at the top of the screen whenever you're ready. I won't bother you like this again.</div>
+</div>
+<div>
+<div class="ea-lab">Email</div>
+<div class="ea-input">you@example.com</div>
+</div>
+<div class="ea-actions">
+<div class="ea-save">Save</div>
+<div class="ea-notnow">Not now</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="bd-cap">Longer copy, same shell, and the sheet has grown to <span class="mnum" data-mh="F" data-sel=".ea-sheet">·</span> to hold it. The group name is set in <code>--text-primary</code> at weight 600, not in teal: it is a pointer to the header behind the sheet, not a control inside it.</p>
+</div>
+
+</div>
+
+<div class="rules">
+<h2>The recommendation, in one line</h2>
+<p><b>B2. Bottom sheet at a 65% floor, with the X and Not now.</b> Full screen removes the header the second ask sends people to, and the centred card is light enough that a member may treat it as dismissible noise on a first read. The sheet is heavy enough to be answered and cheap enough to be left.</p>
+
+<h2>Dismiss</h2>
+<p>Two exits, both labeled, neither teal. The X is a 44px circle on <code>--surface-raised</code> with a hairline border, so it is a control at a glance rather than a glyph floating in padding. <b>Not now</b> is a 17px underlined text control directly under Save, in <code>--text-secondary</code>. Underline plus position carries it, so it survives with colour switched off. Save is the only teal thing in the frame.</p>
+<p>Both exits spend the ask, per the rule in the brief. Tapping the scrim or backing out does not.</p>
+
+<h2>Orbit's note</h2>
+<ul>
+<li><b>Grid, not a float.</b> <code>grid-template-columns: 34px 1fr</code>, the mark spanning both rows in column one. Every line of copy shares a left edge; nothing wraps around the mark. This is the fix for the ragged indent in the shipped version.</li>
+<li><b>Eyebrow</b> reads A NOTE FROM ORBIT at <code>--type-eyebrow</code> 13px, <code>letter-spacing: .14em</code>, <code>--text-secondary</code>. It is vertically centred against the mark, so the two read as one line.</li>
+<li><b>Copy at <code>--type-body</code> 17px</b>, up from 15px. No bubble: bordered box on <code>--surface-raised</code>, which is the app's existing labeled-note grammar, and correct here because one person sees this and a bubble would imply the group can.</li>
+<li>Lime appears only inside the mark, including its 9px glow. Nothing lime is tappable.</li>
+</ul>
+
+<h2>Fields</h2>
+<ul>
+<li>Both inputs are <code>1.0625rem</code> (17px), above the 16px iOS zoom threshold. Min-height 52px on the email field, 60px on the code field.</li>
+<li>Code field is one input, eight digits, JetBrains Mono at <code>--type-title</code> with <code>.26em</code> tracking and tabular figures. Paste works. No segmented boxes.</li>
+<li>Save is <code>--action</code> on <code>--action-ink</code> with the existing top-lit gradient from the finish layer, min-height 52px, full width.</li>
+</ul>
+
+<h2>Growth</h2>
+<p>No fixed heights anywhere. The sheet's 65% is <code>min-height</code>; frame F shows it exceeded by longer copy. The full screen puts its spacer between the note and the field, so enlarged text eats the air first and the Save stays reachable. The card is content-height with an 18px side inset. Nothing clips.</p>
+
+<h2>One tension worth naming</h2>
+<p>Frame D carries a teal border because the brief asks for it, which is the one place teal appears on something that is not Save. It reads as a system callout rather than a control, and D is the version we are choosing against, so it does not set precedent. If the inline version were ever shipped, that border should be <code>--hairline</code> at 1.6px with the fill lifted instead.</p>
+
+<h2>Files</h2>
+<ul>
+<li><code>design_handoff_round10/email-ask.css</code> — the real CSS for all four treatments, both states, additive over the round 4 base.</li>
+<li><code>design_handoff_round10/README.md</code> — structure, measurements and the behaviour rules for engineering.</li>
+</ul>
+</div>
+</div>
+
+<template id="ghbg">
+<div class="gh-body">
+<div class="gh-head">
+<div class="gh-homebtn"><span class="orbit-mark" data-orbit></span></div>
+<div class="gh-title">
+<span class="gh-namerow"><span class="gh-name">Climbing Crew</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></span>
+<span class="gh-sub">8 members &middot; group info &amp; invite link</span>
+</div>
+</div>
+<div class="gh-pinned peek r7gap">
+<div class="gh-rail peek">
+<div class="gh-evcard idea">
+<div class="gh-evpad">
+<div class="gh-need"><span class="lbl">Needs other votes</span></div>
+<div class="gh-idtitle">Beers?</div>
+<div class="gh-cmeta"><span class="seg">Thu 7pm</span><span class="seg">Place TBD</span></div>
+<div class="gh-ask">
+<div class="gh-qr">
+<div class="gh-qrchip">I'm in</div>
+<div class="gh-qrchip quiet">Next time</div>
+<div class="gh-qrchip quiet">Yes, can't Thu</div>
+</div>
+<div class="gh-vtally"><b>Jacob</b> is in so far</div>
+</div>
+</div>
+</div>
+<div class="gh-evcard compact">
+<div class="gh-evpad">
+<div class="gh-crow">
+<div class="gh-cmid">
+<div class="gh-ctitle">Monday morning climb</div>
+<div class="gh-cmeta"><span class="seg">Mon Jun 15</span><span class="seg">8:00 AM</span></div>
+<div class="gh-statusline"><span class="seg">4 In</span><span class="seg">4 TBD</span></div>
+</div>
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+</div>
+<div class="gh-ask"><div class="gh-rsvp slim ask"><div class="in">I'm in</div><div class="out">Can't make it</div></div></div>
+</div>
+</div>
+</div>
+</div>
+<div class="gh-feed">
+<div class="gh-day">Yesterday</div>
+<div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Next up: climbing Wed at 8am. RSVP up top.</div></div>
+<div class="gh-human"><div class="hname">Soir</div><div class="hmsg">anyone want to grab beers on Thursday?</div></div>
+<div class="gh-msgrow"><div class="gh-msgav"><span class="orbit-mark" data-orbit></span></div><div class="gh-msg">Love it. Beers this Thursday? If three are in, I'll set it up.<span class="gtally"><i></i>Jacob is in so far</span></div></div>
+</div>
+<div class="ea-inline-slot"></div>
+<div class="gh-pin"><div class="gh-input"><span class="ftxt">Send a message<span class="caret"></span></span><div class="gh-send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></div></div></div>
+</div>
+</template>
+
+<template id="eainline">
+<div class="ea-inline">
+<div class="mk" data-orbit></div>
+<div class="eyebrow">A note from Orbit</div>
+<div class="copy">I don't have a way to remember you yet. Add your email so you can log back in and not lose access to this group.</div>
+<div class="row">
+<div class="ea-input">you@example.com</div>
+<div class="ea-save">Save</div>
+<div class="ea-notnow">Not now</div>
+</div>
+</div>
+</template>
+
+<script src="design_handoff_round4/orbit-mark.js"></script>
+<script>
+(function () {
+  var bg = document.getElementById('ghbg'), inl = document.getElementById('eainline');
+  document.querySelectorAll('.r10-661[data-bg]').forEach(function (frame) {
+    var body = bg.content.cloneNode(true);
+    if (frame.dataset.bg === 'inline') body.querySelector('.ea-inline-slot').appendChild(inl.content.cloneNode(true));
+    frame.insertBefore(body, frame.firstChild);
+  });
+  document.querySelectorAll('[data-orbit]').forEach(function (el) { el.innerHTML = window.OrbitMark.svg(72); });
+  var z = 1;
+  document.querySelectorAll('[data-mh]').forEach(function (el) {
+    var host = el.dataset.mh === 'inline' ? '.r10-661[data-bg="inline"]' : '[data-screen-label="' + el.dataset.mh + '"]';
+    var f = document.querySelector(host + ' ' + (el.dataset.sel || '.ea-inline'));
+    if (f) el.textContent = Math.round(f.getBoundingClientRect().height / z) + 'px';
+  });
+  document.querySelectorAll('[data-above]').forEach(function (el) {
+    var frame = document.querySelector('[data-screen-label="' + el.dataset.above + '"]');
+    var s = frame.querySelector('.ea-sheet');
+    el.textContent = Math.round((s.getBoundingClientRect().top - frame.getBoundingClientRect().top) / z) + 'px';
+  });
+})();
+</script>
+</body>
+</html>

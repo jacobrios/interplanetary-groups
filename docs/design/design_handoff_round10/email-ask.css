@@ -1,0 +1,120 @@
+/* Round 10 · Orbit's email ask — modal shells, note grammar, fields.
+   Additive over walkthrough.css / round4-base.css. No new hues, no new type
+   sizes: every value below resolves to an existing token. */
+
+:root { --surface-low: #1f222c; --danger: #f87171; }
+
+/* ============ shells ============ */
+.ea-scrim { position: absolute; inset: 0; z-index: 5; background: rgba(8,9,13,.70); display: flex; }
+.ea-scrim.bottom { align-items: flex-end; }
+.ea-scrim.center { align-items: center; justify-content: center; padding: 0 18px; }
+
+/* A · full screen: the ask owns everything, opaque on the page ground */
+.ea-full { position: absolute; inset: 0; z-index: 6; background: var(--surface-base); display: flex; flex-direction: column; }
+
+/* B · bottom sheet: 65% of the page height as a floor, grows past it */
+.ea-sheet {
+  width: 100%; min-height: 65%; background: var(--surface-low);
+  border-top: 1px solid var(--hairline); border-radius: 22px 22px 0 0;
+  display: flex; flex-direction: column; box-shadow: 0 -20px 44px rgba(0,0,0,.48);
+}
+.ea-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--hairline); margin: 9px auto 0; flex: 0 0 auto; }
+
+/* C · centred card */
+.ea-card {
+  width: 100%; background: var(--surface-low); border: 1px solid var(--hairline);
+  border-radius: 18px; display: flex; flex-direction: column; box-shadow: 0 20px 48px rgba(0,0,0,.52);
+}
+
+/* ============ dismiss ============ */
+.ea-top { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; padding: 6px 8px 0; }
+.ea-x {
+  width: 44px; height: 44px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-raised); border: 1px solid var(--hairline); color: var(--text-secondary); cursor: pointer;
+}
+.ea-x svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.ea-notnow {
+  min-height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: var(--type-body); font-weight: 600; color: var(--text-secondary);
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; cursor: pointer;
+}
+
+/* ============ body ============ */
+.ea-pad { padding: 4px 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.ea-full .ea-pad { flex: 1 1 auto; padding: 8px 22px 26px; gap: 20px; }
+.ea-spacer { flex: 1 1 auto; min-height: 10px; }
+.ea-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* Orbit's labeled note: mark in a reserved left inset, copy in one column.
+   Grid, not a float, so no line of copy ever wraps around the mark. */
+.ea-note {
+  background: var(--surface-raised); border: 1px solid var(--hairline); border-radius: 14px;
+  padding: 15px 16px 17px; display: grid; grid-template-columns: 34px 1fr; column-gap: 13px;
+}
+.ea-note .mk {
+  grid-column: 1; grid-row: 1 / span 2; width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid var(--text-primary); background: var(--surface-base); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 0 9px rgba(164,239,78,.28));
+}
+.ea-note .mk svg { width: 26px; height: 26px; display: block; }
+.ea-note .eyebrow {
+  grid-column: 2; grid-row: 1; align-self: center; min-height: 34px; display: flex; align-items: center;
+  font-size: var(--type-eyebrow); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-secondary); font-weight: 700;
+}
+.ea-note .copy {
+  grid-column: 2; grid-row: 2; margin-top: 7px;
+  font-size: var(--type-body); line-height: var(--leading-normal); color: var(--text-primary); text-wrap: pretty;
+}
+.ea-note .copy b { font-weight: 600; color: var(--text-primary); }
+.ea-note .copy + .copy { margin-top: 12px; }
+
+/* ============ fields ============ */
+.ea-lab { font-size: var(--type-eyebrow); letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); font-weight: 700; margin-bottom: 7px; }
+.ea-input {
+  display: flex; align-items: center; min-height: 52px; padding: 12px 14px;
+  background: var(--surface-base); border: 1.6px solid var(--hairline); border-radius: 12px;
+  font-size: 1.0625rem; line-height: var(--leading-normal); color: var(--placeholder);
+}
+.ea-input.typed { color: var(--text-primary); border-color: var(--text-secondary); }
+.ea-caret { display: inline-block; width: 2px; height: 20px; background: var(--action); margin-left: 2px; }
+.ea-code {
+  font-family: 'JetBrains Mono', monospace; font-size: var(--type-title); letter-spacing: .26em;
+  min-height: 60px; font-variant-numeric: tabular-nums;
+}
+.ea-save {
+  min-height: 52px; border-radius: 12px; background: var(--action); color: var(--action-ink);
+  font-size: var(--type-body); font-weight: 700; display: flex; align-items: center; justify-content: center;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 62%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.34); cursor: pointer;
+}
+.ea-hint { font-size: var(--type-label); line-height: var(--leading-normal); color: var(--text-faint); text-wrap: pretty; }
+.ea-hint b { color: var(--text-secondary); font-weight: 600; }
+
+/* ============ D · the inline version, done properly ============ */
+.ea-inline {
+  flex: 0 0 auto; margin: 0 16px 10px; padding: 14px 15px 15px;
+  background: var(--surface-raised); border: 1.6px solid var(--action); border-radius: 14px;
+  display: grid; grid-template-columns: 34px 1fr; column-gap: 13px; row-gap: 0;
+}
+.ea-inline .mk {
+  grid-column: 1; grid-row: 1 / span 3; width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid var(--text-primary); background: var(--surface-base); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 0 9px rgba(164,239,78,.28));
+}
+.ea-inline .mk svg { width: 26px; height: 26px; display: block; }
+.ea-inline .eyebrow {
+  grid-column: 2; grid-row: 1; min-height: 34px; display: flex; align-items: center;
+  font-size: var(--type-eyebrow); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-secondary); font-weight: 700;
+}
+.ea-inline .copy { grid-column: 2; grid-row: 2; margin-top: 6px; font-size: var(--type-body); line-height: var(--leading-normal); color: var(--text-primary); text-wrap: pretty; }
+/* the field, Save and the decline sit in one 3-across row so the note stays
+   inside a page that also has to hold a header, the card region and a composer */
+.ea-inline .row { grid-column: 2; grid-row: 3; margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 8px; }
+.ea-inline .ea-input { flex: 1 1 120px; min-width: 0; min-height: 48px; }
+.ea-inline .ea-save { flex: 0 0 auto; min-height: 48px; padding: 0 18px; }
+.ea-inline .ea-notnow { flex: 0 0 100%; min-height: 38px; justify-content: flex-start; font-size: var(--type-meta); }
