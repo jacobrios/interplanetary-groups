@@ -124,7 +124,12 @@ cannot stand: the group feed is the product's one conversation surface and it is
 public, so an ask addressed to one member is clutter for everyone else and
 repeats per member; and the only input on that screen is the chat composer, so
 answering the ask would post the member's email into the group feed, breaking
-"emails are never displayed anywhere in the UI" outright. The §3 *trigger*
+"emails are never displayed anywhere in the UI" outright. *(The quoted rule was
+amended 27 August 2026: never shown to the group or to any other member, always
+shown to its owner, on the group info page, and nowhere else. The reasoning in
+this paragraph survives the amendment unchanged and is in fact the reasoning the
+amendment turned on, since posting into the feed is precisely the group seeing an
+address; only the words being quoted are stale.)* The §3 *trigger*
 survives untouched: the first RSVP is still when "I want a reminder for this" is
 true. Only the surface moves. Rendering per viewer rather than posting reuses the
 pattern the time-change-ending slice established for the vote confirmation line.

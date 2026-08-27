@@ -501,6 +501,25 @@ function read(relative: string): string {
   return readFileSync(path.join(REPO, relative), "utf8")
 }
 
+/**
+ * How many times a bare identifier appears in real code, comments excluded.
+ *
+ * Comments are stripped because the count is pinned exactly, and this file and
+ * the seam it watches both discuss these functions in prose. Without the
+ * strip, writing a sentence about the guard would break the guard, which is
+ * the kind of test nobody keeps. Only whole-line and block comments are
+ * removed, never mid-line content, so a trailing comment after real code still
+ * counts: that direction fails loud, which is the safe way to be wrong here.
+ */
+function countIdentifier(source: string, identifier: string): number {
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((line) => !/^\s*(\/\/|\*)/.test(line))
+    .join("\n")
+  return (code.match(new RegExp(`\\b${identifier}\\b`, "g")) ?? []).length
+}
+
 /** The body of the first balanced brace group after `openerIndex`. */
 function braceBlockAfter(source: string, openerIndex: number): string {
   const start = source.indexOf("{", openerIndex)
@@ -545,6 +564,17 @@ describe("only one query can see an address, and only for one user at a time", (
       for (const match of source.matchAll(readOps)) sites.push(`${relative}:${match[1]}`)
     }
     expect(sites).toEqual([`${EMAIL_ASK}:findFirst`, `${EMAIL_ASK}:findFirst`])
+
+    // The scan above only sees Prisma's model methods, so raw SQL would walk
+    // straight past it. There is none in the product today, which is what
+    // makes the count above a complete statement rather than a partial one.
+    // Latent when written (review, fix round 1); the day somebody adds raw SQL
+    // this reddens and they have to widen the scan above rather than discover
+    // later that it stopped covering everything.
+    const raw = files
+      .filter(([, source]) => /\$(?:query|execute)Raw(?:Unsafe)?\b/.test(source))
+      .map(([relative]) => relative)
+    expect(raw).toEqual([])
   })
 
   it("keeps the boolean read blind to the address, so the group home cannot obtain one", () => {
@@ -576,31 +606,90 @@ describe("only one query can see an address, and only for one user at a time", (
     expect(call).not.toMatch(/\bin:\s*/)
   })
 
-  it("calls the address read in exactly one place, with the viewer's own id", () => {
-    // The other half of the scoping proof, and it is what makes the render
-    // test's allowed address honest: the row can only ever hold the viewer's
-    // own address, because that is the only id this is ever called with.
-    const callSites = readAllSourceFiles()
-      .filter(([relative]) => relative !== EMAIL_ASK)
-      .flatMap(([relative, source]) =>
-        Array.from(source.matchAll(/verifiedEmailAddress\((.*?)\)/g)).map(
-          (m) => `${relative}:${m[1]}`
-        )
+  it("names the address read in exactly two places in the product, and counts every mention", () => {
+    // THE ASSERTION THE WHOLE FILE TURNS ON, rewritten in fix round 1 after a
+    // reviewer wrote two working mutations that printed EVERY member's address
+    // next to their name in the WHO row while all five of this layer's
+    // assertions stayed green. Recorded in full, because the lesson is about
+    // what an assertion of this shape can be trusted to do:
+    //
+    //   MUT A, point-free. `memberships.map((m) => m.userId).map(
+    //   verifiedEmailAddress)` puts no "(" after the identifier, so the old
+    //   regex, which keyed off the call parenthesis to capture the argument,
+    //   never saw a call at all.
+    //
+    //   MUT B, a wrapper in this same seam. The old scan skipped
+    //   src/lib/auth/email-ask.ts on the reasoning that the definition lives
+    //   there, so a looping helper added beside the definition was invisible
+    //   and the page could then call it under any name it liked.
+    //
+    //   MUT C, a line break. `.` does not match a newline, so a formatter
+    //   wrapping a long call was enough to hide it. Nobody has to be
+    //   malicious for this one.
+    //
+    // The fix is to stop parsing calls and start COUNTING THE NAME. Every way
+    // of reaching this function has to write the identifier down somewhere,
+    // whether it is called, aliased, passed to map, or wrapped, so the count
+    // per file is the thing that cannot be dodged. Two in the info page (the
+    // import and the call), one in the seam (the declaration itself, which is
+    // what makes an internal wrapper redden), none anywhere else.
+    const mentions = readAllSourceFiles()
+      .map(
+        ([relative, source]) =>
+          [relative, countIdentifier(source, "verifiedEmailAddress")] as const
       )
-    expect(callSites).toEqual([`${INFO_PAGE}:viewer.id`])
+      .filter(([, count]) => count > 0)
+    expect(Object.fromEntries(mentions)).toEqual({ [INFO_PAGE]: 2, [EMAIL_ASK]: 1 })
+  })
+
+  it("passes the viewer's own id at the one call site, across line breaks", () => {
+    // The count above proves nothing else reaches the function. This proves
+    // the one thing that does reaches it with the right argument, which is the
+    // actual property the rule needs. Kept as a second assertion rather than
+    // as the only one: it is the argument regex that the reviewer's mutations
+    // walked past, so it is no longer the thing standing between the roster
+    // and a leak.
+    //
+    // [\s\S] rather than `.` on purpose: `.` stops at a newline, and a
+    // formatter wrapping this call was one of the three ways past the old
+    // version of this test.
+    const page = read(INFO_PAGE)
+    const args = Array.from(page.matchAll(/verifiedEmailAddress\(([\s\S]*?)\)/g)).map((m) =>
+      m[1].trim()
+    )
+    expect(args).toEqual(["viewer.id"])
 
     // `viewer` is the session's own user, not a loop variable that happens to
     // be named well. Without this line the assertion above would be satisfied
     // by a `viewer` rebound inside a members.map, which is precisely the leak.
-    const page = read(INFO_PAGE)
     expect(page).toMatch(/const viewer = await getCurrentUser\(\)/)
     expect(page).not.toMatch(/\.map\([^)]*\bviewer\b/)
   })
 
+  it("projects the member list down to a name and an id before anything renders it", () => {
+    // The reviewer's mutations both ended in the same place: an address folded
+    // into the roster the WHO row maps over. This is the assertion that closes
+    // that landing site regardless of how the address got there, and it is
+    // stronger than the prop check it replaced, which could only ever catch
+    // the one prop name it knew about.
+    //
+    // The member list is the one structure on this page that carries every
+    // member rather than the viewer, so what it is allowed to hold is the
+    // whole question. Two keys, both harmless, asserted as a complete set so
+    // a third is a failure whatever it is called.
+    const page = read(INFO_PAGE)
+    const projection = braceBlockAfter(page, page.indexOf("({", page.indexOf("].map(")))
+    const keys = Array.from(projection.matchAll(/(\w+):/g)).map((m) => m[1])
+    expect(keys).toEqual(["id", "name"])
+  })
+
   it("hands the address to exactly one component prop, on the one allowed surface", () => {
     // Layer 1 proves the components do not print an address. This proves no
-    // page hands one to a component that would. The prop exists on
-    // EmailStatusRow and nowhere else, and it is passed once.
+    // page hands one to a component that would. Narrower than it looks, and
+    // that is now explicit: it pins THIS prop name, so on its own it would
+    // miss an address passed under another name. It is the projection
+    // assertion above and the mention count above that make it complete; this
+    // one is here to say that the allowed prop is passed once, on one page.
     const propSites = readAllSourceFiles().flatMap(([relative, source]) =>
       Array.from(source.matchAll(/emailAddress=\{(.*?)\}/g)).map((m) => `${relative}:${m[1]}`)
     )
@@ -630,12 +719,35 @@ describe("only one query can see an address, and only for one user at a time", (
     // the render with no other change anywhere, and nothing else in this file
     // would catch it. The two ask-accounting fields are how many times Orbit
     // asked and when; neither holds an address.
+    // Pinned as the COMPLETE field list rather than by name-matching on
+    // "email" (review, fix round 1). The old version scanned for fields whose
+    // names contained "email", which a column called `recoveryAddress` or
+    // `contact` would have walked straight past, and a leak does not have to
+    // be named after the thing it leaks. A new field of any kind reddens here
+    // and gets a sentence about whether the three whole-User-row pages can
+    // still carry it safely. emailAskCount and emailAskedAt are how many times
+    // Orbit asked and when; neither holds an address.
     const schema = read("prisma/schema.prisma")
     const user = braceBlockAfter(schema, schema.indexOf("model User"))
-    const emailNamedFields = Array.from(user.matchAll(/^\s*(\w*[eE]mail\w*)\s+\S/gm)).map(
-      (m) => m[1]
-    )
-    expect(emailNamedFields.sort()).toEqual(["emailAskCount", "emailAskedAt"])
+    const fields = Array.from(user.matchAll(/^\s+(\w+)\s+\S/gm)).map((m) => m[1])
+    expect(fields).toEqual([
+      "id",
+      "name",
+      "supabaseAuthId",
+      "emailAskCount",
+      "emailAskedAt",
+      "createdAt",
+      "updatedAt",
+      "contactMethods",
+      "memberships",
+      "rsvps",
+      "foundedGroups",
+      "messages",
+      "gaugeVotes",
+      "proposalVotes",
+      "changeProposals",
+      "suggestedGauges",
+    ])
     // The relation itself is fine and has to exist; what matters is that it is
     // a relation, so it only arrives when a query asks for it.
     expect(user).toMatch(/contactMethods\s+ContactMethod\[\]/)

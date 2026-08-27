@@ -271,7 +271,24 @@ describe("the eyebrow this row lives under, which is on the page rather than in 
   )
 
   it("names both jobs the address does, and does not repeat itself", () => {
+    // The negative assertion runs FIRST, so that a run against a source with
+    // the old eyebrow reddens on the duplication rather than on the missing
+    // new wording. That ordering is what let this replacement be proved by
+    // running it rather than by reading it.
+    // ~~expect(page).not.toContain(">Email reminders<")~~ VACUOUS, and caught
+    // by review in fix round 1 rather than by running: the old eyebrow sat on
+    // a JSX line of its own, so that exact string never appeared in the source
+    // before this change either, and the assertion could not have failed. It
+    // is replaced by the shape the old source actually had, which is a line
+    // whose entire content is the old eyebrow. Verified against the pre-change
+    // file at d285ad5, where page.tsx:270 is exactly that line, so this
+    // assertion would have failed then and passes now.
+    //
+    // Worth naming rather than quietly fixing: this file's header already
+    // records two assertions in its history that could not fail, and this was
+    // the third. The pattern is always the same, a negative assertion written
+    // against a string nobody ever wrote.
+    expect(page).not.toMatch(/^\s*Email reminders\s*$/m)
     expect(page).toContain("Email for sign-in and reminders")
-    expect(page).not.toContain(">Email reminders<")
   })
 })
