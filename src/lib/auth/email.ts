@@ -9,9 +9,11 @@
 //
 // Everything in the mapping below was measured against the real Supabase
 // project by the task 1 spike (scripts/spike-email-auth.ts; findings recorded
-// in docs/superpowers/specs/2026-08-25-email-sign-in-design.md), with the two
-// inferred cases flagged inline. Do not "correct" any of it from the docs: the
-// docs and the measurement disagree in at least three places.
+// in docs/superpowers/specs/2026-08-25-email-sign-in-design.md), EXCEPT at four
+// sites the spike never reached, each flagged inline where it sits: the taken
+// codes, the rate-limit codes, the two address-complaint codes, and the
+// user_not_found arm of the sign-in refusal. Do not "correct" any of the rest
+// from the docs: the docs and the measurement disagree in at least three places.
 //
 // One rule this file exists to honour: every service_error branch logs the
 // underlying error before returning its friendly reason. The production deploy
@@ -98,8 +100,47 @@ function normalizeEmail(raw: string): string {
 }
 
 const TAKEN_CODES = new Set(["email_exists", "identity_already_exists", "user_already_exists"])
-const INVALID_EMAIL_CODES = new Set(["email_address_invalid", "validation_failed"])
 const RATE_LIMIT_CODES = new Set(["over_email_send_rate_limit", "over_request_rate_limit"])
+
+/**
+ * Both inferred rather than measured: the spike only ever sent a well-formed
+ * address, so it never saw either code come back. These are Supabase's
+ * documented replies to an address it will not accept.
+ *
+ * They are split rather than pooled because they are not equally honest.
+ * `email_address_invalid` is unambiguous, so the member's answer is the whole
+ * story and nothing needs recording. `validation_failed` is Supabase's GENERIC
+ * request-validation code, so it is as likely to be a malformed request of ours
+ * as a bad address, and swallowing it silently would be the create-group.ts:73
+ * failure re-entering through a branch the "log every service_error" rule does
+ * not reach: a bug of ours would reach the member as "that address doesn't look
+ * right" and leave no trace anywhere. See addressComplaint below.
+ */
+const UNAMBIGUOUS_INVALID_EMAIL_CODE = "email_address_invalid"
+const AMBIGUOUS_VALIDATION_CODE = "validation_failed"
+
+/**
+ * The address-complaint branch, shared by both request functions: the decision
+ * is identical in each and the logging rule above is subtle enough that two
+ * copies of it would drift apart.
+ *
+ * Named as a noun because it is not a pure predicate: it logs on the way out
+ * for the ambiguous code. The log is for the operator and the returned result
+ * is for the member, and the two do not conflict, since "that address doesn't
+ * look right" is the only thing a member can act on either way.
+ */
+function addressComplaint(
+  where: string,
+  error: unknown,
+  f: ServiceFailure
+): "invalid_email" | null {
+  if (f.code === UNAMBIGUOUS_INVALID_EMAIL_CODE) return "invalid_email"
+  if (f.code === AMBIGUOUS_VALIDATION_CODE) {
+    logServiceFailure(where, error)
+    return "invalid_email"
+  }
+  return null
+}
 
 /**
  * Rate limiting is built against configuration that was READ, not exercised:
@@ -135,7 +176,8 @@ export async function requestEmailAttach(email: string): Promise<{ result: Attac
     // the symptom is a service_error where a "that email is already in use"
     // belonged, which is a degraded message rather than a wrong one.
     if (f.code !== undefined && TAKEN_CODES.has(f.code)) return { result: "email_taken" }
-    if (f.code !== undefined && INVALID_EMAIL_CODES.has(f.code)) return { result: "invalid_email" }
+    const complaint = addressComplaint("requestEmailAttach", error, f)
+    if (complaint) return { result: complaint }
     if (isRateLimited(f)) return { result: "rate_limited" }
 
     logServiceFailure("requestEmailAttach", error)
@@ -148,8 +190,24 @@ export async function requestEmailAttach(email: string): Promise<{ result: Attac
 
 /**
  * Step two: confirm the code, and write the app's own copy of the address in
- * the same call, so an email attached in Supabase can never exist without the
- * app knowing about it.
+ * the same call, so the app learns about an attached email at the moment it
+ * happens rather than on some later reconciliation.
+ *
+ * What that is NOT, stated precisely, because tasks 5, 7 and 8 read this to
+ * decide what a service_error from here means. The write is atomic with respect
+ * to the app's OWN rows: the delete and the create either both land or neither
+ * does. It is not atomic with respect to Supabase, and it cannot be, because
+ * verifyOtp below commits the address onto the identity before this function
+ * has written anything. So there is a real window where Supabase is ahead of
+ * us: the code was accepted, the email is attached on the identity, and then
+ * the ContactMethod write fails, leaving service_error and no row. That is a
+ * tested path, not a theoretical one ("logs and returns service_error when the
+ * ContactMethod write fails"). **A caller must not build on "this can never
+ * happen."** The recovery is the same one a mistyped address gets: the member
+ * runs the attach flow again, which overwrites rather than accumulates, so a
+ * second pass through here heals the split. This window is the sharp edge of
+ * the double-storage debt the slice document already accepted, which was taken
+ * over a service-role key that would bypass every protection in the product.
  *
  * The type is `email_change`, not `email`. This was the single most likely
  * place for the plan to be wrong, so the spike tried four candidates against
@@ -263,10 +321,16 @@ export async function requestSignInCode(email: string): Promise<{ result: SignIn
     // member can reach at runtime, so it is not worth a vaguer message for
     // everyone else. If sign-in ever appears broken for EVERY address, this
     // comment is the first place to look.
+    //
+    // `user_not_found` alongside it is inferred rather than measured: the spike
+    // only ever saw otp_disabled, and this is Supabase's documented code for
+    // the same situation reached another way. If it never actually fires,
+    // nothing breaks, because otp_disabled already covers the measured path.
     if (f.code === "otp_disabled" || f.code === "user_not_found") {
       return { result: "unknown_email" }
     }
-    if (f.code !== undefined && INVALID_EMAIL_CODES.has(f.code)) return { result: "invalid_email" }
+    const complaint = addressComplaint("requestSignInCode", error, f)
+    if (complaint) return { result: complaint }
     if (isRateLimited(f)) return { result: "rate_limited" }
 
     logServiceFailure("requestSignInCode", error)

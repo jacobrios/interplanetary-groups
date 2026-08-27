@@ -75,11 +75,32 @@ describe("requestEmailAttach", () => {
     expect(updateUser).not.toHaveBeenCalled()
   })
 
-  it("maps Supabase's own address complaints to invalid_email", async () => {
-    for (const code of ["email_address_invalid", "validation_failed"]) {
-      updateUser.mockResolvedValue({ data: { user: null }, error: authError(code, 422) })
-      expect(await requestEmailAttach("sam@example.com")).toEqual({ result: "invalid_email" })
-    }
+  it("maps an unambiguous address complaint to invalid_email, silently", async () => {
+    updateUser.mockResolvedValue({
+      data: { user: null },
+      error: authError("email_address_invalid", 422),
+    })
+
+    expect(await requestEmailAttach("sam@example.com")).toEqual({ result: "invalid_email" })
+    // Nothing to record: Supabase is unambiguous that the address is the
+    // problem, and the member's answer is the whole story.
+    expect(errorLog).not.toHaveBeenCalled()
+  })
+
+  it("still logs validation_failed, which is ambiguous between a bad address and our bug", async () => {
+    updateUser.mockResolvedValue({
+      data: { user: null },
+      error: authError("validation_failed", 422, "request body malformed"),
+    })
+
+    // The member gets the one thing they can act on, and the operator still
+    // gets the trace, because validation_failed is Supabase's generic
+    // request-validation code: a malformed request of OUR making arrives here
+    // too, and returning it silently would be create-group.ts:73 all over again
+    // through a branch the log-every-service_error rule does not reach.
+    expect(await requestEmailAttach("sam@example.com")).toEqual({ result: "invalid_email" })
+    expect(errorLog).toHaveBeenCalledOnce()
+    expect(JSON.stringify(errorLog.mock.calls[0])).toContain("request body malformed")
   })
 
   it("maps an address already on another identity to email_taken", async () => {
@@ -271,10 +292,24 @@ describe("requestSignInCode", () => {
     expect(await requestSignInCode("sam@example.com")).toEqual({ result: "rate_limited" })
   })
 
-  it("maps Supabase's address complaint to invalid_email", async () => {
+  it("maps Supabase's address complaint to invalid_email, silently", async () => {
     signInWithOtp.mockResolvedValue({ data: {}, error: authError("email_address_invalid", 422) })
 
     expect(await requestSignInCode("sam@example.com")).toEqual({ result: "invalid_email" })
+    expect(errorLog).not.toHaveBeenCalled()
+  })
+
+  it("logs validation_failed here too, since both requests share the branch", async () => {
+    signInWithOtp.mockResolvedValue({
+      data: {},
+      error: authError("validation_failed", 422, "bad options payload"),
+    })
+
+    expect(await requestSignInCode("sam@example.com")).toEqual({ result: "invalid_email" })
+    expect(errorLog).toHaveBeenCalledOnce()
+    // The call site is named, so the log says WHICH request was malformed.
+    expect(JSON.stringify(errorLog.mock.calls[0])).toContain("requestSignInCode")
+    expect(JSON.stringify(errorLog.mock.calls[0])).toContain("bad options payload")
   })
 
   it("logs the underlying error before returning service_error", async () => {
