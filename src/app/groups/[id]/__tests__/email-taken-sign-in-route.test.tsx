@@ -24,9 +24,15 @@ import EmailAttachFlow, { DEFAULT_REQUEST_ERROR } from "../EmailAttachFlow"
 import EmailStatusRow from "../info/EmailStatusRow"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
 
+// The stand-in has to pass everything through, not just href. It used to take
+// href and children alone, which silently dropped the style prop, so the anchor
+// this file rendered was not the anchor the product renders and no assertion
+// about its treatment could have been true. Found by writing one.
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
+  default: ({ href, children, ...rest }: React.ComponentProps<"a"> & { href: string }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
 }))
 
@@ -66,11 +72,15 @@ describe("an address the product already knows, on the group home's flow", () =>
     )
     await typeATakenAddress()
 
-    expect(
-      screen.getByText(
-        "That email is already on an account. If it's yours, sign in with it instead of adding another."
-      )
-    ).toBeDefined()
+    // Shortened 27 Aug 2026 after the owner's phone pass, and the deletion is
+    // the point rather than a trim. The sentence used to carry the instruction
+    // ("sign in with it instead of adding another") AND the control below it
+    // said the same thing, so the control read as an echo of the prose rather
+    // than as the thing to tap: "I missed the sign-in with that email link and
+    // didn't click it." The error states the fact; the control carries the
+    // instruction. Hardcoded literal, per this branch's standing trap.
+    expect(screen.getByText("That email is already on an account.")).toBeDefined()
+    expect(screen.queryByText(/instead of adding another/)).toBeNull()
     // The old copy, and the reason it was wrong: it sent the one person most
     // likely to be here down the path that makes their duplicate permanent.
     expect(screen.queryByText(/Try another one/)).toBeNull()
@@ -121,11 +131,8 @@ describe("the same address, on the group info page's permanent row", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     await typeATakenAddress()
 
-    expect(
-      screen.getByText(
-        "That email is already on an account. If it's yours, sign in with it instead of adding another."
-      )
-    ).toBeDefined()
+    expect(screen.getByText("That email is already on an account.")).toBeDefined()
+    expect(screen.queryByText(/instead of adding another/)).toBeNull()
     expect(screen.queryByText(/Try a different one/)).toBeNull()
   })
 
@@ -135,5 +142,56 @@ describe("the same address, on the group info page's permanent row", () => {
     await typeATakenAddress()
 
     expect(screen.getByRole("link", { name: SIGN_IN_LABEL }).getAttribute("href")).toBe("/signin")
+  })
+})
+
+describe("the route reads as the offered next step, not as a footnote", () => {
+  // The second finding from the owner's phone pass, and it is the failure this
+  // whole slice exists to prevent: the person most likely to be here is the one
+  // who attached an email, lost their session, and came back as a second copy
+  // of themselves. A route they walk past is the same as no route.
+  //
+  // It used to be a 15px grey underlined link sitting under a long red error,
+  // in the same register as "Not now", which is the register of things you skip.
+  // It is a bordered control now. Colour is not doing any of the work: the
+  // border, the 17px weight-600 label and the 48px target are what carry it,
+  // and they carry it with hue switched off.
+
+  it("is a bordered control with a real tap target, not a quiet text link", async () => {
+    render(
+      <EmailAttachFlow promptMessage="What's your email?" cancelLabel="Not now" onCancel={vi.fn()} />
+    )
+    await typeATakenAddress()
+    const route = screen.getByRole("link", { name: SIGN_IN_LABEL })
+
+    expect(route.style.border).not.toBe("")
+    expect(route.style.minHeight).toBe("48px")
+    expect(route.style.fontSize).toBe("var(--type-body)")
+    expect(route.style.fontWeight).toBe("600")
+    // Underline is what made it read as an aside next to the exit; the border
+    // is doing that job now, and two treatments would be one too many.
+    expect(route.style.textDecoration).not.toBe("underline")
+  })
+
+  it("is not teal and not lime, because Save owns teal and Orbit owns lime", async () => {
+    render(
+      <EmailAttachFlow promptMessage="What's your email?" cancelLabel="Not now" onCancel={vi.fn()} />
+    )
+    await typeATakenAddress()
+    const route = screen.getByRole("link", { name: SIGN_IN_LABEL })
+
+    const style = route.getAttribute("style") ?? ""
+    expect(style).not.toMatch(/var\(--action\)/)
+    expect(style).not.toMatch(/var\(--lime\)/)
+  })
+
+  it("carries the same treatment on the group info page's row", async () => {
+    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
+    await typeATakenAddress()
+    const route = screen.getByRole("link", { name: SIGN_IN_LABEL })
+
+    expect(route.style.border).not.toBe("")
+    expect(route.style.minHeight).toBe("48px")
   })
 })

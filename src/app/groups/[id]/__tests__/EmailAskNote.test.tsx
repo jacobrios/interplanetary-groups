@@ -449,6 +449,59 @@ describe("EmailAskNote, once the address is saved", () => {
     expect(dismissMock).not.toHaveBeenCalled()
   })
 
+  it("survives its own success, when the server prop the member just invalidated goes null", async () => {
+    // THE BUG THIS REPRODUCES, found on the owner's phone: "The dialogue after
+    // I entered in my code came up and disappeared way too fast. I didn't even
+    // have time to read it."
+    //
+    // Nothing in this component closed it. Confirming the code writes a
+    // verified ContactMethod, the route re-renders, the page recomputes
+    // shouldOfferEmail with hasVerifiedEmail now true, the offer goes null, and
+    // the sheet vanished mid-sentence. The sheet's lifetime was tied to a
+    // server prop that the member's own success invalidates.
+    //
+    // A component test cannot see that on its own, because jsdom never
+    // re-renders the server component. The rerender below IS the missing half:
+    // same component instance, new props, exactly as the route delivers them.
+    const { rerender, container } = render(<EmailAskNote {...firstAskProps()} />)
+    await reachDone()
+
+    rerender(<EmailAskNote {...firstAskProps({ hasVerifiedEmail: true })} />)
+
+    expect(container.innerHTML).not.toBe("")
+    expect(
+      screen.getByText("Thanks, that's saved. You can get back in with your email any time.")
+    ).toBeDefined()
+    expect(screen.getByRole("button", { name: "Back to the group" })).toBeDefined()
+  })
+
+  it("still lets the member close it after that, and still charges nothing", async () => {
+    // The latch outranks the offer; it must not outrank the member.
+    const { rerender, container } = render(<EmailAskNote {...firstAskProps()} />)
+    await reachDone()
+    rerender(<EmailAskNote {...firstAskProps({ hasVerifiedEmail: true })} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to the group" }))
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+
+  it("never opens for a member who is not owed an ask, however the props move", () => {
+    // The other half of the latch, and the one that would be a real bug: only
+    // a flow that already reached its end may outlive a null offer. A member
+    // the gate says nothing to must never be shown an ask by a re-render.
+    const { rerender, container } = render(
+      <EmailAskNote {...firstAskProps({ hasVerifiedEmail: true })} />
+    )
+    expect(container.innerHTML).toBe("")
+
+    rerender(<EmailAskNote {...firstAskProps({ hasVerifiedEmail: true })} />)
+    expect(container.innerHTML).toBe("")
+
+    rerender(<EmailAskNote {...firstAskProps({ latestContributionAt: null })} />)
+    expect(container.innerHTML).toBe("")
+  })
+
   it("does not flash the thank-you away before it can be read", async () => {
     // The tempting one-line fix is onAttached={() => setAnswered(true)}, which
     // closes the sheet the instant the code is confirmed. The member never

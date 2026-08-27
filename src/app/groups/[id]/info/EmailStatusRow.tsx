@@ -67,8 +67,11 @@ const REQUEST_ERROR_MESSAGES = {
   // lost session made a second copy of them. Kept word for word identical to
   // the default here, unlike the four around it: it carries no pronoun, no
   // Orbit voice to neutralise, and the owner settled this exact sentence.
-  email_taken:
-    "That email is already on an account. If it's yours, sign in with it instead of adding another.",
+  // Shortened with the default, 27 Aug 2026, and kept word for word identical
+  // to it for the same reason as before: it carries no pronoun and no Orbit
+  // voice to neutralise. The instruction it used to carry now lives in the
+  // control the shared flow renders under it, on both surfaces.
+  email_taken: "That email is already on an account.",
   rate_limited: "That was quick. Wait a minute before asking for another code.",
   service_error: "Something went wrong. Give it another try in a bit.",
 } as const

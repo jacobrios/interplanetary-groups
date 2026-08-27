@@ -99,8 +99,16 @@ export const DEFAULT_REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, s
   // the code cannot back up: Supabase identities are project-global, not
   // per group. The sentence now points at signing in, and SIGN_IN_HREF below
   // is what keeps it from being a promise the product cannot keep.
-  email_taken:
-    "That email is already on an account. If it's yours, sign in with it instead of adding another.",
+  // Shortened again 27 Aug 2026, after the owner met this branch on a real
+  // phone: "I missed the sign-in with that email link and didn't click it. I
+  // could see that being easy to miss." The sentence carried the instruction
+  // AND the control underneath repeated it, so the control read as an echo of
+  // prose rather than as the thing to tap, sitting quiet and grey under a long
+  // red block. The error states the fact; SIGN_IN_LABEL below carries the
+  // instruction, as a control rather than as a sentence. The 27 Aug rewrite's
+  // whole intent, to point this person at signing in instead of at typing a
+  // different address, is unchanged and is now carried by something tappable.
+  email_taken: "That email is already on an account.",
   rate_limited: "That was quick. You can ask for a new code once a minute.",
   service_error: "Something went wrong on my end. Give it another try in a bit.",
 }
@@ -549,23 +557,46 @@ export default function EmailAttachFlow({
         </p>
       )}
 
-      {/* The door behind the sentence above. A quiet link rather than a
-          button: the member came here to add an email, and this is the
-          product admitting they may already have done that, which is not a
-          moment to compete with the screen's real action. 44px tall so it is
-          a real tap target on a phone. */}
+      {/* The door behind the sentence above, and since 27 Aug 2026 a control
+          rather than a link.
+ 
+          It shipped as a 15px grey underlined link, which is the same register
+          as the "Not now" exit, and the owner walked straight past it on his
+          phone. That is the failure this whole slice exists to prevent: the
+          person most likely to be standing here is the one who attached an
+          address, lost their session, and came back as a second copy of
+          themselves, and a route they do not notice is the same as no route.
+ 
+          WHAT CARRIES IT, and none of it is hue. A hairline border and a fill
+          give it the shape of a thing you press; 17px at weight 600 puts it
+          above the surrounding copy; a 48px target makes it a real one on a
+          phone. Deliberately NOT teal, which belongs to Save alone on this
+          sheet, and not lime, which is Orbit's brand and never an action. It
+          stays outlined rather than filled so it reads as a route onward and
+          never competes with Save, which is exactly the rung CLAUDE.md already
+          assigns to a secondary action.
+ 
+          Full width in the sheet, where everything else in the column is; auto
+          width inline, where the row it sits in is not a column. */}
       {offerSignIn && (
-        <p style={{ margin: "2px 0 0" }}>
+        <p style={{ margin: "10px 0 0" }}>
           <Link
             href={SIGN_IN_HREF}
             style={{
-              display: "inline-flex",
+              display: isSheet ? "flex" : "inline-flex",
+              width: isSheet ? "100%" : undefined,
               alignItems: "center",
-              minHeight: 44,
-              color: "var(--text-secondary)",
-              fontSize: "var(--type-meta)",
+              justifyContent: "center",
+              minHeight: 48,
+              padding: "10px 16px",
+              backgroundColor: "var(--surface-base)",
+              border: "1.6px solid var(--hairline)",
+              borderRadius: 12,
+              color: "var(--text-primary)",
+              fontSize: "var(--type-body)",
+              fontWeight: 600,
               lineHeight: "var(--leading-normal)",
-              textDecoration: "underline",
+              textDecoration: "none",
             }}
           >
             {SIGN_IN_LABEL}

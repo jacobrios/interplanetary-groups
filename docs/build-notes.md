@@ -5156,3 +5156,57 @@ keeps Save on the screen at accessibility text sizes.
 iOS Safari the layout viewport does not shrink for the keyboard, so focusing the field may
 put Save and the worded exit behind it. Nothing in this element uses `dvh` or
 `visualViewport`. Named as a check rather than guessed at.
+
+**Postscript, round 2 of review: the owner met the sheet on a real phone, and both findings
+were real.**
+
+**The sheet vanished on success, and the component was innocent.** His words: "The dialogue
+after I entered in my code came up and disappeared way too fast. I didn't even have time to
+read it." Nothing in `EmailAskNote` closed it. Confirming the code writes a verified
+`ContactMethod`, the route re-renders, `page.tsx` recomputes the gate with
+`hasVerifiedEmail` now true, `shouldOfferEmail` correctly returns null, and the sheet
+unmounted mid-sentence. **The gate was behaving perfectly. The fault was that the sheet's
+lifetime was tied to a server prop that the member's own success invalidates**, which is a
+sentence worth carrying past this element: any surface whose visibility is derived from
+state the surface itself changes has this bug latent in it.
+
+The fix is a latch: once the address is attached, the sheet stays until the member closes
+it, whatever the server now says. It holds a sheet that is already open and can never open
+one, so a member the gate says nothing to still sees nothing; a test asserts that directly,
+and a mutation that widens the latch to unconditional reddens four tests. It stores which
+ask was live rather than a boolean, so the copy cannot switch asks under a member mid-read.
+**This codebase had already learned the same lesson one file over**, in `EmailStatusRow`'s
+local `attached` state, for the same reason and in the same words.
+
+**The test that proves it had to re-render, and that is the general point.** A component
+test structurally cannot see this, because jsdom never re-renders the server component. The
+test renders with an offer, drives to done, then re-renders the same instance with the offer
+now null, which is exactly what the route delivers. It fails against the pre-fix code
+(mutation M18 restores that code and reddens it) and passes after.
+
+**The way out of the taken-email dead end was being walked past.** "I missed the sign-in
+with that email link and didn't click it. I could see that being easy to miss." That route
+is the escape hatch for precisely the person this slice exists to rescue, so a route that
+reads as chrome defeats the slice. Two things were wrong at once. The error carried the
+instruction ("sign in with it instead of adding another") and the control below it repeated
+it, so the control read as an echo of prose rather than as the thing to tap; and the control
+was a 15px grey underlined link in the same register as the "Not now" exit, under a long red
+block.
+
+Both fixed together. The error now states the fact alone, "That email is already on an
+account.", and the instruction lives in the control. The control is outlined: a hairline
+border and a fill give it the shape of something you press, 17px at weight 600 lifts it
+above the surrounding copy, and a 48px target makes it real on a phone. **Not teal**, which
+belongs to Save alone on this sheet, and **not lime**, which is Orbit's brand; outlined
+rather than filled so it stays a route onward instead of competing with Save, which is the
+rung CLAUDE.md already assigns a secondary action. Nothing about it depends on hue. The
+27 August rewrite's intent, to point this person at signing in rather than at typing a
+different address, is unchanged and is now carried by something tappable rather than by a
+sentence. The group info page's separately worded copy was shortened in step, because
+fixing only one surface is the exact mistake that round already made once.
+
+**A test-only finding worth recording.** `email-taken-sign-in-route.test.tsx` mocked
+`next/link` as `({ href, children }) => <a href={href}>{children}</a>`, which silently drops
+every other prop including `style`. The anchor that file rendered was therefore not the
+anchor the product renders, and no assertion about its treatment could have been true. Found
+by writing one. The stand-in passes everything through now.

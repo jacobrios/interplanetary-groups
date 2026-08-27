@@ -153,6 +153,35 @@ export default function EmailAskNote({
   now,
 }: EmailAskNoteProps) {
   const [answered, setAnswered] = useState(false)
+  /**
+   * THE LATCH, and it exists because of a real phone: "The dialogue after I
+   * entered in my code came up and disappeared way too fast. I didn't even
+   * have time to read it."
+   *
+   * Nothing in this component closed it. Confirming the code writes a verified
+   * ContactMethod, the route re-renders, the page recomputes the facts below
+   * with `hasVerifiedEmail` now true, `shouldOfferEmail` correctly returns
+   * null, and the sheet vanished mid-sentence. The gate was behaving
+   * perfectly; the fault was that **the sheet's lifetime was tied to a server
+   * prop that the member's own success invalidates.**
+   *
+   * So a flow that reached its end outranks the offer: once the address is
+   * attached, the sheet stays until the member closes it, whatever the server
+   * now says. This codebase had already learned the same lesson one file over,
+   * in EmailStatusRow's `attached` state, for the same reason.
+   *
+   * Scoped deliberately, because the dangerous version of this is easy to
+   * write: it holds a sheet that is ALREADY open, and it can never open one.
+   * A member the gate says nothing to sees nothing, on any re-render, and a
+   * test holds that. It stores which ask was live rather than a bare boolean,
+   * so the copy cannot silently switch asks underneath a member reading it.
+   *
+   * Attach is the only case that needs this, and that is worth stating so the
+   * next reader does not widen it on a hunch: of the gate's four inputs, only
+   * `hasVerifiedEmail` can be flipped to null-the-offer by the member's own
+   * action inside this sheet. A dismissal already sets `answered`.
+   */
+  const [attachedUnder, setAttachedUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
   const [, startTransition] = useTransition()
   const sheetRef = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<Element | null>(null)
@@ -163,7 +192,10 @@ export default function EmailAskNote({
   // gathers the facts; the one decision about whether a member is asked is made
   // here, where a test can hold it to it.
   const offer = shouldOfferEmail({ user: askState, latestContributionAt, hasVerifiedEmail, now })
-  const showing = !answered && offer !== null
+  // The live offer, or the one this sheet was opened under if the member has
+  // since attached an address and made the live one null. See the latch above.
+  const activeOffer = offer ?? attachedUnder
+  const showing = !answered && activeOffer !== null
 
   // Focus and the page's scroll, taken on open and given back on close. Both
   // halves live in one effect because both are borrowed from the page and both
@@ -244,8 +276,8 @@ export default function EmailAskNote({
     setAnswered(true)
   }
 
-  const dismissLabel = offer === "first" ? "Not now" : "No thanks"
-  const promptMessage = offer === "first" ? FIRST_ASK : secondAsk(groupName)
+  const dismissLabel = activeOffer === "first" ? "Not now" : "No thanks"
+  const promptMessage = activeOffer === "first" ? FIRST_ASK : secondAsk(groupName)
 
   return (
     // The scrim. Fixed rather than absolute so it covers the header too: this
@@ -326,6 +358,11 @@ export default function EmailAskNote({
             // done step has no control at all and the scroll lock plus the
             // scrim trap them; see EmailAttachFlow's onDone for the full story.
             onDone={handleLeaveQuietly}
+            // Throws the latch. Captured as the offer that was live at this
+            // moment rather than as a boolean, so the sheet cannot switch from
+            // the first ask's wording to the second's underneath a member who
+            // is mid-read.
+            onAttached={() => setAttachedUnder(offer)}
             messageSlot={(message) => (
               // Round 10's labeled note. Grid, never a float: the mark occupies
               // its own column and spans both rows, so every line of copy
