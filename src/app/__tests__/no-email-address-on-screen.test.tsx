@@ -668,10 +668,18 @@ describe("only one query can see an address, and only for one user at a time", (
 
   it("projects the member list down to a name and an id before anything renders it", () => {
     // The reviewer's mutations both ended in the same place: an address folded
-    // into the roster the WHO row maps over. This is the assertion that closes
-    // that landing site regardless of how the address got there, and it is
-    // stronger than the prop check it replaced, which could only ever catch
-    // the one prop name it knew about.
+    // into the roster the WHO row maps over. This closes that landing site,
+    // and it is stronger than the prop check it replaced, which could only
+    // ever catch the one prop name it knew about.
+    //
+    // WHAT IT DOES NOT DO, corrected in fix round 2 after an overclaim: it
+    // finds the FIRST "].map(" in the file and nothing else, so a second,
+    // differently shaped projection elsewhere on this page sits outside its
+    // search entirely, and a reviewer's decoy passed. It closes one code
+    // shape, not the page. What makes that acceptable rather than a hole is
+    // the mention count above: an address cannot arrive in any projection
+    // without the name being written down, and the count sees the whole file.
+    // Do not lean on this assertion as if it swept the page.
     //
     // The member list is the one structure on this page that carries every
     // member rather than the viewer, so what it is allowed to hold is the
@@ -754,15 +762,57 @@ describe("only one query can see an address, and only for one user at a time", (
   })
 })
 
-/** Every non-test source file under src/, as [repo-relative path, contents]. */
+/**
+ * Anything the build can compile and ship: every TypeScript file under src/
+ * that is not itself a test.
+ *
+ * WHAT COUNTS AS A TEST IS THE FILENAME, NEVER THE DIRECTORY, and that
+ * sentence is the whole reason this helper has a comment (rewritten in fix
+ * round 2, after review). It used to skip any directory literally named
+ * __tests__, which is a statement about where a file sits rather than about
+ * what it is, and a reviewer walked every assertion in this file past it with
+ * six lines of perfectly ordinary code:
+ *
+ *   src/lib/auth/__tests__/email-relay.ts, importing verifiedEmailAddress and
+ *   looping it over a list of member ids, imported by the group info page and
+ *   printed next to every member's name. Nine assertions green, every
+ *   member's address on screen.
+ *
+ * Nothing about that file is a test. Vitest never collects it, because
+ * collection keys off `.test.` / `.spec.` in the name. Neither tsconfig.json
+ * nor next.config.ts excludes those directories, so the compiler and the
+ * bundler treat it exactly like any other module. It is shippable code in a
+ * folder this guard had promised not to look at, which is worse than any of
+ * the three call spellings fixed in round 1: those disguised how the function
+ * was reached, this hides the file that reaches it, and it defeats every
+ * assertion at once rather than one.
+ *
+ * Excluding by filename does not reopen what the directory skip was there for.
+ * The original worry was a test file's own prose breaking the exact mention
+ * counts, and this file is named no-email-address-on-screen.test.tsx, so it is
+ * still skipped, along with every other real test.
+ *
+ * The extension pattern accepts .mts and .cts as well (fix round 2, minor 1).
+ * A relay named email-relay.mts in an ordinary directory was equally invisible.
+ * It was not exploitable on this stack the day it was found, because webpack's
+ * resolve extensions do not include .mts, so an extensionless import fails the
+ * build loudly. That is a build detail rather than a guarantee, and matching
+ * the extension costs one character.
+ */
+const IS_TEST_FILE = /\.(test|spec)\.[mc]?tsx?$/
+const IS_TYPESCRIPT_FILE = /\.[mc]?tsx?$/
+
 function readAllSourceFiles(): Array<[string, string]> {
   const out: Array<[string, string]> = []
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const full = path.join(dir, entry)
       if (statSync(full).isDirectory()) {
-        if (entry !== "__tests__" && entry !== "node_modules") walk(full)
-      } else if (/\.tsx?$/.test(entry)) {
+        // node_modules is skipped because it is not this product's code and
+        // nothing here is asserting anything about a dependency. It is the
+        // only directory-name skip left, deliberately.
+        if (entry !== "node_modules") walk(full)
+      } else if (IS_TYPESCRIPT_FILE.test(entry) && !IS_TEST_FILE.test(entry)) {
         out.push([path.relative(REPO, full), readFileSync(full, "utf8")])
       }
     }
