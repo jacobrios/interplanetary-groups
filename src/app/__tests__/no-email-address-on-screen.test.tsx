@@ -117,7 +117,7 @@
 // it. If a fixture in this file ever puts an address in a message body, that
 // is a broken fixture, not a caught bug.
 
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, fireEvent, screen } from "@testing-library/react"
@@ -571,10 +571,31 @@ describe("only one query can see an address, and only for one user at a time", (
     // Latent when written (review, fix round 1); the day somebody adds raw SQL
     // this reddens and they have to widen the scan above rather than discover
     // later that it stopped covering everything.
-    const raw = files
-      .filter(([, source]) => /\$(?:query|execute)Raw(?:Unsafe)?\b/.test(source))
-      .map(([relative]) => relative)
-    expect(raw).toEqual([])
+    //
+    // Widened 27 August 2026 from src/ to the whole repository, with one
+    // sanctioned exception. See rawSqlOffenders below for what is scanned, and
+    // RAW_SQL_EXCEPTIONS for the exception and why it was granted. The
+    // exception cannot be a file under src/, which is asserted immediately
+    // below and is what keeps the count above complete rather than partial.
+    expect(RAW_SQL_EXCEPTIONS.filter((e) => e.file.startsWith("src/"))).toEqual([])
+    expect(rawSqlOffenders()).toEqual([])
+  })
+
+  it("keeps the one raw-SQL exception load-bearing, so the allowlist cannot rot into decoration", () => {
+    // An allowlist that names files which no longer contain raw SQL stops
+    // being a record of a decision and becomes a hole somebody can walk a new
+    // query into without anyone reviewing it. So each entry has to still be
+    // earning its place: the file exists, it really does contain the thing
+    // being excused, and it says why. Delete the raw SQL from the script and
+    // this reddens, which is the prompt to delete the entry too.
+    for (const { file, why } of RAW_SQL_EXCEPTIONS) {
+      // Existence checked first so a path that moved fails as an assertion
+      // naming the file, not as an ENOENT out of the reader below.
+      expect([file, existsSync(path.join(REPO, file))]).toEqual([file, true])
+      const source = read(file)
+      expect(RAW_SQL.test(source) || AUTH_SCHEMA_SQL.test(source)).toBe(true)
+      expect(why.trim().length).toBeGreaterThan(80)
+    }
   })
 
   it("keeps the boolean read blind to the address, so the group home cannot obtain one", () => {
@@ -819,4 +840,111 @@ function readAllSourceFiles(): Array<[string, string]> {
   }
   walk(SRC)
   return out
+}
+
+// ─── The Supabase boundary: raw SQL is repo-wide, with one named exception ───
+//
+// CLAUDE.md, stack realities: "Supabase does auth only. The Data API is
+// disabled and Prisma owns the schema... The single thread between the two
+// systems is the supabaseAuthId pointer." Until 27 August 2026 the promise
+// that this never leaks into product code was held up by prose and two
+// accidents: a comment asking nobody to copy the pattern, a function that
+// happened not to be exported, and a module that happened to self-execute on
+// import. None of those is a guard. This is.
+//
+// WHAT IS SCANNED. Every committed TypeScript file in the repository that is
+// not itself a test, rather than only the ones under src/. The old src/-only
+// scan could not have seen the crossing that actually happened, because it
+// happened in scripts/. The directories left out are the ones that hold
+// nothing this repo committed: dependencies, build output, git's own store,
+// and .superpowers, which is gitignored agent scratch.
+//
+// WHAT COUNTS. Two patterns, because raw SQL is the mechanism and the auth
+// schema is the actual boundary.
+//
+//   RAW_SQL is Prisma's four escape hatches. It is the wider net: any raw
+//   query is a query this file's ContactMethod scan above cannot see, so it
+//   has to redden here whatever schema it touches.
+//
+//   AUTH_SCHEMA_SQL is a SQL reference to Supabase's own auth schema, which
+//   is the thing CLAUDE.md's rule is actually about. It is anchored to a SQL
+//   keyword (from / join / into / update / table) on purpose, so it fires on
+//   "from auth.users" and never on supabase.auth.getUser() or an import of
+//   @/lib/auth/email, which are ordinary and everywhere. It is the narrower
+//   net but it catches what raw SQL alone would miss: the day somebody
+//   reaches the auth schema through some other client, RAW_SQL sees nothing
+//   and this still fires.
+//
+// Comments are not stripped before matching, so prose quoting a query reddens
+// too. That is the safe direction to be wrong in: a false red costs one
+// sentence reworded, a false green costs the boundary.
+const RAW_SQL = /\$(?:query|execute)Raw(?:Unsafe)?\b/
+const AUTH_SCHEMA_SQL = /\b(?:from|join|into|update|table)\s+auth\.\w+/i
+
+/**
+ * The sanctioned crossings, each with the reason it was granted.
+ *
+ * A bare path in an array teaches a future reader nothing and reads like an
+ * oversight, so each entry says what it is and why it stands. Adding a second
+ * entry is a decision somebody has to write down here, in front of the
+ * reviewer, which is the entire point of the mechanism.
+ */
+const RAW_SQL_EXCEPTIONS: ReadonlyArray<{ file: string; why: string }> = [
+  {
+    file: "scripts/qa-stage-email.ts",
+    why:
+      "QA staging tooling, never shipped and never imported by product code. Its reset mode reads " +
+      "Supabase's own auth.users row over Prisma's Postgres connection to tell the runner whether the " +
+      "identity still holds an address, because our side of the reset can only clear our half and the " +
+      "silent half cost the owner most of an afternoon of attaches that were really changes. Granted " +
+      "27 August 2026 on four properties, all of which must hold for it to stay granted: one " +
+      "parameterised read-only select, gated behind the dev-test guard, printing three booleans and " +
+      "never the address, with no branch that can report a false all-clear. It writes nothing to the " +
+      "auth schema and no product code reads it.",
+  },
+]
+
+/**
+ * Every committed TypeScript file in the repository, tests excluded.
+ *
+ * Separate from readAllSourceFiles rather than a widening of it, deliberately.
+ * That helper is pinned to src/ because the ContactMethod count above is a
+ * statement about the PRODUCT, and the staging scripts legitimately touch
+ * ContactMethod rows. Widening it would have made that count meaningless. So
+ * the boundary scan gets its own walker and the read-site count keeps its own.
+ */
+const NOT_COMMITTED_SOURCE = new Set([
+  "node_modules",
+  ".next",
+  ".git",
+  ".superpowers",
+  "out",
+  "build",
+  "coverage",
+  ".vercel",
+])
+
+function readAllRepoFiles(): Array<[string, string]> {
+  const out: Array<[string, string]> = []
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const full = path.join(dir, entry)
+      if (statSync(full).isDirectory()) {
+        if (!NOT_COMMITTED_SOURCE.has(entry)) walk(full)
+      } else if (IS_TYPESCRIPT_FILE.test(entry) && !IS_TEST_FILE.test(entry)) {
+        out.push([path.relative(REPO, full), readFileSync(full, "utf8")])
+      }
+    }
+  }
+  walk(REPO)
+  return out
+}
+
+/** Repo files reaching past Prisma's models, minus the sanctioned exceptions. */
+function rawSqlOffenders(): string[] {
+  const allowed = new Set(RAW_SQL_EXCEPTIONS.map((exception) => exception.file))
+  return readAllRepoFiles()
+    .filter(([relative]) => !allowed.has(relative))
+    .filter(([, source]) => RAW_SQL.test(source) || AUTH_SCHEMA_SQL.test(source))
+    .map(([relative]) => relative)
 }

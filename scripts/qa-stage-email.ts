@@ -97,7 +97,12 @@
 // diagnostic output for a human running staging tooling against dev-test, not
 // a new source of truth any product code reads, and it never writes to
 // auth.users. Worth a second pair of eyes before this pattern spreads anywhere
-// else.
+// else, and as of 27 August 2026 it gets them automatically: this file is the
+// one named exception in the repo-wide raw-SQL and auth-schema scan in
+// src/app/__tests__/no-email-address-on-screen.test.tsx, which reddens on any
+// second crossing anywhere in the repository. If the read below is ever
+// deleted, delete that allowlist entry with it; the test asserts the entry is
+// still earning its place, so a stale one fails rather than sitting open.
 //
 // Usage:
 //   npm run qa:stage-email                       (re-stage both groups)
@@ -223,10 +228,16 @@ async function readSupabaseIdentityState(supabaseAuthId: string | null): Promise
   }
 
   try {
-    const rows = await prisma.$queryRawUnsafe<{ email: string | null; email_change: string | null; is_anonymous: boolean }[]>(
-      `select email, email_change, is_anonymous from auth.users where id = $1::uuid`,
-      supabaseAuthId
-    )
+    // The tagged-template form, not $queryRawUnsafe. Identical SQL and an
+    // identical bound parameter, because the query text is a constant and the
+    // only value is interpolated as a placeholder either way. The difference
+    // is what a future reader has to do: $queryRawUnsafe takes a string, so
+    // anyone auditing it has to prove nobody ever builds that string from
+    // input, while this form cannot take a built string at all. The safe API
+    // costs nothing here, so there is no reason to make anyone check.
+    const rows = await prisma.$queryRaw<
+      { email: string | null; email_change: string | null; is_anonymous: boolean }[]
+    >`select email, email_change, is_anonymous from auth.users where id = ${supabaseAuthId}::uuid`
     const row = rows[0]
     if (!row) {
       return { known: false, reason: "no matching auth.users row. Unexpected for a viewer who has joined through the app." }
