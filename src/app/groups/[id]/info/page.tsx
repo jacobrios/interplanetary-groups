@@ -29,6 +29,7 @@ import ShareInviteLink from "@/components/ShareInviteLink"
 import LeaveGroupButton from "./LeaveGroupButton"
 import ManageMembers from "./ManageMembers"
 import ResetInviteLink from "./ResetInviteLink"
+import EmailStatusRow from "./EmailStatusRow"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -51,6 +52,17 @@ export default async function GroupInfoPage({ params }: Props) {
   const isMember =
     viewer !== null && group.memberships.some((m) => m.userId === viewer.id)
   if (!isMember) return <MembersOnlyWall />
+
+  // Any member, including the founder: losing a session is not a
+  // founder-specific problem, and this is what stands between that member and
+  // rejoining as a second person the next time they tap the invite link
+  // (CLAUDE.md, "Identity, auth, and known gaps").
+  const hasVerifiedEmail =
+    viewer !== null &&
+    (await prisma.contactMethod.findFirst({
+      where: { userId: viewer.id, type: "EMAIL", isVerified: true },
+      select: { id: true },
+    })) !== null
 
   // WHO ordering (spec decision 12): founder first, then join order. The
   // query already sorts by joinedAt; this hoists the founder to the front.
@@ -239,6 +251,27 @@ export default async function GroupInfoPage({ params }: Props) {
             )}
           </div>
         )}
+
+        {/* ── Email reminders: any member (task 6, email-sign-in slice). No
+              design mockup covers this row; the eyebrow-plus-quiet-link
+              treatment mirrors the invite link section directly above it,
+              since both are the page's self-service, non-Orbit actions. ── */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <p
+            style={{
+              fontSize: "var(--type-eyebrow)",
+              lineHeight: "var(--leading-normal)",
+              color: "var(--text-secondary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.14em",
+              fontWeight: 700,
+              margin: "18px 2px 7px",
+            }}
+          >
+            Email reminders
+          </p>
+          <EmailStatusRow hasVerifiedEmail={hasVerifiedEmail} />
+        </div>
 
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}
         <div
