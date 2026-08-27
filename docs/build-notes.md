@@ -24,12 +24,16 @@
 
 ## 3. Identity & auth
 
-- **Anonymous session on entry** (founder at creation, member at join), upgraded later to a real account by attaching an email, then magic-link sign-in from any device. Supabase anonymous sign-in supports this pattern. *(Verify current implementation at build.)*
+- **Anonymous session on entry** (founder at creation, member at join), upgraded later to a real account by attaching an email, then ~~magic-link~~ sign-in from any device. Supabase anonymous sign-in supports this pattern. *(Verify current implementation at build.)* *(Amended 27 August 2026, email sign-in slice: it is a one-time code typed into the browser the person is already sitting in, never a link. A link in an email opens in the mail app's own browser, which has different storage from the browser the person was using, so a magic link would have pointed straight at the session fragility named two bullets below. Built and shipped; the identity is upgraded in place, verified against the real service, so the person comes back as themselves rather than as a second member.)*
 - **Names:** the founder gives theirs in onboarding Step 1 (required field); members give theirs on the join screen. A name is the only identity required to participate.
-- **The email ask is Orbit's job, post-join, triggered by the user's first RSVP**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
+- **The email ask is Orbit's job, post-join, ~~triggered by the user's first RSVP~~ triggered by the member's first contribution of any kind**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
+  - ***Amended 27 August 2026 (email sign-in slice). The surface moved and the trigger's set widened. The reason the ask exists at all is untouched, and so is the founder clause, which shipped exactly as written above.***
+  - ***Where it happens, and why this bullet could not stand.*** *This was written assuming Orbit would ask in the group feed, the way Orbit says everything else. It cannot, on two counts. The feed is the product's one conversation surface and it is public, so an ask addressed to one member is clutter for every other member, and it repeats once per person. And the only input on that screen is the chat composer, so a member answering the ask would post their own email address into the group feed, breaking "emails are never displayed anywhere in the UI" outright, in the one place the whole group is looking. The ask is now a note rendered for one viewer, pinned just above the composer, never written to the feed; the group info page is its permanent home. Considered and declined: capturing at onboarding step 3 or on the join screen, which would collect the most addresses and is the exact thing anonymous-first exists to prevent.*
+  - ***When it happens.*** *The trigger's principle survives untouched: the moment to ask is the moment "I want a reminder for this" is true. What widened is the set of moments that count, from an RSVP alone to a member's first contribution of any kind (an RSVP, a chat message, or a gauge vote). RSVP alone is too narrow in this product specifically, because the spark flow starts with somebody talking in chat, so a member can contribute for weeks without an RSVP ever coming up. An OUT RSVP counts: saying no to Thursday is not saying no to reminders.*
+  - ***How often.*** *Twice per person ever, not per group, then never again. Full reasoning, the copy, and the owner's two overrules in §11, email sign-in.*
 - **Session fragility risks, which make the email ask early rather than lazy:** cleared browser data, in-app browsers (separate storage from Safari), and iOS Safari's roughly 7-day script-writable storage cap. *(Verify current policy at build.)*
 - **Invite-link taps must check for an existing session first** and route members into the group, or the app manufactures duplicate accounts itself.
-- **Duplicate-member recovery is social:** the founder deletes the ghost. Acceptable at casual scale.
+- **Duplicate-member recovery is social:** the founder deletes the ghost. Acceptable at casual scale. *(Amended 27 August 2026, email sign-in slice: still true, and it is now the cleanup path rather than the whole answer. The fix moved upstream, to the invite screen, which asks an unrecognised visitor whether they have been here before **before any account is created**. Duplicates already in existence are still removed by hand, because an automatic merge turned out to be unsafe: `Message.author` is `onDelete: SetNull`, so deleting a ghost leaves its chat messages in the feed still marked as a member's with nobody attached, and a safe merge has to reassign every row individually. Priced at roughly a third of the slice and declined.)*
 - **Emails are never displayed anywhere in the UI**, even after capture. Member lists are names only.
 
 ## 4. Membership & governance
@@ -262,6 +266,20 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `proposals/endgame.ts`, moot close (added 18 Aug 2026) | A vote overtaken because the plan moved by some other path records SUPERSEDED and says nothing. Stays quiet. The read layer already retired the question silently the instant the plan moved; this only adds the bookkeeping row. | Correct |
 | `proposals/endgame.ts`, a close landing after the event started | The hourly cron means a close can land up to an hour late, occasionally after the event's own start. It still posts. Never-leave-a-direct-ask-hanging outranks anti-clutter here: the asker is owed an answer even a little late. Speaks. | Correct |
 
+### Orbit speaking to one member and to nobody else (added 27 Aug 2026, email sign-in slice)
+
+*This is a different kind of entry from every row above it, and saying so plainly is the point of the heading. Every other decision on this list ends in Orbit writing a message into the group feed, or not writing one. These end in neither: the ask is **rendered per viewer**, so it exists on one member's screen and on nobody else's, and no message row is written anywhere. It is still Orbit deciding to speak, so it belongs on this list; a future reader auditing "where does Orbit talk to people" by searching for feed writes would miss it entirely, which is exactly the failure mode this section exists to prevent.*
+
+*The pattern's precedent is the time-change-ending slice's vote-counted line (`ProposalSection.tsx:67`), which is rendered per viewer for the same reason. Noting a gap while it is in front of us rather than fixing it out of lane: that line has never had a row on this list either.*
+
+| Where | What it does | Leans |
+|---|---|---|
+| `shouldOfferEmail` (`src/lib/auth/email-offer.ts`), the whole rule | Orbit asks a member for an email so they can get back in as themselves instead of returning as a second person. Speaks, to one viewer, off the feed. The entire product rule lives in this one pure function: never once a verified address exists, never past two asks, first ask on the member's first contribution of any kind, second ask only after seven days AND a fresh contribution. | Correct |
+| `shouldOfferEmail`, `emailAskCount >= 2` | Two asks is the whole allowance. After a second decline Orbit never asks again, ever, and the group info row is the permanent way in. Stays quiet, permanently. | Correct |
+| `shouldOfferEmail`, the second ask's freshness check | The second ask needs seven days **and** a fresh contribution, not whichever comes first. A timer alone would land on a quiet screen where nothing happened, which is precisely when a nudge reads as pestering. Accepted cost, stated rather than hidden: some members never get a second ask. Stays quiet. | Correct |
+| `dismissEmailOfferAction` (`src/app/actions/email-ask.ts`), the counter counts declines | The note stays on screen until it is answered, and only a dismissal advances the counter; ignoring it is not answering it. Keeps speaking, to that one viewer, until answered. Counting appearances instead would spend both asks on somebody who never looked, and would send the second ask to the wrong person. | Correct |
+| `dismissEmailOfferAction`, a failed write still dismisses | The member said no. Refusing to go away because a database write failed would be the worst possible reading of that answer, so the note goes regardless and the cost is that the ask may return on a later render. A repeat, not a betrayal. Stays quiet. | Correct |
+
 ### Everything else that ends in silence
 
 | Where | What it does | Leans |
@@ -455,6 +473,24 @@ Seven High-priority items come due at the moment of the first production deploy.
 1. **Run the email sign-in migration against production before this branch merges to main.** Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production. This is the same method item 14's 23 Aug 2026 amendment settled on, for the same reason: `.env` is what the test suite also reads, and a checkout left pointed at production is the one mistake in this project with no undo.
    *Why it matters:* the two new columns are read the moment the merged code goes live. If the migration runs after the merge instead of before, the entire site goes down for every signed-in person, not one degraded feature: `src/lib/auth/current-user.ts:20` looks up the logged-in person with a plain, unfiltered query that asks the database for every column on the User record, and ~~every page and every write path calls it first~~ every authenticated page calls it first (Corrected 26 August 2026: the write path half was wrong, and not in the safe direction. `src/app/actions/gauge-vote.ts:73`, `src/app/actions/proposal-vote.ts:62`, `src/app/actions/proposal-answer.ts:51`, and `src/lib/events/rsvp.ts:43` (inside a transaction) each run the identical unselected `prisma.user.findUnique({ where: { supabaseAuthId } })` on their own, none of them routed through this file. `current-user.ts:20` does cover every authenticated page, confirmed by checking every `page.tsx` except `/create`, which runs before any session exists. So the risk this item warns about is wider than first written, not narrower: several independent call sites go down the moment the migration is missing, not one chokepoint file.) The moment that query reaches a production database missing the two new columns, the database refuses it, and the site stays down until the migration is applied. Running the migration first carries no such risk in the other direction: the two columns are purely additive, so production briefly has columns the live code has never heard of, and nothing reads or depends on them until this slice's code ships.
    *Detail:* Task 2 (this slice), migration `20260827034420_email_ask_tracking`, adding `User.emailAskCount` (defaults to 0) and `User.emailAskedAt` (nullable), tracking how many times and when Orbit has asked a member for their email. Applied to dev-test only as of this task; production still needs it, per the two-databases rule.
+
+*Items 2 to 6 added 27 Aug 2026 (email sign-in slice, Task 10), and they are all one obligation wearing five hats: **on the day this branch merges, nobody but the owner can receive a login code.** Supabase's built-in sender delivers only to members of the Supabase organisation, which is what made the whole slice buildable and provable on dev-test before any of this existed. It is also why none of it blocked the build and all of it blocks the product. Until items 2 to 5 are done, a member who taps "I've been here before" hands over an address and waits for mail that is never coming, and nothing on screen tells them so. Exact values are in the slice document's Task 11, which is written for the owner's hands.*
+
+2. **Create the Resend account and add the sending domain `account.interplanetarygroups.com`.** Free tier: 3,000 emails a month, 100 a day. That covers login codes now and a daily digest to roughly a hundred members later, which is why transactional-only versus transactional-plus-digest never changed the choice.
+   *Why the subdomain rather than the root:* Resend's own recommendation, and the notification-channel decision is what makes it matter here. `account.` carries login codes. When the digest arrives it gets `updates.` and its own sending reputation, so a digest that collects spam complaints can never drag login codes down with it. This is the first place a decision recorded for a future slice changed a choice inside this one.
+   *The $0-tier hazard, recorded rather than solved:* `/signin` triggers outbound mail while signed out, so it is an unauthenticated endpoint whose only limit is Supabase's own rate limit. At 100 emails a day, abuse takes login down for everybody. See item 6.
+
+3. **Paste Resend's DNS records into Vercel's DNS panel**, since the domain was bought through Vercel and its DNS lives there. Nothing sends until these verify.
+
+4. **Three settings in the production Supabase project, in this order.**
+   1. **Custom SMTP, pointed at Resend.** This is the switch that ends the organisation-members-only limitation. It also raises Supabase's own ceiling from the built-in sender's two messages an hour to roughly thirty, which is a configuration value that was read rather than tested and should be confirmed on the day.
+   2. **The "Change email address" template switched to `{{ .Token }}`.** This is the one an existing member's *attach* goes through, and that is a measured fact rather than an assumption: the spike gave the candidate templates deliberately different subject lines and watched which one arrived.
+   3. **The sign-in template switched to `{{ .Token }}`.** The path is `signInWithOtp` on an address that already exists, which is Supabase's magic-link template. *This one is inferred rather than measured: the spike proved a code arrives on this path, not which template rendered it.* The check that settles it costs one send: request a code at `/signin` and confirm what lands is a code and not a link.
+   *Why templates at all:* the product's whole reason for a typed code over a clicked link is that a link opens in the mail app's own browser, which has different storage from the browser the person is sitting in. A template left on the default link undoes the decision silently, and it fails in exactly the way that is hardest to notice, because the link still works for the person who tests it on the device they read mail on.
+
+5. **Confirm auto-renew and WHOIS privacy are on for `interplanetarygroups.com`.** Settled when the domain was bought, 25 Aug 2026, and listed here because "settled" and "switched on in the dashboard" are not the same thing and nothing has checked. *A lapsed domain takes the app's address and every login email in the same hour.* Same shape as the free-tier Supabase pause already recorded at the deploy entry: an accidental dependency nobody would connect to the symptom.
+
+6. **Before deciding anything about abuse on `/signin`, read two Supabase rate-limit numbers, not one.** Five minutes in the dashboard, no code. The per-project ceiling is the one people reach for, and the **per-address** limit is the one that actually matters first: hammering one real address mail-bombs that member's inbox as well as burning the shared daily allowance, and a project-wide rule sized without knowing the per-address number is a guess. *Recommendation, not an obligation:* a Vercel WAF rule on `/signin` afterwards, which is configuration rather than code. **Nothing leaks either way; the risk is availability.** Raised by Task 8's implementer and left deliberately unbuilt, because sizing a limit against an unread setting is how you ship a limit that does nothing or locks out real people.
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -4696,3 +4732,181 @@ web push versus a thin native notification shell. He asked to be reminded.
 of the sixteen. The list above this entry now describes something that has
 happened. It is left in place unchanged, per the append-only rule, as the record
 of what the day was supposed to contain.*
+
+## §11 entry: email sign-in (25 to 27 August 2026)
+
+**What the product gained, in one line: a member can come back as themselves.**
+Losing a session never locked anyone out. It duplicated them, silently, in the one
+product whose entire claim is accurate attendance. What shipped is described in
+CLAUDE.md's current-state section and not retold here; this entry records what was
+decided.
+
+**Test baseline 97 files / 955 tests at slice start, matching main. Finishing at
+111 / 1146, green, zero skipped.**
+
+*Declared deviation on length: this entry runs about three times the 400-to-600
+target. It is a deliberate call rather than an overrun. The slice ran eleven tasks
+across three days, and the working ledger that holds its rulings, its two premise
+corrections and its three generalising lessons is gitignored, so anything not
+carried here is simply lost. Everything below records something decided or
+learned; the "what shipped" retelling was cut instead.*
+
+### The notification-channel decision, recorded because it lived only in chat
+
+None of it is built here. It is written down because three choices inside this
+slice were shaped by it. **The owner wants notifications eventually, and email is
+one of three channels, not the only one.** Calendar is already built and never
+counted as notifications. **An email digest, once or twice a day**, summarising
+chat somebody missed, explicitly *not* an email per message at any stage, which
+traces straight to the founding complaint about notification noise; alongside it,
+event-triggered mail for time-boxed moments, with a "these need your action now"
+block at the top. **Push is best for urgency and worst for adoption**, since iOS
+web push needs the site added to a home screen first, a heavy ask of somebody who
+just tapped a texted invite link. The digest is safer than it sounds because
+Orbit's speaking moments are already rationed in code rather than by convention,
+so an email channel mirroring them inherits that discipline. One tension recorded
+unsolved: if an urgent item already sent its own mail, repeating it atop the
+digest double-notifies.
+
+### What was settled with the owner before the build, compressed
+
+**Optional forever, asked twice.** "Eventually required" is only a gate with a
+delay on it. The owner overruled a single-ask recommendation: the first ask lands
+before a member has reason to trust the product, and the case for reminders gets
+stronger as the group proves itself. The second ask needs seven days **and** a
+fresh contribution, never a timer, because a timer lands on a quiet screen where
+nothing happened, which is exactly when a nudge reads as pestering. Accepted cost,
+stated rather than hidden: some people never get a second ask.
+
+**A typed code, not a magic link**, because a link opens in the mail app's own
+browser, which is the session fragility this slice exists to fix. Eight digits,
+not six: the spike measured it rather than assuming. **Wrong and expired codes are
+indistinguishable** from the service, so one honest message covers both; copy
+naming an expiry would be a lie the code cannot back up.
+
+**No automatic merge.** The cheap merge is unsafe: `Message.author` is
+`onDelete: SetNull`, so deleting a ghost leaves its messages in the feed with
+nobody attached. A safe merge reassigns every row and was priced at a third of the
+slice. So the fix moved upstream, and the set it cannot help stops growing the day
+this lands. **The rejoin hole stays open** (audit finding 10).
+
+**Resend, free tier, and the domain it forced.** Supabase's built-in sender
+reaches only members of the Supabase organisation, which is what made the whole
+arc provable on dev-test before Resend existed, and why none of the production
+setup blocked the build. `account.` sends login codes so a future `updates.`
+digest gets its own reputation. **Unsubscribe: build nothing, and deliberately
+build no seat**, because it is a per-channel preference and the channels are not
+decided, so a boolean guessed now is likelier wrong than right.
+
+**The per-member read position is declined here** and becomes the first task of
+the digest slice. It retrofits as one nullable column with no backfill, so the
+usual buy-it-early argument does not apply, and the expensive half cannot be bought
+early at all: deciding what counts as "read" with nothing reading it is a guess
+with no way to check it.
+
+### Four rulings the owner made during the build, each with the objection in front of him
+
+*A fifth is below, under the taken-email finding, because it changed what a task was required to build rather than only how something looked.*
+
+1. **"Email reminders are on." stays**, though the digest does not exist yet. The
+   digest slice will make it true.
+2. **The teal Save pill stays** on the group info row. The brief's "never teal"
+   clause governs the collapsed row, which remains a quiet text link.
+3. **The ask sits pinned above the composer**, chosen from three placements each
+   priced in screen height, on a screen whose height budget he has already fought
+   for once. The reservation is real and stated: an undecided member has a shorter
+   chat until they answer.
+4. **Tighten the ask's layout, never its settled copy.** Review found the note
+   rendering four to six lines against copy the placement had been priced at one.
+   The build cut its height by about a third and left every word alone. Whether
+   that is enough is his phone's call, not this document's.
+
+### The sharpest product catch of the build
+
+The message a member met when the address they typed was already on an account
+read: *"That email is already saved to someone here. Try another one."* That copy
+dead-ends the exact person this slice exists to rescue, and invites them to cement
+their duplicate permanently. The owner's replacement points at the door instead:
+*"That email is already on an account. If it's yours, sign in with it instead of
+adding another."* It landed as a **hard requirement** that the route it names gets
+built, not as a wording change.
+
+Two things about it worth carrying. **The same dead end existed in two places**,
+and the second was found only by a later re-review; fixing the flagged one alone
+would have looked complete while the group info path dead-ended the same people.
+And **the route out is gated on state, not on a string match**, which matters
+because the info page overrides the wording, so a string match would have silently
+missed that surface while looking correct everywhere anyone would check.
+
+### What signing back in does not recover, and it is inherent
+
+If the duplicate identity joined a group the original is not in, signing in as the
+original drops that group off the front door, with nothing on screen saying so.
+That falls straight out of not merging identities, which was decided deliberately,
+and the founder's remove button is still the cleanup.
+
+### Three lessons that generalise past this slice
+
+- **A guard test's setup assertion must be structural, never a copy match.** The
+  new no-address-on-screen test checked that Orbit's ask was on screen by matching
+  its sentence. Printing an address into that sentence broke the sentence, so the
+  presence check failed *first* and the address assertion never ran: the guard
+  would have reported copy drift while saying nothing about the leak in front of
+  it, on precisely the edit it exists to catch.
+- **A defect class that appeared twice, independently.** `supabase.auth.signOut()`
+  reports a service failure by *returning* an error, not by throwing. Two agents,
+  working separately, both wrapped it in a bare try/catch and both wrote a test
+  exercising the throw that never happens. Both were caught only by a reviewer
+  opening the library's own type definitions.
+- **A trap left in the tests, and a future tidying pass would walk into it.** Two
+  bad-code tests import the shared message constant and compare it against itself,
+  so they cannot catch a copy change. The only real guards on that sentence are the
+  hardcoded literals at `EmailAttachFlow.test.tsx:127` and `EmailAskNote.test.tsx:207`.
+  **Converting those to imports, which looks like consistency, would delete the only
+  protection stopping that message drifting into claiming a code expired.**
+
+### One correction that changes what a future change is allowed to cost
+
+The guard task's brief was wrong about how the pages fetch people, and the
+correction is the most valuable thing it produced. Only the verified-email lookup
+selects a single column. The group home, the group info page and event detail all
+pull **the whole `User` row**, and they are safe for exactly one reason: `User`
+carries no email column. **Adding one would leak an address onto three
+server-rendered screens with no other edit anywhere in the product.** That is now
+pinned by a test that reads the schema, so the day somebody adds the column is the
+day a test says so.
+
+### Declared out of lane, and it ships in this PR
+
+A Claude Design change request removed the hairline closing the group header, plus
+the air below it. It rides this slice because it touches the same file task 5
+touches, so the concurrent micro-PR route was closed by the owner's own rule, and
+because it hands about 13px back to the very screen the ask spends about 100px of.
+The scope was wider than the request knew: the hairline lives on the shared header
+component, so it comes off the group home, the group info page and event detail
+together, and the owner widened it deliberately, pulling the content under all
+three up so no screen is left looser than the one people spend their time on. All
+three land on the same 14px gap. The feed's own seam hairline stays and must not be
+removed for consistency.
+
+### Debt this slice opened, and what stays honest about it
+
+The address is stored twice, in Supabase as the credential and in `ContactMethod`
+as the app's copy, and they could drift; accepted over a service-role key that
+would bypass every protection in the product. A second identity is orphaned rather
+than merged, by decision. A member who mistypes an address they never check cannot
+see it, by rule, and re-running the attach flow is the whole recovery. `/signin`
+sends mail while signed out, so it is uncapped and its only limit is a rate limit
+nobody has read (running list item 6). A fourth copy of the bad-code sentence sits
+at `src/app/groups/[id]/info/EmailStatusRow.tsx:67` with neither a guard nor a
+shared source; queued, not fixed. And at least fourteen user-facing strings shipped that
+the owner has never read; that count was taken partway through the slice and
+never retaken after the last two screens were built.
+
+**What is genuinely unverified, and this list is the honest part of the entry.**
+Nothing in this slice has been seen rendered by anyone. Every height figure is
+arithmetic. The rate limit was read in a dashboard, never exercised. Several sets of
+service error codes are inferred from Supabase's documentation rather than seen
+coming back, each flagged inline in the code where somebody deciding a behaviour
+would read it. The four screens
+this slice adds meet a human for the first time on the owner's phone.
