@@ -94,6 +94,23 @@ describe("EmailAskNote, who never sees it", () => {
   })
 })
 
+describe("EmailAskNote, showing writes nothing", () => {
+  it("calls no action at all on a bare render, in either ask", () => {
+    // The strongest rule in this element, and the one most at risk of being
+    // "restored" wrongly: the counter counts DECLINES, not appearances. An
+    // earlier draft of the brief said the opposite, so this is pinned rather
+    // than left to the success path's incidental assertion. If anyone adds a
+    // mark-as-shown write, this reddens.
+    render(<EmailAskNote {...firstAskProps()} />)
+    cleanup()
+    render(<EmailAskNote {...secondAskProps()} />)
+
+    expect(dismissMock).not.toHaveBeenCalled()
+    expect(requestMock).not.toHaveBeenCalled()
+    expect(confirmMock).not.toHaveBeenCalled()
+  })
+})
+
 describe("EmailAskNote, the copy", () => {
   it("asks the first time in the settled words, with no founder sentence for a member", () => {
     render(<EmailAskNote {...firstAskProps()} />)

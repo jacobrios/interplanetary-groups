@@ -6,7 +6,7 @@
 // on any machine, in any timezone, on any day.
 
 import { describe, it, expect } from "vitest"
-import { shouldOfferEmail, type EmailAskState } from "../email-offer"
+import { shouldOfferEmail, emailAskIsSettled, type EmailAskState } from "../email-offer"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -187,5 +187,67 @@ describe("shouldOfferEmail: emailAskedAt missing while emailAskCount is 1", () =
       now: new Date("2026-09-20T00:00:00.000Z"),
     })
     expect(result).toBeNull()
+  })
+})
+
+// ── emailAskIsSettled (added 27 Aug 2026, task 5 fix round 1) ───────────────
+//
+// The group home skips four database reads when this predicate says the answer
+// is already decided. That is only safe if the predicate can never disagree
+// with shouldOfferEmail, so the relationship is tested rather than asserted in
+// a comment: whenever it says settled, no combination of the other inputs may
+// produce an offer.
+
+describe("emailAskIsSettled", () => {
+  it("is true exactly when the count has reached the two-ask limit", () => {
+    expect(emailAskIsSettled(state({ emailAskCount: 0 }))).toBe(false)
+    expect(emailAskIsSettled(state({ emailAskCount: 1 }))).toBe(false)
+    expect(emailAskIsSettled(state({ emailAskCount: 2 }))).toBe(true)
+    // Two taps racing each other can push it past two; still settled.
+    expect(emailAskIsSettled(state({ emailAskCount: 3 }))).toBe(true)
+  })
+
+  it("never disagrees with shouldOfferEmail across the whole input space", () => {
+    const counts = [0, 1, 2, 3]
+    const askedAts = [null, askedOnceAt, sevenDaysLater]
+    const contributions = [
+      null,
+      new Date(askedOnceAt.getTime() - DAY_MS),
+      new Date(askedOnceAt.getTime() + DAY_MS),
+    ]
+    const verifieds = [true, false]
+    const nows = [askedOnceAt, sevenDaysLater, new Date(sevenDaysLater.getTime() + 30 * DAY_MS)]
+
+    let offersSeen = 0
+    let settledSeen = 0
+
+    for (const emailAskCount of counts) {
+      for (const emailAskedAt of askedAts) {
+        for (const latestContributionAt of contributions) {
+          for (const hasVerifiedEmail of verifieds) {
+            for (const now of nows) {
+              const user = state({ emailAskCount, emailAskedAt })
+              const offer = shouldOfferEmail({
+                user,
+                latestContributionAt,
+                hasVerifiedEmail,
+                now,
+              })
+              if (offer !== null) offersSeen += 1
+              if (emailAskIsSettled(user)) {
+                settledSeen += 1
+                expect(offer).toBeNull()
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Without these the loop above could pass while proving nothing: an empty
+    // settled set, or a matrix that never produces an offer at all, would both
+    // be silently green.
+    expect(settledSeen).toBeGreaterThan(0)
+    expect(offersSeen).toBeGreaterThan(0)
   })
 })

@@ -13,9 +13,21 @@
 //
 // Placement is the owner's, settled 26 Aug 2026 from three options with the
 // screen cost of each measured: just above the message composer, in the slot
-// OrbitDownNote already uses. The recorded reservation is accepted with it, an
-// undecided member has a slightly smaller chat for as long as they stay
-// undecided, which is why this stays one line of copy plus the field.
+// OrbitDownNote already uses. The recorded reservation is accepted with it: an
+// undecided member has a smaller chat for as long as they stay undecided, and
+// because the counter counts declines rather than appearances, ignoring the
+// note keeps it there indefinitely.
+//
+// What that costs, measured rather than hoped for. This file used to claim the
+// note "stays one line of copy plus the field". That was never true of the
+// settled copy, which runs 140, 192 and 242 characters across its three
+// variants and wraps to four, five and six lines at this width. The note now
+// renders at roughly 135px (first ask), 152px (founder's first ask) and 170px
+// (second ask) on a 390px viewport, against the 289.7px of chat feed the
+// card-region-height slice measured on the owner's own phone. It was about
+// 195 / 217 / 240px before the 27 Aug tightening pass. Estimated from the type
+// metrics, not from a rendered screen; the owner's phone pass is what settles
+// whether this is small enough.
 //
 // A NOTE, not a chat bubble. The bubble rule would allow one here, since the
 // member's next action does answer Orbit, but a bubble only one viewer can see
@@ -110,31 +122,39 @@ export default function EmailAskNote({
         : FIRST_ASK
       : secondAsk(groupName)
 
+  // No bottom padding on the outer box: the composer directly below carries
+  // 12px of its own top padding, so anything here would be a second gap doing
+  // the first one's job.
   return (
-    <div style={{ padding: "0 16px 4px", flexShrink: 0 }} data-group-id={groupId}>
-      {/* The labeled-note treatment, ported from OrbitNoteScreen: the mark sits
-          in the padding inset so the copy runs full width beside it rather than
-          stacked under it. No eyebrow here, unlike that screen: this note sits
-          under a feed the member has been reading Orbit in all along, and a
-          "A NOTE FROM ORBIT" band would cost a line to say what the mark
-          already says. */}
+    <div style={{ padding: "0 16px 0", flexShrink: 0 }} data-group-id={groupId}>
+      {/* The labeled-note treatment, ported from OrbitNoteScreen. No eyebrow
+          here, unlike that screen: this note sits under a feed the member has
+          been reading Orbit in all along, and an "A NOTE FROM ORBIT" band
+          would cost a line to say what the mark already says. */}
       <div
         style={{
-          position: "relative",
           border: "1px solid var(--hairline)",
           borderRadius: 12,
-          padding: "10px 12px 10px 44px",
+          padding: "8px 10px",
           backgroundColor: "var(--surface-raised)",
         }}
       >
-        <div style={{ position: "absolute", left: 10, top: 10 }}>
-          <OrbitMark size={26} label={null} />
-        </div>
+        {/* Floated rather than parked in a 44px left inset, which is how
+            OrbitNoteScreen does it and how this started. The inset holds every
+            line of a six-line paragraph 44px short of the edge to make room
+            for a 26px mark that only ever sits beside the first one; floating
+            it gives the copy back 30px of width on every line below the mark.
+            lineHeight 0 keeps the float box the mark's own height rather than
+            a text line's. */}
+        <span style={{ float: "left", marginRight: 10, lineHeight: 0 }}>
+          <OrbitMark size={22} label={null} />
+        </span>
 
         <EmailAttachFlow
           promptMessage={promptMessage}
           cancelLabel={dismissLabel}
           onCancel={handleDismiss}
+          compact
         />
       </div>
     </div>

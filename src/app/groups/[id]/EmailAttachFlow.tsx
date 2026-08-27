@@ -78,6 +78,19 @@ export interface EmailAttachFlowProps {
    */
   codeSentMessage?: (address: string) => string
   doneMessage?: string
+  /**
+   * Tighten the vertical rhythm: tighter leading on the message, less air
+   * above the field, and the way out riding on the field's own row instead of
+   * a row of its own.
+   *
+   * A prop rather than a redesign of the default, because only one of the two
+   * callers is under vertical pressure. The group home's note is pinned in a
+   * fixed region that the chat feed has to share, and an undecided member
+   * keeps it there permanently; the group info page is an ordinary scrolling
+   * page where none of that applies and where compressing the copy would buy
+   * nothing. Off by default, so the info row renders exactly as it shipped.
+   */
+  compact?: boolean
 }
 
 export default function EmailAttachFlow({
@@ -87,6 +100,7 @@ export default function EmailAttachFlow({
   onAttached,
   codeSentMessage = DEFAULT_CODE_SENT_MESSAGE,
   doneMessage = DEFAULT_DONE_MESSAGE,
+  compact = false,
 }: EmailAttachFlowProps) {
   const fieldId = useId()
   const [step, setStep] = useState<"email" | "code" | "done">("email")
@@ -151,12 +165,81 @@ export default function EmailAttachFlow({
   const message =
     step === "done" ? doneMessage : isCodeStep ? codeSentMessage(address) : promptMessage
 
+  // The compact caller's copy runs to six lines at its longest, so leading is
+  // the biggest single lever it has. Both values are the scale's own tokens;
+  // there is nothing between them to reach for.
+  const leading = compact ? "var(--leading-tight)" : "var(--leading-normal)"
+
+  /**
+   * The way out, plus the resend once a code is in the air. In compact they
+   * ride on the field's own row; otherwise they keep the row below it that
+   * they shipped with.
+   */
+  const secondaryControls = (
+    <>
+      {/* A quiet text link, never a button: soft declines everywhere, because
+          honest tallies depend on socially comfortable exits. It stays
+          available on the code step too, since a member who changes their mind
+          halfway should not have to finish first. In compact it also takes the
+          44px tap-target floor, which it can afford there because the row it
+          now shares is already 40px tall. */}
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          background: "none",
+          border: "none",
+          padding: compact ? "4px 6px" : "4px 2px",
+          minHeight: compact ? 44 : undefined,
+          color: "var(--text-secondary)",
+          fontSize: "var(--type-meta)",
+          textDecoration: "underline",
+          cursor: "pointer",
+        }}
+      >
+        {cancelLabel}
+      </button>
+
+      {isCodeStep &&
+        (secondsLeft > 0 ? (
+          <p
+            style={{
+              margin: 0,
+              color: "var(--text-faint)",
+              fontSize: "var(--type-meta)",
+              lineHeight: "var(--leading-normal)",
+            }}
+          >
+            {`You can ask for a new code in ${secondsLeft} second${secondsLeft === 1 ? "" : "s"}.`}
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => sendCode(address, { resending: true })}
+            disabled={isPending}
+            style={{
+              background: "none",
+              border: "none",
+              padding: compact ? "4px 6px" : "4px 2px",
+              minHeight: compact ? 44 : undefined,
+              color: "var(--text-secondary)",
+              fontSize: "var(--type-meta)",
+              textDecoration: "underline",
+              cursor: isPending ? "default" : "pointer",
+            }}
+          >
+            Send a new code
+          </button>
+        ))}
+    </>
+  )
+
   return (
     <>
       <p
         style={{
           fontSize: "var(--type-meta)",
-          lineHeight: "var(--leading-normal)",
+          lineHeight: leading,
           color: "var(--text-secondary)",
           margin: 0,
         }}
@@ -168,7 +251,7 @@ export default function EmailAttachFlow({
         <p
           style={{
             fontSize: "var(--type-meta)",
-            lineHeight: "var(--leading-normal)",
+            lineHeight: leading,
             color: "var(--danger)",
             margin: "6px 0 0",
           }}
@@ -188,7 +271,7 @@ export default function EmailAttachFlow({
               // Wraps rather than clips: at an enlarged device text size the
               // field and the button stack instead of squeezing.
               flexWrap: "wrap",
-              marginTop: 8,
+              marginTop: compact ? 4 : 8,
             }}
           >
             {/* The chat composer's pill shape, borrowed rather than invented. */}
@@ -226,7 +309,14 @@ export default function EmailAttachFlow({
                 autoComplete={isCodeStep ? "one-time-code" : "email"}
                 placeholder={isCodeStep ? "Enter your code" : "you@example.com"}
                 value={value}
-                onChange={(e) => (isCodeStep ? setCode : setEmail)(e.target.value)}
+                onChange={(e) => {
+                  ;(isCodeStep ? setCode : setEmail)(e.target.value)
+                  // The complaint is about what was typed, so it stops being
+                  // true the moment they start fixing it. Leaving it under the
+                  // field while they retype reads as the product still saying
+                  // no to something they have already changed.
+                  if (errorMsg) setErrorMsg(null)
+                }}
                 disabled={isPending}
                 style={{
                   flex: 1,
@@ -235,7 +325,15 @@ export default function EmailAttachFlow({
                   backgroundColor: "transparent",
                   border: "none",
                   color: "var(--text-primary)",
-                  fontSize: "var(--type-meta)",
+                  // --type-body (17px), not the --type-meta the note copy
+                  // around it uses, and this one is not a style choice: iOS
+                  // Safari and iOS Chrome zoom the whole page when a focused
+                  // input computes under 16px, and nothing in layout.tsx
+                  // suppresses that. At 15px, tapping this field zoomed the
+                  // page while tapping the message composer 40px below it (17px)
+                  // did not. Applies to both surfaces this flow renders on,
+                  // because the info page's field had the same problem.
+                  fontSize: "var(--type-body)",
                   outline: "none",
                   caretColor: "var(--text-primary)",
                 }}
@@ -262,68 +360,28 @@ export default function EmailAttachFlow({
             >
               Save
             </button>
+
+            {/* In compact these ride here, on the field's own row, which is
+                the single biggest height saving available without touching a
+                word of the copy: it removes a whole row plus its margin. The
+                row already wraps, so they drop below the field rather than
+                squeezing it at an enlarged text size. */}
+            {compact && secondaryControls}
           </form>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-              marginTop: 4,
-            }}
-          >
-            {/* A quiet text link, never a button: soft declines everywhere,
-                because honest tallies depend on socially comfortable exits.
-                It stays available on the code step too, since a member who
-                changes their mind halfway should not have to finish first. */}
-            <button
-              type="button"
-              onClick={onCancel}
+          {!compact && (
+            <div
               style={{
-                background: "none",
-                border: "none",
-                padding: "4px 2px",
-                color: "var(--text-secondary)",
-                fontSize: "var(--type-meta)",
-                textDecoration: "underline",
-                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+                marginTop: 4,
               }}
             >
-              {cancelLabel}
-            </button>
-
-            {isCodeStep &&
-              (secondsLeft > 0 ? (
-                <p
-                  style={{
-                    margin: 0,
-                    color: "var(--text-faint)",
-                    fontSize: "var(--type-meta)",
-                    lineHeight: "var(--leading-normal)",
-                  }}
-                >
-                  {`You can ask for a new code in ${secondsLeft} second${secondsLeft === 1 ? "" : "s"}.`}
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => sendCode(address, { resending: true })}
-                  disabled={isPending}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: "4px 2px",
-                    color: "var(--text-secondary)",
-                    fontSize: "var(--type-meta)",
-                    textDecoration: "underline",
-                    cursor: isPending ? "default" : "pointer",
-                  }}
-                >
-                  Send a new code
-                </button>
-              ))}
-          </div>
+              {secondaryControls}
+            </div>
+          )}
         </>
       )}
     </>

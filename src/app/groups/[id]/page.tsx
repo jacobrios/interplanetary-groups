@@ -46,6 +46,7 @@ import { deriveIdeaItems } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 import { loadEmailAskInputs } from "@/lib/auth/email-ask"
+import { emailAskIsSettled } from "@/lib/auth/email-offer"
 import type { EmailAskNoteProps } from "./EmailAskNote"
 import FeedSeam from "./FeedSeam"
 import CardRegionEmpty from "./CardRegionEmpty"
@@ -74,6 +75,36 @@ export default async function GroupPage({ params }: Props) {
   const viewerIsMember =
     viewer !== null && group.memberships.some((m) => m.userId === viewer.id)
   if (!viewerIsMember) return <MembersOnlyWall />
+
+  // ── Orbit's email ask: started here, awaited far below ────────────────────
+  // Started rather than awaited, because nothing between here and where it is
+  // read depends on it. This screen already runs a chain of sequential awaits
+  // and it is the product's slowest (a six-message group measured at three to
+  // four seconds a send, since every send revalidates this page), so an extra
+  // round trip in that chain is a real cost rather than a rounding error.
+  //
+  // Skipped outright once both asks are spent: the three contribution reads
+  // exist to answer a question that emailAskIsSettled has already answered
+  // from columns the viewer row carries for free, and after this slice matures
+  // most members will be in exactly that state. The predicate is only ever
+  // allowed to skip work that could not change the answer, and a test walks
+  // the whole input space to keep it that way.
+  //
+  // Fail-soft, and this is the reason it catches rather than throwing: an
+  // optional nudge must never take down the group home. A failure logs, the
+  // ask does not render this time, and the rest of the screen is unaffected.
+  // The catch also means this promise can never surface as an unhandled
+  // rejection if an await above it throws first.
+  const askState = viewer
+    ? { emailAskCount: viewer.emailAskCount, emailAskedAt: viewer.emailAskedAt }
+    : null
+  const emailAskInputs =
+    viewer && askState && !emailAskIsSettled(askState)
+      ? loadEmailAskInputs({ userId: viewer.id, groupId: group.id }).catch((err) => {
+          console.error("[email-ask] loading the ask inputs failed", err)
+          return { latestContributionAt: null, hasVerifiedEmail: false }
+        })
+      : null
 
   // ── Upcoming events + rosters ─────────────────────────────────────────────
   // Up to CARD_REGION_CAP upcoming cards. The carousel comes live here
@@ -207,7 +238,7 @@ export default async function GroupPage({ params }: Props) {
   )
 
   // ── Orbit's email ask ─────────────────────────────────────────────────────
-  // The facts only, gathered here because this is where a database lives. The
+  // The facts only, gathered above because this is where a database lives. The
   // decision itself is EmailAskNote's, which is deliberate: this screen cannot
   // be tested and a component can, so the gate sits where a test can hold it.
   //
@@ -215,16 +246,20 @@ export default async function GroupPage({ params }: Props) {
   // reasoning is on loadEmailAskInputs itself. `now` is passed rather than read
   // in the client, for the same reason every other Orbit decision takes its
   // clock as an argument.
-  const emailAsk: EmailAskNoteProps | null = viewer
-    ? {
-        ...(await loadEmailAskInputs({ userId: viewer.id, groupId: group.id })),
-        groupId: group.id,
-        groupName: group.name,
-        viewerIsFounder: group.founderId === viewer.id,
-        askState: { emailAskCount: viewer.emailAskCount, emailAskedAt: viewer.emailAskedAt },
-        now: new Date(),
-      }
-    : null
+  //
+  // The skipped case passes the values that cannot produce an ask, which is
+  // not a fiction the gate has to trust: the count alone already closes it.
+  const emailAsk: EmailAskNoteProps | null =
+    viewer && askState
+      ? {
+          ...((await emailAskInputs) ?? { latestContributionAt: null, hasVerifiedEmail: false }),
+          groupId: group.id,
+          groupName: group.name,
+          viewerIsFounder: group.founderId === viewer.id,
+          askState,
+          now: new Date(),
+        }
+      : null
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,

@@ -37,6 +37,26 @@ export type EmailOffer = "first" | "second" | null
 const SECOND_ASK_MIN_WAIT_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
+ * Both asks are spent, so nothing else can matter.
+ *
+ * This exists purely so a caller can skip work it would otherwise do to answer
+ * a question that is already answered: the group home reads three tables to
+ * find a member's latest contribution, and for a member in this state no value
+ * it could come back with would change the outcome. The two columns it reads
+ * are already in hand on the User row, so the check itself is free.
+ *
+ * It deliberately does NOT re-implement any part of shouldOfferEmail below,
+ * which stays the only thing that decides whether an ask is shown. This is
+ * allowed to be conservative (say false and let the real decision run) and is
+ * never allowed to be wrong in the other direction. The relationship is held
+ * to that by a test that walks the whole input space rather than by this
+ * comment.
+ */
+export function emailAskIsSettled(user: EmailAskState): boolean {
+  return user.emailAskCount >= 2
+}
+
+/**
  * Whether, and which, email ask to show right now.
  *
  * emailAskCount is not an impression counter: it only advances when the

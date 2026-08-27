@@ -173,3 +173,71 @@ describe("EmailAttachFlow, no em dash in anything it renders", () => {
     expect(document.body.textContent).not.toMatch(/[\u2013\u2014]/)
   })
 })
+
+// ── Added 27 Aug 2026, task 5 fix round 1 ──────────────────────────────────
+// Three changes landed on this shared component after task 6 extracted it. Two
+// apply to both surfaces and one is opt-in for the caller under vertical
+// pressure. Nothing above this line was edited.
+
+describe("EmailAttachFlow, the field itself", () => {
+  it("keeps the input at or above 16px so iOS does not zoom the page", () => {
+    // Not a style preference: iOS Safari and iOS Chrome zoom the whole page
+    // when a focused input computes under 16px, and nothing in layout.tsx
+    // suppresses it. --type-meta is 15px, --type-body is 17px.
+    render(<EmailAttachFlow {...baseProps()} />)
+    const field = screen.getByLabelText("Your email address") as HTMLInputElement
+    expect(field.style.fontSize).toBe("var(--type-body)")
+  })
+
+  it("clears the complaint as soon as the member starts fixing it", async () => {
+    requestMock.mockImplementation(async () => ({ result: "invalid_email" }))
+    render(<EmailAttachFlow {...baseProps()} />)
+
+    const field = screen.getByLabelText("Your email address")
+    fireEvent.change(field, { target: { value: "sam@@example" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    const complaint = await screen.findByText("That address doesn't look right. Mind checking it?")
+    expect(complaint).toBeDefined()
+
+    fireEvent.change(field, { target: { value: "sam@example.com" } })
+    expect(
+      screen.queryByText("That address doesn't look right. Mind checking it?")
+    ).toBeNull()
+  })
+})
+
+describe("EmailAttachFlow, compact", () => {
+  it("puts the way out on the field's own row, and gives it a 44px target", () => {
+    render(<EmailAttachFlow {...baseProps({ compact: true })} />)
+    const cancel = screen.getByRole("button", { name: "Never mind" })
+
+    expect(cancel.closest("form")).not.toBeNull()
+    expect(cancel.style.minHeight).toBe("44px")
+  })
+
+  it("leaves the way out on its own row by default, which is what the info page renders", () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+    const cancel = screen.getByRole("button", { name: "Never mind" })
+
+    expect(cancel.closest("form")).toBeNull()
+    expect(cancel.style.minHeight).toBe("")
+  })
+
+  it("tightens the leading only when asked to", () => {
+    const { unmount } = render(<EmailAttachFlow {...baseProps({ compact: true })} />)
+    expect(screen.getByText(PROMPT).style.lineHeight).toBe("var(--leading-tight)")
+    unmount()
+
+    render(<EmailAttachFlow {...baseProps()} />)
+    expect(screen.getByText(PROMPT).style.lineHeight).toBe("var(--leading-normal)")
+  })
+
+  it("still carries the resend and the way out together on the code step", async () => {
+    render(<EmailAttachFlow {...baseProps({ compact: true })} />)
+    await reachCodeStep()
+
+    expect(screen.getByText("You can ask for a new code in 60 seconds.")).toBeDefined()
+    expect(screen.getByRole("button", { name: "Never mind" })).toBeDefined()
+  })
+})
