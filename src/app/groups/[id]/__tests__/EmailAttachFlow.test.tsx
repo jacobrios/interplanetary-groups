@@ -207,6 +207,40 @@ describe("EmailAttachFlow, overriding the Orbit-voiced lines", () => {
       await screen.findByText("That code isn't right. Ask for a new one and try again.")
     ).toBeDefined()
   })
+
+  // Final fix wave: the confirm step's two failures moved from a ternary to a
+  // map keyed off Exclude<ConfirmAttachResult, "ok">, so that a variant added
+  // to that union later is a compile error here rather than both attach
+  // surfaces silently saying the wrong thing. This is the half of that branch
+  // nothing asserted: a service failure at the CONFIRM step has always taken
+  // the caller's own service_error wording, not the default, and the map has
+  // to keep doing that. The bad-code half is covered directly above.
+  it("takes the caller's service_error wording when the confirm step fails, not the default", async () => {
+    confirmMock.mockImplementation(async () => ({ result: "service_error" }))
+    render(
+      <EmailAttachFlow
+        {...baseProps({
+          requestErrorMessages: {
+            invalid_email: "That address doesn't look right. Check it and try again.",
+            email_taken:
+              "That email is already on an account. If it's yours, sign in with it instead of adding another.",
+            rate_limited: "That was quick. Wait a minute before asking for another code.",
+            service_error: "Something went wrong. Give it another try in a bit.",
+          },
+        })}
+      />
+    )
+    await reachCodeStep()
+    fireEvent.change(screen.getByLabelText("The code from your email"), {
+      target: { value: "12345678" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(
+      await screen.findByText("Something went wrong. Give it another try in a bit.")
+    ).toBeDefined()
+    expect(screen.queryByText(/on my end/)).toBeNull()
+  })
 })
 
 describe("EmailAttachFlow, no em dash in anything it renders", () => {

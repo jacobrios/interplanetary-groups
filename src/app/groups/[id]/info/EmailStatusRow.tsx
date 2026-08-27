@@ -44,11 +44,20 @@ const DONE_MESSAGE = "Saved. This email can be used to sign back in any time."
 
 // Neutral counterparts to EmailAttachFlow's own error copy. Two of the
 // defaults are unambiguously Orbit's first person ("on my end", the "Mind
-// checking it?" aside); the other three carry no pronoun but would be the
+// checking it?" aside); the others carry no pronoun but would be the
 // only Orbit-voiced lines left on this page if left as is, which would be
-// its own kind of inconsistency. All five are rewritten here for the same
-// reason codeSentMessage and doneMessage are: nothing on this page says
-// Orbit is the one talking.
+// its own kind of inconsistency. Three of the four below are rewritten here
+// for the same reason codeSentMessage and doneMessage are: nothing on this
+// page says Orbit is the one talking. email_taken is the exception, and the
+// note on it says why.
+//
+// The bad-code sentence is deliberately not overridden at all. It carries no
+// Orbit voice to neutralise, so a copy of it here would be a fourth identical
+// copy of the one sentence in this slice that must never drift into claiming a
+// code expired: the service answers a wrong code and an expired one the same
+// way, and the seam collapses both into bad_code. This page inherits
+// DEFAULT_BAD_CODE_MESSAGE instead, which removes the drift risk rather than
+// guarding it.
 const REQUEST_ERROR_MESSAGES = {
   invalid_email: "That address doesn't look right. Check it and try again.",
   // Same rewrite as EmailAttachFlow's default, 27 Aug 2026, and it had to
@@ -63,8 +72,6 @@ const REQUEST_ERROR_MESSAGES = {
   rate_limited: "That was quick. Wait a minute before asking for another code.",
   service_error: "Something went wrong. Give it another try in a bit.",
 } as const
-const BAD_CODE_MESSAGE =
-  "That code didn't work. It might be typed wrong, or it might have expired. Ask for a new code and try again."
 
 // alignSelf: "flex-start" matters here in a way it would not in a row of its
 // own: the info page's wrapper is a flex column with no alignItems, which
@@ -140,7 +147,6 @@ export default function EmailStatusRow({ hasVerifiedEmail }: Props) {
         codeSentMessage={CODE_SENT_MESSAGE}
         doneMessage={DONE_MESSAGE}
         requestErrorMessages={REQUEST_ERROR_MESSAGES}
-        badCodeMessage={BAD_CODE_MESSAGE}
       />
     </div>
   )

@@ -61,15 +61,37 @@ function logSignOutFailure(cause: unknown) {
  *
  * Deliberately has no session guard, unlike requestEmailAttachAction, and it
  * cannot have one: the whole point is that the caller has no session and cannot
- * get one any other way. The cost, carried knowingly and recorded for task 8
- * which owns the same problem on /signin: this is an unauthenticated endpoint
- * that triggers outbound mail, and its only ceiling is Supabase's own rate
- * limit, which the task 1 spike never exercised.
+ * get one any other way. The cost, carried knowingly: this is an
+ * unauthenticated endpoint that triggers outbound mail, and its only ceiling is
+ * Supabase's own rate limit, which the task 1 spike never exercised.
+ *
+ * There are two such doors, not one, and that is the thing to carry away from
+ * here. Task 8 raised this on /signin and answered it there; the invite screen
+ * reaches this copy instead, so any future ceiling (the recommended Vercel WAF
+ * rule among them) has to cover both paths or it covers neither.
  */
 export async function requestJoinSignInCodeAction(
   email: string
 ): Promise<{ result: SignInRequestResult }> {
-  return requestSignInCode(email)
+  const outcome = await requestSignInCode(email)
+
+  // The same line /signin's copy of this endpoint already carries, for the same
+  // reason and deliberately in the same words. The auth seam's rule is that a
+  // classified result is a product state rather than an incident, and that rule
+  // is right everywhere but on these two doors: both are unauthenticated and
+  // uncapped, so the mail rate limit is the entire abuse ceiling, and a script
+  // burning the daily allowance here would take sign-in down for everybody
+  // while leaving no trace anywhere that anything had happened. warn rather
+  // than error, because a member tapping resend too fast reaches this too and
+  // that is not an incident; what makes it useful is the shape in the log
+  // rather than any single line.
+  if (outcome.result === "rate_limited") {
+    console.warn(
+      "[join-signin] a sign-in code was refused by the mail rate limit; if this is not isolated, sign-in is down for everybody"
+    )
+  }
+
+  return outcome
 }
 
 /**

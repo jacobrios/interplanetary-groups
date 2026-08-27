@@ -53,10 +53,12 @@ vi.mock("next/navigation", () => ({
 import { requestJoinSignInCodeAction, confirmJoinSignInAction } from "../join-signin"
 
 let errorLog: ReturnType<typeof vi.spyOn>
+let warnLog: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   vi.clearAllMocks()
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {})
+  warnLog = vi.spyOn(console, "warn").mockImplementation(() => {})
   findUnique.mockResolvedValue({ supabaseAuthId: "supabase-uid-1" })
   joinGroupByInvite.mockResolvedValue({ group: { id: "group-1" }, user: { id: "user-1" } })
   signOut.mockResolvedValue({ error: null })
@@ -64,6 +66,7 @@ beforeEach(() => {
 
 afterEach(() => {
   errorLog.mockRestore()
+  warnLog.mockRestore()
 })
 
 describe("requestJoinSignInCodeAction", () => {
@@ -80,6 +83,30 @@ describe("requestJoinSignInCodeAction", () => {
     expect(await requestJoinSignInCodeAction("nobody@example.com")).toEqual({
       result: "unknown_email",
     })
+  })
+
+  // The second unauthenticated mail door, and the reason this assertion is
+  // not a duplicate of /signin's: the abuse ceiling is shared between the two
+  // endpoints, so a trace on one of them and silence on the other means an
+  // invite-screen script burns the whole daily mail allowance, takes login
+  // down for everybody, and leaves nothing behind saying it happened.
+  it("leaves a trace when the mail allowance is what refused, since nothing else would", async () => {
+    requestSignInCode.mockResolvedValue({ result: "rate_limited" })
+
+    expect(await requestJoinSignInCodeAction("sam@example.com")).toEqual({
+      result: "rate_limited",
+    })
+    expect(warnLog).toHaveBeenCalledTimes(1)
+  })
+
+  // What keeps the assertion above meaningful: it has to be this branch that
+  // warns, not every branch.
+  it("stays quiet about the outcomes that are ordinary product states", async () => {
+    for (const result of ["ok", "invalid_email", "unknown_email"] as const) {
+      requestSignInCode.mockResolvedValue({ result })
+      await requestJoinSignInCodeAction("sam@example.com")
+    }
+    expect(warnLog).not.toHaveBeenCalled()
   })
 
   // The whole point of this endpoint: the person calling it has no session and

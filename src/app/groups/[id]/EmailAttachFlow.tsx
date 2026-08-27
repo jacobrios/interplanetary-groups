@@ -28,7 +28,7 @@ import {
   requestEmailAttachAction,
   confirmEmailAttachAction,
 } from "@/app/actions/email-ask"
-import type { AttachRequestResult } from "@/lib/auth/email"
+import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
 import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
 
 /**
@@ -151,6 +151,24 @@ export default function EmailAttachFlow({
   const address = email.trim()
   const typedCode = code.trim()
 
+  /**
+   * The confirm step's two failures, keyed off the seam's own union exactly
+   * like DEFAULT_REQUEST_ERROR above, so a variant added to ConfirmAttachResult
+   * later is a compile error here rather than both attach surfaces quietly
+   * telling a member that something went wrong on our end when it did not.
+   * This branch used to be a ternary, which is the one call site of the four
+   * that the compile-error guarantee did not actually cover.
+   *
+   * Built from the props rather than at module scope because both strings are
+   * a caller's to override, and it resolves to precisely what the ternary
+   * resolved to: bad_code takes badCodeMessage, service_error takes the
+   * request map's own service_error, override and all.
+   */
+  const confirmErrorMessages: Record<Exclude<ConfirmAttachResult, "ok">, string> = {
+    bad_code: badCodeMessage,
+    service_error: requestErrorMessages.service_error,
+  }
+
   function sendCode(target: string, { resending }: { resending: boolean }) {
     startTransition(async () => {
       setErrorMsg(null)
@@ -190,7 +208,7 @@ export default function EmailAttachFlow({
         onAttached?.()
         return
       }
-      setErrorMsg(result === "bad_code" ? badCodeMessage : requestErrorMessages.service_error)
+      setErrorMsg(confirmErrorMessages[result])
     })
   }
 

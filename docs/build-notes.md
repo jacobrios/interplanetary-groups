@@ -491,7 +491,7 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 5. **Confirm auto-renew and WHOIS privacy are on for `interplanetarygroups.com`.** Settled when the domain was bought, 25 Aug 2026, and listed here because "settled" and "switched on in the dashboard" are not the same thing and nothing has checked. *A lapsed domain takes the app's address and every login email in the same hour.* Same shape as the free-tier Supabase pause already recorded at the deploy entry: an accidental dependency nobody would connect to the symptom.
 
-6. **Before deciding anything about abuse on `/signin`, read two Supabase rate-limit numbers, not one.** Five minutes in the dashboard, no code. The per-project ceiling is the one people reach for, and the **per-address** limit is the one that actually matters first: hammering one real address mail-bombs that member's inbox as well as burning the shared daily allowance, and a project-wide rule sized without knowing the per-address number is a guess. *Recommendation, not an obligation:* a Vercel WAF rule on `/signin` afterwards, which is configuration rather than code. **Nothing leaks either way; the risk is availability.** Raised by Task 8's implementer and left deliberately unbuilt, because sizing a limit against an unread setting is how you ship a limit that does nothing or locks out real people.
+6. **Before deciding anything about abuse on the two signed-out mail endpoints, read two Supabase rate-limit numbers, not one.** Five minutes in the dashboard, no code. The per-project ceiling is the one people reach for, and the **per-address** limit is the one that actually matters first: hammering one real address mail-bombs that member's inbox as well as burning the shared daily allowance, and a project-wide rule sized without knowing the per-address number is a guess. *Recommendation, not an obligation:* a Vercel WAF rule afterwards, which is configuration rather than code, and it has to name **both** doors. **There are two, and this item named only one until 27 Aug 2026 (final fix wave).** `/signin` is the obvious one; the other is the invite screen's "I've been here before" (`requestJoinSignInCodeAction`, reached at `/join/[token]`), which is unauthenticated and uncapped for the same unavoidable reason and sends through the same allowance. A rule on `/signin` alone leaves that door wide open, so it would read as solved while the cheaper path stayed free. Both now log a warning when the mail limit refuses, which is the trace, not the ceiling. **Nothing leaks either way; the risk is availability.** Raised by Task 8's implementer and left deliberately unbuilt, because sizing a limit against an unread setting is how you ship a limit that does nothing or locks out real people.
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -4970,11 +4970,22 @@ The address is stored twice, in Supabase as the credential and in `ContactMethod
 as the app's copy, and they could drift; accepted over a service-role key that
 would bypass every protection in the product. A second identity is orphaned rather
 than merged, by decision. A member who mistypes an address they never check cannot
-see it, by rule, and re-running the attach flow is the whole recovery. `/signin`
-sends mail while signed out, so it is uncapped and its only limit is a rate limit
-nobody has read (running list item 6). A fourth copy of the bad-code sentence sits
+see it, by rule, and re-running the attach flow is the whole recovery. **Two
+endpoints send mail while signed out, not one**, and both are uncapped with no
+limit but a Supabase rate limit nobody has read (running list item 6):
+`requestSignInCodeAction` on `/signin`, and `requestJoinSignInCodeAction` behind
+"I've been here before" on `/join/[token]`. (Corrected 27 Aug 2026, final fix
+wave: this paragraph and running item 6 both named `/signin` alone, and the WAF
+rule item 6 recommends would have covered that door and left the invite screen's
+open. Both now log a warning when the mail limit refuses, so an abuse run leaves
+the same trace whichever door it comes through; the ceiling itself is still
+unbuilt and still item 6's to size.) ~~A fourth copy of the bad-code sentence sits
 at `src/app/groups/[id]/info/EmailStatusRow.tsx:67` with neither a guard nor a
-shared source; queued, not fixed. `src/lib/auth/` now mixes a client-only React
+shared source; queued, not fixed.~~ (Resolved 27 Aug 2026, final fix wave: the
+copy is deleted rather than guarded. It was byte-identical to the default and
+the override existed only to strip Orbit's first-person voice, which that
+sentence never had, so the info page now inherits `DEFAULT_BAD_CODE_MESSAGE` and
+there is nothing left to drift.) `src/lib/auth/` now mixes a client-only React
 hook (`email-code-flow.ts`, which carries no `"use client"` marker) in with the
 server-side seam modules beside it, and works today only because all three of its
 importers are client components; a category note for whoever adds the next file
