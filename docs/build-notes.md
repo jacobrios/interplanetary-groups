@@ -27,7 +27,8 @@
 - **Anonymous session on entry** (founder at creation, member at join), upgraded later to a real account by attaching an email, then ~~magic-link~~ sign-in from any device. Supabase anonymous sign-in supports this pattern. *(Verify current implementation at build.)* *(Amended 27 August 2026, email sign-in slice: it is a one-time code typed into the browser the person is already sitting in, never a link. A link in an email opens in the mail app's own browser, which has different storage from the browser the person was using, so a magic link would have pointed straight at the session fragility named two bullets below. Built and shipped; the identity is upgraded in place, verified against the real service, so the person comes back as themselves rather than as a second member.)*
 - **Names:** the founder gives theirs in onboarding Step 1 (required field); members give theirs on the join screen. A name is the only identity required to participate.
 - **The email ask is Orbit's job, post-join, ~~triggered by the user's first RSVP~~ triggered by the member's first contribution of any kind**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
-  - ***Amended 27 August 2026 (email sign-in slice). The surface moved and the trigger's set widened. The reason the ask exists at all is untouched, and so is the founder clause, which shipped exactly as written above.***
+  - ***Amended 27 August 2026 (email sign-in slice). The surface moved and the trigger's set widened. The reason the ask exists at all is untouched.***
+  - ***The founder clause survives in substance and was reworded, and the wording above is not what ships.*** *Corrected 27 August 2026, same day, on review: the sentence in this bullet is the 2026 design draft, and quoting it as the shipped copy was wrong. What a founder actually reads, at `EmailAskNote.tsx:64`, appended to the first ask for the founder alone, is:* **"It also means you won't lose the group you started."** *Same promise, plainer, and it names the group rather than "access". The requirement this bullet sets, that founder copy carry an extra clause about what losing the session costs a founder specifically, is met.*
   - ***Where it happens, and why this bullet could not stand.*** *This was written assuming Orbit would ask in the group feed, the way Orbit says everything else. It cannot, on two counts. The feed is the product's one conversation surface and it is public, so an ask addressed to one member is clutter for every other member, and it repeats once per person. And the only input on that screen is the chat composer, so a member answering the ask would post their own email address into the group feed, breaking "emails are never displayed anywhere in the UI" outright, in the one place the whole group is looking. The ask is now a note rendered for one viewer, pinned just above the composer, never written to the feed; the group info page is its permanent home. Considered and declined: capturing at onboarding step 3 or on the join screen, which would collect the most addresses and is the exact thing anonymous-first exists to prevent.*
   - ***When it happens.*** *The trigger's principle survives untouched: the moment to ask is the moment "I want a reminder for this" is true. What widened is the set of moments that count, from an RSVP alone to a member's first contribution of any kind (an RSVP, a chat message, or a gauge vote). RSVP alone is too narrow in this product specifically, because the spark flow starts with somebody talking in chat, so a member can contribute for weeks without an RSVP ever coming up. An OUT RSVP counts: saying no to Thursday is not saying no to reminders.*
   - ***How often.*** *Twice per person ever, not per group, then never again. Full reasoning, the copy, and the owner's two overrules in §11, email sign-in.*
@@ -4744,10 +4745,11 @@ decided.
 **Test baseline 97 files / 955 tests at slice start, matching main. Finishing at
 111 / 1146, green, zero skipped.**
 
-*Declared deviation on length: this entry runs about three times the 400-to-600
-target. It is a deliberate call rather than an overrun. The slice ran eleven tasks
-across three days, and the working ledger that holds its rulings, its two premise
-corrections and its three generalising lessons is gitignored, so anything not
+*Declared deviation on length: this entry runs about five times the 400-to-600
+target. It is a deliberate call, reviewed and upheld rather than an overrun; a
+review that went looking for padding proposed cutting nothing. The slice ran eleven tasks
+across three days, and the working ledger that holds its rulings, its three premise
+corrections and its six generalising lessons is gitignored, so anything not
 carried here is simply lost. Everything below records something decided or
 learned; the "what shipped" retelling was cut instead.*
 
@@ -4821,6 +4823,42 @@ with no way to check it.
    The build cut its height by about a third and left every word alone. Whether
    that is enough is his phone's call, not this document's.
 
+### One product decision made during the build, cheap to reverse
+
+**The three contribution queries are scoped to the group whose home is being
+rendered, not across every group the person belongs to.** So a member active in
+group A does not get asked on group B's screen. Two reasons: the page already
+holds the group's id, so it costs nothing; and the founder copy speaks about "the
+group you started", which a cross-group ask would make false. **The two-asks-per
+-person accounting is unaffected**, because the counter lives on `User` rather than
+on a membership, so the widest possible reading of the allowance still holds.
+Verified in the code: all three lookups (`rsvp`, `message`, `gaugeVote`) filter on
+`groupId` at `src/lib/auth/email-ask.ts:63-76`.
+
+Recorded here rather than left in a task report because it is product behaviour
+with a consequence for the multi-group home already queued at §8: on a multi-group
+screen there is no single group to scope to, and this decision is the thing that
+would have to be reopened. It was surfaced to the owner as cheap to reverse and he
+has not been asked to rule on it.
+
+### A second claim-to-fact boundary now exists, and it is stronger than the first
+
+CLAUDE.md names `src/lib/orbit/normalize.ts` as **the** claim-to-fact boundary,
+where the model's structured output stops being a claim and becomes something the
+product may act on. That wording was written when there was one. There are now
+two: `src/lib/auth/email.ts` does the same job for the *service*, turning every
+raw Supabase reply into one of a fixed set of results before any user-facing
+branch reads it.
+
+The reason to record it rather than treat it as a copy of the pattern: the final
+review judged it **stronger** than `normalize.ts`, on a mechanism worth reusing.
+Each screen's error map is typed as `Record<Exclude<AttachRequestResult, "ok">, string>`
+(`EmailAttachFlow.tsx:55`, and the sign-in equivalent at `SignInPanel.tsx:62` and
+`JoinSignIn.tsx:56`). So adding a new result variant is a **compile error at every
+call site**, rather than a member staring at a blank line where a message should
+be. `normalize.ts` has no equivalent guarantee. Whichever boundary is touched
+next, this is the shape to copy.
+
 ### The sharpest product catch of the build
 
 The message a member met when the address they typed was already on an account
@@ -4845,7 +4883,7 @@ original drops that group off the front door, with nothing on screen saying so.
 That falls straight out of not merging identities, which was decided deliberately,
 and the founder's remove button is still the cleanup.
 
-### Three lessons that generalise past this slice
+### Six lessons that generalise past this slice
 
 - **A guard test's setup assertion must be structural, never a copy match.** The
   new no-address-on-screen test checked that Orbit's ask was on screen by matching
@@ -4865,6 +4903,31 @@ and the founder's remove button is still the cleanup.
   **Converting those to imports, which looks like consistency, would delete the only
   protection stopping that message drifting into claiming a code expired.**
 
+- **A correction must be swept, not spot-fixed, and this slice proved it twice
+  in the same file.** Both times a wrong claim was corrected where the problem was
+  *discovered* rather than everywhere the claim was *asserted*: once a fixture, and
+  once a comment sitting 230 lines from the primary docblock that still stated the
+  disproven thing as fact, in the position of most authority in a file whose only
+  value is that a future reader trusts it. **The rule: the close-out step for any
+  correction is a sweep for every restatement of the claim, not an edit at the site
+  that found it.** This is the direct antidote to the failure that sent five tasks
+  of this slice back, including the misquoted founder clause in §3 above, which was
+  this same shape.
+- **Never freeze a line-order reference into a permanent comment.** A pointer was
+  about to be written as "test 11" and "test 12"; the control it named was actually
+  the ninth block in the file, and the ordinal would have gone stale the moment
+  somebody inserted a case above it. Point by name. Caught only by counting against
+  the file rather than trusting the message that supplied the numbers.
+- **The positive companion to the trap above: a hardcoded literal in the right
+  place is a tripwire, not duplication.** The sixty-second resend wait is pinned by
+  **four hardcoded assertions across the three code screens**, none of them
+  self-comparing (`SignInPanel.test.tsx:192`, `EmailAskNote.test.tsx:186`,
+  `EmailAttachFlow.test.tsx:289`, `JoinSignIn.test.tsx:268`). That is deliberate,
+  and it is why the shared countdown hook takes no duration parameter: when the
+  rate-limit work lands and sixty changes, four tests go red and force a human to
+  look at every screen. A parameter would have made that change silent. This is
+  load-bearing on running-list item 6.
+
 ### One correction that changes what a future change is allowed to cost
 
 The guard task's brief was wrong about how the pages fetch people, and the
@@ -4881,7 +4944,10 @@ day a test says so.
 A Claude Design change request removed the hairline closing the group header, plus
 the air below it. It rides this slice because it touches the same file task 5
 touches, so the concurrent micro-PR route was closed by the owner's own rule, and
-because it hands about 13px back to the very screen the ask spends about 100px of.
+because it hands about 13px back to the very screen the ask spends on the order of
+150px of. (That figure was priced at about 100px when the placement was chosen and
+shipped nearer 150: 135, 152.3 or 169.5px depending on which of the three copy
+variants a viewer gets. Ruling 4 above is why.)
 The scope was wider than the request knew: the hairline lives on the shared header
 component, so it comes off the group home, the group info page and event detail
 together, and the owner widened it deliberately, pulling the content under all
@@ -4899,9 +4965,26 @@ see it, by rule, and re-running the attach flow is the whole recovery. `/signin`
 sends mail while signed out, so it is uncapped and its only limit is a rate limit
 nobody has read (running list item 6). A fourth copy of the bad-code sentence sits
 at `src/app/groups/[id]/info/EmailStatusRow.tsx:67` with neither a guard nor a
-shared source; queued, not fixed. And at least fourteen user-facing strings shipped that
+shared source; queued, not fixed. `src/lib/auth/` now mixes a client-only React
+hook (`email-code-flow.ts`, which carries no `"use client"` marker) in with the
+server-side seam modules beside it, and works today only because all three of its
+importers are client components; a category note for whoever adds the next file
+there. And at least fourteen user-facing strings shipped that
 the owner has never read; that count was taken partway through the slice and
 never retaken after the last two screens were built.
+
+### Two things only the owner's phone can settle, and they are on the QA script
+
+- **`--leading-tight` on the ask is the one lever that traded readability for
+  height**, and it is worth about a third of the saving. Reverting it is a
+  one-token change costing +21 / +26 / +31.5px, landing the note at 156 / 178.5 /
+  201px. **Two independent reads, formed separately, both leaned toward the owner
+  rejecting the tightening.** Recorded that way rather than as a recommendation,
+  because the whole point is that the screen decides.
+- **Two pinned notes can stack above the composer** and were never measured
+  together: `OrbitDownNote` and the email ask both render there
+  (`GroupHome.tsx:171` and `:175`, immediately above `ChatInput`). This is the
+  screen whose height budget the owner has already fought for once.
 
 **What is genuinely unverified, and this list is the honest part of the entry.**
 Nothing in this slice has been seen rendered by anyone. Every height figure is
@@ -4910,3 +4993,25 @@ service error codes are inferred from Supabase's documentation rather than seen
 coming back, each flagged inline in the code where somebody deciding a behaviour
 would read it. The four screens
 this slice adds meet a human for the first time on the owner's phone.
+
+**And two more, both of which can make a shipped decision quietly untrue.**
+
+- **Which Supabase template the sign-in path renders was never measured**, and
+  this is the slice's most consequential unknown. The spike proved which template
+  the *attach* path uses, by giving the candidates deliberately different subject
+  lines. It never established the sign-in one. If that template is left on the
+  default link, **"a typed code, not a magic link" is true of this code and false
+  in the member's inbox**, and it fails in the way that is hardest to notice,
+  because the link still works for whoever tests it on the device they read mail
+  on. One send settles it; it is running-list item 4.3.
+- **Whether `signOut()` on a second Supabase client actually clears the cookie the
+  first client wrote inside the same request.** The seam's own docblock
+  (`email.ts:256`) warns that such a cookie "is not guaranteed to be readable by a
+  second client inside the same request", and if that visibility problem also
+  blocks the clear, then the protection against welding a new member onto an
+  unaccountable identity does not land even when `signOut` reports success. It
+  applies to both paths that do it (`join-signin.ts:115` and `signin.ts:143`), the
+  service is mocked everywhere, so **no test in this repo can see it**, and it
+  needs a hand-run check rather than more code. Task 8 settled a neighbouring
+  question, that no good session is destroyed either way; it did not settle this
+  one.
