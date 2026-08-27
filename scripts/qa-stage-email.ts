@@ -64,6 +64,41 @@
 // walkthrough. Same precedent as qa-stage-cardstate.ts and qa-stage-polish.ts.
 // It is not named *.test.ts, which is what keeps Vitest from collecting it.
 //
+// THE TWO-PLACES PROBLEM, found the hard way on 27 Aug 2026 and worth reading
+// before touching --seed-viewer reset. An email address lives in two systems:
+// this product's own ContactMethod table, and the Supabase identity itself
+// (email.ts's whole job is keeping those two in step, not owning one truth).
+// reset can only clear OUR half. It has no service-role key, by deliberate
+// decision (the slice document: a service-role key would bypass every
+// protection in the product), so it cannot touch the Supabase side at all.
+//
+// The failure this produced: a "reset" run left Supabase still holding a
+// previously attached address while the script printed a flat claim that
+// nothing was left. Every attach attempt after that reset was therefore an
+// EMAIL CHANGE as far as Supabase was concerned, not a first attach, which is
+// a different code path (email.ts's confirmEmailAttach against `email_change`)
+// with a different failure shape if the project has "Secure email change" on:
+// it needs a code confirmed from both the old and the new address and simply
+// returns success with no session when only one lands. Nothing about that was
+// visible from the reset output, and it cost an afternoon.
+//
+// This script cannot fix the underlying gap (no service role, and staying
+// that way), but it can stop lying about it, and it turns out it can do a bit
+// more than that. The app's own Supabase client (src/lib/supabase/server.ts)
+// is useless here: it needs next/headers cookies() from a real request, which
+// a script never has. But Prisma's own Postgres connection (the one
+// DATABASE_URL already points at) is the SAME Postgres instance Supabase's
+// auth schema lives in, and a read-only `select ... from auth.users` over
+// that connection works (verified against dev-test while building this fix).
+// So this script can tell the runner what Supabase actually has on file,
+// without ever touching the Admin API or a service-role key: see
+// readSupabaseIdentityState below. This is a narrow, deliberate, read-only
+// exception to "Prisma owns the schema, the Data API stays off": it is
+// diagnostic output for a human running staging tooling against dev-test, not
+// a new source of truth any product code reads, and it never writes to
+// auth.users. Worth a second pair of eyes before this pattern spreads anywhere
+// else.
+//
 // Usage:
 //   npm run qa:stage-email                       (re-stage both groups)
 //   npm run qa:stage-email -- --seed-viewer <groupId> <state>
@@ -72,7 +107,9 @@
 //     founder   hand the viewer the founder seat of that group
 //     second    count 1, asked ten days ago: the second and last ask
 //     email-on  attach a verified email: every ask off, info row flips
-//     reset     count 0, no email: back to the top of the walk
+//     reset     count 0, no email on OUR side. Supabase's own copy of the
+//               identity is untouched; see THE TWO-PLACES PROBLEM below and
+//               the supabaseIdentity block every seed-viewer call now prints.
 //
 // Unlike the older staging scripts, the main mode REPLACES its own prior rows
 // rather than leaving a second copy behind: it deletes any previous [QA] Email
@@ -153,11 +190,78 @@ async function verdictFor(userId: string, groupId: string) {
   }
 }
 
+/** A real Supabase auth id is a UUID. Anything else is one of this script's own fake users. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+type SupabaseIdentityState =
+  | {
+      known: true
+      hasConfirmedEmail: boolean
+      hasPendingEmailChange: boolean
+      isAnonymous: boolean
+      meaning: string
+    }
+  | { known: false; reason: string }
+
+/**
+ * What Supabase's own copy of this identity actually holds, read straight off
+ * `auth.users` over the same Postgres connection Prisma already uses (see THE
+ * TWO-PLACES PROBLEM above for why this is safe and why it is not a general
+ * pattern to reach for elsewhere). Never prints the address itself, only
+ * whether one is there: this is diagnostic state, not a reason to put an
+ * email address in a script's stdout.
+ *
+ * The two booleans are genuinely different situations. `email` is set once
+ * Supabase has a CONFIRMED address on the identity; `email_change` is set
+ * while a code has been requested but not yet confirmed, and can be true or
+ * false independent of `email`. Both matter to the runner because both make
+ * the next attach a CHANGE rather than a first attach.
+ */
+async function readSupabaseIdentityState(supabaseAuthId: string | null): Promise<SupabaseIdentityState> {
+  if (!supabaseAuthId || !UUID_RE.test(supabaseAuthId)) {
+    return { known: false, reason: "supabaseAuthId is not a UUID, so this cannot be a real Supabase identity." }
+  }
+
+  try {
+    const rows = await prisma.$queryRawUnsafe<{ email: string | null; email_change: string | null; is_anonymous: boolean }[]>(
+      `select email, email_change, is_anonymous from auth.users where id = $1::uuid`,
+      supabaseAuthId
+    )
+    const row = rows[0]
+    if (!row) {
+      return { known: false, reason: "no matching auth.users row. Unexpected for a viewer who has joined through the app." }
+    }
+
+    const hasConfirmedEmail = row.email !== null && row.email !== ""
+    const hasPendingEmailChange = row.email_change !== null && row.email_change !== ""
+
+    let meaning: string
+    if (hasConfirmedEmail) {
+      meaning =
+        "Supabase already has a confirmed address on this identity. The next attach attempt in the UI " +
+        "will be read as an EMAIL CHANGE, not a first attach. If Secure email change is on for this " +
+        "project, that needs a code confirmed from BOTH the old and the new address; if it is off, the " +
+        "new address's code alone confirms it."
+    } else if (hasPendingEmailChange) {
+      meaning =
+        "Supabase has an unconfirmed email change pending on this identity (a code was requested and " +
+        "never confirmed). The next attach attempt will still be read as a change, not a first attach, " +
+        "until that pending change is confirmed or expires on its own."
+    } else {
+      meaning = "Supabase side is clean: no confirmed address and no pending change. The next attach will be a first attach."
+    }
+
+    return { known: true, hasConfirmedEmail, hasPendingEmailChange, isAnonymous: row.is_anonymous, meaning }
+  } catch (err) {
+    return { known: false, reason: `could not read auth.users: ${err instanceof Error ? err.message : String(err)}` }
+  }
+}
+
 // ── Cleanup, so a second run replaces the first ──────────────────────────────
 
 /**
  * Deletes the previous run's groups and fake members, and puts any REAL person
- * who was in one of them back to a clean ask state.
+ * who was in one of them back to a clean ask state ON OUR SIDE.
  *
  * That last part is the one write here that reaches outside this script's own
  * rows, and it is deliberate. The owner's session survives a re-run, so without
@@ -165,18 +269,28 @@ async function verdictFor(userId: string, groupId: string) {
  * email the previous pass attached, and every ask stays silently invisible.
  * Scoped to people who were members of a [QA] Email group, in dev-test only,
  * and printed in the output so it is never a surprise.
+ *
+ * "Clean ask state" is scoped to what this script can actually reach: see THE
+ * TWO-PLACES PROBLEM up top. If a real person attached a genuine address
+ * through the UI in an earlier run, that address is still on their Supabase
+ * identity after this runs; this function's own supabaseIdentity readback per
+ * viewer is what tells the caller that instead of leaving it to be discovered
+ * the hard way.
  */
-async function replacePriorRuns(): Promise<{ groupsDeleted: number; viewersReset: string[] }> {
+async function replacePriorRuns(): Promise<{
+  groupsDeleted: number
+  viewersReset: { name: string; supabaseIdentity: SupabaseIdentityState }[]
+}> {
   const priorGroups = await prisma.group.findMany({
     where: { name: { in: GROUP_NAMES } },
     include: { memberships: { include: { user: true } } },
   })
 
-  const realViewers = new Map<string, string>()
+  const realViewers = new Map<string, { name: string; supabaseAuthId: string | null }>()
   for (const g of priorGroups) {
     for (const m of g.memberships) {
       if (!m.user.supabaseAuthId?.startsWith(FAKE_AUTH_PREFIX)) {
-        realViewers.set(m.user.id, m.user.name)
+        realViewers.set(m.user.id, { name: m.user.name, supabaseAuthId: m.user.supabaseAuthId })
       }
     }
   }
@@ -198,7 +312,14 @@ async function replacePriorRuns(): Promise<{ groupsDeleted: number; viewersReset
     })
   }
 
-  return { groupsDeleted: priorGroups.length, viewersReset: [...realViewers.values()] }
+  const viewersReset = await Promise.all(
+    [...realViewers.values()].map(async (v) => ({
+      name: v.name,
+      supabaseIdentity: await readSupabaseIdentityState(v.supabaseAuthId),
+    }))
+  )
+
+  return { groupsDeleted: priorGroups.length, viewersReset }
 }
 
 // ── Main mode: build the two groups ──────────────────────────────────────────
@@ -367,9 +488,15 @@ async function seedViewer(groupId: string, state: ViewerState) {
       where: { id: viewer.id },
       data: { emailAskCount: 0, emailAskedAt: null },
     })
-    notes.push(`Back to the top of the walk: no email, no asks spent.`)
+    notes.push(
+      `OUR side is back to the top: no email, no asks spent.`,
+      `That is not the whole picture. This cannot touch Supabase's own copy of the identity, ` +
+        `because the app has no service-role key, by decision. Read the supabaseIdentity block below ` +
+        `before assuming the next attach behaves like a first attach.`
+    )
   }
 
+  const supabaseIdentity = await readSupabaseIdentityState(viewer.supabaseAuthId)
   const memberVerdict = await verdictFor(viewer.id, group.id)
   const others = await prisma.group.findMany({
     where: { name: { in: GROUP_NAMES }, id: { not: group.id } },
@@ -391,6 +518,7 @@ async function seedViewer(groupId: string, state: ViewerState) {
         viewer: viewer.name,
         viewerUserId: viewer.id,
         notes,
+        supabaseIdentity,
         thisGroup: {
           group: group.name,
           viewerIsFounder: (await prisma.group.findUniqueOrThrow({ where: { id: group.id }, select: { founderId: true } })).founderId === viewer.id,
@@ -401,7 +529,10 @@ async function seedViewer(groupId: string, state: ViewerState) {
         otherQaGroups: elsewhere,
         readMe:
           "shouldOfferEmail is the real production function, called here on the rows that were just written. " +
-          '"first" or "second" means the ask WILL render for this viewer on that group home; null means it will not.',
+          '"first" or "second" means the ask WILL render for this viewer on that group home; null means it will not. ' +
+          "supabaseIdentity is read straight off Supabase's own auth.users row, separately from anything this " +
+          "script wrote: our ContactMethod table and Supabase's identity are two different places, and this " +
+          "script can only ever act on the first.",
       },
       null,
       2
@@ -439,8 +570,10 @@ async function main() {
           groupsDeleted: replaced.groupsDeleted,
           askStateResetFor: replaced.viewersReset,
           note:
-            "Any real person who was in a previous [QA] Email group has been put back to zero asks and no attached email. " +
-            "That is almost certainly your own session from the last run, and without it a re-run shows nothing at all.",
+            "Any real person who was in a previous [QA] Email group has been put back to zero asks and no attached " +
+            "email on OUR side. That is almost certainly your own session from the last run, and without it a " +
+            "re-run shows nothing at all. It does not touch Supabase's own copy of the identity (no service-role " +
+            "key, by decision): check each person's supabaseIdentity above for what is actually still there.",
         },
         groups: [
           {
@@ -470,7 +603,7 @@ async function main() {
           `4. GROUP INFO, no email: open either infoUrl. The row reads "Add your email".`,
           `5. SECOND ASK: run --seed-viewer <either groupId> second, reload either home. Different copy, a "No thanks" dismissal, and it names the group. This ENDS the first ask in both groups.`,
           `6. EMAIL ON: run --seed-viewer <either groupId> email-on, reload. Every ask is gone; the info row reads "Email reminders are on." with a "Change email" link.`,
-          `7. Back to the top any time: --seed-viewer <groupId> reset.`,
+          `7. Back to the top of OUR side any time: --seed-viewer <groupId> reset. This does not touch Supabase's own copy of the identity (no service-role key, by decision); read the printed supabaseIdentity block, since an address attached earlier through the real UI is still there and turns the next attach into an email change rather than a first attach.`,
         ],
         byHandOnly: [
           `The returning-visitor door: open either inviteUrl in a PRIVATE window (no session) and tap "I've been here before". Reaching a code needs a real address attached through the UI first, and a real inbox.`,
