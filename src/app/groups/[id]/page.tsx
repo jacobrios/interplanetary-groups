@@ -14,7 +14,10 @@
 //
 // Deliberately deferred per §11:
 // - Condensed card after RSVP (build-notes §7 open question — ship full card)
-// - Email-capture ask after first RSVP (rides with Orbit's live posting)
+//
+// The email-capture ask used to be listed here as deferred. It is built now
+// (email sign-in slice, task 5): EmailAskNote, pinned above the composer, on a
+// broader trigger than the "after first RSVP" this line originally imagined.
 //
 // The carousel's peek geometry is finished chrome per the visual-polish
 // Claude Design handoff (round4-base.css); its dot row was deleted 17 Aug
@@ -42,6 +45,8 @@ import PageHeader from "@/components/PageHeader"
 import { deriveIdeaItems } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
+import { loadEmailAskInputs } from "@/lib/auth/email-ask"
+import type { EmailAskNoteProps } from "./EmailAskNote"
 import FeedSeam from "./FeedSeam"
 import CardRegionEmpty from "./CardRegionEmpty"
 
@@ -201,6 +206,26 @@ export default async function GroupPage({ params }: Props) {
     ideas.map((i) => ({ sortMs: i.sortMs, item: i }))
   )
 
+  // ── Orbit's email ask ─────────────────────────────────────────────────────
+  // The facts only, gathered here because this is where a database lives. The
+  // decision itself is EmailAskNote's, which is deliberate: this screen cannot
+  // be tested and a component can, so the gate sits where a test can hold it.
+  //
+  // Scoped to this group, not to everything this person has ever done: the
+  // reasoning is on loadEmailAskInputs itself. `now` is passed rather than read
+  // in the client, for the same reason every other Orbit decision takes its
+  // clock as an argument.
+  const emailAsk: EmailAskNoteProps | null = viewer
+    ? {
+        ...(await loadEmailAskInputs({ userId: viewer.id, groupId: group.id })),
+        groupId: group.id,
+        groupName: group.name,
+        viewerIsFounder: group.founderId === viewer.id,
+        askState: { emailAskCount: viewer.emailAskCount, emailAskedAt: viewer.emailAskedAt },
+        now: new Date(),
+      }
+    : null
+
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
     authorType: msg.authorType,
@@ -289,6 +314,7 @@ export default async function GroupPage({ params }: Props) {
           proposals={proposals}
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
+          emailAsk={emailAsk}
         />
       </FeedSeam>
     </div>
