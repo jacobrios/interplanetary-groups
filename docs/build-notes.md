@@ -479,7 +479,7 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 2. **Create the Resend account and add the sending domain `account.interplanetarygroups.com`.** Free tier: 3,000 emails a month, 100 a day. That covers login codes now and a daily digest to roughly a hundred members later, which is why transactional-only versus transactional-plus-digest never changed the choice.
    *Why the subdomain rather than the root:* Resend's own recommendation, and the notification-channel decision is what makes it matter here. `account.` carries login codes. When the digest arrives it gets `updates.` and its own sending reputation, so a digest that collects spam complaints can never drag login codes down with it. This is the first place a decision recorded for a future slice changed a choice inside this one.
-   *The $0-tier hazard, recorded rather than solved:* `/signin` triggers outbound mail while signed out, so it is an unauthenticated endpoint whose only limit is Supabase's own rate limit. At 100 emails a day, abuse takes login down for everybody. See item 6.
+   *The $0-tier hazard, recorded rather than solved:* `/signin` and its `/join` twin both trigger outbound mail while signed out, so they are unauthenticated endpoints whose only limit is Supabase's own rate limit. At 100 emails a day, abuse takes login down for everybody. See item 6.
 
 3. **Paste Resend's DNS records into Vercel's DNS panel**, since the domain was bought through Vercel and its DNS lives there. Nothing sends until these verify.
 
