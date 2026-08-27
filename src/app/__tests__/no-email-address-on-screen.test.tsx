@@ -50,10 +50,29 @@
 //   asserted against the real source and the real schema, so widening either
 //   one reddens this file.
 //
-// What remains protected only structurally, with no test on it: the JSX of the
-// three server pages themselves. Nothing in this file renders them. Layer 2 is
-// what makes that acceptable, because a page cannot print what it cannot
-// obtain, but it is a structural argument rather than a rendered screen.
+// What remains protected only structurally, with no test on it. Named here
+// rather than left for a reader to work out, because a guard trusted past what
+// it reaches is worse than no guard:
+//
+//   - The JSX of the three server pages themselves. Nothing in this file
+//     renders them. Layer 2 is what makes that acceptable, because a page
+//     cannot print what it cannot obtain, but it is a structural argument
+//     rather than a rendered screen.
+//
+//   - THE ROSTER, which is one of the five surfaces the brief names. Nothing
+//     here renders it: RosterSection is defined inside the event-detail server
+//     page (src/app/events/[id]/page.tsx), so it cannot be imported and
+//     rendered on its own. What holds it up instead is the shape of the data
+//     it is built from, src/lib/events/roster.ts, whose RosterMember is
+//     { id, name } and nothing else, plus layer 2. Structural, not rendered.
+//
+//   - The two card-region and event-detail tests below reach less than their
+//     names suggest. EventCard, IdeaCard and RsvpControls are handed only ids,
+//     enums, dates and pre-composed strings; no prop on any of them can carry
+//     a user object, so an address cannot arrive through them by the route a
+//     real leak would take. They can only redden on an address hardcoded
+//     inside the component. They are kept as cheap breadth, and as the tripwire
+//     for the day one of them grows a prop that does carry a person.
 //
 // Deliberately out of scope: an address a member types into the group chat as
 // a message. That is their own words in a shared feed, not the product
@@ -216,14 +235,23 @@ function renderGroupHome() {
       proposals={[]}
       groupProposals={[]}
       viewerIsMember
-      // The state that makes Orbit's ask actually render, so the email-aware
-      // component on this screen is under the detector rather than skipped.
+      // hasVerifiedEmail MUST be false here, and the reason is the whole point
+      // of this fixture rather than a detail. shouldOfferEmail's first line is
+      // `if (hasVerifiedEmail) return null`, and EmailAskNote returns null on a
+      // null offer. GroupHome's guard is `{emailAsk && <EmailAskNote .../>}`,
+      // which tests the OBJECT, not the offer, so a truthy object with
+      // hasVerifiedEmail true mounts the component and renders nothing at all.
+      // This fixture shipped that way in the first round: the file claimed the
+      // email-aware component was under the detector while the detector was
+      // scanning an empty div. False here, with a contribution yesterday and no
+      // asks yet, is what makes shouldOfferEmail return "first" and put Orbit's
+      // ask on the screen where it can actually be scanned.
       emailAsk={{
         groupName: "Climbing Crew",
         viewerIsFounder: false,
         askState: { emailAskCount: 0, emailAskedAt: null },
         latestContributionAt: new Date("2026-08-25T18:00:00Z"),
-        hasVerifiedEmail: true,
+        hasVerifiedEmail: false,
         now: new Date("2026-08-26T18:00:00Z"),
       }}
     />
@@ -235,6 +263,17 @@ function renderGroupHome() {
 describe("no address reaches a rendered surface", () => {
   it("the group home: the feed, Orbit's email ask, and the composer", () => {
     const { container } = renderGroupHome()
+    // Proof that the thing this test names is actually on the screen, and not
+    // a boolean away from being an empty div. Without this line the assertion
+    // below passes just as happily over a mounted-but-silent EmailAskNote,
+    // which is exactly how the first round of this file shipped.
+    // Matched on the dismiss control rather than on the ask's copy, on
+    // purpose. A copy match would itself break the moment somebody edits the
+    // sentence, including by printing an address into it, and would then fire
+    // FIRST and hide the very assertion below that is supposed to catch that.
+    // The button is structural: it exists whenever the ask rendered at all,
+    // and it survives any change to what the ask says.
+    expect(screen.getByRole("button", { name: "Not now" })).toBeDefined()
     expect(addressesOnScreen(container)).toEqual([])
   })
 
@@ -310,6 +349,55 @@ describe("the one legitimate address, which is what proves the detector works", 
     // Its job here is to prove the assertions above could have failed: an
     // address that IS on screen is found. Without this, every empty array
     // above would also be produced by a detector that never matches anything.
+    expect(addressesOnScreen(container)).toContain("jesse@example.com")
+  })
+
+  it("also sees an address sitting in the field itself, which is the detector's other arm", () => {
+    const { container } = render(<EmailStatusRow hasVerifiedEmail={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "jesse@example.com" },
+    })
+
+    // Asserted BEFORE the request is sent, and that is the whole reason this
+    // test exists separately from the one above. EmailAttachFlow's input
+    // carries key={step}, so the moment the flow reaches the code step the
+    // email field is remounted holding the empty code. The address the other
+    // control finds is therefore the rendered "A code was sent to ..."
+    // sentence, which is markup, which means it exercises only the innerHTML
+    // arm. Only here, with the typed address still standing in the field, is
+    // the field-value arm the thing under test.
+    expect(addressesOnScreen(container)).toContain("jesse@example.com")
+
+    // A finding worth recording rather than hiding, because it corrects what
+    // this file used to assert about its own detector. React DOES write the
+    // value into the markup for this controlled input, so for a React-rendered
+    // field the innerHTML arm already catches it and the field-value arm is
+    // redundant here, not load-bearing. The arm still earns its place: a value
+    // set as a DOM property alone never reaches the markup, which is what the
+    // next test covers, and that is the shape a value set through a ref or by
+    // a future React would take.
+    expect(container.innerHTML).toContain("jesse@example.com")
+  })
+
+  it("finds a field value that never reaches the markup, which is the arm the test above cannot isolate", () => {
+    // Not a product render. This is a positive control for the INSTRUMENT: it
+    // builds the one case where the two arms genuinely disagree, an input
+    // holding a value as a DOM property with no value attribute, which is what
+    // querySelectorAll plus .value exists to catch.
+    //
+    // The failure it exists to expose is the reviewer's: if querySelectorAll
+    // were ever mis-scoped, or .value came back empty under jsdom, every
+    // negative assertion in layer 1 would keep passing and nothing anywhere
+    // would say the arm had stopped working.
+    const container = document.createElement("div")
+    container.innerHTML = "<input>"
+    const field = container.querySelector("input")!
+    field.value = "jesse@example.com"
+
+    // The attribute is genuinely absent, so the innerHTML arm is blind here
+    // and cannot be what satisfies the assertion below.
+    expect(container.innerHTML).not.toContain("jesse@example.com")
     expect(addressesOnScreen(container)).toContain("jesse@example.com")
   })
 })
