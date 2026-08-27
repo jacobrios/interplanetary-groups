@@ -21,8 +21,15 @@
 // caller with no Orbit presence on screen can override both: "I sent a code
 // to you" reads as Orbit speaking, and the group info page never says Orbit
 // is the one talking.
+//
+// TWO SHAPES, ONE MECHANISM (27 Aug 2026, sheet redesign). `variant` picks
+// between the inline row the group info page renders and the stacked column
+// the group home's sheet renders. It replaced the old `compact` boolean rather
+// than joining it: compact existed only to squeeze the pinned inline note into
+// a region the chat feed had to share, and the sheet retired that note, so the
+// pressure it answered no longer exists anywhere.
 
-import { useId, useState, useTransition } from "react"
+import { useId, useState, useTransition, type ReactNode } from "react"
 import Link from "next/link"
 import {
   requestEmailAttachAction,
@@ -33,7 +40,7 @@ import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-c
 
 /**
  * Where the email_taken message points. It lives here rather than in the copy
- * so both callers get it: the group home's note and the group info page's row,
+ * so both callers get it: the group home's sheet and the group info page's row,
  * which overrides every word of the error strings but not the structure around
  * them. A sentence telling somebody to sign in has to have a door behind it,
  * or it is worse than the wording it replaced.
@@ -46,6 +53,33 @@ import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-c
  */
 const SIGN_IN_HREF = "/signin"
 const SIGN_IN_LABEL = "Sign in with that email"
+
+/**
+ * The promise about the address, added 27 Aug 2026 with the sheet redesign.
+ *
+ * It lives in the shared flow rather than in the sheet because it is about the
+ * address rather than about the surface, and it is equally true on the group
+ * info page. Round 11's own draft spoke in Orbit's first person ("I use it to
+ * sign you in..."); the owner settled these words instead, and they are the
+ * ones that ship, partly because this line now also renders on a page where
+ * Orbit is not the speaker.
+ *
+ * MEASURED, and the measurement is the reason for the alignment. At 15px in
+ * Geist the line is 331px against the 352px available inside the sheet's
+ * padding, so it fits one line with 21px spare. Centred and short are one
+ * decision: a centred line that wraps reads worse than a left-aligned one, so
+ * lengthening this copy means giving up the centring too. At accessibility
+ * text sizes it will wrap, which is correct and expected; do not fight that
+ * with truncation or a smaller size, because 15px is already one step above
+ * the product's 13px floor and this is a promise, not fine print.
+ *
+ * Deliberately NOT exported. Two tests on this branch import a copy constant
+ * and compare it against itself, which cannot catch a copy change; the guards
+ * on this sentence are hardcoded literals in EmailAttachFlow.test.tsx and
+ * EmailAskNote.test.tsx, and keeping this unexported removes the temptation to
+ * "tidy" them into imports and delete the only real protection.
+ */
+const ASSURANCE = "For sign-in and reminders. Never shared or sold."
 
 /**
  * Exported so a caller reusing the default map (or writing its own) has the
@@ -110,18 +144,26 @@ export interface EmailAttachFlowProps {
   requestErrorMessages?: Record<Exclude<AttachRequestResult, "ok">, string>
   badCodeMessage?: string
   /**
-   * Tighten the vertical rhythm: tighter leading on the message, less air
-   * above the field, and the way out riding on the field's own row instead of
-   * a row of its own.
+   * Which shape to render.
    *
-   * A prop rather than a redesign of the default, because only one of the two
-   * callers is under vertical pressure. The group home's note is pinned in a
-   * fixed region that the chat feed has to share, and an undecided member
-   * keeps it there permanently; the group info page is an ordinary scrolling
-   * page where none of that applies and where compressing the copy would buy
-   * nothing. Off by default, so the info row renders exactly as it shipped.
+   * "inline" is the group info page's row: a message, then the field and Save
+   * side by side, then the way out on its own line. Unchanged from what
+   * shipped, and the default, so that page renders exactly as it did.
+   *
+   * "sheet" is the group home's bottom sheet (round 11, frame A): the caller
+   * wraps the message in Orbit's labeled note, then a field group holding the
+   * label, a full-width field and the promise, then Save, then one worded exit
+   * under it. Reading order: what I want, what you type, what happens to it,
+   * the button, the way out.
    */
-  compact?: boolean
+  variant?: "inline" | "sheet"
+  /**
+   * Lets the caller put Orbit's line inside a box of its own while the flow
+   * keeps owning WHICH line it is (the prompt, then the code-sent line, then
+   * the thank-you). The sheet needs the labeled-note grammar around it; the
+   * info page has no Orbit presence and takes the plain paragraph default.
+   */
+  messageSlot?: (message: string) => ReactNode
 }
 
 export default function EmailAttachFlow({
@@ -133,7 +175,8 @@ export default function EmailAttachFlow({
   doneMessage = DEFAULT_DONE_MESSAGE,
   requestErrorMessages = DEFAULT_REQUEST_ERROR,
   badCodeMessage = DEFAULT_BAD_CODE_MESSAGE,
-  compact = false,
+  variant = "inline",
+  messageSlot,
 }: EmailAttachFlowProps) {
   const fieldId = useId()
   const [step, setStep] = useState<"email" | "code" | "done">("email")
@@ -148,6 +191,7 @@ export default function EmailAttachFlow({
   const [isPending, startTransition] = useTransition()
   const { secondsLeft, start: startResendCountdown } = useResendCountdown()
 
+  const isSheet = variant === "sheet"
   const address = email.trim()
   const typedCode = code.trim()
 
@@ -219,35 +263,46 @@ export default function EmailAttachFlow({
   const message =
     step === "done" ? doneMessage : isCodeStep ? codeSentMessage(address) : promptMessage
 
-  // The compact caller's copy runs to six lines at its longest, so leading is
-  // the biggest single lever it has. Both values are the scale's own tokens;
-  // there is nothing between them to reach for.
-  const leading = compact ? "var(--leading-tight)" : "var(--leading-normal)"
+  const fieldLabel = isCodeStep ? "The code from your email" : "Your email address"
 
   /**
-   * The way out, plus the resend once a code is in the air. In compact they
-   * ride on the field's own row; otherwise they keep the row below it that
-   * they shipped with.
+   * The way out, plus the resend once a code is in the air.
+   *
+   * In the sheet these are two stacked full-width rows under Save; inline they
+   * keep the row below the field that they shipped with.
    */
   const secondaryControls = (
     <>
       {/* A quiet text link, never a button: soft declines everywhere, because
           honest tallies depend on socially comfortable exits. It stays
           available on the code step too, since a member who changes their mind
-          halfway should not have to finish first. In compact it also takes the
-          44px tap-target floor, which it can afford there because the row it
-          now shares is already 40px tall. */}
+          halfway should not have to finish first.
+
+          In the sheet this is `.ea-exit` from round 11: 17px, weight 600,
+          underlined, 48px tall, full width, centred under Save. It is the
+          ONLY way out with a word on it, because the X was deleted; that
+          makes legibility load-bearing rather than a nicety, so it is bigger
+          and heavier here than the 15px link the info page renders. Never
+          teal and never lime: underline plus position carries it with colour
+          switched off. */}
       <button
         type="button"
         onClick={onCancel}
         style={{
           background: "none",
           border: "none",
-          padding: compact ? "4px 6px" : "4px 2px",
-          minHeight: compact ? 44 : undefined,
+          padding: isSheet ? "4px 8px" : "4px 2px",
+          width: isSheet ? "100%" : undefined,
+          minHeight: isSheet ? 48 : undefined,
+          display: isSheet ? "flex" : undefined,
+          alignItems: isSheet ? "center" : undefined,
+          justifyContent: isSheet ? "center" : undefined,
           color: "var(--text-secondary)",
-          fontSize: "var(--type-meta)",
+          fontSize: isSheet ? "var(--type-body)" : "var(--type-meta)",
+          fontWeight: isSheet ? 600 : undefined,
           textDecoration: "underline",
+          textUnderlineOffset: isSheet ? "4px" : undefined,
+          textDecorationThickness: isSheet ? "1.5px" : undefined,
           cursor: "pointer",
         }}
       >
@@ -259,6 +314,8 @@ export default function EmailAttachFlow({
           <p
             style={{
               margin: 0,
+              width: isSheet ? "100%" : undefined,
+              textAlign: isSheet ? "center" : undefined,
               color: "var(--text-faint)",
               fontSize: "var(--type-meta)",
               lineHeight: "var(--leading-normal)",
@@ -274,8 +331,9 @@ export default function EmailAttachFlow({
             style={{
               background: "none",
               border: "none",
-              padding: compact ? "4px 6px" : "4px 2px",
-              minHeight: compact ? 44 : undefined,
+              padding: isSheet ? "4px 8px" : "4px 2px",
+              width: isSheet ? "100%" : undefined,
+              minHeight: isSheet ? 44 : undefined,
               color: "var(--text-secondary)",
               fontSize: "var(--type-meta)",
               textDecoration: "underline",
@@ -288,24 +346,176 @@ export default function EmailAttachFlow({
     </>
   )
 
+  /** The field itself, in whichever shell this variant draws around it. */
+  const field = (
+    <div
+      style={
+        isSheet
+          ? {
+              // Round 10's `.ea-input`: 52px tall, radius 12, a 1.6px hairline
+              // on the page ground. Not the chat composer's pill, because in
+              // a sheet the field is a full-width form control rather than a
+              // thing you talk into.
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              minHeight: 52,
+              padding: "12px 14px",
+              backgroundColor: "var(--surface-base)",
+              border: "1.6px solid var(--hairline)",
+              borderRadius: 12,
+            }
+          : {
+              // The chat composer's pill shape, borrowed rather than invented.
+              flex: "1 1 11rem",
+              display: "flex",
+              alignItems: "center",
+              minHeight: 40,
+              backgroundColor: "var(--surface-base)",
+              border: "1px solid var(--hairline)",
+              borderRadius: 26,
+              padding: "6px 14px",
+            }
+      }
+    >
+      <label htmlFor={fieldId} style={{ display: "none" }}>
+        {fieldLabel}
+      </label>
+      <input
+        id={fieldId}
+        key={step}
+        // type="text" rather than type="email", found by a test that
+        // could not submit: the browser's own validation refuses to
+        // fire submit at all for an address it dislikes, which puts a
+        // second opinion in a second voice in front of the member and
+        // never reaches the seam that actually decides. One arbiter,
+        // and it is the normalized result from src/lib/auth/email.ts.
+        // inputMode still brings up the right keyboard.
+        type="text"
+        // No maxLength and no length rule anywhere on this input. The
+        // service sends eight digits today and the plan said six; the
+        // auth seam's only length rule is that an empty string cannot
+        // be a code, and this matches it.
+        inputMode={isCodeStep ? "numeric" : "email"}
+        autoComplete={isCodeStep ? "one-time-code" : "email"}
+        placeholder={isCodeStep ? "Enter your code" : "you@example.com"}
+        value={value}
+        onChange={(e) => {
+          ;(isCodeStep ? setCode : setEmail)(e.target.value)
+          // The complaint is about what was typed, so it stops being
+          // true the moment they start fixing it. Leaving it under the
+          // field while they retype reads as the product still saying
+          // no to something they have already changed. The sign-in
+          // route goes with it: it was an answer to that address.
+          if (errorMsg) {
+            setErrorMsg(null)
+            setOfferSignIn(false)
+          }
+        }}
+        disabled={isPending}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          padding: 0,
+          backgroundColor: "transparent",
+          border: "none",
+          color: "var(--text-primary)",
+          // --type-body (17px), not the --type-meta the note copy
+          // around it uses, and this one is not a style choice: iOS
+          // Safari and iOS Chrome zoom the whole page when a focused
+          // input computes under 16px, and nothing in layout.tsx
+          // suppresses that. At 15px, tapping this field zoomed the
+          // page while tapping the message composer 40px below it (17px)
+          // did not. Applies to both surfaces this flow renders on,
+          // because the info page's field had the same problem.
+          fontSize: "var(--type-body)",
+          outline: "none",
+          caretColor: "var(--text-primary)",
+        }}
+      />
+    </div>
+  )
+
+  /**
+   * Save. Its two-state grammar (quiet until there is something to send, teal
+   * the moment there is) is the one already shared by the chat composer and
+   * the wizard, and it is kept in the sheet too.
+   *
+   * DECLARED DEPARTURE from the drawn source: round 11's boards draw Save
+   * teal even over an empty field, because they are static frames with no
+   * interaction model in them. Following that literally would put a teal
+   * button on screen that refuses the tap, which is worse on a phone than a
+   * quiet one that lights up. Teal still appears on Save and nowhere else, so
+   * the rule the boards were protecting is intact. Reversible in one place if
+   * the owner would rather have the drawn version.
+   */
+  const save = (
+    <button
+      type="submit"
+      disabled={!hasValue || isPending}
+      style={{
+        width: isSheet ? "100%" : undefined,
+        minHeight: isSheet ? 52 : 40,
+        padding: isSheet ? "12px 16px" : "0.5rem 1.125rem",
+        borderRadius: isSheet ? 12 : 26,
+        border: hasValue ? "1px solid var(--action)" : "1px solid var(--hairline)",
+        backgroundColor: hasValue ? "var(--action)" : "var(--surface-base)",
+        color: hasValue ? "var(--action-ink)" : "var(--text-faint)",
+        fontSize: isSheet ? "var(--type-body)" : "var(--type-label)",
+        fontWeight: isSheet ? 700 : 600,
+        cursor: !hasValue || isPending ? "default" : "pointer",
+      }}
+    >
+      Save
+    </button>
+  )
+
+  /**
+   * The promise, on the email step only.
+   *
+   * Round 11 is explicit that it does not belong on the code step: by then the
+   * address is given and the promise is retrospective, and that step already
+   * carries the resend line, so two subordinate lines would stack under one
+   * button. Attached to the field rather than to the sheet, so it is read at
+   * the moment the decision is being made.
+   */
+  const assurance = step === "email" && (
+    <p
+      style={{
+        margin: isSheet ? "9px 0 0" : "8px 0 0",
+        fontSize: "var(--type-meta)",
+        lineHeight: "var(--leading-normal)",
+        color: "var(--text-secondary)",
+        textAlign: "center",
+        textWrap: "pretty",
+      }}
+    >
+      {ASSURANCE}
+    </p>
+  )
+
   return (
     <>
-      <p
-        style={{
-          fontSize: "var(--type-meta)",
-          lineHeight: leading,
-          color: "var(--text-secondary)",
-          margin: 0,
-        }}
-      >
-        {message}
-      </p>
+      {messageSlot ? (
+        messageSlot(message)
+      ) : (
+        <p
+          style={{
+            fontSize: "var(--type-meta)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            margin: 0,
+          }}
+        >
+          {message}
+        </p>
+      )}
 
       {errorMsg && (
         <p
           style={{
             fontSize: "var(--type-meta)",
-            lineHeight: leading,
+            lineHeight: "var(--leading-normal)",
             color: "var(--danger)",
             margin: "6px 0 0",
           }}
@@ -329,7 +539,7 @@ export default function EmailAttachFlow({
               minHeight: 44,
               color: "var(--text-secondary)",
               fontSize: "var(--type-meta)",
-              lineHeight: leading,
+              lineHeight: "var(--leading-normal)",
               textDecoration: "underline",
             }}
           >
@@ -338,120 +548,66 @@ export default function EmailAttachFlow({
         </p>
       )}
 
-      {step !== "done" && (
-        <>
+      {step !== "done" &&
+        (isSheet ? (
           <form
             onSubmit={handleSubmit}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              // Wraps rather than clips: at an enlarged device text size the
-              // field and the button stack instead of squeezing.
-              flexWrap: "wrap",
-              marginTop: compact ? 4 : 8,
-            }}
+            style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}
           >
-            {/* The chat composer's pill shape, borrowed rather than invented. */}
-            <div
-              style={{
-                flex: "1 1 11rem",
-                display: "flex",
-                alignItems: "center",
-                minHeight: 40,
-                backgroundColor: "var(--surface-base)",
-                border: "1px solid var(--hairline)",
-                borderRadius: 26,
-                padding: "6px 14px",
-              }}
-            >
-              <label htmlFor={fieldId} style={{ display: "none" }}>
-                {isCodeStep ? "The code from your email" : "Your email address"}
-              </label>
-              <input
-                id={fieldId}
-                key={step}
-                // type="text" rather than type="email", found by a test that
-                // could not submit: the browser's own validation refuses to
-                // fire submit at all for an address it dislikes, which puts a
-                // second opinion in a second voice in front of the member and
-                // never reaches the seam that actually decides. One arbiter,
-                // and it is the normalized result from src/lib/auth/email.ts.
-                // inputMode still brings up the right keyboard.
-                type="text"
-                // No maxLength and no length rule anywhere on this input. The
-                // service sends eight digits today and the plan said six; the
-                // auth seam's only length rule is that an empty string cannot
-                // be a code, and this matches it.
-                inputMode={isCodeStep ? "numeric" : "email"}
-                autoComplete={isCodeStep ? "one-time-code" : "email"}
-                placeholder={isCodeStep ? "Enter your code" : "you@example.com"}
-                value={value}
-                onChange={(e) => {
-                  ;(isCodeStep ? setCode : setEmail)(e.target.value)
-                  // The complaint is about what was typed, so it stops being
-                  // true the moment they start fixing it. Leaving it under the
-                  // field while they retype reads as the product still saying
-                  // no to something they have already changed. The sign-in
-                  // route goes with it: it was an answer to that address.
-                  if (errorMsg) {
-                    setErrorMsg(null)
-                    setOfferSignIn(false)
-                  }
-                }}
-                disabled={isPending}
+            {/* `.ea-fieldgroup`: label, field and the promise as one unit, so
+                the promise travels with the field instead of drifting under
+                Save. */}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* Decorative, and aria-hidden on purpose. The real label is the
+                  visually hidden <label htmlFor> inside the field above, which
+                  says "Your email address" / "The code from your email"; this
+                  eyebrow is the drawn 13px "EMAIL" a sighted member reads.
+                  Announcing both would read the field's name twice. */}
+              <span
+                aria-hidden="true"
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: 0,
-                  backgroundColor: "transparent",
-                  border: "none",
-                  color: "var(--text-primary)",
-                  // --type-body (17px), not the --type-meta the note copy
-                  // around it uses, and this one is not a style choice: iOS
-                  // Safari and iOS Chrome zoom the whole page when a focused
-                  // input computes under 16px, and nothing in layout.tsx
-                  // suppresses that. At 15px, tapping this field zoomed the
-                  // page while tapping the message composer 40px below it (17px)
-                  // did not. Applies to both surfaces this flow renders on,
-                  // because the info page's field had the same problem.
-                  fontSize: "var(--type-body)",
-                  outline: "none",
-                  caretColor: "var(--text-primary)",
+                  fontSize: "var(--type-eyebrow)",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--text-faint)",
+                  fontWeight: 700,
+                  marginBottom: 7,
                 }}
-              />
+              >
+                {isCodeStep ? "Code" : "Email"}
+              </span>
+              {field}
+              {assurance}
             </div>
 
-            {/* The send button's own two-state grammar, the one already
-                shared by the chat and the wizard: quiet until there is
-                something to send, teal the moment there is. */}
-            <button
-              type="submit"
-              disabled={!hasValue || isPending}
+            {/* `.ea-actions`: Save, then the resend when a code is in the air,
+                then the one worded exit last, which is the reading order the
+                round settled on. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {save}
+              {secondaryControls}
+            </div>
+          </form>
+        ) : (
+          <>
+            <form
+              onSubmit={handleSubmit}
               style={{
-                minHeight: 40,
-                padding: "0.5rem 1.125rem",
-                borderRadius: 26,
-                border: hasValue ? "1px solid var(--action)" : "1px solid var(--hairline)",
-                backgroundColor: hasValue ? "var(--action)" : "var(--surface-base)",
-                color: hasValue ? "var(--action-ink)" : "var(--text-faint)",
-                fontSize: "var(--type-label)",
-                fontWeight: 600,
-                cursor: !hasValue || isPending ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                // Wraps rather than clips: at an enlarged device text size the
+                // field and the button stack instead of squeezing.
+                flexWrap: "wrap",
+                marginTop: 8,
               }}
             >
-              Save
-            </button>
+              {field}
+              {save}
+            </form>
 
-            {/* In compact these ride here, on the field's own row, which is
-                the single biggest height saving available without touching a
-                word of the copy: it removes a whole row plus its margin. The
-                row already wraps, so they drop below the field rather than
-                squeezing it at an enlarged text size. */}
-            {compact && secondaryControls}
-          </form>
+            {assurance}
 
-          {!compact && (
             <div
               style={{
                 display: "flex",
@@ -463,9 +619,8 @@ export default function EmailAttachFlow({
             >
               {secondaryControls}
             </div>
-          )}
-        </>
-      )}
+          </>
+        ))}
     </>
   )
 }

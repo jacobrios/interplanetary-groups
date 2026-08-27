@@ -290,16 +290,49 @@ describe("EmailAttachFlow, the field itself", () => {
   })
 })
 
-describe("EmailAttachFlow, compact", () => {
-  it("puts the way out on the field's own row, and gives it a 44px target", () => {
-    render(<EmailAttachFlow {...baseProps({ compact: true })} />)
-    const cancel = screen.getByRole("button", { name: "Never mind" })
+describe("EmailAttachFlow, the promise about the address", () => {
+  // It lives here rather than in the sheet because it is about the address and
+  // is equally true on both surfaces, so the group info page's row gets it too.
+  // Asserted as a hardcoded literal, never as an imported constant: two tests
+  // on this branch already compare a constant against itself and cannot catch
+  // a copy change.
 
-    expect(cancel.closest("form")).not.toBeNull()
-    expect(cancel.style.minHeight).toBe("44px")
+  it("shows the settled promise on the email step, centred, on the inline surface too", () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+    const assure = screen.getByText("For sign-in and reminders. Never shared or sold.")
+
+    expect(assure.style.textAlign).toBe("center")
+    expect(assure.style.fontSize).toBe("var(--type-meta)")
   })
 
-  it("leaves the way out on its own row by default, which is what the info page renders", () => {
+  it("drops it once the address is given, because by then the promise is retrospective", async () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+
+    expect(screen.queryByText("For sign-in and reminders. Never shared or sold.")).toBeNull()
+  })
+})
+
+describe("EmailAttachFlow, the sheet variant", () => {
+  // Replaces the `compact` variant, which existed only for the inline note the
+  // sheet retired. The pressure it answered (a pinned element sharing a fixed
+  // region with the chat feed) does not exist inside a sheet.
+
+  it("stacks the field, Save and the way out, at the drawn sizes", () => {
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
+    const save = screen.getByRole("button", { name: "Save" })
+    const exit = screen.getByRole("button", { name: "Never mind" })
+
+    expect(save.style.minHeight).toBe("52px")
+    expect(save.style.width).toBe("100%")
+    // 17px and weight 600, not a 15px link: it has to be legible as the way
+    // out to an eighty-year-old, which is why the rejected frame's X is gone.
+    expect(exit.style.fontSize).toBe("var(--type-body)")
+    expect(exit.style.fontWeight).toBe("600")
+    expect(exit.style.minHeight).toBe("48px")
+  })
+
+  it("leaves the way out on its own row inline, which is what the info page renders", () => {
     render(<EmailAttachFlow {...baseProps()} />)
     const cancel = screen.getByRole("button", { name: "Never mind" })
 
@@ -307,20 +340,31 @@ describe("EmailAttachFlow, compact", () => {
     expect(cancel.style.minHeight).toBe("")
   })
 
-  it("tightens the leading only when asked to", () => {
-    const { unmount } = render(<EmailAttachFlow {...baseProps({ compact: true })} />)
-    expect(screen.getByText(PROMPT).style.lineHeight).toBe("var(--leading-tight)")
-    unmount()
-
-    render(<EmailAttachFlow {...baseProps()} />)
-    expect(screen.getByText(PROMPT).style.lineHeight).toBe("var(--leading-normal)")
-  })
-
   it("still carries the resend and the way out together on the code step", async () => {
-    render(<EmailAttachFlow {...baseProps({ compact: true })} />)
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
     await reachCodeStep()
 
     expect(screen.getByText("You can ask for a new code in 60 seconds.")).toBeDefined()
     expect(screen.getByRole("button", { name: "Never mind" })).toBeDefined()
+  })
+
+  it("lets the caller wrap Orbit's line in its own box, at every step", async () => {
+    // The sheet needs the message inside Orbit's labeled note (mark, eyebrow,
+    // copy) while the flow keeps owning which message it is. The slot is how
+    // both stay true, including once the message changes to the code line.
+    render(
+      <EmailAttachFlow
+        {...baseProps({
+          variant: "sheet",
+          messageSlot: (message: string) => <div data-testid="slot">{message}</div>,
+        })}
+      />
+    )
+    expect(screen.getByTestId("slot").textContent).toBe(PROMPT)
+
+    await reachCodeStep("sam@example.com")
+    expect(screen.getByTestId("slot").textContent).toBe(
+      "I sent a code to sam@example.com. Enter it here and you're set."
+    )
   })
 })

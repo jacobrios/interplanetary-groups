@@ -254,7 +254,6 @@ export default async function GroupPage({ params }: Props) {
       ? {
           ...((await emailAskInputs) ?? { latestContributionAt: null, hasVerifiedEmail: false }),
           groupName: group.name,
-          viewerIsFounder: group.founderId === viewer.id,
           askState,
           now: new Date(),
         }

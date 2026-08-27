@@ -33,7 +33,6 @@ vi.mock("@/app/actions/email-ask", () => ({
 
 const FIRST_ASK =
   "I haven't asked for a way to remember you. Add your email so you can log back in if necessary. This way you don't lose access to this group."
-const FOUNDER_EXTRA = "It also means you won't lose the group you started."
 const SECOND_ASK =
   "You're still a temporary member. Without your email, you can't log back in if something happens. If now is not a good time, no worries. Just tap Climbing Crew at the top of the screen whenever you're ready. I won't bother you like this again."
 
@@ -45,7 +44,6 @@ const NINE_DAYS_AGO = new Date("2026-08-17T18:00:00Z")
 function firstAskProps(overrides: Record<string, unknown> = {}) {
   return {
     groupName: "Climbing Crew",
-    viewerIsFounder: false,
     askState: { emailAskCount: 0, emailAskedAt: null },
     latestContributionAt: YESTERDAY,
     hasVerifiedEmail: false,
@@ -111,18 +109,31 @@ describe("EmailAskNote, showing writes nothing", () => {
 })
 
 describe("EmailAskNote, the copy", () => {
-  it("asks the first time in the settled words, with no founder sentence for a member", () => {
+  it("asks the first time in the settled words, one string for everyone", () => {
     render(<EmailAskNote {...firstAskProps()} />)
 
     expect(screen.getByText(FIRST_ASK)).toBeDefined()
-    expect(screen.queryByText(/won't lose the group you started/)).toBeNull()
     expect(screen.getByRole("button", { name: "Save" })).toBeDefined()
     expect(screen.getByRole("button", { name: "Not now" })).toBeDefined()
   })
 
-  it("adds the founder's one extra sentence for the founder", () => {
-    render(<EmailAskNote {...firstAskProps({ viewerIsFounder: true })} />)
-    expect(screen.getByText(`${FIRST_ASK} ${FOUNDER_EXTRA}`)).toBeDefined()
+  it("has no founder variant left, on either ask", () => {
+    // The owner deleted it 27 Aug 2026: a founder knows it is their group, and
+    // the clause gestured at a bigger stake (managing members, resetting the
+    // link) without naming it. There is no viewerIsFounder prop any more, so
+    // the only way this sentence could come back is somebody writing it in.
+    // Asserted per render rather than after a cleanup, and that ordering is
+    // the whole test. Written the other way round first, it read as covering
+    // both asks and actually only saw the second one: cleanup wipes the body
+    // before the assertion, so a founder sentence on the FIRST ask sailed
+    // through. Found by mutation, by putting the sentence back and watching
+    // this stay green.
+    render(<EmailAskNote {...firstAskProps()} />)
+    expect(document.body.textContent).not.toContain("group you started")
+    cleanup()
+
+    render(<EmailAskNote {...secondAskProps()} />)
+    expect(document.body.textContent).not.toContain("group you started")
   })
 
   it("asks the second time in the settled words, naming the group on screen", () => {
@@ -134,7 +145,7 @@ describe("EmailAskNote, the copy", () => {
   })
 
   it("says no em dash anywhere in what Orbit says here", () => {
-    render(<EmailAskNote {...secondAskProps({ viewerIsFounder: true })} />)
+    render(<EmailAskNote {...secondAskProps()} />)
     // Written as escapes rather than the characters themselves, so a grep for
     // a stray dash in this repo cannot trip over the test that forbids them.
     expect(document.body.textContent).not.toMatch(/[\u2013\u2014]/)
@@ -244,8 +255,90 @@ describe("EmailAskNote, saving an email", () => {
   })
 })
 
-describe("EmailAskNote, the way out", () => {
-  it("counts a dismissal and takes the note off the screen", async () => {
+// ─── The product's first modal ───────────────────────────────────────────────
+//
+// Nothing in this app had a scrim, a sheet or a dialog before this, so every
+// assertion below is setting the precedent rather than following one. Read the
+// component's header comment for the reasoning; these are the tests that hold
+// it to each decision.
+
+/** The sheet element itself, which is also the dialog. */
+function sheet() {
+  return screen.getByRole("dialog")
+}
+
+/** The scrim is the sheet's parent, and it is the only way to reach it: it is
+ *  deliberately not a control, so it has no role a query could ask for. */
+function scrim(): HTMLElement {
+  return sheet().parentElement as HTMLElement
+}
+
+describe("EmailAskNote, the sheet shell", () => {
+  it("is a dismissible modal dialog named by Orbit's own label", () => {
+    render(<EmailAskNote {...firstAskProps()} />)
+    const dialog = screen.getByRole("dialog", { name: /a note from orbit/i })
+
+    // aria-modal, not alertdialog: an alertdialog announces an urgent
+    // interruption that has to be answered, and this one can be walked away
+    // from three different ways at no cost.
+    expect(dialog.getAttribute("aria-modal")).toBe("true")
+    expect(dialog.getAttribute("role")).toBe("dialog")
+  })
+
+  it("takes focus onto the sheet itself, not into the email field", () => {
+    // Deliberate: focusing the input raises the phone keyboard over the ask
+    // before it has been read, and this element is copy first.
+    render(<EmailAskNote {...firstAskProps()} />)
+    expect(document.activeElement).toBe(sheet())
+    expect(document.activeElement).not.toBe(screen.getByLabelText("Your email address"))
+  })
+
+  it("keeps Tab inside the sheet, in both directions", () => {
+    render(<EmailAskNote {...firstAskProps()} />)
+    const field = screen.getByLabelText("Your email address")
+    const exit = screen.getByRole("button", { name: "Not now" })
+
+    // Save is disabled while the field is empty, so the cycle is field, exit.
+    exit.focus()
+    fireEvent.keyDown(document, { key: "Tab" })
+    expect(document.activeElement).toBe(field)
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true })
+    expect(document.activeElement).toBe(exit)
+  })
+
+  it("gives focus back to whatever had it, once the sheet is gone", async () => {
+    const before = document.createElement("button")
+    document.body.appendChild(before)
+    before.focus()
+
+    render(<EmailAskNote {...firstAskProps()} />)
+    expect(document.activeElement).not.toBe(before)
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    await waitFor(() => expect(document.activeElement).toBe(before))
+    before.remove()
+  })
+
+  it("stops the page behind it scrolling, and gives the scroll back after", async () => {
+    document.body.style.overflow = ""
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+    expect(document.body.style.overflow).toBe("hidden")
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    expect(document.body.style.overflow).toBe("")
+  })
+})
+
+describe("EmailAskNote, what each way out costs", () => {
+  // The asymmetry is settled and it points one way on purpose: the silent
+  // gesture is the cheap one, and somebody who read the ask and tapped the
+  // worded exit has told us something worth spending an ask on. Inverted, it
+  // would be a bug. Both halves are tested because only testing the expensive
+  // one would let the cheap ones quietly become expensive.
+
+  it("counts a dismissal and takes the sheet off the screen", async () => {
     const { container } = render(<EmailAskNote {...firstAskProps()} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Not now" }))
@@ -253,6 +346,91 @@ describe("EmailAskNote, the way out", () => {
     await waitFor(() => expect(dismissMock).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(container.innerHTML).toBe(""))
   })
+
+  it("charges nothing for a tap on the scrim", async () => {
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.click(scrim())
+
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+
+  it("charges nothing for Escape, which is the desk keyboard's back gesture", async () => {
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.keyDown(document, { key: "Escape" })
+
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+
+  it("does not treat a tap on the sheet itself as a tap on the scrim", () => {
+    render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.click(sheet())
+
+    expect(screen.getByRole("dialog")).toBeDefined()
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("EmailAskNote, the bottom of the sheet", () => {
+  it("promises what happens to the address, in the settled words, centred", () => {
+    // Hardcoded rather than imported, on purpose. Two tests on this branch
+    // already compare a copy constant against itself and cannot catch a copy
+    // change; a literal here is the only thing that can.
+    render(<EmailAskNote {...firstAskProps()} />)
+    const assure = screen.getByText("For sign-in and reminders. Never shared or sold.")
+
+    // Centred and the length are one decision: the line measures 331px against
+    // 352px of available width, and a centred line that wraps reads worse than
+    // a left-aligned one. Lengthen the copy and this alignment stops being
+    // right.
+    expect(assure.style.textAlign).toBe("center")
+    expect(assure.style.fontSize).toBe("var(--type-meta)")
+  })
+
+  it("drops the promise once the address is given, on the code step", async () => {
+    render(<EmailAskNote {...firstAskProps()} />)
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "sam@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await screen.findByLabelText("The code from your email")
+    expect(
+      screen.queryByText("For sign-in and reminders. Never shared or sold.")
+    ).toBeNull()
+  })
+
+  it("offers a word as the way out, never a glyph", () => {
+    // The rejected frame put the only exit on an X. Orbit has to be readable
+    // by a teenager and an eighty-year-old, and a symbol is not.
+    render(<EmailAskNote {...firstAskProps()} />)
+    const exit = screen.getByRole("button", { name: "Not now" })
+
+    expect(exit.textContent).toMatch(/^[A-Za-z ]{4,}$/)
+    expect(screen.queryByRole("button", { name: /close/i })).toBeNull()
+    expect(exit.style.minHeight).toBe("48px")
+  })
+
+  it("puts teal on Save and on nothing else", () => {
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "sam@example.com" },
+    })
+
+    // --action-ink is Save's own label colour and is a different token; the
+    // pattern is anchored so it cannot match it.
+    const teal = Array.from(container.querySelectorAll<HTMLElement>("[style]")).filter((el) =>
+      /var\(--action\)/.test(el.getAttribute("style") ?? "")
+    )
+    expect(teal.map((el) => el.textContent)).toEqual(["Save"])
+  })
+})
+
+describe("EmailAskNote, the way out", () => {
 
   it("keeps the way out available on the code step", async () => {
     render(<EmailAskNote {...firstAskProps()} />)

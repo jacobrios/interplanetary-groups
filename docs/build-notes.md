@@ -29,6 +29,7 @@
 - **The email ask is Orbit's job, post-join, ~~triggered by the user's first RSVP~~ triggered by the member's first contribution of any kind**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
   - ***Amended 27 August 2026 (email sign-in slice). The surface moved and the trigger's set widened. The reason the ask exists at all is untouched.***
   - ***The founder clause survives in substance and was reworded, and the wording above is not what ships.*** *Corrected 27 August 2026, same day, on review: the sentence in this bullet is the 2026 design draft, and quoting it as the shipped copy was wrong. What a founder actually reads, at `EmailAskNote.tsx:64`, appended to the first ask for the founder alone, is:* **"It also means you won't lose the group you started."** *Same promise, plainer, and it names the group rather than "access". The requirement this bullet sets, that founder copy carry an extra clause about what losing the session costs a founder specifically, is met.*
+    - ***Struck the same day, by the owner, in the sheet redesign: there is no founder clause any more and this requirement is withdrawn rather than met.*** *One string per ask, for everyone. His reasoning: a founder already knows it is their group, and the clause gestured at a bigger stake without naming what a founder actually loses, which is the ability to manage members and reset the invite link. If founders should ever be warned about those powers, that is different copy written on purpose. `viewerIsFounder` went with the sentence, from the component, from its props and from the page that computed it, because deciding founder-ness was the only thing it did on this path.*
   - ***Where it happens, and why this bullet could not stand.*** *This was written assuming Orbit would ask in the group feed, the way Orbit says everything else. It cannot, on two counts. The feed is the product's one conversation surface and it is public, so an ask addressed to one member is clutter for every other member, and it repeats once per person. And the only input on that screen is the chat composer, so a member answering the ask would post their own email address into the group feed, breaking "emails are never displayed anywhere in the UI" outright, in the one place the whole group is looking. The ask is now a note rendered for one viewer, pinned just above the composer, never written to the feed; the group info page is its permanent home. Considered and declined: capturing at onboarding step 3 or on the join screen, which would collect the most addresses and is the exact thing anonymous-first exists to prevent.*
   - ***When it happens.*** *The trigger's principle survives untouched: the moment to ask is the moment "I want a reminder for this" is true. What widened is the set of moments that count, from an RSVP alone to a member's first contribution of any kind (an RSVP, a chat message, or a gauge vote). RSVP alone is too narrow in this product specifically, because the spark flow starts with somebody talking in chat, so a member can contribute for weeks without an RSVP ever coming up. An OUT RSVP counts: saying no to Thursday is not saying no to reminders.*
   - ***How often.*** *Twice per person ever, not per group, then never again. Full reasoning, the copy, and the owner's two overrules in §11, email sign-in.*
@@ -280,6 +281,9 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `shouldOfferEmail`, the second ask's freshness check | The second ask needs seven days **and** a fresh contribution, not whichever comes first. A timer alone would land on a quiet screen where nothing happened, which is precisely when a nudge reads as pestering. Accepted cost, stated rather than hidden: some members never get a second ask. Stays quiet. | Correct |
 | `dismissEmailOfferAction` (`src/app/actions/email-ask.ts`), the counter counts declines | The note stays on screen until it is answered, and only a dismissal advances the counter; ignoring it is not answering it. Keeps speaking, to that one viewer, until answered. Counting appearances instead would spend both asks on somebody who never looked, and would send the second ask to the wrong person. | Correct |
 | `dismissEmailOfferAction`, a failed write still dismisses | The member said no. Refusing to go away because a database write failed would be the worst possible reading of that answer, so the note goes regardless and the cost is that the ask may return on a later render. A repeat, not a betrayal. Stays quiet. | Correct |
+| `EmailAskNote`, the three free ways out (added 27 Aug 2026, sheet redesign) | Only the worded exit ("Not now" / "No thanks") spends one of the two lifetime asks. Tapping the scrim, pressing Escape, and navigating away all close the sheet and write nothing, so Orbit will ask again. The asymmetry points one way on purpose: the silent gesture is the cheap one, and somebody who read the ask and tapped the worded exit told us something worth spending an ask on. Inverted, it would be a bug. Keeps speaking, to that one viewer, until answered in words. | Correct |
+
+*Amended 27 August 2026, sheet redesign. Two rows above say "the note", which is what this was: an inline note pinned above the composer. It is a bottom sheet over the group home now. Nothing about what Orbit decides changed, only what the member sees when it decides to speak, and the counter still counts declines rather than appearances.*
 
 ### Everything else that ends in silence
 
@@ -5035,3 +5039,79 @@ this slice adds meet a human for the first time on the owner's phone.
   needs a hand-run check rather than more code. Task 8 settled a neighbouring
   question, that no good session is destroyed either way; it did not settle this
   one.
+
+---
+
+## The email ask becomes a sheet (27 August 2026, `email-sign-in` branch)
+
+Slice document: `docs/superpowers/specs/2026-08-27-email-ask-sheet-design.md`. Design
+source in the repo: `docs/design/design_handoff_round10/` (the B2 shell, the note
+grammar, the fields) and `docs/design/design_handoff_round11/` (frame A, the bottom).
+
+**What changed for a member.** Orbit's ask for an email left the chat feed. It was an
+inline note pinned above the composer, sticky until answered; it is now a bottom sheet
+over the group home, with the scrim behind it and the group still visible through it. The
+founder's extra sentence is gone, so there is one string per ask for everyone. A new line
+under the field says what happens to the address: "For sign-in and reminders. Never shared
+or sold." The group info page's row is untouched and stays inline; it gains the promise
+line, because the promise is about the address rather than about the surface.
+
+**Why a sheet is the anti-clutter answer rather than an exception to it.** This is the
+half worth carrying forward. The owner's diagnosis on a real phone was that the inline
+version was the worst case in between: not big enough to stand out, not small enough to
+work around. The sheet costs **less** total screen time, because the inline note competed
+with the chat feed for as long as a member stayed undecided, and the counter counts
+declines rather than appearances, so an ignored note stayed forever. A sheet takes the
+screen once and ends.
+
+**The product's first modal, and the four decisions that are now the precedent.** Nothing
+in this app used a scrim, a sheet or a dialog before today, so each of these was decided
+rather than inherited, and all four are written into `EmailAskNote.tsx`'s header for
+whoever builds the second one. Focus goes to the sheet itself, never to the email field,
+because focusing an input raises the phone keyboard over an ask nobody has read yet; it is
+trapped while open and returned on close. The page behind does not scroll: the scrim eats
+the pointer events, and `document.body`'s overflow is locked and restored to its previous
+value. Escape closes the sheet for free; the Android system back gesture is deliberately
+not intercepted, because catching it means pushing a history entry and putting a sheet into
+the router's back stack is a bigger decision than this element should make alone.
+Semantics are `role="dialog"` with `aria-modal`, labelled by the note's own eyebrow, not
+`alertdialog`, which announces an urgent interruption that has to be answered.
+
+**Drag-to-dismiss is not built.** The grab bar is drawn because it is what says "sheet" at
+a glance, and dragging it does nothing. Recorded rather than left ambiguous.
+
+**What each way out costs, and why it is asymmetric.** The worded exit spends one of the
+two lifetime asks; the scrim tap, Escape, and navigating away spend nothing. The silent
+gesture is the cheap one, and somebody who read the ask and tapped the worded exit has told
+us something. Both halves are tested, because testing only the expensive one would let the
+free ones quietly become expensive. Register rows are in "Where Orbit decides to speak or
+stay quiet" above.
+
+**Two declared departures from the drawn source.** The reassurance copy is the owner's, not
+round 11's first-person draft, and it is centred, which the boards do not draw: at 15px in
+Geist it measures 331px against 352px of available width, so it fits one line with 21px
+spare, and centred-and-short are one decision, since a centred line that wraps reads worse
+than a left-aligned one. And Save keeps the product's existing two-state grammar, quiet
+until there is something to send and teal after, where the boards draw it teal over an
+empty field: the boards are static frames with no interaction model in them, and following
+them literally would put a teal button on screen that refuses the tap. Teal still appears
+on Save and nowhere else. Both are one-line reversals if the owner prefers the drawn
+version.
+
+**One refactor that fell out of it.** `EmailAttachFlow`'s `compact` boolean is gone,
+replaced by `variant: "inline" | "sheet"`. `compact` existed only to squeeze the pinned
+inline note into a region the chat feed had to share; the sheet retired that note, so the
+pressure it answered no longer exists anywhere. The flow also gained `messageSlot`, which
+lets the sheet wrap Orbit's line in the labeled-note box while the flow keeps owning which
+line it is across the three steps.
+
+**A test that could not fail, found by mutation and fixed.** The new "has no founder
+variant left" test rendered the first ask, called `cleanup()`, rendered the second, and
+asserted on the body. Cleanup wipes the body before the assertion, so it only ever saw the
+second ask: putting the founder sentence back on the first ask left it green. It asserts
+per render now. Worth recording because the test read as covering both asks and did not,
+which is the same shape as this branch's already-recorded self-comparing copy tests.
+
+**Nothing in this slice has been seen rendered by anyone.** No dev server, by standing
+instruction. Every geometry here is ported arithmetic from the handoff CSS, and the owner's
+phone is the only real verification.

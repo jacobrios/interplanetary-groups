@@ -2,8 +2,9 @@
 
 // src/app/groups/[id]/EmailAskNote.tsx
 //
-// Orbit asking for a way to remember this member, pinned just above the
-// composer. It is the only part of the email slice most members will ever see.
+// Orbit asking for a way to remember this member, as a bottom sheet over the
+// group home. It is the only part of the email slice most members will ever
+// see.
 //
 // Why it is here at all: without an email, a member who loses their session
 // taps the invite link again and joins as a SECOND person. The group holds two
@@ -11,41 +12,92 @@
 // every attendance count is quietly wrong, in the one product whose whole
 // claim is accurate attendance.
 //
-// Placement is the owner's, settled 26 Aug 2026 from three options with the
-// screen cost of each measured: just above the message composer, in the slot
-// OrbitDownNote already uses. The recorded reservation is accepted with it: an
-// undecided member has a smaller chat for as long as they stay undecided, and
-// because the counter counts declines rather than appearances, ignoring the
-// note keeps it there indefinitely.
+// WHY A SHEET, replacing the inline note that shipped 26 Aug 2026. The owner's
+// diagnosis on a real phone: the inline version was "the worst case in-between,
+// where it doesn't take up enough space that it seems like you can work around
+// it but not enough space to really stand out." The counterintuitive half is
+// the one worth keeping, because it is what makes this consistent with the
+// anti-clutter brand rather than an exception to it: a sheet costs LESS total
+// screen time than the inline note did. The note was sticky until answered and
+// competed with the chat feed the entire time a member stayed undecided; the
+// sheet takes the screen once and ends.
 //
-// What that costs, measured rather than hoped for. This file used to claim the
-// note "stays one line of copy plus the field". That was never true of the
-// settled copy, which runs 140, 192 and 242 characters across its three
-// variants and wraps to four, five and six lines at this width. The note now
-// renders at roughly 135px (first ask), 152px (founder's first ask) and 170px
-// (second ask) on a 390px viewport, against the 289.7px of chat feed the
-// card-region-height slice measured on the owner's own phone. It was about
-// 195 / 217 / 240px before the 27 Aug tightening pass. Estimated from the type
-// metrics, not from a rendered screen; the owner's phone pass is what settles
-// whether this is small enough.
+// Bottom sheet rather than full screen, from round 10: a full screen hides the
+// header, and the header is exactly what the second ask tells the member to
+// tap.
 //
-// A NOTE, not a chat bubble. The bubble rule would allow one here, since the
-// member's next action does answer Orbit, but a bubble only one viewer can see
-// sitting at the bottom of a shared feed would read as a message everyone else
-// can see. That is worse than the rule it satisfies, so this takes the labeled
-// note treatment instead (the same grammar as OrbitNoteScreen).
+// A NOTE, not a chat bubble, and that survives the move. The bubble rule would
+// allow one here, since the member's next action does answer Orbit, but a
+// bubble only one viewer can see would read as a message everyone else can
+// see. The labeled-note treatment (mark, "A NOTE FROM ORBIT" eyebrow, copy) is
+// round 10's, and the grid is load-bearing: the mark sits in its own column so
+// no line of a six-line paragraph wraps around it.
 //
 // Nothing here is ever posted to the feed and nothing about it is stored except
-// the answer: a dismissal advances the counter, an attach creates the contact
-// method, and simply being shown writes nothing at all.
+// the answer: a worded dismissal advances the counter, an attach creates the
+// contact method, and simply being shown writes nothing at all.
 //
-// The actual field-state, request/confirm calls, and error copy live in
-// EmailAttachFlow (task 6), lifted out of this file so the group info page's
-// permanent row runs the same mechanism instead of a second copy of it. What
-// stays here: the note box, the Orbit mark, which of the two settled asks to
-// show, and what "Not now" / "No thanks" mean (a real dismissal that counts).
+// The field state, request/confirm calls, and error copy live in
+// EmailAttachFlow, shared with the group info page's permanent row. What stays
+// here: the shell, the note box, which of the two settled asks to show, and
+// what each way out costs.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// THE PRODUCT'S FIRST MODAL. Read this before you build the second one.
+// ─────────────────────────────────────────────────────────────────────────────
+// Nothing in this app used a scrim, a sheet or a dialog before 27 Aug 2026, so
+// there was no precedent to follow and these four decisions ARE the precedent.
+// Each was made deliberately rather than inherited from a library:
+//
+//   FOCUS goes to the sheet itself, not to the email field. Focusing the input
+//   raises the phone keyboard over an ask nobody has read yet, and this element
+//   is copy first: the member has to understand what is being asked before the
+//   field means anything. Focus is trapped inside the sheet while it is open
+//   (Tab cycles, Shift+Tab cycles back) and returns to whatever held it before,
+//   which is usually nothing, because this sheet is opened by the page rather
+//   than by a member tapping something.
+//
+//   THE PAGE BEHIND does not scroll. The scrim covers the viewport and eats
+//   the pointer events, and document.body's overflow is locked as well and
+//   restored exactly to its previous value on the way out. The group home's own
+//   feed is an inner scroll region rather than the body's, so the scrim is what
+//   actually stops it; the body lock is what keeps this component honest on any
+//   ordinary scrolling page a future caller mounts it on.
+//
+//   THE BACK GESTURE. Escape closes the sheet and costs nothing. The Android
+//   system back gesture is deliberately NOT intercepted: catching it means
+//   pushing a history entry, which puts this element into the router's back
+//   stack and is a much larger decision than a sheet should make on its own.
+//   Backing out of the page instead is consistent with the table below, since
+//   navigating away has never spent an ask.
+//
+//   SEMANTICS: role="dialog" with aria-modal, labelled by the note's own
+//   eyebrow. NOT role="alertdialog", which announces an urgent interruption
+//   that must be answered; this one has three free ways out. The scrim carries
+//   the dismiss tap but is not a control and has no role, because a screen
+//   reader announcing a nameless button over the whole screen is worse than
+//   nothing; Escape is the keyboard's equivalent.
+//
+// DRAG-TO-DISMISS IS NOT BUILT. The grab bar is drawn, because it is what says
+// "sheet" at a glance, but dragging it does nothing today. Stated rather than
+// left ambiguous: if the owner wants the gesture, it is a pointer-event
+// handler on the sheet plus a transform, and it must land in the free column
+// of the table below alongside the scrim tap.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// WHAT EACH WAY OUT COSTS. The asymmetry is deliberate and points one way.
+// ─────────────────────────────────────────────────────────────────────────────
+//   "Not now" / "No thanks"  ->  spends one of the two lifetime asks
+//   Tapping the scrim        ->  free
+//   Escape                   ->  free
+//   Navigating away          ->  free (nothing is written on render)
+//
+// The silent gesture is the cheap one. Somebody who read the ask and tapped the
+// worded exit has told us something, and spending an ask honours it. Inverted,
+// it would be a bug. Both halves are tested, because testing only the expensive
+// one would let the free ones quietly become expensive.
 
-import { useState, useTransition } from "react"
+import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { shouldOfferEmail, type EmailAskState } from "@/lib/auth/email-offer"
 import { dismissEmailOfferAction } from "@/app/actions/email-ask"
 import { OrbitMark } from "@/components/OrbitMark"
@@ -57,11 +109,17 @@ import EmailAttachFlow from "./EmailAttachFlow"
 // "lose access to this group" is inaccurate because a member keeps the invite
 // link and loses their identity rather than their access (the two readings are
 // the same thing from the member's side). Do not re-voice it.
+//
+// ONE STRING FOR EVERYONE. The founder's extra sentence ("It also means you
+// won't lose the group you started.") was deleted 27 Aug 2026 by the owner: a
+// founder already knows it is their group, and the clause gestured at a bigger
+// stake without naming what a founder actually loses, which is the ability to
+// manage members and reset the invite link. If founders should ever be warned
+// about those powers, that is different copy written on purpose. The
+// viewerIsFounder prop went with it, since deciding founder-ness was the only
+// thing it did here.
 const FIRST_ASK =
   "I haven't asked for a way to remember you. Add your email so you can log back in if necessary. This way you don't lose access to this group."
-
-/** Appended to the first ask for the founder alone. */
-const FOUNDER_EXTRA = "It also means you won't lose the group you started."
 
 /**
  * The second and last ask. It points at the group name at the top of the
@@ -74,9 +132,12 @@ function secondAsk(groupName: string): string {
   return `You're still a temporary member. Without your email, you can't log back in if something happens. If now is not a good time, no worries. Just tap ${groupName} at the top of the screen whenever you're ready. I won't bother you like this again.`
 }
 
+/** Everything focusable the trap should cycle through. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
 export interface EmailAskNoteProps {
   groupName: string
-  viewerIsFounder: boolean
   askState: EmailAskState
   latestContributionAt: Date | null
   hasVerifiedEmail: boolean
@@ -86,7 +147,6 @@ export interface EmailAskNoteProps {
 
 export default function EmailAskNote({
   groupName,
-  viewerIsFounder,
   askState,
   latestContributionAt,
   hasVerifiedEmail,
@@ -94,16 +154,83 @@ export default function EmailAskNote({
 }: EmailAskNoteProps) {
   const [answered, setAnswered] = useState(false)
   const [, startTransition] = useTransition()
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const returnFocusTo = useRef<Element | null>(null)
+  const eyebrowId = useId()
 
   // The gate lives in the component rather than in the page, because this repo
   // can test a component and cannot test a server-rendered screen. The page
   // gathers the facts; the one decision about whether a member is asked is made
   // here, where a test can hold it to it.
   const offer = shouldOfferEmail({ user: askState, latestContributionAt, hasVerifiedEmail, now })
+  const showing = !answered && offer !== null
 
-  if (answered || offer === null) return null
+  // Focus and the page's scroll, taken on open and given back on close. Both
+  // halves live in one effect because both are borrowed from the page and both
+  // have to be returned by the same exit, however the sheet is dismissed.
+  useEffect(() => {
+    if (!showing) return
+    returnFocusTo.current = document.activeElement
+    sheetRef.current?.focus()
 
-  function handleDismiss() {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      const back = returnFocusTo.current
+      // isConnected, because the element that had focus may well have been
+      // unmounted while the sheet was up.
+      if (back instanceof HTMLElement && back.isConnected) back.focus()
+    }
+  }, [showing])
+
+  // Escape, and the focus trap. On document rather than on the sheet so a key
+  // pressed while focus has escaped (which it should not, but might) still
+  // reaches this.
+  useEffect(() => {
+    if (!showing) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault()
+        // Free. See the table in the header comment.
+        setAnswered(true)
+        return
+      }
+      if (event.key !== "Tab") return
+
+      const sheet = sheetRef.current
+      if (!sheet) return
+      const focusables = Array.from(sheet.querySelectorAll<HTMLElement>(FOCUSABLE))
+      if (focusables.length === 0) {
+        event.preventDefault()
+        sheet.focus()
+        return
+      }
+
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement
+      // The sheet itself counts as "before the first", because that is where
+      // focus starts.
+      if (event.shiftKey && (active === first || active === sheet)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [showing])
+
+  if (!showing) return null
+
+  /** The worded exit: the member answered, and it counts. */
+  function handleDecline() {
     // Off the screen either way. The member said no; refusing to go away
     // because a write failed would be the worst possible reading of that.
     setAnswered(true)
@@ -112,48 +239,157 @@ export default function EmailAskNote({
     })
   }
 
-  const dismissLabel = offer === "first" ? "Not now" : "No thanks"
-  const promptMessage =
-    offer === "first"
-      ? viewerIsFounder
-        ? `${FIRST_ASK} ${FOUNDER_EXTRA}`
-        : FIRST_ASK
-      : secondAsk(groupName)
+  /** The scrim and Escape: gone for now, and nothing is written. */
+  function handleLeaveQuietly() {
+    setAnswered(true)
+  }
 
-  // No bottom padding on the outer box: the composer directly below carries
-  // 12px of its own top padding, so anything here would be a second gap doing
-  // the first one's job.
+  const dismissLabel = offer === "first" ? "Not now" : "No thanks"
+  const promptMessage = offer === "first" ? FIRST_ASK : secondAsk(groupName)
+
   return (
-    <div style={{ padding: "0 16px 0", flexShrink: 0 }}>
-      {/* The labeled-note treatment, ported from OrbitNoteScreen. No eyebrow
-          here, unlike that screen: this note sits under a feed the member has
-          been reading Orbit in all along, and an "A NOTE FROM ORBIT" band
-          would cost a line to say what the mark already says. */}
+    // The scrim. Fixed rather than absolute so it covers the header too: this
+    // element is mounted inside the group home's column, and its DOM position
+    // no longer decides where it appears. It stays mounted there because the
+    // same `canPost` guard that wraps the composer is the guard this needs.
+    //
+    // The target check is what separates a tap on the scrim from a tap that
+    // started inside the sheet and bubbled up here.
+    <div
+      onClick={(event) => {
+        if (event.target === event.currentTarget) handleLeaveQuietly()
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 40,
+        backgroundColor: "rgba(8,9,13,.70)",
+        display: "flex",
+        alignItems: "flex-end",
+      }}
+    >
       <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={eyebrowId}
+        // -1 so the sheet can hold focus on open without joining the tab order.
+        tabIndex={-1}
         style={{
-          border: "1px solid var(--hairline)",
-          borderRadius: 12,
-          padding: "8px 10px",
-          backgroundColor: "var(--surface-raised)",
+          width: "100%",
+          // A FLOOR, not a height. The second ask is the tall case and grows
+          // past this; beyond the page, max-height plus the scrolling pad below
+          // lengthen the scroll rather than pushing Save off the screen.
+          minHeight: "65%",
+          maxHeight: "100%",
+          backgroundColor: "var(--surface-low)",
+          borderTop: "1px solid var(--hairline)",
+          borderRadius: "22px 22px 0 0",
+          boxShadow: "0 -20px 44px rgba(0,0,0,.48)",
+          display: "flex",
+          flexDirection: "column",
+          outline: "none",
         }}
       >
-        {/* Floated rather than parked in a 44px left inset, which is how
-            OrbitNoteScreen does it and how this started. The inset holds every
-            line of a six-line paragraph 44px short of the edge to make room
-            for a 26px mark that only ever sits beside the first one; floating
-            it gives the copy back 30px of width on every line below the mark.
-            lineHeight 0 keeps the float box the mark's own height rather than
-            a text line's. */}
-        <span style={{ float: "left", marginRight: 10, lineHeight: 0 }}>
-          <OrbitMark size={22} label={null} />
-        </span>
-
-        <EmailAttachFlow
-          promptMessage={promptMessage}
-          cancelLabel={dismissLabel}
-          onCancel={handleDismiss}
-          compact
+        {/* The grab bar. It says "sheet"; it does not drag (see the header). */}
+        <div
+          aria-hidden="true"
+          style={{
+            width: 38,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: "var(--hairline)",
+            margin: "9px auto 0",
+            flex: "0 0 auto",
+          }}
         />
+
+        {/* The pad scrolls inside the sheet, which is what keeps Save reachable
+            at an enlarged device text size instead of clipping it. */}
+        <div
+          style={{
+            padding: "4px 18px 20px",
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            overflowY: "auto",
+          }}
+        >
+          <EmailAttachFlow
+            promptMessage={promptMessage}
+            cancelLabel={dismissLabel}
+            onCancel={handleDecline}
+            variant="sheet"
+            messageSlot={(message) => (
+              // Round 10's labeled note. Grid, never a float: the mark occupies
+              // its own column and spans both rows, so every line of copy
+              // shares one left edge however long the ask runs.
+              <div
+                style={{
+                  backgroundColor: "var(--surface-raised)",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: 14,
+                  padding: "15px 16px 17px",
+                  display: "grid",
+                  gridTemplateColumns: "34px 1fr",
+                  columnGap: 13,
+                }}
+              >
+                <span
+                  style={{
+                    gridColumn: 1,
+                    gridRow: "1 / span 2",
+                    width: 34,
+                    height: 34,
+                    borderRadius: "50%",
+                    border: "1.5px solid var(--text-primary)",
+                    backgroundColor: "var(--surface-base)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    filter: "drop-shadow(0 0 9px rgba(164,239,78,.28))",
+                  }}
+                >
+                  <OrbitMark size={26} label={null} />
+                </span>
+                <span
+                  id={eyebrowId}
+                  style={{
+                    gridColumn: 2,
+                    gridRow: 1,
+                    alignSelf: "center",
+                    minHeight: 34,
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "var(--type-eyebrow)",
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--text-secondary)",
+                    fontWeight: 700,
+                  }}
+                >
+                  A note from Orbit
+                </span>
+                <p
+                  style={{
+                    gridColumn: 2,
+                    gridRow: 2,
+                    margin: "7px 0 0",
+                    // 17px, up from the 15px the inline note used. The sheet
+                    // has the room, and this is the sentence the whole element
+                    // exists to get read.
+                    fontSize: "var(--type-body)",
+                    lineHeight: "var(--leading-normal)",
+                    color: "var(--text-primary)",
+                    textWrap: "pretty",
+                  }}
+                >
+                  {message}
+                </p>
+              </div>
+            )}
+          />
+        </div>
       </div>
     </div>
   )

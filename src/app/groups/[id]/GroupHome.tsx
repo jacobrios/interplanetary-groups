@@ -169,9 +169,14 @@ export default function GroupHome({
       {canPost && (
         <>
           {orbitDown && <OrbitDownNote reason={orbitDown} />}
-          {/* Orbit's ask for an email, pinned just above the composer (owner's
-              placement, 26 Aug 2026). Same slot as the note above it, and the
-              same rule: per viewer, rendered, never posted to the feed. */}
+          {/* Orbit's ask for an email. Since 27 Aug 2026 it is a bottom sheet
+              over this whole screen rather than an inline note in this slot,
+              so its position in this list no longer decides where it appears:
+              the scrim is fixed to the viewport. It stays mounted here because
+              the `canPost` guard around this block is exactly the condition it
+              needs (a real session, which is who can be asked). The rule it
+              shares with OrbitDownNote above is unchanged: per viewer,
+              rendered, never posted to the feed. */}
           {emailAsk && <EmailAskNote {...emailAsk} />}
           <ChatInput
             groupId={groupId}

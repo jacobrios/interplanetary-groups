@@ -271,7 +271,12 @@ function renderGroupHome() {
       // ask on the screen where it can actually be scanned.
       emailAsk={{
         groupName: "Climbing Crew",
-        viewerIsFounder: false,
+        // viewerIsFounder was removed from this fixture on 27 Aug 2026 because
+        // the prop itself is gone: the founder's extra sentence was deleted and
+        // nothing else on this path needed to know. Not a weakening of the
+        // guard, and nothing else in this file changed: the detector, the
+        // positive controls and every assertion are untouched, and the ask
+        // still renders under them (the "Not now" check below proves it).
         askState: { emailAskCount: 0, emailAskedAt: null },
         latestContributionAt: new Date("2026-08-25T18:00:00Z"),
         hasVerifiedEmail: false,
