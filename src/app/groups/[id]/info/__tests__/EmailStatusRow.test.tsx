@@ -9,7 +9,7 @@
 // even to its own owner.
 
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import EmailStatusRow from "../EmailStatusRow"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
 
@@ -54,6 +54,19 @@ describe("EmailStatusRow, collapsed states", () => {
     const { container: on } = render(<EmailStatusRow hasVerifiedEmail={true} />)
     expect(on.textContent).not.toMatch(/@/)
   })
+
+  // Fix round 1: the info page's wrapper is a flex column with no
+  // alignItems, which defaults to stretch, and this repo has no button
+  // reset. Without alignSelf: "flex-start" (which ManageMembers and
+  // ResetInviteLink already set on this same page, for this same reason) a
+  // bare <button> stretches to the column's full width and the user-agent
+  // stylesheet centers its text. This is the state every member is in today,
+  // since nobody has an email attached yet.
+  it("keeps the add link from stretching full width and centering, like its peers on this page", () => {
+    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    const link = screen.getByRole("button", { name: "Add your email" })
+    expect(link.style.alignSelf).toBe("flex-start")
+  })
 })
 
 describe("EmailStatusRow, adding an email", () => {
@@ -68,7 +81,36 @@ describe("EmailStatusRow, adding an email", () => {
     expect(requestMock).not.toHaveBeenCalled()
   })
 
-  it("carries a full add-through-confirm run without an Orbit first-person voice", async () => {
+  it("shows a neutral, non-Orbit line when a code is sent, not the default first-person one", async () => {
+    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
+
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "sam@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await screen.findByLabelText("The code from your email")
+    // The code-sent line still names the just-typed address (the member's own
+    // input, not a stored value being displayed back), but it does not read
+    // as Orbit speaking, since nothing on this page says Orbit is present.
+    expect(screen.getByText("A code was sent to sam@example.com. Enter it below.")).toBeDefined()
+    expect(screen.queryByText(/^I sent a code/)).toBeNull()
+  })
+
+  // Fix round 1: this test used to end by asserting the flow's own
+  // "Saved..." line, which pinned a dead end. EmailAttachFlow hides its form
+  // and cancel link once a save succeeds, with no control left to get back to
+  // anything, and this row has no other way back short of navigating away and
+  // returning. Since this row is permanent rather than a one-time ask, it
+  // needs to stay usable right after it succeeds, so EmailStatusRow now
+  // collapses itself back to the quiet attached state on the same signal
+  // (onAttached) instead of leaving the box open on one sentence forever.
+  // That collapse happens in the same render as the save succeeding, so the
+  // flow's own done message never gets a chance to paint; "Email reminders
+  // are on." is what confirms the save now; there is no separate visible
+  // confirmation before it.
+  it("collapses back to its quiet, permanent state once the address is saved", async () => {
     render(<EmailStatusRow hasVerifiedEmail={false} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
 
@@ -78,18 +120,13 @@ describe("EmailStatusRow, adding an email", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     const code = await screen.findByLabelText("The code from your email")
-    // The code-sent line still names the just-typed address (the member's own
-    // input, not a stored value being displayed back), but it does not read
-    // as Orbit speaking, since nothing on this page says Orbit is present.
-    expect(screen.getByText("A code was sent to sam@example.com. Enter it below.")).toBeDefined()
-    expect(screen.queryByText(/^I sent a code/)).toBeNull()
-
     fireEvent.change(code, { target: { value: "12345678" } })
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
-    expect(
-      await screen.findByText("Saved. This email can be used to sign back in any time.")
-    ).toBeDefined()
+    expect(await screen.findByText(/Email reminders are on/)).toBeDefined()
+    expect(screen.getByRole("button", { name: "Change email" })).toBeDefined()
+    expect(screen.queryByLabelText("The code from your email")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Add your email" })).toBeNull()
   })
 })
 
@@ -116,10 +153,33 @@ describe("EmailStatusRow, changing an email", () => {
     // way to read or render whatever was stored before.
     expect(screen.getByText(/new@example\.com/)).toBeDefined()
   })
+
+  it("also collapses back to the attached state after a successful change", async () => {
+    render(<EmailStatusRow hasVerifiedEmail={true} />)
+    fireEvent.click(screen.getByRole("button", { name: "Change email" }))
+
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "new@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    const code = await screen.findByLabelText("The code from your email")
+    fireEvent.change(code, { target: { value: "12345678" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(await screen.findByText(/Email reminders are on/)).toBeDefined()
+    expect(screen.getByRole("button", { name: "Change email" })).toBeDefined()
+  })
 })
 
 describe("EmailStatusRow, errors", () => {
-  it("surfaces a rejected address without leaving the row stuck open on nothing", async () => {
+  // Fix round 1: this used to assert EmailAttachFlow's default, Orbit-voiced
+  // error copy ("Mind checking it?"), which contradicted the point of this
+  // whole describe block and the row's own reasoning: nothing on this page
+  // says Orbit is present, so an error here should read the same as the
+  // success-path copy already does, not switch back to Orbit's voice the
+  // moment something goes wrong.
+  it("surfaces a rejected address in the row's own neutral voice, without leaving it stuck open on nothing", async () => {
     requestMock.mockImplementation(async () => ({ result: "invalid_email" }))
     render(<EmailStatusRow hasVerifiedEmail={false} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
@@ -130,8 +190,9 @@ describe("EmailStatusRow, errors", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     expect(
-      await screen.findByText("That address doesn't look right. Mind checking it?")
+      await screen.findByText("That address doesn't look right. Check it and try again.")
     ).toBeDefined()
+    expect(screen.queryByText("That address doesn't look right. Mind checking it?")).toBeNull()
   })
 })
 

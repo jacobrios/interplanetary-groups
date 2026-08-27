@@ -38,10 +38,34 @@ const CHANGE_PROMPT = "Enter the new address you'd like to use."
 const CODE_SENT_MESSAGE = (address: string) => `A code was sent to ${address}. Enter it below.`
 const DONE_MESSAGE = "Saved. This email can be used to sign back in any time."
 
+// Neutral counterparts to EmailAttachFlow's own error copy. Two of the
+// defaults are unambiguously Orbit's first person ("on my end", the "Mind
+// checking it?" aside); the other three carry no pronoun but would be the
+// only Orbit-voiced lines left on this page if left as is, which would be
+// its own kind of inconsistency. All five are rewritten here for the same
+// reason codeSentMessage and doneMessage are: nothing on this page says
+// Orbit is the one talking.
+const REQUEST_ERROR_MESSAGES = {
+  invalid_email: "That address doesn't look right. Check it and try again.",
+  email_taken: "That email is already saved to someone here. Try a different one.",
+  rate_limited: "That was quick. Wait a minute before asking for another code.",
+  service_error: "Something went wrong. Give it another try in a bit.",
+} as const
+const BAD_CODE_MESSAGE =
+  "That code didn't work. It might be typed wrong, or it might have expired. Ask for a new code and try again."
+
+// alignSelf: "flex-start" matters here in a way it would not in a row of its
+// own: the info page's wrapper is a flex column with no alignItems, which
+// defaults to stretch, and there is no button reset anywhere in this repo's
+// globals.css. Without this a bare <button> stretches to the column's full
+// width and the user-agent stylesheet centers its text, which is exactly
+// what ManageMembers and ResetInviteLink already set this same property to
+// avoid on this same page.
 const LINK_STYLE = {
   background: "none",
   border: "none",
   padding: 0,
+  alignSelf: "flex-start",
   color: "var(--text-secondary)",
   fontSize: "var(--type-meta)",
   textDecoration: "underline",
@@ -89,9 +113,22 @@ export default function EmailStatusRow({ hasVerifiedEmail }: Props) {
         promptMessage={attached ? CHANGE_PROMPT : ADD_PROMPT}
         cancelLabel="Never mind"
         onCancel={() => setExpanded(false)}
-        onAttached={() => setAttached(true)}
+        // Collapsing here, not just flipping `attached`, is what keeps this
+        // row usable the moment after it succeeds. Without it a successful
+        // save left the box parked on one sentence with no control at all:
+        // the flow hides its own form and cancel link once step is "done",
+        // and that state has no way back to "Email reminders are on." /
+        // "Change email" short of navigating away and returning. This row
+        // is permanent, so it has to stay a place a member can act, not just
+        // a place a member once acted.
+        onAttached={() => {
+          setAttached(true)
+          setExpanded(false)
+        }}
         codeSentMessage={CODE_SENT_MESSAGE}
         doneMessage={DONE_MESSAGE}
+        requestErrorMessages={REQUEST_ERROR_MESSAGES}
+        badCodeMessage={BAD_CODE_MESSAGE}
       />
     </div>
   )

@@ -23,9 +23,14 @@ import {
   requestEmailAttachAction,
   confirmEmailAttachAction,
 } from "@/app/actions/email-ask"
-import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
+import type { AttachRequestResult } from "@/lib/auth/email"
 
-const REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, string> = {
+/**
+ * Exported so a caller reusing the default map (or writing its own) has the
+ * exact key set to satisfy, and so a test can assert against it rather than
+ * retyping every string.
+ */
+export const DEFAULT_REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, string> = {
   invalid_email: "That address doesn't look right. Mind checking it?",
   email_taken: "That email is already saved to someone here. Try another one.",
   rate_limited: "That was quick. You can ask for a new code once a minute.",
@@ -38,7 +43,7 @@ const REQUEST_ERROR: Record<Exclude<AttachRequestResult, "ok">, string> = {
  * single bad_code result. Copy that said "that code expired" would be a lie the
  * code cannot back up.
  */
-const BAD_CODE_MESSAGE =
+export const DEFAULT_BAD_CODE_MESSAGE =
   "That code didn't work. It might be typed wrong, or it might have expired. Ask for a new code and try again."
 
 const DEFAULT_CODE_SENT_MESSAGE = (address: string) =>
@@ -79,6 +84,17 @@ export interface EmailAttachFlowProps {
   codeSentMessage?: (address: string) => string
   doneMessage?: string
   /**
+   * Override the five error strings. Two are unambiguously Orbit's first
+   * person ("on my end", the "Mind checking it?" aside); the other three
+   * carry no pronoun but would read as an odd tonal mismatch if they were
+   * the only Orbit-voiced lines left on a page that overrides everything
+   * else. Same rule as codeSentMessage/doneMessage above: default to task
+   * 5's settled copy, override only where there is no Orbit presence on
+   * screen to attribute the voice to.
+   */
+  requestErrorMessages?: Record<Exclude<AttachRequestResult, "ok">, string>
+  badCodeMessage?: string
+  /**
    * Tighten the vertical rhythm: tighter leading on the message, less air
    * above the field, and the way out riding on the field's own row instead of
    * a row of its own.
@@ -100,6 +116,8 @@ export default function EmailAttachFlow({
   onAttached,
   codeSentMessage = DEFAULT_CODE_SENT_MESSAGE,
   doneMessage = DEFAULT_DONE_MESSAGE,
+  requestErrorMessages = DEFAULT_REQUEST_ERROR,
+  badCodeMessage = DEFAULT_BAD_CODE_MESSAGE,
   compact = false,
 }: EmailAttachFlowProps) {
   const fieldId = useId()
@@ -131,7 +149,7 @@ export default function EmailAttachFlow({
       // A failed resend leaves the member on the code step: the first code may
       // still be sitting in their inbox and still work.
       if (!resending) setStep("email")
-      setErrorMsg(REQUEST_ERROR[result])
+      setErrorMsg(requestErrorMessages[result])
     })
   }
 
@@ -154,7 +172,7 @@ export default function EmailAttachFlow({
         onAttached?.()
         return
       }
-      setErrorMsg(result === "bad_code" ? BAD_CODE_MESSAGE : REQUEST_ERROR.service_error)
+      setErrorMsg(result === "bad_code" ? badCodeMessage : requestErrorMessages.service_error)
     })
   }
 

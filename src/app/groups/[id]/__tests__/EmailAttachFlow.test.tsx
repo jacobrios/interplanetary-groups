@@ -11,7 +11,7 @@
 // person, without touching the mechanism underneath.
 
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import EmailAttachFlow, { DEFAULT_DONE_MESSAGE } from "../EmailAttachFlow"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
 
@@ -157,6 +157,54 @@ describe("EmailAttachFlow, overriding the Orbit-voiced lines", () => {
       await screen.findByText("Saved. This email can be used to sign back in any time.")
     ).toBeDefined()
     expect(screen.queryByText(DEFAULT_DONE_MESSAGE)).toBeNull()
+  })
+
+  // Fix round 1: codeSentMessage and doneMessage were overridable but the
+  // five error strings were not, even though two of them ("on my end", "Mind
+  // checking it?") read as Orbit speaking just as much as the two lines
+  // above. A caller with no Orbit presence on screen needs a way to replace
+  // all of it, not just the happy path.
+  it("uses a supplied requestErrorMessages map instead of the default error copy", async () => {
+    requestMock.mockImplementation(async () => ({ result: "invalid_email" }))
+    render(
+      <EmailAttachFlow
+        {...baseProps({
+          requestErrorMessages: {
+            invalid_email: "That address doesn't look right. Check it and try again.",
+            email_taken: "That email is already saved to someone here. Try a different one.",
+            rate_limited: "That was quick. Wait a minute before asking for another code.",
+            service_error: "Something went wrong. Give it another try in a bit.",
+          },
+        })}
+      />
+    )
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "not-an-address" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(
+      await screen.findByText("That address doesn't look right. Check it and try again.")
+    ).toBeDefined()
+    expect(screen.queryByText("That address doesn't look right. Mind checking it?")).toBeNull()
+  })
+
+  it("uses a supplied badCodeMessage instead of the default bad-code copy", async () => {
+    confirmMock.mockImplementation(async () => ({ result: "bad_code" }))
+    render(
+      <EmailAttachFlow
+        {...baseProps({ badCodeMessage: "That code isn't right. Ask for a new one and try again." })}
+      />
+    )
+    await reachCodeStep()
+    fireEvent.change(screen.getByLabelText("The code from your email"), {
+      target: { value: "12345678" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(
+      await screen.findByText("That code isn't right. Ask for a new one and try again.")
+    ).toBeDefined()
   })
 })
 
