@@ -36,7 +36,7 @@
 - **Session fragility risks, which make the email ask early rather than lazy:** cleared browser data, in-app browsers (separate storage from Safari), and iOS Safari's roughly 7-day script-writable storage cap. *(Verify current policy at build.)*
 - **Invite-link taps must check for an existing session first** and route members into the group, or the app manufactures duplicate accounts itself.
 - **Duplicate-member recovery is social:** the founder deletes the ghost. Acceptable at casual scale. *(Amended 27 August 2026, email sign-in slice: still true, and it is now the cleanup path rather than the whole answer. The fix moved upstream, to the invite screen, which asks an unrecognised visitor whether they have been here before **before any account is created**. Duplicates already in existence are still removed by hand, because an automatic merge turned out to be unsafe: `Message.author` is `onDelete: SetNull`, so deleting a ghost leaves its chat messages in the feed still marked as a member's with nobody attached, and a safe merge has to reassign every row individually. Priced at roughly a third of the slice and declined.)*
-- **Emails are never displayed anywhere in the UI**, even after capture. Member lists are names only.
+- ~~**Emails are never displayed anywhere in the UI**, even after capture.~~ Member lists are names only. *(Amended 27 August 2026, and the operative wording now lives in CLAUDE.md's data-model section, which wins. **An email is never shown to the group or to any other member; it is always shown to its owner, on the group info page, and nowhere else.** What forced it: the email sign-in slice's group info row offered "Change email" and printed nothing, so a member with more than one address could not tell which one he was replacing. The bullet had been written around its worst case rather than around its own reasoning, which is entirely about the group seeing an address; a row only its owner can see is not that. The narrowing is deliberate and small: one surface, one viewer, fetched only for that viewer and never over the roster, with `src/app/__tests__/no-email-address-on-screen.test.tsx` holding both halves.)*
 
 ## 4. Membership & governance
 
@@ -4996,6 +4996,48 @@ importers are client components; a category note for whoever adds the next file
 there. And at least fourteen user-facing strings shipped that
 the owner has never read; that count was taken partway through the slice and
 never retaken after the last two screens were built.
+
+### Postscript, 27 August 2026: the phone answered one of them, and it moved a standing rule
+
+The owner ran the built product on his phone and found the group info row
+wanting in three ways, all of them real, and the first one reopened a rule
+rather than a component.
+
+**The rule.** The data-model bullet said emails are never displayed anywhere in
+the UI, even after capture, and task 6 followed it literally, so the row showed
+no address even to the person who owns it. That row offers "Change email", and
+a member holding more than one address cannot answer "change it from what?".
+The bullet's own stated reasoning is about the GROUP seeing an address, so it
+had been written around its worst case rather than around what it was
+protecting. Amended the same day in CLAUDE.md's data-model section, which is
+the operative copy, with the rule restated where it was also carried in §3
+above and annotated where it was written down in the slice document. **Never
+shown to the group or to any other member; always shown to its owner, on the
+group info page, and nowhere else.**
+
+**What kept the amendment small enough to be safe.** The narrowing is one
+surface, one viewer, and a fetch that cannot reach a roster.
+`verifiedEmailAddress` takes one scalar user id, has exactly one call site, and
+that call site passes the viewer's own id from the session. The guard file did
+not lose its teeth to make room for this: it was narrowed, from "no query in the
+product can see an address" to four separate facts, and each one was proved to
+bite by breaking the code on purpose (leaking onto the member list, fetching per
+member, prefilling the change field, and printing an address in the group feed).
+
+**The other two findings, both copy.** "Email reminders are on." was a false
+affordance: it reads as a setting with a switch behind it and there is no
+switch anywhere in the product. And it repeated the eyebrow directly above it
+word for word. Both are gone, with nothing in their place: the address is the
+fact, and the eyebrow now reads EMAIL FOR SIGN-IN AND REMINDERS, which is the
+only thing on that screen saying what the address is for. **The lesson worth
+carrying: a status sentence that names no state the member can change is
+decoration that reads as a control.**
+
+**One consistency fix rode along.** The "Never mind" exit was centred on the
+sheet and left-justified inline, so the same control sat in two places
+depending on how a member reached it. Centred on the inline row that holds it
+rather than on the shared button, which is what left the sheet's own column
+untouched, and there is a test on each half saying so.
 
 ### Two things only the owner's phone can settle, and they are on the QA script
 

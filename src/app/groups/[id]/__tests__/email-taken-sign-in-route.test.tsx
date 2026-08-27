@@ -127,7 +127,7 @@ describe("the same address, on the group info page's permanent row", () => {
   // copy of the same idea, so fixing only the flagged one would have left this
   // path dead-ending exactly the same population.
   it("says the same thing in this page's own neutral voice", async () => {
-    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    render(<EmailStatusRow emailAddress={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     await typeATakenAddress()
 
@@ -137,7 +137,7 @@ describe("the same address, on the group info page's permanent row", () => {
   })
 
   it("carries the same real route into sign-in", async () => {
-    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    render(<EmailStatusRow emailAddress={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     await typeATakenAddress()
 
@@ -186,7 +186,7 @@ describe("the route reads as the offered next step, not as a footnote", () => {
   })
 
   it("carries the same treatment on the group info page's row", async () => {
-    render(<EmailStatusRow hasVerifiedEmail={false} />)
+    render(<EmailStatusRow emailAddress={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     await typeATakenAddress()
     const route = screen.getByRole("link", { name: SIGN_IN_LABEL })

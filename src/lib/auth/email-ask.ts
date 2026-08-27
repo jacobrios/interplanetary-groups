@@ -32,6 +32,36 @@ export async function hasVerifiedEmail(userId: string): Promise<boolean> {
 }
 
 /**
+ * The address this person has on file, for showing it back to them.
+ *
+ * THE ONLY QUERY IN THE PRODUCT THAT CAN SEE AN ADDRESS, and the shape of it
+ * is the guardrail. CLAUDE.md's data-model rule, as amended 27 August 2026:
+ * never shown to the group or to any other member, always shown to its owner,
+ * on the group info page, and nowhere else. The group half of that promise
+ * rests on two properties of this function, both asserted in
+ * src/app/__tests__/no-email-address-on-screen.test.tsx:
+ *
+ *   - it takes ONE scalar user id, so there is no list to hand it and no way
+ *     to run it across a roster;
+ *   - it has exactly one call site, the group info page, which calls it with
+ *     the viewer's own id.
+ *
+ * Kept separate from hasVerifiedEmail above rather than folded into it, even
+ * though this one's result answers that one's question too. The group home
+ * needs the boolean and must never be handed an address it could pass into a
+ * client component by accident, so the query that feeds it stays narrowed to
+ * the row id. Two queries is the price of that, and it is one extra indexed
+ * lookup on a page that already runs several.
+ */
+export async function verifiedEmailAddress(userId: string): Promise<string | null> {
+  const contactMethod = await prisma.contactMethod.findFirst({
+    where: { userId, type: "EMAIL", isVerified: true },
+    select: { value: true },
+  })
+  return contactMethod?.value ?? null
+}
+
+/**
  * What the group home reads before deciding whether to offer.
  *
  * Contribution is the broad definition on purpose, because this product's

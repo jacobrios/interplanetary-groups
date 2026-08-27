@@ -19,7 +19,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
-import { hasVerifiedEmail } from "@/lib/auth/email-ask"
+import { verifiedEmailAddress } from "@/lib/auth/email-ask"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { groupInitials } from "@/lib/groups/initials"
@@ -57,11 +57,20 @@ export default async function GroupInfoPage({ params }: Props) {
   // Any member, including the founder: losing a session is not a
   // founder-specific problem, and this is what stands between that member and
   // rejoining as a second person the next time they tap the invite link
-  // (CLAUDE.md, "Identity, auth, and known gaps"). Shared with
-  // loadEmailAskInputs (src/lib/auth/email-ask.ts) so this page and the group
-  // home can never disagree about whether the same member has an email
-  // attached.
-  const viewerHasVerifiedEmail = viewer !== null && (await hasVerifiedEmail(viewer.id))
+  // (CLAUDE.md, "Identity, auth, and known gaps").
+  //
+  // THE VIEWER'S OWN ADDRESS, AND NOBODY ELSE'S. This is the only place in the
+  // product that reads an address back out of storage, and the argument is the
+  // whole guarantee: `viewer.id` comes from the session, never from the member
+  // list this page also renders. Changing this line to run per member, or
+  // handing the result to anything but EmailStatusRow, breaks CLAUDE.md's
+  // data-model rule and reddens
+  // src/app/__tests__/no-email-address-on-screen.test.tsx.
+  //
+  // Reads the address rather than a boolean since 27 August 2026: the row it
+  // feeds offers "Change email", and a member holding more than one address
+  // could not tell which one that meant.
+  const viewerEmailAddress = viewer === null ? null : await verifiedEmailAddress(viewer.id)
 
   // WHO ordering (spec decision 12): founder first, then join order. The
   // query already sorts by joinedAt; this hoists the founder to the front.
@@ -251,10 +260,16 @@ export default async function GroupInfoPage({ params }: Props) {
           </div>
         )}
 
-        {/* ── Email reminders: any member (task 6, email-sign-in slice). No
-              design mockup covers this row; the eyebrow-plus-quiet-link
-              treatment mirrors the invite link section directly above it,
-              since both are the page's self-service, non-Orbit actions. ── */}
+        {/* ── Email: any member (task 6, email-sign-in slice). No design
+              mockup covers this row; the eyebrow-plus-quiet-link treatment
+              mirrors the invite link section directly above it, since both are
+              the page's self-service, non-Orbit actions.
+
+              The eyebrow carries more weight than it looks (27 Aug 2026). With
+              the row's old status sentence deleted, this is the ONLY thing on
+              screen saying what the address is for, so it names both jobs
+              rather than just reminders. It also stopped saying the same words
+              as the line beneath it, which is what it did before. ── */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <p
             style={{
@@ -267,9 +282,9 @@ export default async function GroupInfoPage({ params }: Props) {
               margin: "18px 2px 7px",
             }}
           >
-            Email reminders
+            Email for sign-in and reminders
           </p>
-          <EmailStatusRow hasVerifiedEmail={viewerHasVerifiedEmail} />
+          <EmailStatusRow emailAddress={viewerEmailAddress} />
         </div>
 
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}

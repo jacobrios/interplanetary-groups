@@ -127,12 +127,18 @@ export interface EmailAttachFlowProps {
   cancelLabel: string
   onCancel: () => void
   /**
-   * Fired once, the moment the code is confirmed. The flow keeps rendering
-   * its own done message after this; a caller that wants to collapse to a
-   * quieter state (the info page's row does) acts on this callback rather
-   * than waiting on a prop that cannot change without a full page reload.
+   * Fired once, the moment the code is confirmed, carrying the address that
+   * was just saved. The flow keeps rendering its own done message after this;
+   * a caller that wants to collapse to a quieter state (the info page's row
+   * does) acts on this callback rather than waiting on a prop that cannot
+   * change without a full page reload.
+   *
+   * The address is handed over for the same reason: the info page's row now
+   * shows it, and after a change the server prop it was rendered from is
+   * stale until the next full load. It is the member's own input, verified by
+   * the service one call earlier, so it matches what storage holds.
    */
-  onAttached?: () => void
+  onAttached?: (address: string) => void
   /**
    * Override the two lines that read as Orbit speaking in the first person.
    * Both default to task 5's settled copy; pass these only when the caller
@@ -282,7 +288,7 @@ export default function EmailAttachFlow({
       const { result } = await confirmEmailAttachAction(address, typedCode)
       if (result === "ok") {
         setStep("done")
-        onAttached?.()
+        onAttached?.(address)
         return
       }
       setErrorMsg(confirmErrorMessages[result])
@@ -699,10 +705,17 @@ export default function EmailAttachFlow({
 
             {assurance}
 
+            {/* Centred since 27 Aug 2026, the owner's finding: the sheet's
+                exit sits centred under Save and this one was left-justified,
+                so the same control appeared in two different places depending
+                on which surface you reached it from. Done on this row rather
+                than on the button, which is what leaves the sheet untouched:
+                the sheet draws its own column and never renders this row. */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "center",
                 gap: 12,
                 flexWrap: "wrap",
                 marginTop: 4,

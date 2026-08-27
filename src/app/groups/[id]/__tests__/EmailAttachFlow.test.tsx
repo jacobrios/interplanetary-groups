@@ -340,6 +340,36 @@ describe("EmailAttachFlow, the sheet variant", () => {
     expect(cancel.style.minHeight).toBe("")
   })
 
+  it("centers the inline way out, so both surfaces put it in the same place", () => {
+    // The owner's finding, 27 Aug 2026: the sheet's exit is centred under
+    // Save and the info page's was left-justified, so the same control sat in
+    // two different places depending on how you got to it. Centring happens on
+    // the row that holds it rather than on the button, which is what keeps the
+    // sheet untouched: the sheet draws its own column and never renders this
+    // row. The resend line rides along, which is correct, since the sheet
+    // centres that too.
+    render(<EmailAttachFlow {...baseProps()} />)
+    const row = screen.getByRole("button", { name: "Never mind" }).parentElement!
+
+    expect(row.style.justifyContent).toBe("center")
+    expect(row.style.flexDirection).toBe("")
+  })
+
+  it("leaves the sheet's own way out exactly where it was, full width in a column", () => {
+    // The other half of the change above. If centring had been done on the
+    // shared button instead of on the inline row, this is what would have
+    // moved: the sheet's exit is already centred inside a full-width button,
+    // stacked in a column under Save, and it must stay that way.
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
+    const exit = screen.getByRole("button", { name: "Never mind" })
+    const column = exit.parentElement!
+
+    expect(exit.style.width).toBe("100%")
+    expect(exit.style.justifyContent).toBe("center")
+    expect(column.style.flexDirection).toBe("column")
+    expect(column.style.justifyContent).toBe("")
+  })
+
   it("still carries the resend and the way out together on the code step", async () => {
     render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
     await reachCodeStep()

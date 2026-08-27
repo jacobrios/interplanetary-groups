@@ -10,14 +10,26 @@
 // toward the two-ask limit; showing it costs nothing because a member has to
 // go looking for it rather than being interrupted by it.
 //
-// The address itself is never printed here, not even to its own owner: this
-// component never reads or renders a previously stored address, only the
-// boolean's worth of state that hasVerifiedEmail carries (reminders are on, or
-// they are not). The one exception is CODE_SENT_MESSAGE below, and it is not a
-// break in the rule: it echoes back, within the same interaction, exactly what
-// the member just typed into this browser, never a value fetched or stored.
-// The rule is "emails are never displayed anywhere in the UI"; reading it
-// literally costs nothing and removes an argument later.
+// THE ONE SURFACE IN THE PRODUCT THAT PRINTS A STORED ADDRESS, and it prints
+// it only to the person it belongs to. CLAUDE.md's data-model rule, amended
+// 27 August 2026: never shown to the group or to any other member, always
+// shown to its owner, on this page, and nowhere else. What the page hands down
+// is the VIEWER's address, fetched for the viewer alone, never over the member
+// list this same page renders (see page.tsx, and the guard at
+// src/app/__tests__/no-email-address-on-screen.test.tsx).
+//
+// ~~The address itself is never printed here, not even to its own owner.~~
+// That is what shipped first, on a literal reading of the older rule, and the
+// owner found the cost on his phone: this row offers "Change email", and a
+// member holding more than one address cannot answer "change it from what?".
+// The rule's stated reasoning is entirely about the GROUP seeing an address,
+// and a row only its owner can see is not that.
+//
+// Two other things went with that change, both his findings. "Email reminders
+// are on." is gone rather than reworded: it read as a setting with a switch
+// behind it, and there is no switch anywhere in the product. And it repeated
+// the eyebrow directly above it word for word. The address is the fact; the
+// eyebrow on the page says what it is for.
 //
 // Reuses EmailAttachFlow (lifted out of EmailAskNote for task 6) for the
 // actual request/confirm mechanics, with its own framing: a plain quiet link
@@ -34,7 +46,15 @@ import { useState } from "react"
 import EmailAttachFlow from "../EmailAttachFlow"
 
 interface Props {
-  hasVerifiedEmail: boolean
+  /**
+   * The viewer's OWN verified address, or null when they have none.
+   *
+   * Never anybody else's: the page reads it for the session's user alone. The
+   * prop is the address rather than a boolean because this row's control is
+   * "Change email", and that question cannot be answered without knowing what
+   * is being changed.
+   */
+  emailAddress: string | null
 }
 
 const ADD_PROMPT = "Add an email so you can sign back in as yourself if you ever lose this session."
@@ -94,18 +114,43 @@ const LINK_STYLE = {
   cursor: "pointer",
 } as const
 
-export default function EmailStatusRow({ hasVerifiedEmail }: Props) {
+export default function EmailStatusRow({ emailAddress }: Props) {
   const [expanded, setExpanded] = useState(false)
   // Local rather than re-read from the server prop: the page will not refetch
-  // until the next full load, and a member who just attached an address
-  // should see this row agree with what they were just told, not keep
-  // offering to "add" one that is already saved.
-  const [attached, setAttached] = useState(hasVerifiedEmail)
+  // until the next full load, and a member who just attached or changed an
+  // address should see this row agree with what they were just told, not keep
+  // offering to "add" one that is already saved, and not keep showing the
+  // address they just replaced.
+  const [address, setAddress] = useState(emailAddress)
 
   if (!expanded) {
-    return attached ? (
-      <span style={{ fontSize: "var(--type-meta)", color: "var(--text-secondary)" }}>
-        Email reminders are on.{" "}
+    return address !== null ? (
+      // A column, so the address gets a line of its own. Addresses run long,
+      // this sits inside a 28rem page column, and the address plus the control
+      // on one line was cramped before the address was even in it.
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: "3px",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "var(--type-meta)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-primary)",
+            fontWeight: 500,
+            // An address has no spaces to break at, so a long one has to be
+            // allowed to break mid-string or it widens the page. Same reason
+            // the info card's key column carries overflowWrap.
+            overflowWrap: "anywhere",
+            maxWidth: "100%",
+          }}
+        >
+          {address}
+        </span>
         <button type="button" onClick={() => setExpanded(true)} style={LINK_STYLE}>
           Change email
         </button>
@@ -132,7 +177,7 @@ export default function EmailStatusRow({ hasVerifiedEmail }: Props) {
       }}
     >
       <EmailAttachFlow
-        promptMessage={attached ? CHANGE_PROMPT : ADD_PROMPT}
+        promptMessage={address !== null ? CHANGE_PROMPT : ADD_PROMPT}
         cancelLabel="Never mind"
         onCancel={() => setExpanded(false)}
         // Collapsing here, not just flipping `attached`, is what keeps this
@@ -143,8 +188,13 @@ export default function EmailStatusRow({ hasVerifiedEmail }: Props) {
         // "Change email" short of navigating away and returning. This row
         // is permanent, so it has to stay a place a member can act, not just
         // a place a member once acted.
-        onAttached={() => {
-          setAttached(true)
+        //
+        // The saved address comes back from the flow rather than from a
+        // refetch, because there is no refetch until the next full page load.
+        // It is the member's own keystrokes, confirmed by the service one call
+        // earlier, so it is the same address storage now holds.
+        onAttached={(saved) => {
+          setAddress(saved)
           setExpanded(false)
         }}
         codeSentMessage={CODE_SENT_MESSAGE}

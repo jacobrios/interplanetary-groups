@@ -1,31 +1,54 @@
 // @vitest-environment jsdom
 //
-// THE GUARD FOR: "Emails are never displayed anywhere in the UI, even after
-// capture. Member lists are names only." (CLAUDE.md, data model rules.)
+// THE GUARD FOR: "An email is never shown to the group or to any other member;
+// it is always shown to its owner, on the group info page, and nowhere else.
+// Member lists are names only." (CLAUDE.md, data model rules, amended
+// 27 August 2026.)
 //
 // WHY THE RULE EXISTS, because this is what decides whether a future change is
 // a fix or a break: the email is given to Orbit, not to the group. A member
 // hands it over to get reminders and to get back in from another device.
-// Displaying it repurposes it into something they never agreed to. Until this
-// slice the rule was free, because the product held no addresses. It holds
-// them now, so the rule needs a guard.
+// Displaying it to the group repurposes it into something they never agreed
+// to. Until this slice the rule was free, because the product held no
+// addresses. It holds them now, so the rule needs a guard.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// THE ONE LEGITIMATE ADDRESS ON SCREEN. Read this before "fixing" anything.
+// THE TWO LEGITIMATE ADDRESSES ON SCREEN. Read this before "fixing" anything.
 // ─────────────────────────────────────────────────────────────────────────────
-// There is exactly one place an address appears, and it is not a break in the
-// rule: the address the member JUST TYPED INTO THIS BROWSER, echoed straight
-// back to them so they know which inbox to open ("A code was sent to
+// THE ECHO. The address the member JUST TYPED INTO THIS BROWSER, handed
+// straight back to them so they know which inbox to open ("A code was sent to
 // jesse@example.com"). That string is their own keystrokes. It is never
 // fetched, never read back from storage, and never seen by anyone else.
 //
-// Forbidden is the other thing entirely: an address READ BACK FROM STORAGE and
-// rendered. That is what the rule is about, and it is what every assertion
-// below is aimed at.
+// THE OWNER'S OWN ROW, added 27 August 2026 and the reason the rule moved.
+// The group info page shows the viewer the address the product holds for
+// THEM, read back from storage, on the one row that also offers to change it.
+// The old wording forbade this, and following it literally is what shipped a
+// "Change email" control with nothing on screen saying which address was
+// being changed. The rule's stated reasoning is about THE GROUP seeing an
+// address; a row only its owner can see is not that. So the rule narrowed,
+// and this file narrowed with it rather than being deleted.
 //
-// The distinction is not decoration. The "legitimate echo" test in this file
-// is a POSITIVE CONTROL: it renders the echo on purpose and proves the address
-// detector fires on it. Delete that test and the negative assertions around it
+// Forbidden is everything else, and the shape of "everything else" is the
+// point: an address read back from storage and shown to ANYBODY BUT ITS
+// OWNER, on any surface, by any route. Concretely, and these are what the
+// assertions below are aimed at:
+//
+//   - an address on the group home, the feed, event detail, the roster, or
+//     the sheet, for anyone at all;
+//   - an address fetched for a member OTHER than the viewer, which is the
+//     shape a leak would take on the info page specifically, because that
+//     page renders a member list and already holds every member's user row.
+//
+// That second one is the property this file protects most carefully, because
+// it is the one that keeps the rule's original reasoning true. The address is
+// fetched by a function that takes one user id, it is called in exactly one
+// place, and it is called there with the VIEWER's id. All three are asserted
+// against the real source in layer 2.
+//
+// The distinction is not decoration. Both legitimate cases are POSITIVE
+// CONTROLS in this file: they render an address on purpose and prove the
+// detector fires on it. Delete either and the negative assertions around them
 // stop meaning anything, because a detector that finds nothing anywhere is
 // indistinguishable from a detector that is broken.
 //
@@ -44,11 +67,25 @@
 //   It cannot catch an address a server page fetched and handed down, because
 //   the fixtures here are ours, not the page's.
 //
-//   LAYER 2 (storage). The reason no page CAN hand one down: the address is
-//   never read back out of the database, anywhere in the product, and the User
-//   row the pages do fetch whole has no address on it. Those two facts are
-//   asserted against the real source and the real schema, so widening either
-//   one reddens this file.
+//   LAYER 2 (storage). The reason no page CAN hand one down. It used to rest
+//   on "the address is never read back out of the database, anywhere." That
+//   is no longer true, and narrowing it rather than deleting it is the whole
+//   job of this layer now. It rests on four facts instead, each asserted
+//   against the real source and the real schema:
+//
+//     1. There are exactly TWO ContactMethod reads in the product, both in
+//        src/lib/auth/email-ask.ts. One selects only the row id and can
+//        therefore return a boolean and nothing else. Only the other can see
+//        an address.
+//     2. The one that can see an address takes a single user id and scopes
+//        its query to it, so it cannot be handed a roster.
+//     3. It has exactly one call site in the whole product, the group info
+//        page, and the argument there is the viewer's own id, taken from the
+//        session. Any second call site reddens this file and gets a decision
+//        rather than a default.
+//     4. The User row the pages fetch whole still has no address column, so
+//        `include: { user: true }` still cannot carry one, and the
+//        contactMethods relation is still pulled nowhere.
 //
 // What remains protected only structurally, with no test on it. Named here
 // rather than left for a reader to work out, because a guard trusted past what
@@ -342,17 +379,22 @@ describe("no address reaches a rendered surface", () => {
     expect(addressesOnScreen(container)).toEqual([])
   })
 
-  it("group info's email row: not while collapsed, and not to the address's own owner", () => {
-    // hasVerifiedEmail true is the case the rule is really about. This member
-    // HAS an address on file. The row still says only that reminders are on.
-    const { container } = render(<EmailStatusRow hasVerifiedEmail={true} />)
+  it("group info's email row, for a member with no address on file", () => {
+    // Nothing to show and nothing to leak. Kept because it is the state every
+    // member is in until they attach one, so it is the row most people see.
+    const { container } = render(<EmailStatusRow emailAddress={null} />)
     expect(addressesOnScreen(container)).toEqual([])
   })
 
   it("group info's email row expanded, before anything is typed", () => {
-    // Expanding is where a "prefill what we already have" change would land,
-    // and it is why the detector reads input values and not just text.
-    const { container } = render(<EmailStatusRow hasVerifiedEmail={true} />)
+    // The address deliberately leaves the screen while the flow is open: the
+    // collapsed row is replaced by the box, and nothing prefills the field.
+    // This is where a "helpfully remember their address" change would land,
+    // and it is why the detector reads input values and not just text. It
+    // still asserts an empty screen even though the row above now prints an
+    // address, which is what makes it a real assertion here rather than a
+    // restatement of the collapsed case.
+    const { container } = render(<EmailStatusRow emailAddress="jesse@example.com" />)
     fireEvent.click(screen.getByRole("button", { name: "Change email" }))
     expect(addressesOnScreen(container)).toEqual([])
   })
@@ -360,9 +402,24 @@ describe("no address reaches a rendered surface", () => {
 
 // ─── The positive control ────────────────────────────────────────────────────
 
-describe("the one legitimate address, which is what proves the detector works", () => {
+describe("the two legitimate addresses, which are what prove the detector works", () => {
+  it("shows the viewer their OWN stored address on the group info row, and the detector sees it", () => {
+    // THE ONE SURFACE. Read back from storage and rendered, which the old
+    // rule forbade outright, and it is deliberate: this row offers to change
+    // the address, and a member holding more than one address cannot answer
+    // "change it from what?" without seeing it. Only its owner ever renders
+    // this row, because the page fetches it for the viewer alone (layer 2).
+    //
+    // Its second job here is to be a positive control on the allowed
+    // surface. Every empty array above would also be produced by a detector
+    // that never matches; this one is an address that IS on screen, printed
+    // by product code rather than typed by a fixture.
+    const { container } = render(<EmailStatusRow emailAddress="jesse@example.com" />)
+    expect(addressesOnScreen(container)).toEqual(["jesse@example.com"])
+  })
+
   it("echoes back the address just typed into this browser, and the detector sees it", async () => {
-    const { container } = render(<EmailStatusRow hasVerifiedEmail={false} />)
+    const { container } = render(<EmailStatusRow emailAddress={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     fireEvent.change(screen.getByLabelText("Your email address"), {
       target: { value: "jesse@example.com" },
@@ -381,7 +438,7 @@ describe("the one legitimate address, which is what proves the detector works", 
   })
 
   it("also sees an address sitting in the field itself, which is the detector's other arm", () => {
-    const { container } = render(<EmailStatusRow hasVerifiedEmail={false} />)
+    const { container } = render(<EmailStatusRow emailAddress={null} />)
     fireEvent.click(screen.getByRole("button", { name: "Add your email" }))
     fireEvent.change(screen.getByLabelText("Your email address"), {
       target: { value: "jesse@example.com" },
@@ -430,11 +487,12 @@ describe("the one legitimate address, which is what proves the detector works", 
   })
 })
 
-// ─── Layer 2: no page can hand an address to a component ─────────────────────
+// ─── Layer 2: only one page can obtain an address, only for the viewer ───────
 //
 // The render layer above uses our own fixtures, so it cannot see an address a
-// server page fetched and passed down. These two assertions are why no page
-// can: there is nothing to fetch.
+// server page fetched and passed down. These assertions are why no page except
+// the group info page can obtain one at all, and why the one that can obtains
+// it for the viewing member and nobody else.
 
 const SRC = path.resolve(__dirname, "../..")
 const REPO = path.resolve(__dirname, "../../..")
@@ -457,13 +515,28 @@ function braceBlockAfter(source: string, openerIndex: number): string {
   throw new Error("unbalanced braces")
 }
 
-describe("the address is never read back out of storage", () => {
-  it("has exactly one read of ContactMethod in the whole product, and it selects only the id", () => {
-    // The whole rule rests on this. An address that is never read back cannot
-    // be passed to a component, cannot be logged, and cannot be rendered by a
-    // server page this repo has no way to test. A second read site is not
+const EMAIL_ASK = "src/lib/auth/email-ask.ts"
+const INFO_PAGE = "src/app/groups/[id]/info/page.tsx"
+
+/** The `findFirst` call block belonging to the named exported function. */
+function contactMethodQueryIn(source: string, functionName: string): string {
+  const fn = source.indexOf(`export async function ${functionName}(`)
+  expect(fn).toBeGreaterThan(-1)
+  const call = source.indexOf("prisma.contactMethod.findFirst(", fn)
+  expect(call).toBeGreaterThan(-1)
+  return braceBlockAfter(source, call)
+}
+
+describe("only one query can see an address, and only for one user at a time", () => {
+  it("has exactly two reads of ContactMethod in the whole product, both in the auth seam", () => {
+    // Most of the rule still rests on this. An address that is never read back
+    // cannot be passed to a component, cannot be logged, and cannot be
+    // rendered by a server page this repo has no way to test. There are now
+    // two reads rather than one, because the group info page has to show a
+    // member the address it is offering to change. A THIRD read site is not
     // automatically a leak, but it is the moment somebody has to think about
-    // it again, so it reddens here and gets a decision rather than a default.
+    // this again, so it reddens here and gets a decision rather than a
+    // default.
     const files = readAllSourceFiles()
     const readOps = /\b(?:prisma|tx)\.contactMethod\.(findFirst|findUnique|findUniqueOrThrow|findFirstOrThrow|findMany|count|aggregate|groupBy)\s*\(/g
 
@@ -471,14 +544,72 @@ describe("the address is never read back out of storage", () => {
     for (const [relative, source] of files) {
       for (const match of source.matchAll(readOps)) sites.push(`${relative}:${match[1]}`)
     }
-    expect(sites).toEqual(["src/lib/auth/email-ask.ts:findFirst"])
+    expect(sites).toEqual([`${EMAIL_ASK}:findFirst`, `${EMAIL_ASK}:findFirst`])
+  })
 
-    const source = read("src/lib/auth/email-ask.ts")
-    const call = braceBlockAfter(source, source.indexOf("prisma.contactMethod.findFirst("))
-    // Narrowed to the id on purpose: hasVerifiedEmail returns a boolean, so
-    // the only thing that ever crosses out of this query is "yes" or "no".
+  it("keeps the boolean read blind to the address, so the group home cannot obtain one", () => {
+    // hasVerifiedEmail feeds the group home's sheet, which must never see an
+    // address. Narrowed to the id on purpose: the only thing that crosses out
+    // of this query is "yes" or "no", so widening the select is the change
+    // that would hand the group home something to leak.
+    const call = contactMethodQueryIn(read(EMAIL_ASK), "hasVerifiedEmail")
     expect(call).toMatch(/select:\s*\{\s*id:\s*true\s*,?\s*\}/)
     expect(call).not.toMatch(/value/)
+  })
+
+  it("scopes the address read to one user id, so it can never be run over a roster", () => {
+    // THE ASSERTION THIS WHOLE FILE TURNS ON, along with the call-site one
+    // below. The info page renders a member list and already holds every
+    // member's user row, so "fetch the address" and "fetch everyone's
+    // addresses" are one careless edit apart. Two things stop that: the
+    // function takes a single scalar user id, so there is no list to hand it,
+    // and its where clause is scoped to that id.
+    const source = read(EMAIL_ASK)
+    expect(source).toMatch(
+      /export async function verifiedEmailAddress\(\s*userId: string,?\s*\): Promise<string \| null>/
+    )
+    const call = contactMethodQueryIn(source, "verifiedEmailAddress")
+    expect(call).toMatch(/where:\s*\{\s*userId\s*,/)
+    expect(call).toMatch(/select:\s*\{\s*value:\s*true\s*,?\s*\}/)
+    // No findMany dressed up as a scoped read, and no id list smuggled in.
+    expect(call).not.toMatch(/userId:\s*\{/)
+    expect(call).not.toMatch(/\bin:\s*/)
+  })
+
+  it("calls the address read in exactly one place, with the viewer's own id", () => {
+    // The other half of the scoping proof, and it is what makes the render
+    // test's allowed address honest: the row can only ever hold the viewer's
+    // own address, because that is the only id this is ever called with.
+    const callSites = readAllSourceFiles()
+      .filter(([relative]) => relative !== EMAIL_ASK)
+      .flatMap(([relative, source]) =>
+        Array.from(source.matchAll(/verifiedEmailAddress\((.*?)\)/g)).map(
+          (m) => `${relative}:${m[1]}`
+        )
+      )
+    expect(callSites).toEqual([`${INFO_PAGE}:viewer.id`])
+
+    // `viewer` is the session's own user, not a loop variable that happens to
+    // be named well. Without this line the assertion above would be satisfied
+    // by a `viewer` rebound inside a members.map, which is precisely the leak.
+    const page = read(INFO_PAGE)
+    expect(page).toMatch(/const viewer = await getCurrentUser\(\)/)
+    expect(page).not.toMatch(/\.map\([^)]*\bviewer\b/)
+  })
+
+  it("hands the address to exactly one component prop, on the one allowed surface", () => {
+    // Layer 1 proves the components do not print an address. This proves no
+    // page hands one to a component that would. The prop exists on
+    // EmailStatusRow and nowhere else, and it is passed once.
+    const propSites = readAllSourceFiles().flatMap(([relative, source]) =>
+      Array.from(source.matchAll(/emailAddress=\{(.*?)\}/g)).map((m) => `${relative}:${m[1]}`)
+    )
+    expect(propSites).toEqual([`${INFO_PAGE}:viewerEmailAddress`])
+
+    // And the fetched address goes nowhere else on that page: it is declared,
+    // and it is handed to that one prop. Two mentions, no third.
+    const page = read(INFO_PAGE)
+    expect(page.match(/viewerEmailAddress/g)).toHaveLength(2)
   })
 
   it("never pulls the contactMethods relation onto a User a page has fetched", () => {

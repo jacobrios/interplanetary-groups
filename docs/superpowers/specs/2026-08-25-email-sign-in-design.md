@@ -12,7 +12,12 @@ written.**
 ### Settled, do not relitigate
 
 Anonymous-first stays; email upgrades an identity, it never gates the front
-door. Emails are never displayed in the UI, to anyone, including their owner.
+door. ~~Emails are never displayed in the UI, to anyone, including their owner.~~
+(Struck 27 August 2026, after the owner ran the built product on his phone. The
+rule now reads: never shown to the group or to any other member, always shown to
+its owner, on the group info page, and nowhere else. See the note on task 6
+below, which is where the literal reading was written down and where it cost
+something.)
 Supabase does auth only and its Data API stays off. Production and dev-test are
 never crossed. Optional forever, asked twice. A one-time code, not a link. No
 merge for identities that already duplicated. Full reasoning in the two round
@@ -370,10 +375,21 @@ member with a verified email, or for a member at count 2.
 ## Task 6. The permanent affordance on group info
 
 A quiet row. For a member with no email: a way to add one. For a member with
-one: "Email reminders are on," plus a way to change it. **The address itself is
+one: ~~"Email reminders are on," plus a way to change it. **The address itself is
 never printed, even to its owner.** The rule says emails are never displayed
 anywhere in the UI; reading it literally costs nothing and removes an argument
-later.
+later.~~
+
+*Wrong, and this is the exact sentence that was wrong (annotated 27 August 2026,
+after the owner ran it on his phone). Reading it literally cost something: the
+row said "Change email" and printed no address, so a member holding more than one
+address could not tell which he was replacing. "Email reminders are on" was a
+false affordance besides, reading like a switch that can be turned off when there
+is none, and it repeated the eyebrow directly above it. What ships instead: the
+eyebrow reads EMAIL FOR SIGN-IN AND REMINDERS, the owner's own address sits on
+its own line under it, and "Change email" follows. The rule itself was amended in
+CLAUDE.md and build-notes §3 the same day, because the reasoning behind it is
+about the group seeing an address and a row only its owner can see is not that.*
 
 Styling follows the page's existing quiet text links (`ManageMembers`,
 `ResetInviteLink`), not a pill, and never teal.
