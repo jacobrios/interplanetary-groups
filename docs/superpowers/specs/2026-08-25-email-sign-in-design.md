@@ -607,6 +607,30 @@ nobody can stand behind is worse than copy that stays general.
 
 # Paused 26 August 2026, and the one question still open
 
+**Annotation, 26 August 2026 (slice resumed): the preview environment is
+abandoned, and this section's verification claim no longer holds.** The
+paragraph below says the pause is to build a second public copy of the product
+wired to dev-test, and calls that this slice's verification. That work will not
+happen: **no preview environment, no staging URL, no third database.** Decided
+with the owner on 26 August 2026 after talking it through, on four reasons.
+First, the product's only users are the owner and one friend, so the audience a
+staging URL exists to protect does not exist yet. Second, a group either of them
+would actually want to keep belongs on production, not on a copy that gets
+thrown away, so the realistic test is the real one. Third, the owner already
+runs the manual QA script on his own phone against every PR before merging,
+which is precisely the gate a staging environment would provide, and it is
+already in the process. Fourth, the inbox test this slice actually needs is
+reachable from the owner's laptop against dev-test, which this document's own
+"How this slice will be verified" section already says, because Supabase's
+built-in sender delivers to an organisation member.
+
+**What replaces it.** The owner tests the whole email arc himself, locally,
+using two of his own email addresses and his phone as the second device. A
+second person who is not in the Supabase organisation is tested on production
+after the merge, which is what task 11 already required and still does. Nothing
+else about the pause changes: task 1 is done, tasks 2 through 11 are untouched,
+and the open question below is still open.
+
 **Paused at a clean seam, not abandoned.** Task 1 is done and its findings are
 recorded above. Tasks 2 through 11 are untouched and nothing is half-built. The
 pause is to build a **preview environment** first: a second public copy of the
@@ -661,5 +685,10 @@ chosen when the slice paused.
 
 Everything settled is above in this document: the seven opening decisions, the
 domain, the eleven-task plan, task 1's six findings, and the ask's triggers and
-copy with the owner's two overrules recorded. **The branch was never pushed**, so
-this file is the only copy of all of it.
+copy with the owner's two overrules recorded. ~~**The branch was never pushed**, so
+this file is the only copy of all of it.~~
+
+*Corrected 26 August 2026 (slice resumed): the branch is on GitHub. It was
+pushed as `origin/email-sign-in` with nine commits, so this file is no longer
+the only copy and the machine is no longer a single point of failure for it.
+Everything above about what must not be re-derived still stands.*
