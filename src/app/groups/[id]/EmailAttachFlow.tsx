@@ -158,6 +158,30 @@ export interface EmailAttachFlowProps {
    */
   variant?: "inline" | "sheet"
   /**
+   * The way off the done step, for a caller whose shell does not have one.
+   *
+   * REQUIRED IN PRACTICE FOR variant="sheet", and the reason is a bug this
+   * branch shipped and a review caught by rendering the component rather than
+   * reading it. The done step hides the form, Save, the exit and the resend,
+   * and nothing here unmounts the caller's shell. Inside an inline row that is
+   * fine, and it is how the group info page still behaves: no scrim, no scroll
+   * lock, the rest of the page is right there. Inside a modal the identical
+   * code left a member who had just SUCCEEDED sitting in a sheet with a scroll
+   * lock, a scrim eating taps, focus pinned to the sheet and not one control on
+   * it, on the success path of the product's flagship flow. The only way out
+   * was a tap on the dimmed strip above the sheet, which is precisely the
+   * gesture round 11 called a learned pattern rather than a legible one.
+   *
+   * Not solved by closing automatically on onAttached: that flashes the sheet
+   * away before the thank-you can be read. The member leaves when they have
+   * read it.
+   *
+   * Optional in the type rather than required, because the inline variant must
+   * NOT render this control and a required prop would push a meaningless
+   * callback onto the caller that does not want it.
+   */
+  onDone?: () => void
+  /**
    * Lets the caller put Orbit's line inside a box of its own while the flow
    * keeps owning WHICH line it is (the prompt, then the code-sent line, then
    * the thank-you). The sheet needs the labeled-note grammar around it; the
@@ -176,6 +200,7 @@ export default function EmailAttachFlow({
   requestErrorMessages = DEFAULT_REQUEST_ERROR,
   badCodeMessage = DEFAULT_BAD_CODE_MESSAGE,
   variant = "inline",
+  onDone,
   messageSlot,
 }: EmailAttachFlowProps) {
   const fieldId = useId()
@@ -548,6 +573,38 @@ export default function EmailAttachFlow({
         </p>
       )}
 
+      {/* The terminal control. Sheet only, and only when the caller supplied a
+          way out: see onDone above for the trap this closes. Treated like the
+          exit rather than like Save, because it is a word that says where the
+          tap goes and teal belongs to Save alone. */}
+      {step === "done" && isSheet && onDone && (
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={onDone}
+            style={{
+              background: "none",
+              border: "none",
+              padding: "4px 8px",
+              width: "100%",
+              minHeight: 48,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--text-secondary)",
+              fontSize: "var(--type-body)",
+              fontWeight: 600,
+              textDecoration: "underline",
+              textUnderlineOffset: "4px",
+              textDecorationThickness: "1.5px",
+              cursor: "pointer",
+            }}
+          >
+            Back to the group
+          </button>
+        </div>
+      )}
+
       {step !== "done" &&
         (isSheet ? (
           <form
@@ -580,9 +637,12 @@ export default function EmailAttachFlow({
               {assurance}
             </div>
 
-            {/* `.ea-actions`: Save, then the resend when a code is in the air,
-                then the one worded exit last, which is the reading order the
-                round settled on. */}
+            {/* `.ea-actions`: Save, then the one worded exit directly under it,
+                then the resend line when a code is in the air. Round 10 puts
+                the exit immediately below Save, and `secondaryControls` renders
+                the exit before the resend, so that is the real DOM order on
+                every step. (This comment previously claimed the resend came
+                second and the exit last, which the code never did.) */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {save}
               {secondaryControls}

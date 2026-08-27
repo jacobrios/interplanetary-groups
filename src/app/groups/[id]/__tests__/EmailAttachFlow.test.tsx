@@ -348,6 +348,36 @@ describe("EmailAttachFlow, the sheet variant", () => {
     expect(screen.getByRole("button", { name: "Never mind" })).toBeDefined()
   })
 
+  it("hands the sheet a worded way out of the done step, which inline must not gain", async () => {
+    // Asymmetric on purpose. The sheet is a modal with a scroll lock and a
+    // scrim, so a done step with no control traps the member; the group info
+    // page's row sits on an ordinary scrolling page with the rest of the page
+    // right there, and its done state is correct as it stands.
+    const onDone = vi.fn()
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet", onDone })} />)
+    await reachCodeStep()
+    fireEvent.change(screen.getByLabelText("The code from your email"), {
+      target: { value: "12345678" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await screen.findByText(DEFAULT_DONE_MESSAGE)
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to the group" }))
+    expect(onDone).toHaveBeenCalledTimes(1)
+  })
+
+  it("leaves the inline done step exactly as it shipped, with no terminal control", async () => {
+    render(<EmailAttachFlow {...baseProps({ onDone: vi.fn() })} />)
+    await reachCodeStep()
+    fireEvent.change(screen.getByLabelText("The code from your email"), {
+      target: { value: "12345678" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await screen.findByText(DEFAULT_DONE_MESSAGE)
+
+    expect(screen.queryByRole("button", { name: "Back to the group" })).toBeNull()
+  })
+
   it("lets the caller wrap Orbit's line in its own box, at every step", async () => {
     // The sheet needs the message inside Orbit's labeled note (mark, eyebrow,
     // copy) while the flow keeps owning which message it is. The slot is how

@@ -320,6 +320,12 @@ export default function EmailAskNote({
             cancelLabel={dismissLabel}
             onCancel={handleDecline}
             variant="sheet"
+            // The way off the done step. It writes NOTHING: saving an address
+            // answers the offer by succeeding, and counting a decline here
+            // would spend an ask on the one member who said yes. Without it the
+            // done step has no control at all and the scroll lock plus the
+            // scrim trap them; see EmailAttachFlow's onDone for the full story.
+            onDone={handleLeaveQuietly}
             messageSlot={(message) => (
               // Round 10's labeled note. Grid, never a float: the mark occupies
               // its own column and spans both rows, so every line of copy

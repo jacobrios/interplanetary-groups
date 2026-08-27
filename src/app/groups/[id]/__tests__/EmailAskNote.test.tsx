@@ -320,14 +320,40 @@ describe("EmailAskNote, the sheet shell", () => {
     before.remove()
   })
 
-  it("stops the page behind it scrolling, and gives the scroll back after", async () => {
-    document.body.style.overflow = ""
+  it("stops the page behind it scrolling, and gives back exactly what it took", async () => {
+    // "scroll" rather than "", and that is the whole test. Written with an
+    // empty starting value it passed just as happily against an implementation
+    // that hardcodes "" on the way out, which is a different decision from
+    // restoring what was there. A page that had set its own overflow gets it
+    // back.
+    document.body.style.overflow = "scroll"
     const { container } = render(<EmailAskNote {...firstAskProps()} />)
     expect(document.body.style.overflow).toBe("hidden")
 
     fireEvent.click(screen.getByRole("button", { name: "Not now" }))
     await waitFor(() => expect(container.innerHTML).toBe(""))
-    expect(document.body.style.overflow).toBe("")
+    expect(document.body.style.overflow).toBe("scroll")
+    document.body.style.overflow = ""
+  })
+
+  it("grows with content instead of clipping, which is what keeps Save reachable", () => {
+    // The 65% is a FLOOR. At an enlarged device text size the sheet grows to
+    // the page and the pad scrolls inside it; a fixed height, or a pad that
+    // did not scroll, would push Save off the bottom of the screen and there
+    // is no other way to finish this flow.
+    render(<EmailAskNote {...firstAskProps()} />)
+    const dialog = sheet()
+
+    expect(dialog.style.height).toBe("")
+    expect(dialog.style.minHeight).toBe("65%")
+    expect(dialog.style.maxHeight).toBe("100%")
+
+    const pad = dialog.querySelector<HTMLElement>("div[style*=\"overflow-y\"]")
+    expect(pad).not.toBeNull()
+    expect(pad!.style.overflowY).toBe("auto")
+    // minHeight 0 is what lets the pad shrink below its content and actually
+    // scroll inside a flex column, rather than pushing the sheet taller.
+    expect(pad!.style.minHeight).toBe("0px")
   })
 })
 
@@ -372,6 +398,69 @@ describe("EmailAskNote, what each way out costs", () => {
 
     expect(screen.getByRole("dialog")).toBeDefined()
     expect(dismissMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("EmailAskNote, once the address is saved", () => {
+  // THE TRAP THIS CLOSES, found by rendering rather than by reading. The done
+  // step hides the form, Save, the exit and the resend, and nothing unmounts
+  // the sheet, so a member who succeeded was left inside a modal with a scroll
+  // lock, a scrim eating taps, focus pinned to the sheet, and zero controls.
+  // The only way out was the dimmed strip above the sheet: a gesture round 11
+  // classified as a learned pattern rather than a legible one, on a step where
+  // deleting the X had already left one worded exit as the whole argument.
+  //
+  // The inline row on the group info page must NOT gain this control, and
+  // EmailAttachFlow.test.tsx holds it to that: no scrim, no lock, the page is
+  // right there.
+
+  async function reachDone() {
+    fireEvent.change(screen.getByLabelText("Your email address"), {
+      target: { value: "sam@example.com" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    const code = await screen.findByLabelText("The code from your email")
+    fireEvent.change(code, { target: { value: "12345678" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await screen.findByText("Thanks, that's saved. You can get back in with your email any time.")
+  }
+
+  it("never leaves the sheet with no control on it", async () => {
+    render(<EmailAskNote {...firstAskProps()} />)
+    await reachDone()
+
+    // Deliberately not a match on the label: the label is the coordinator's
+    // choice and may be reworded. What must never be true again is zero.
+    const controls = screen.getByRole("dialog").querySelectorAll("button, a[href]")
+    expect(controls.length).toBeGreaterThan(0)
+  })
+
+  it("offers a worded way back to the group, and charges nothing for it", async () => {
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+    await reachDone()
+
+    const back = screen.getByRole("button", { name: "Back to the group" })
+    expect(back.textContent).toMatch(/^[A-Za-z ]{4,}$/)
+
+    fireEvent.click(back)
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    // Saving an address answers the offer by succeeding. Counting a decline
+    // here would spend an ask on the one member who said yes.
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+
+  it("does not flash the thank-you away before it can be read", async () => {
+    // The tempting one-line fix is onAttached={() => setAnswered(true)}, which
+    // closes the sheet the instant the code is confirmed. The member never
+    // reads what happened. The control below is the fix instead: they leave
+    // when they have read it.
+    render(<EmailAskNote {...firstAskProps()} />)
+    await reachDone()
+
+    expect(screen.getByRole("dialog")).toBeDefined()
+    expect(
+      screen.getByText("Thanks, that's saved. You can get back in with your email any time.")
+    ).toBeDefined()
   })
 })
 

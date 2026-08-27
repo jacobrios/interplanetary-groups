@@ -5115,3 +5115,44 @@ which is the same shape as this branch's already-recorded self-comparing copy te
 **Nothing in this slice has been seen rendered by anyone.** No dev server, by standing
 instruction. Every geometry here is ported arithmetic from the handoff CSS, and the owner's
 phone is the only real verification.
+
+**Postscript, same day, round 1 of review: the success path was a trap, and the inline
+version is why nobody saw it.** The done step hides the form, Save, the exit and the
+resend, and nothing unmounts the sheet, so a member who had just successfully saved their
+address sat inside a modal with a scroll lock, a scrim eating taps, focus pinned to the
+sheet by the zero-focusables branch, and not one control on it. The only way out was a tap
+on the dimmed strip above the sheet, which is exactly the gesture round 11 classified as a
+learned pattern rather than a legible one, on the step where deleting the X had already
+left a single worded exit as the whole argument.
+
+**The code was unchanged from the inline note, and that is the lesson worth keeping.** As
+a box above the composer, a control-less done state cost nothing: it could be ignored and
+the rest of the screen still worked. The same code inside a modal traps the member on the
+flagship flow's success path. **Moving an element into a modal re-prices every state it
+has**, and the states nobody looks at are the terminal ones. It was found by rendering the
+component through the real flow rather than by reading it, which is the second time on this
+branch that rendering beat reading.
+
+The fix is a worded control, "Back to the group", on the done step of the sheet variant
+only, wired to a callback that writes nothing: saving an address answers the offer by
+succeeding, and counting a decline there would spend an ask on the one member who said yes.
+Deliberately NOT solved by closing automatically once the code is confirmed, which flashes
+the thank-you away before it can be read; a test holds that shut. The group info page's
+inline row must not gain the control and does not: no scrim, no scroll lock, the rest of
+the page is right there. The label is the build controller's choice rather than the
+owner's, and it is a one-line change if he wants different words.
+
+Three smaller things from the same round. A comment claimed the actions column ran Save,
+resend, exit, when the code has always rendered Save, exit, resend; the comment was wrong
+and was fixed to describe the code, and it is the one artefact on this branch that reads as
+reconstructed rather than written, which is a useful thing to know about recovering a lost
+file. The overflow-restore test set the body's overflow to `""` before rendering, so it
+could not tell restore-what-was-there from hardcode-`""`; it sets `"scroll"` now, and a
+mutation proves it. And nothing pinned "grows, never clips", so the 65% floor, the
+`max-height: 100%` and the scrolling pad now have a test, because that requirement is what
+keeps Save on the screen at accessibility text sizes.
+
+**One thing that cannot be fixed here and is going on the phone QA script instead.** On
+iOS Safari the layout viewport does not shrink for the keyboard, so focusing the field may
+put Save and the worded exit behind it. Nothing in this element uses `dvh` or
+`visualViewport`. Named as a check rather than guessed at.
