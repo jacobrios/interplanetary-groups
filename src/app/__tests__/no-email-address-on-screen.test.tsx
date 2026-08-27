@@ -138,10 +138,33 @@ const PLACEHOLDER_EXAMPLE = "you@example.com"
  *
  * innerHTML rather than textContent because an address can hide in an
  * attribute (a title, an aria-label, a mailto href) and still be on screen or
- * read aloud. Input values are collected separately because React sets the DOM
- * property on a controlled input without reflecting it into the attribute, so
- * innerHTML alone would miss a prefilled field, which is precisely the shape a
- * "helpfully remember their address" change would take.
+ * read aloud.
+ *
+ * ~~Input values are collected separately because React sets the DOM property
+ * on a controlled input without reflecting it into the attribute, so innerHTML
+ * alone would miss a prefilled field, which is precisely the shape a
+ * "helpfully remember their address" change would take.~~
+ *
+ * WRONG, struck 27 Aug 2026, and the correction matters more than the original
+ * claim did. React DOES reflect a controlled input's value into the serialized
+ * markup, so for a React-rendered field THE TWO ARMS AGREE: innerHTML alone
+ * already catches a prefilled address, and the field-value arm is redundant
+ * there rather than load-bearing. Do not cite this helper as proof that a
+ * prefilled field needs the second arm to be caught; it does not.
+ *
+ * What the field-value arm is actually for, which is narrower: the one case
+ * where the arms genuinely disagree, a value set as a DOM property with no
+ * corresponding attribute. That never reaches the markup, and it is the shape
+ * a value set through a ref, or by a future React, would take. The test named
+ * "finds a field value that never reaches the markup" builds exactly that case
+ * and asserts both halves, so the relationship is evidence in this file rather
+ * than a claim in this comment. The test named "also sees an address sitting
+ * in the field itself" is where the strike above was discovered, by asserting
+ * the false version and watching it go red.
+ *
+ * Referenced by name and never by number: the tests here are not numbered, and
+ * an ordinal in a comment goes silently wrong the first time somebody inserts
+ * a case above it. That already happened once while writing this correction.
  */
 function addressesOnScreen(container: HTMLElement): string[] {
   const fieldValues = Array.from(container.querySelectorAll("input, textarea"))
