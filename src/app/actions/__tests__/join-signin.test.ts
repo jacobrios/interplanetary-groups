@@ -128,14 +128,31 @@ describe("confirmJoinSignInAction, the branches that do not sign anyone in", () 
     expect(joinGroupByInvite).not.toHaveBeenCalled()
   })
 
-  it("still reports no_user when signing the orphan session out fails", async () => {
+  it("still reports no_user when signing the orphan session out throws", async () => {
     confirmSignInCode.mockResolvedValue({ result: "no_user" })
     signOut.mockRejectedValue(new Error("network"))
 
     expect(await confirmJoinSignInAction("sam@example.com", "12345678", "tok")).toEqual({
       result: "no_user",
     })
-    expect(errorLog).toHaveBeenCalled()
+    expect(errorLog.mock.calls[0]?.[0]).toContain("the orphan cookie is still live")
+  })
+
+  // signOut REPORTS a service failure rather than throwing it, so a try/catch
+  // alone would let this fail in silence. Silence here is the worst kind on
+  // this branch: the cookie survives, the person is told to join as someone
+  // new, and the next join welds a brand new member onto the identity we could
+  // not account for, which is precisely what signing out exists to prevent.
+  it("still reports no_user, and says so, when signing out reports an error rather than throwing", async () => {
+    confirmSignInCode.mockResolvedValue({ result: "no_user" })
+    signOut.mockResolvedValue({
+      error: { name: "AuthApiError", status: 500, message: "service down" },
+    })
+
+    expect(await confirmJoinSignInAction("sam@example.com", "12345678", "tok")).toEqual({
+      result: "no_user",
+    })
+    expect(errorLog.mock.calls[0]?.[0]).toContain("the orphan cookie is still live")
   })
 })
 

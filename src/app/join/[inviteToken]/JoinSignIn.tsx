@@ -99,15 +99,23 @@ const errorStyle = {
 } as const
 
 // A quiet text link, never a button: soft declines everywhere, because getting
-// this choice wrong has to stay cheap to undo. alignSelf keeps it from
-// stretching across the flex column, the same thing every other bare button in
-// this codebase has to set.
+// this choice wrong has to stay cheap to undo. 44px is the tap-target floor
+// the card-region-height slice set.
+//
+// Deliberately no alignSelf, unlike the same kind of link on the group info
+// page, and the difference is the parent rather than a preference. That one
+// sits in a flex COLUMN, where the default stretch would run a bare button
+// across the full width and centre its text, so it has to opt out. These two
+// sit in the row at the bottom of this panel, which already sets alignItems
+// "center". Nothing there can stretch, so an alignSelf would not be doing the
+// job that comment claimed; it would be overriding the row's own centring and
+// top-aligning the link against the countdown sentence beside it, which is a
+// visible inconsistency bought for nothing.
 const linkStyle = {
   background: "none",
   border: "none",
   padding: "4px 2px",
   minHeight: 44,
-  alignSelf: "flex-start",
   color: "var(--text-secondary)",
   fontSize: "var(--type-meta)",
   textDecoration: "underline",
@@ -168,11 +176,17 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
     if (!typedCode) return
     startTransition(async () => {
       setErrorMsg(null)
-      // There is no success branch to write. On success this action redirects
-      // into the group, so the only thing that ever comes back is a reason it
-      // did not.
-      const { result } = await confirmJoinSignInAction(address, typedCode, inviteToken)
-      setErrorMsg(CONFIRM_ERROR[result])
+      // There is no success branch to write, and this guard is what makes that
+      // true rather than a crash. On success the action redirects into the
+      // group, and a redirecting server action resolves its promise with no
+      // value at all for a direct caller, so the only thing that ever comes
+      // back here is a reason it did not. Destructuring unguarded throws a
+      // TypeError on the one path this whole slice exists for; the same guard
+      // is why LeaveGroupButton, the codebase's only other client caller of a
+      // redirecting action, reads its result optionally.
+      const outcome = await confirmJoinSignInAction(address, typedCode, inviteToken)
+      if (!outcome) return
+      setErrorMsg(CONFIRM_ERROR[outcome.result])
     })
   }
 

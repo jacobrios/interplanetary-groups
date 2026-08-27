@@ -34,6 +34,29 @@ import {
 export type ConfirmJoinSignInResult = "bad_code" | "no_user" | "service_error" | "join_failed"
 
 /**
+ * One log for both ways signing out can fail, because the consequence is
+ * identical and it is not the obvious one.
+ *
+ * What survives a failed sign-out is a live session cookie the app cannot
+ * resolve to any person, on the one branch that exists to get rid of it. The
+ * person is told to join as someone new, joinGroupAction skips
+ * signInAnonymously because a session exists, and join.ts then welds a brand
+ * new member onto the identity we could not account for: the exact outcome
+ * signing out prevents, happening quietly. So the message names the cookie
+ * rather than the call, because whoever reads this line later needs to know
+ * what is still true, not which function returned an error.
+ *
+ * It changes nothing about what the member is told. Either way we could not
+ * sign them in, and the copy for that is already the honest one.
+ */
+function logSignOutFailure(cause: unknown) {
+  console.error(
+    "[join-signin] could not sign out an unresolvable session, so the orphan cookie is still live:",
+    cause
+  )
+}
+
+/**
  * Step one: ask Supabase to send a code to somebody the product already knows.
  *
  * Deliberately has no session guard, unlike requestEmailAttachAction, and it
@@ -84,12 +107,15 @@ export async function confirmJoinSignInAction(
     if (outcome.result === "no_user") {
       try {
         const supabase = await createClient()
-        await supabase.auth.signOut()
+        // Both ways this can fail are handled, because they are not the same
+        // way: signOut REPORTS a service failure in its return value rather
+        // than throwing it, so a try/catch on its own would let the failure
+        // that matters most pass in silence. See logSignOutFailure for why
+        // "the failure that matters most" is not an overstatement.
+        const { error } = await supabase.auth.signOut()
+        if (error) logSignOutFailure(error)
       } catch (err) {
-        // Reported rather than swallowed, but it does not change what the
-        // person is told: either way we could not sign them in, and the
-        // message for that is already the honest one.
-        console.error("[join-signin] signing the unresolvable session out failed:", err)
+        logSignOutFailure(err)
       }
     }
     return { result: outcome.result }

@@ -21,7 +21,11 @@ const requestMock = vi.fn<(email: string) => Promise<{ result: SignInRequestResu
   result: "ok",
 }))
 const confirmMock = vi.fn<
-  (email: string, code: string, token: string) => Promise<{ result: ConfirmJoinSignInResult }>
+  (
+    email: string,
+    code: string,
+    token: string
+  ) => Promise<{ result: ConfirmJoinSignInResult } | undefined>
 >(async () => ({ result: "bad_code" }))
 
 vi.mock("@/app/actions/join-signin", () => ({
@@ -186,6 +190,37 @@ describe("JoinSignIn, the code step", () => {
 
     const shown = await screen.findByText(DEFAULT_BAD_CODE_MESSAGE)
     expect(shown.textContent).toContain("It might be typed wrong, or it might have expired")
+  })
+
+  // The success path, and the only one with nothing to see: the action
+  // redirects, and a redirecting server action resolves its promise with no
+  // value at all for a direct client caller. Unguarded, destructuring that
+  // throws a TypeError inside the transition, on the single path this whole
+  // slice exists for. LeaveGroupButton is the only other client caller of a
+  // redirecting action in this codebase and it guards the same way.
+  it("does not fall over when the action redirects and hands back nothing", async () => {
+    const unhandled: unknown[] = []
+    const capture = (reason: unknown) => unhandled.push(reason)
+    process.on("unhandledRejection", capture)
+    try {
+      confirmMock.mockImplementation(async () => undefined)
+      renderPanel()
+      await reachCodeStep()
+      fireEvent.change(screen.getByLabelText("The code from your email"), {
+        target: { value: "12345678" },
+      })
+      fireEvent.click(screen.getByRole("button", { name: "Sign me in" }))
+
+      await vi.waitFor(() => expect(confirmMock).toHaveBeenCalledTimes(1))
+      // Nothing is said and nothing changes, because nothing went wrong: the
+      // redirect into the group is already in flight.
+      await new Promise((r) => setTimeout(r, 0))
+      expect(unhandled).toEqual([])
+      expect(screen.queryByText(DEFAULT_BAD_CODE_MESSAGE)).toBeNull()
+      expect(screen.getByLabelText("The code from your email")).toBeDefined()
+    } finally {
+      process.off("unhandledRejection", capture)
+    }
   })
 
   it("has something honest to say when the code is right and the account is not there", async () => {
