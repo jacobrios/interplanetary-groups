@@ -5215,6 +5215,15 @@ iOS Safari the layout viewport does not shrink for the keyboard, so focusing the
 put Save and the worded exit behind it. Nothing in this element uses `dvh` or
 `visualViewport`. Named as a check rather than guessed at.
 
+*Answered 28 August 2026, on the owner's own iPhone, and the answer is that it does not
+happen: focusing the field pushes the sheet up, so the field, Save and the worded exit all
+stay above the keyboard together. **Recorded because the caveat above would otherwise read
+as an open risk**, and the obvious response to an open risk here is to reach for `dvh` or
+`visualViewport`, which this element does not need and which would be a change made against
+a problem that does not exist. This was the last structural unknown in the slice; every
+other unverified item on the list above is a matter of how something looks rather than
+whether it works.*
+
 **Postscript, round 2 of review: the owner met the sheet on a real phone, and both findings
 were real.**
 
