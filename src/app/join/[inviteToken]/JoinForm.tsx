@@ -9,15 +9,27 @@
 // Behaviour is unchanged from the pre-visual build: joinGroupAction, the
 // hidden inviteToken/hasSession fields, the error states, and the pending
 // state (Joining…, opacity 0.65, disabled, no transition) all work exactly
-// as before. This is a visual + copy pass only.
+// as before.
+//
+// The email-sign-in slice added one thing to this screen and changed nothing
+// else: a second door, for a visitor the product does not recognise but may
+// already know. A door rather than a second form, on purpose. Most taps on an
+// invite link really are new people, this screen is the product's activation
+// point, and joining stays exactly one step for them; the second path appears
+// only once somebody says the ordinary one is not theirs. What sits behind it
+// is JoinSignIn, and it is the fix for the bug the slice exists for: without
+// it, a member who lost their session taps the link they still have and is
+// silently made into a second member of their own group.
 "use client"
 
-import { useActionState } from "react"
+import { useActionState, useState } from "react"
 import type { CSSProperties } from "react"
 import { joinGroupAction, type JoinGroupState } from "@/app/actions/join-group"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
+import { inputStyle, buttonStyle } from "@/components/pill-controls"
+import JoinSignIn from "./JoinSignIn"
 
 interface RhythmRow {
   label: string
@@ -119,20 +131,6 @@ const rowValueStyle: CSSProperties = {
 
 const fieldWrapStyle: CSSProperties = { marginTop: "22px" }
 
-const inputStyle: CSSProperties = {
-  width: "100%",
-  boxSizing: "border-box",
-  borderRadius: "26px",
-  padding: "14px 18px",
-  backgroundColor: "var(--surface-raised)",
-  // The 575-578 override (1px solid --hairline) replaces the screen block's
-  // 2px solid --ink border and its shadow.
-  border: "1px solid var(--hairline)",
-  fontSize: "var(--type-body)",
-  color: "var(--text-primary)",
-  outline: "none",
-}
-
 // The returning-session pill ("Joining as Name"). Not in the design source
 // at all (task brief, resolution E) — our own treatment, built from values
 // already on this screen: the name field's own pill radius and padding,
@@ -162,32 +160,6 @@ const fieldErrorStyle: CSSProperties = {
   color: "var(--danger)",
 }
 
-function buttonStyle(isPending: boolean): CSSProperties {
-  return {
-    width: "100%",
-    marginTop: "14px",
-    minHeight: "52px",
-    borderRadius: "28px",
-    backgroundColor: "var(--action)",
-    color: "var(--action-ink)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    fontSize: "var(--type-body)",
-    lineHeight: "var(--leading-normal)",
-    fontWeight: 700,
-    border: "none",
-    // In-flight feedback: the old palette shifted the fill to a second
-    // teal while pending; the new palette has no second teal, so this dims
-    // instead, matching MessageFeed's optimistic-message idiom (0.65,
-    // greyscale-safe, no new token). No transition: this slice is
-    // no-animation, so the change is instant.
-    opacity: isPending ? 0.65 : 1,
-    cursor: isPending ? "not-allowed" : "pointer",
-  }
-}
-
 const reassureStyle: CSSProperties = {
   marginTop: "13px",
   padding: "0 16px",
@@ -196,6 +168,28 @@ const reassureStyle: CSSProperties = {
   color: "var(--text-secondary)",
   fontWeight: 500,
   lineHeight: "var(--leading-normal)",
+}
+
+// The second door, and it is deliberately the quietest thing on the screen:
+// a text link under the reassurance line, centred with it, never teal. Teal
+// is a weight rather than a count, and the weight on this screen belongs to
+// joining. Somebody who needs this door is looking for it.
+const secondDoorStyle: CSSProperties = {
+  marginTop: "10px",
+  // min-height plus padding rather than a fixed height, so an enlarged device
+  // text size grows it instead of clipping it. 44px is also the tap-target
+  // floor the card-region-height slice set.
+  minHeight: "44px",
+  padding: "4px 8px",
+  alignSelf: "center",
+  background: "none",
+  border: "none",
+  color: "var(--text-secondary)",
+  fontSize: "var(--type-eyebrow)",
+  fontWeight: 500,
+  lineHeight: "var(--leading-normal)",
+  textDecoration: "underline",
+  cursor: "pointer",
 }
 
 function Row({ label, value }: RhythmRow) {
@@ -215,7 +209,36 @@ export default function JoinForm({
   rhythmRows,
 }: Props) {
   const [state, formAction, isPending] = useActionState(joinGroupAction, initialState)
+  // Only ever meaningful for a visitor with no session: a person the product
+  // has already resolved to a name is themselves already and has nothing to
+  // sign in for.
+  const [signingIn, setSigningIn] = useState(false)
   const memberLabel = `${memberCount} ${memberCount === 1 ? "member" : "members"}`
+
+  // Shared by both branches so that what somebody is joining stays on screen
+  // whichever door they took. Held in one place rather than written twice: the
+  // ordinary join's markup has to stay exactly what it was, and a second copy
+  // is how that quietly stops being true.
+  const identityBlock = (
+    <>
+      <p style={eyebrowStyle}>You&apos;re invited</p>
+
+      <OrbitBubble>
+        Hey! I&apos;m Orbit. I keep {groupName} running so nobody has to
+        be the organizer.
+      </OrbitBubble>
+
+      <div style={cardStyle}>
+        <h1 style={cardTitleStyle}>{groupName}</h1>
+        <div style={rowsStyle}>
+          <Row label="WHO" value={memberLabel} />
+          {rhythmRows.map((row, i) => (
+            <Row key={i} label={row.label} value={row.value} />
+          ))}
+        </div>
+      </div>
+    </>
+  )
 
   return (
     <main
@@ -247,71 +270,78 @@ export default function JoinForm({
           stretch full-bleed on desktop/tablet. <main> keeps owning the
           full-bleed background and the page's own padding. */}
       <div style={{ width: "100%", maxWidth: "28rem", margin: "0 auto" }}>
-        <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
-          {/* Always include hidden inviteToken and hasSession flags */}
-          <input type="hidden" name="inviteToken" value={inviteToken} />
-          <input type="hidden" name="hasSession" value={currentName ? "1" : ""} />
+        {signingIn ? (
+          // The join form is unmounted rather than hidden beside the panel.
+          // Two reasons, and the second is not cosmetic: one primary action at
+          // a time is the whole point of the teal rule, and a form cannot be
+          // nested inside another form, so a sign-in field living inside the
+          // join form would send Enter to the wrong action.
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {identityBlock}
+            <JoinSignIn inviteToken={inviteToken} onCancel={() => setSigningIn(false)} />
+          </div>
+        ) : (
+          <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
+            {/* Always include hidden inviteToken and hasSession flags */}
+            <input type="hidden" name="inviteToken" value={inviteToken} />
+            <input type="hidden" name="hasSession" value={currentName ? "1" : ""} />
 
-          <p style={eyebrowStyle}>You&apos;re invited</p>
+            {identityBlock}
 
-          <OrbitBubble>
-            Hey! I&apos;m Orbit. I keep {groupName} running so nobody has to
-            be the organizer.
-          </OrbitBubble>
+            {state.errors?.general && <p style={generalErrorStyle}>{state.errors.general}</p>}
 
-          <div style={cardStyle}>
-            <h1 style={cardTitleStyle}>{groupName}</h1>
-            <div style={rowsStyle}>
-              <Row label="WHO" value={memberLabel} />
-              {rhythmRows.map((row, i) => (
-                <Row key={i} label={row.label} value={row.value} />
-              ))}
+            <div style={fieldWrapStyle}>
+              {currentName === null ? (
+                <>
+                  {/* The design shows no visible label, only placeholder text.
+                      A placeholder is not an accessible name (task brief,
+                      resolution C), so a visually hidden label carries it. */}
+                  <label htmlFor="memberName" style={visuallyHiddenStyle}>
+                    Your name
+                  </label>
+                  <input
+                    id="memberName"
+                    name="memberName"
+                    type="text"
+                    autoComplete="given-name"
+                    placeholder="What should the crew call you?"
+                    style={inputStyle}
+                  />
+                  {state.errors?.memberName && (
+                    <p style={fieldErrorStyle}>{state.errors.memberName}</p>
+                  )}
+                </>
+              ) : (
+                /* RETURNING SESSION — read-only "Joining as {name}" */
+                <p style={returningStateStyle}>
+                  Joining as{" "}
+                  <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
+                    {currentName}
+                  </span>
+                </p>
+              )}
             </div>
-          </div>
 
-          {state.errors?.general && <p style={generalErrorStyle}>{state.errors.general}</p>}
+            <button type="submit" disabled={isPending} style={buttonStyle(isPending)}>
+              {isPending ? "Joining…" : `Join ${groupName}`}
+              <ArrowRight size={17} strokeWidth={2.6} stroke="var(--action-ink)" />
+            </button>
 
-          <div style={fieldWrapStyle}>
-            {currentName === null ? (
-              <>
-                {/* The design shows no visible label, only placeholder text.
-                    A placeholder is not an accessible name (task brief,
-                    resolution C), so a visually hidden label carries it. */}
-                <label htmlFor="memberName" style={visuallyHiddenStyle}>
-                  Your name
-                </label>
-                <input
-                  id="memberName"
-                  name="memberName"
-                  type="text"
-                  autoComplete="given-name"
-                  placeholder="What should the crew call you?"
-                  style={inputStyle}
-                />
-                {state.errors?.memberName && (
-                  <p style={fieldErrorStyle}>{state.errors.memberName}</p>
-                )}
-              </>
-            ) : (
-              /* RETURNING SESSION — read-only "Joining as {name}" */
-              <p style={returningStateStyle}>
-                Joining as{" "}
-                <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>
-                  {currentName}
-                </span>
-              </p>
+            <p style={reassureStyle}>
+              No app to download, no password. You&apos;ll land right in the group.
+            </p>
+
+            {currentName === null && (
+              <button
+                type="button"
+                onClick={() => setSigningIn(true)}
+                style={secondDoorStyle}
+              >
+                I&apos;ve been here before
+              </button>
             )}
-          </div>
-
-          <button type="submit" disabled={isPending} style={buttonStyle(isPending)}>
-            {isPending ? "Joining…" : `Join ${groupName}`}
-            <ArrowRight size={17} strokeWidth={2.6} stroke="var(--action-ink)" />
-          </button>
-
-          <p style={reassureStyle}>
-            No app to download, no password. You&apos;ll land right in the group.
-          </p>
-        </form>
+          </form>
+        )}
       </div>
     </main>
   )

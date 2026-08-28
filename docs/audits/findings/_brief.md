@@ -1,5 +1,17 @@
 # Shared brief: pre-launch whole-codebase audit (22 Aug 2026)
 
+> **FROZEN as of 22 August 2026. Do not read this file as the current rule set.**
+> It is the audit's own input, kept exactly as the agents received it, so the
+> findings underneath can be read against what was actually asked of them. Some
+> of what it states as invariant has since been amended; the invariant list
+> below already quotes at least one rule (emails never displayed anywhere in the
+> UI, amended 27 August 2026) that no longer reads that way. **`CLAUDE.md` is
+> the current rule set, and it wins.** A future audit run must take its
+> invariants from `CLAUDE.md` on the day it runs, and write its own brief, or it
+> will report compliant code as a violation of a rule that no longer exists.
+> (Banner added 27 August 2026, on review. Only the file's status is annotated;
+> its content is deliberately untouched.)
+
 Every agent in this audit reads this file first. It carries three things: the reporting
 contract, the suppression list (findings already registered, which must not be re-reported),
 and the invariant list (rules this project states as always-true, which lane 4 checks).

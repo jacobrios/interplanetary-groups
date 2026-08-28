@@ -33,6 +33,7 @@ import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
+import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
 interface Props {
@@ -47,6 +48,10 @@ interface Props {
   proposals: FeedProposal[]
   groupProposals: FeedGroupProposal[]
   viewerIsMember: boolean
+  /** The facts Orbit's email ask decides on, or null when there is no viewer
+   * to ask. Whether it is actually shown is EmailAskNote's own call, not this
+   * component's and not the page's. */
+  emailAsk: EmailAskNoteProps | null
 }
 
 export default function GroupHome({
@@ -59,6 +64,7 @@ export default function GroupHome({
   proposals,
   groupProposals,
   viewerIsMember,
+  emailAsk,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -163,6 +169,15 @@ export default function GroupHome({
       {canPost && (
         <>
           {orbitDown && <OrbitDownNote reason={orbitDown} />}
+          {/* Orbit's ask for an email. Since 27 Aug 2026 it is a bottom sheet
+              over this whole screen rather than an inline note in this slot,
+              so its position in this list no longer decides where it appears:
+              the scrim is fixed to the viewport. It stays mounted here because
+              the `canPost` guard around this block is exactly the condition it
+              needs (a real session, which is who can be asked). The rule it
+              shares with OrbitDownNote above is unchanged: per viewer,
+              rendered, never posted to the feed. */}
+          {emailAsk && <EmailAskNote {...emailAsk} />}
           <ChatInput
             groupId={groupId}
             value={inputValue}

@@ -1,8 +1,17 @@
 // src/components/PageHeader.tsx
 //
 // The header bar, and deliberately nothing else. It owns the bar's rules:
-// breathing room, the hairline beneath it, that it does not scroll away with
-// the page, and that it grows with whatever is placed inside it.
+// breathing room, that it does not scroll away with the page, and that it
+// grows with whatever is placed inside it.
+//
+// It no longer owns a hairline (removed 26 Aug 2026, header-rule slice, a
+// Claude Design change request folded into the email-sign-in slice's PR out
+// of lane): the full-bleed border that used to close the bar off from the
+// content below is gone, and the header's own bottom padding is now the
+// only rule marking that boundary on the group home and event detail
+// screens. The feed's own seam hairline (FeedSeam.tsx) is unaffected and
+// stays; see its comment for why removing this one makes that one matter
+// more, not less.
 //
 // "Does not scroll away" is a sticky position with its own opaque background
 // (the page surface token), not just a visual claim: without the background,
@@ -31,7 +40,6 @@ export default function PageHeader({
         display: "flex",
         alignItems: "center",
         padding: "0.875rem 1rem",
-        borderBottom: "1px solid var(--hairline)",
         flexShrink: 0,
         position: "sticky",
         top: 0,

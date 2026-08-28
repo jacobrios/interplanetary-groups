@@ -24,13 +24,19 @@
 
 ## 3. Identity & auth
 
-- **Anonymous session on entry** (founder at creation, member at join), upgraded later to a real account by attaching an email, then magic-link sign-in from any device. Supabase anonymous sign-in supports this pattern. *(Verify current implementation at build.)*
+- **Anonymous session on entry** (founder at creation, member at join), upgraded later to a real account by attaching an email, then ~~magic-link~~ sign-in from any device. Supabase anonymous sign-in supports this pattern. *(Verify current implementation at build.)* *(Amended 27 August 2026, email sign-in slice: it is a one-time code typed into the browser the person is already sitting in, never a link. A link in an email opens in the mail app's own browser, which has different storage from the browser the person was using, so a magic link would have pointed straight at the session fragility named two bullets below. Built and shipped; the identity is upgraded in place, verified against the real service, so the person comes back as themselves rather than as a second member.)*
 - **Names:** the founder gives theirs in onboarding Step 1 (required field); members give theirs on the join screen. A name is the only identity required to participate.
-- **The email ask is Orbit's job, post-join, triggered by the user's first RSVP**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
+- **The email ask is Orbit's job, post-join, ~~triggered by the user's first RSVP~~ triggered by the member's first contribution of any kind**, with a concrete reason attached (reminders, plus get back in from any device). Founder copy carries one extra clause: losing the session means losing founder powers, so "it also means you'll never lose access to your group."
+  - ***Amended 27 August 2026 (email sign-in slice). The surface moved and the trigger's set widened. The reason the ask exists at all is untouched.***
+  - ***The founder clause survives in substance and was reworded, and the wording above is not what ships.*** *Corrected 27 August 2026, same day, on review: the sentence in this bullet is the 2026 design draft, and quoting it as the shipped copy was wrong. What a founder actually reads, at `EmailAskNote.tsx:64`, appended to the first ask for the founder alone, is:* **"It also means you won't lose the group you started."** *Same promise, plainer, and it names the group rather than "access". The requirement this bullet sets, that founder copy carry an extra clause about what losing the session costs a founder specifically, is met.*
+    - ***Struck the same day, by the owner, in the sheet redesign: there is no founder clause any more and this requirement is withdrawn rather than met.*** *One string per ask, for everyone. His reasoning: a founder already knows it is their group, and the clause gestured at a bigger stake without naming what a founder actually loses, which is the ability to manage members and reset the invite link. If founders should ever be warned about those powers, that is different copy written on purpose. `viewerIsFounder` went with the sentence, from the component, from its props and from the page that computed it, because deciding founder-ness was the only thing it did on this path.*
+  - ***Where it happens, and why this bullet could not stand.*** *This was written assuming Orbit would ask in the group feed, the way Orbit says everything else. It cannot, on two counts. The feed is the product's one conversation surface and it is public, so an ask addressed to one member is clutter for every other member, and it repeats once per person. And the only input on that screen is the chat composer, so a member answering the ask would post their own email address into the group feed, breaking "emails are never displayed anywhere in the UI" outright, in the one place the whole group is looking. (The quoted wording was amended 27 August 2026, and this sentence's reasoning is untouched by that: what the amendment allows is a member seeing their own address on a page only they are looking at, which is the opposite of the feed. See the bullet six lines below, and CLAUDE.md for the operative rule.) The ask is now a note rendered for one viewer, pinned just above the composer, never written to the feed; the group info page is its permanent home. Considered and declined: capturing at onboarding step 3 or on the join screen, which would collect the most addresses and is the exact thing anonymous-first exists to prevent.*
+  - ***When it happens.*** *The trigger's principle survives untouched: the moment to ask is the moment "I want a reminder for this" is true. What widened is the set of moments that count, from an RSVP alone to a member's first contribution of any kind (an RSVP, a chat message, or a gauge vote). RSVP alone is too narrow in this product specifically, because the spark flow starts with somebody talking in chat, so a member can contribute for weeks without an RSVP ever coming up. An OUT RSVP counts: saying no to Thursday is not saying no to reminders.*
+  - ***How often.*** *Twice per person ever, not per group, then never again. Full reasoning, the copy, and the owner's two overrules in §11, email sign-in.*
 - **Session fragility risks, which make the email ask early rather than lazy:** cleared browser data, in-app browsers (separate storage from Safari), and iOS Safari's roughly 7-day script-writable storage cap. *(Verify current policy at build.)*
 - **Invite-link taps must check for an existing session first** and route members into the group, or the app manufactures duplicate accounts itself.
-- **Duplicate-member recovery is social:** the founder deletes the ghost. Acceptable at casual scale.
-- **Emails are never displayed anywhere in the UI**, even after capture. Member lists are names only.
+- **Duplicate-member recovery is social:** the founder deletes the ghost. Acceptable at casual scale. *(Amended 27 August 2026, email sign-in slice: still true, and it is now the cleanup path rather than the whole answer. The fix moved upstream, to the invite screen, which asks an unrecognised visitor whether they have been here before **before any account is created**. Duplicates already in existence are still removed by hand, because an automatic merge turned out to be unsafe: `Message.author` is `onDelete: SetNull`, so deleting a ghost leaves its chat messages in the feed still marked as a member's with nobody attached, and a safe merge has to reassign every row individually. Priced at roughly a third of the slice and declined.)*
+- ~~**Emails are never displayed anywhere in the UI**, even after capture.~~ Member lists are names only. *(Amended 27 August 2026, and the operative wording now lives in CLAUDE.md's data-model section, which wins. **An email is never shown to the group or to any other member; it is always shown to its owner, on the group info page, and nowhere else.** What forced it: the email sign-in slice's group info row offered "Change email" and printed nothing, so a member with more than one address could not tell which one he was replacing. The bullet had been written around its worst case rather than around its own reasoning, which is entirely about the group seeing an address; a row only its owner can see is not that. The narrowing is deliberate and small: one surface, one viewer, fetched only for that viewer and never over the roster, with `src/app/__tests__/no-email-address-on-screen.test.tsx` holding both halves.)*
 
 ## 4. Membership & governance
 
@@ -180,6 +186,25 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
   - **Done (23 July 2026), and the workflow it assumed changed with it.** The user-level `~/.claude/CLAUDE.md` now exists and owns the portable rules: the core operating principles, the ask-and-flag working rules, the slice-and-branch discipline, the setup checklist and safety nets, the two verification rules, and the communication preferences (no dashes, confidence tags). One rule changed on the way up rather than moving unchanged: the old Markdown-only self-merge exception is gone; the user-level rule is now "open a pull request and stop" for every PR, documentation-only ones included. The project CLAUDE.md was rewritten in the same slice (its own §11 entry) to stop restating any of these and to carry only what is true of this project; the "would this be true on my next project too?" test is what sorted them. Do not run this extraction again; it is complete.
 - **(Process, not product) Get the test suite off the remote database. Queued 12 Aug 2026, with triggers rather than a date.** Nearly every test round-trips to the remote dev-test Supabase, so each one costs seconds instead of being instant; the vitest config's own comment records 4.2 to 5.4 seconds per database test, and the whole suite is 83 seconds. The fix is to give the tests a database on this machine. Measured value, *after* the 12 Aug hook split below took suite runs from once per edit to once per task: roughly 20 to 30 minutes a slice, not hours, which is why it is queued rather than next. Two triggers, either one fires it: the suite crossing about three minutes, or the first test failure that cannot be reproduced, since a shared remote database is the likeliest cause once two sessions run at once. Three things need settling before any code, which is what makes it a brainstorm rather than a task: where the test database lives (an installed Postgres or an in-process one; this machine has neither Docker nor Postgres today), whether the suite keeps using a real database at all given the standing rule that tests build their own fixtures from empty, and the collision with "two databases, never crossed" and the `db:which` guard, both written for exactly two. That last one is amended first, because it is the one unrecoverable mistake in the project.
 
+- **Carry the address into `/signin` when a member arrives there from the taken-email route. Raised by the owner 27 August 2026 on his phone; he called it a nice-to-have and it is.** When someone types an address that is already on an account, the sheet now says so and offers "Sign in with that email". Tapping it lands them on `/signin` with an empty field, so they retype the address they typed thirty seconds ago. It should arrive filled in, leaving one tap. **The population it serves is the exact one this slice exists for**: a member who lost their session and is entering their own real address, which is why it is worth doing even though nothing is broken without it. Worth settling when it is built: whether the address travels in the URL, which puts a personal identifier in a query string and collides with the standing rule against exactly that, or in some other carrier. That rule is the reason this is not a five-minute change.
+- **Two grey tokens are now one colour, and the fix is gated behind a file nobody should open casually. Recorded 28 August 2026.** Lifting `--text-faint` to clear WCAG AA landed it at `#8D91A2`, within one RGB step of `--placeholder` (`#8c91a0`). Nothing reads wrong today, because the two never share a surface, but the ramp now carries two rungs that are one rung, and the next person to see two token names will reasonably assume they differ.
+  - **A smaller lift was available and was deliberately not taken.** About `#848898` would have kept a wider step under `--text-secondary`, and it required moving one eyebrow, `ProposalSection.tsx`'s TIME CHANGE label, off the token, because that is the only text the token puts on the lightest surface. **CLAUDE.md carries a standing trigger that the first task of whichever slice next touches `ProposalSection.tsx` is writing that file's vote-counted line into the speak-or-stay-quiet register.** Firing another slice's obligation from outside that slice is the exact thing the trigger exists to prevent, so the tidier colour was declined in favour of the rule. That was the implementer's call and it was the right one.
+  - **The clean resolution, for whoever opens that file next.** `--placeholder` measures **4.4992:1** on `--surface-raised`, a hair under AA and already registered as knowingly shipped. So the state is two near-identical tokens, one of which still fails. Collapsing them into a single token lifted above the bar fixes the duplication and the remaining failure in one move. **Attached to the same trigger** rather than given a date, so it resolves at the moment somebody is legitimately in that file.
+- **A coordination hazard, learned the expensive way on 27 August 2026: `qa:stage-email` is destructive to a QA session that is already in flight, and "run it to verify your change" is not a safe instruction while one is open.** The script's main command deletes every existing `[QA]` group and recreates them with new ids and new invite tokens, which is correct behaviour for a stager and exactly wrong to trigger under somebody mid-walk. The owner stopped for the night part-way through a QA pass; an agent was told to run the script and paste its real output as evidence for an unrelated fix; the groups he was returning to the next morning no longer existed, and the ids in his instructions pointed at nothing. **Two things follow.** Any instruction to run a staging script for verification has to say whether a QA session is open, and prefer a non-destructive mode (`--seed-viewer`) when one is. And **ids and invite links in a QA handoff go stale the moment anyone re-stages**, so a handoff should tell the owner to read them from the script's own output rather than pasting them inline, which is what made this cost a second round trip rather than one line.
+- **A declared exception to "Prisma owns the schema", granted 27 August 2026, scoped to one hand-run QA script.** `scripts/qa-stage-email.ts` reads Supabase's own `auth.users` table directly through Prisma's Postgres connection, which is the boundary in `CLAUDE.md` pointing the other way. Written down because an undeclared exception is how a boundary stops meaning anything.
+  - **What it does:** one parameterised read-only `select` of three columns, behind the dev-test guard, printing three booleans and no address on any path.
+  - **Why it was granted.** The script's `reset` mode can only clear this product's `ContactMethod` row; the address on the Supabase identity is beyond its reach, because the app holds no service-role key by decision. It nevertheless printed "Back to the top of the walk", and the owner lost most of an afternoon to that: every attempt after a reset was silently an email **change** rather than a first attach, took a different Supabase path, and failed on correct codes with an opaque message. **The honest message alone was considered and rejected as insufficient**, on the reviewer's argument rather than the implementer's: a warning the runner cannot resolve leaves the only answer behind a dashboard visit on every reset, and that friction produces "probably fine", which reproduces the lost afternoon instead of preventing it. Detection turns a warning into an answer that names the consequence.
+  - **The residual, stated rather than waved at.** `auth.users` is Supabase-internal, carries no Prisma model, and is governed by no migration here. It can change without notice. When it does, a QA script breaks loudly and nothing else does, which is the whole reason the exception is survivable.
+  - **The part that matters for whoever comes next, and it is not about this file.** The read is safe because of the SQL that was written, not because of the credential. The `DATABASE_URL` role is ordinarily privileged enough to **write** that table (the stack's norm; this project's actual grant was not measured). Anyone reaching for this pattern inherits a connection that could do damage, not merely read.
+  - **The line is mechanical, not prose.** The commitment that this never enters product code was originally held up by a comment plus two accidents (the function is not exported, and the module self-executes so importing it would run the script). The raw-SQL assertion in `src/app/__tests__/no-email-address-on-screen.test.tsx` was widened from `src/`-only to repo-wide with an allowlist naming exactly this file, so a second such read reddens a test and forces a decision. **If a future change wants to remove that allowlist entry or add a second, that is a decision to bring to the owner, not a test to adjust.**
+- **(Not product, and not code) The legal wrapper: licence, terms, and the entity. Queued 27 August 2026, raised by the owner, with a trigger rather than a date.** Two branches and they need different things, so nothing gets bought or written until the branch is known.
+  - **The trigger is Andy's answer**, either way. If the investor wants to commercialise, the questions are an entity, terms and conditions, and a privacy policy, and they are lawyer questions rather than engineering ones. If he does not, the owner's plan is to make the repository public with a permissive licence.
+  - **Why this stopped being hypothetical during the email sign-in slice, which is the part worth carrying:** before this slice the product stored names only. It now stores email addresses, which are personal data, and it sends mail to them. That is the change that makes a privacy policy a real question rather than a formality, and it happened without anybody framing it that way at the time. Whichever branch is taken, the product now holds something about a person that it did not hold in July.
+  - **The repository has no licence file today, and that is not a neutral state.** There is no `LICENSE` and `README.md` does not mention one. Under copyright's default, absent a licence nobody may copy, modify, or reuse the code, so publishing it publicly with no licence does not make it usable by anyone; it only makes it readable. For a portfolio piece that may be exactly what is wanted, but it is a choice worth making on purpose rather than by omission, because "put it on GitHub" and "let people use it" are different acts.
+  - **On MIT specifically**, since the owner named it: it is a short permissive licence that lets anyone use, modify and redistribute the code including commercially, provided the copyright notice travels with it, and it carries an explicit "AS IS" warranty disclaimer and a liability limitation. That disclaimer is the part the owner is reaching for. **Whether it actually achieves the protection he wants is a question for a lawyer and not for this record**, and the same is true of every question on the commercialise branch.
+  - **SMS as the sign-in channel is queued to the same trigger, and it is the same question wearing different clothes. Raised by the owner 27 August 2026 while looking at the Supabase auth providers list.** He is right that it fits better: this is a phone application, and a texted code beats switching to a mail app and back, which is most of what the code-not-a-link decision was working around. Two things stop it, and neither is fitness. **Supabase does not send SMS itself**, so it needs a third-party account (Twilio, MessageBird, Vonage or TextLocal, each configured separately), and every message costs, against Resend's free tier at zero. And in the United States, automated messages to consumers require A2P 10DLC registration of a brand and a campaign with the carriers, which generally wants business identity details, **so SMS is effectively gated behind the entity question above** (confident on the requirement, not on current thresholds or whether a sole proprietor can register). Two smaller differences worth knowing before anyone plans around it: Supabase's SMS codes are six digits expiring in sixty seconds, against email's eight digits and an hour, so the timing gets tighter; and the cross-device problem the code was designed for disappears, because the code arrives on the device the member is already holding. **Revisit if the investor says yes**, because the blocker dissolves at the same moment the entity does.
+  - **What can be done cheaply and early, whichever branch wins:** decide the licence question deliberately, and know that the answer changes if the code is ever run as a service for other people rather than only read.
+
 ## 9. Engineering process
 
 *The machine-wide process rules (the setup checklist, the safety nets, the git and slice discipline, the verification and communication rules) now live in the user-level `~/.claude/CLAUDE.md`, extracted 23 July 2026. This section is kept as the record of how they were arrived at on this project, not as their current authoritative statement; where a rule reads as stale here (the stack line below predates the Supabase-auth-only and two-databases realities), the operative version lives in CLAUDE.md and the later §11 entries. Do not treat this section as a third source of truth.*
@@ -261,6 +286,23 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `proposals/endgame.ts`, lapsed close (added 18 Aug 2026) | A group time-change vote that ran out of time unanswered closes with one soft line naming the time the plan is staying at. Speaks. The asker was owed an answer, and since the tally and the card notice were both deleted, silence would leave a stalled vote with no ending anywhere. | Correct |
 | `proposals/endgame.ts`, moot close (added 18 Aug 2026) | A vote overtaken because the plan moved by some other path records SUPERSEDED and says nothing. Stays quiet. The read layer already retired the question silently the instant the plan moved; this only adds the bookkeeping row. | Correct |
 | `proposals/endgame.ts`, a close landing after the event started | The hourly cron means a close can land up to an hour late, occasionally after the event's own start. It still posts. Never-leave-a-direct-ask-hanging outranks anti-clutter here: the asker is owed an answer even a little late. Speaks. | Correct |
+
+### Orbit speaking to one member and to nobody else (added 27 Aug 2026, email sign-in slice)
+
+*This is a different kind of entry from every row above it, and saying so plainly is the point of the heading. Every other decision on this list ends in Orbit writing a message into the group feed, or not writing one. These end in neither: the ask is **rendered per viewer**, so it exists on one member's screen and on nobody else's, and no message row is written anywhere. It is still Orbit deciding to speak, so it belongs on this list; a future reader auditing "where does Orbit talk to people" by searching for feed writes would miss it entirely, which is exactly the failure mode this section exists to prevent.*
+
+*The pattern's precedent is the time-change-ending slice's vote-counted line (`ProposalSection.tsx:67`), which is rendered per viewer for the same reason. Noting a gap while it is in front of us rather than fixing it out of lane: that line has never had a row on this list either.*
+
+| Where | What it does | Leans |
+|---|---|---|
+| `shouldOfferEmail` (`src/lib/auth/email-offer.ts`), the whole rule | Orbit asks a member for an email so they can get back in as themselves instead of returning as a second person. Speaks, to one viewer, off the feed. The entire product rule lives in this one pure function: never once a verified address exists, never past two asks, first ask on the member's first contribution of any kind, second ask only after seven days AND a fresh contribution. | Correct |
+| `shouldOfferEmail`, `emailAskCount >= 2` | Two asks is the whole allowance. After a second decline Orbit never asks again, ever, and the group info row is the permanent way in. Stays quiet, permanently. | Correct |
+| `shouldOfferEmail`, the second ask's freshness check | The second ask needs seven days **and** a fresh contribution, not whichever comes first. A timer alone would land on a quiet screen where nothing happened, which is precisely when a nudge reads as pestering. Accepted cost, stated rather than hidden: some members never get a second ask. Stays quiet. | Correct |
+| `dismissEmailOfferAction` (`src/app/actions/email-ask.ts`), the counter counts declines | The note stays on screen until it is answered, and only a dismissal advances the counter; ignoring it is not answering it. Keeps speaking, to that one viewer, until answered. Counting appearances instead would spend both asks on somebody who never looked, and would send the second ask to the wrong person. | Correct |
+| `dismissEmailOfferAction`, a failed write still dismisses | The member said no. Refusing to go away because a database write failed would be the worst possible reading of that answer, so the note goes regardless and the cost is that the ask may return on a later render. A repeat, not a betrayal. Stays quiet. | Correct |
+| `EmailAskNote`, the three free ways out (added 27 Aug 2026, sheet redesign) | Only the worded exit ("Not now" / "No thanks") spends one of the two lifetime asks. Tapping the scrim, pressing Escape, and navigating away all close the sheet and write nothing, so Orbit will ask again. The asymmetry points one way on purpose: the silent gesture is the cheap one, and somebody who read the ask and tapped the worded exit told us something worth spending an ask on. Inverted, it would be a bug. Keeps speaking, to that one viewer, until answered in words. | Correct |
+
+*Amended 27 August 2026, sheet redesign. Two rows above say "the note", which is what this was: an inline note pinned above the composer. It is a bottom sheet over the group home now. Nothing about what Orbit decides changed, only what the member sees when it decides to speak, and the counter still counts declines rather than appearances.*
 
 ### Everything else that ends in silence
 
@@ -447,6 +489,59 @@ Seven High-priority items come due at the moment of the first production deploy.
 - ***Item 6 understated Hobby.** Hobby does not quietly run an hourly cron daily; it **refuses the deployment**. The `vercel.json` in this repo cannot deploy to a Hobby account at all.*
 - ***Items 12 and 15 needed a companion nobody wrote: the value must be the value.** Supabase presents its key as `SUPABASE_PUBLISHABLE_KEY=sb_publishable_…`, and pasting that whole line into a dashboard value field is what blocked this deploy for two hours. Same hazard on every credential the list names.*
 - ***One item the list never had, and should have: the production Supabase project's Data API.** Checked on the day and found already disabled, so it cost nothing. It belonged on the list anyway, because with it enabled every table is readable by anyone holding the browser-shipped key, and Prisma-made tables carry no row-level security. Reasoning in the deploy entry.*
+
+### After launch, running deploy-time obligations
+
+*Opened 26 Aug 2026 (email sign-in slice, Task 2). The list above is closed and stays closed, per the append-only rule: it records what the first deploy required, and that moment has passed. But the product is live now, which means new obligations keep getting created after that day, one slice at a time, each of them needing to reach production before its code does. This is that list, started fresh rather than reopening the first one.*
+
+1. ~~**Run the email sign-in migration against production before this branch merges to main.**~~ **DONE, 28 August 2026.** `20260827034420_email_ask_tracking` applied cleanly to production; `migrate status` beforehand showed 14 of 15 applied and exactly this one pending, and `npm run db:which` immediately afterwards printed the dev-test ref, so the checkout was never left pointing at production. **The merge is no longer gated on this.** Three things the run itself taught, kept because the next person doing this will hit at least one of them:
+   - **The rehearsal earned its place twice.** `migrate status` is read-only and caught both mistakes for free: a stale database password, and then the wrong pooler URL. Neither cost anything at the status step.
+   - **The wrong port hangs rather than errors, which is the ugly failure.** Port 6543 is the transaction pooler and does not support the advisory lock Prisma takes before migrating, so `migrate deploy` sat silently forever with no error and no cursor. Port 5432, the session pooler, is the one. Ctrl-C was safe and applied nothing, confirmed by re-running status. **This is the trap worth knowing about**, because it looks like a network problem rather than a wrong URL.
+   - **Storing both pooler URLs in one password-manager item is how the wrong one gets grabbed.** Worth splitting, or worth using the 1Password CLI to inject the right one by name so it never touches the clipboard.
+
+   *Original item follows, kept for what it warned about.*
+
+   **Run the email sign-in migration against production before this branch merges to main.** Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production. This is the same method item 14's 23 Aug 2026 amendment settled on, for the same reason: `.env` is what the test suite also reads, and a checkout left pointed at production is the one mistake in this project with no undo.
+   *Why it matters:* the two new columns are read the moment the merged code goes live. If the migration runs after the merge instead of before, the entire site goes down for every signed-in person, not one degraded feature: `src/lib/auth/current-user.ts:20` looks up the logged-in person with a plain, unfiltered query that asks the database for every column on the User record, and ~~every page and every write path calls it first~~ every authenticated page calls it first (Corrected 26 August 2026: the write path half was wrong, and not in the safe direction. `src/app/actions/gauge-vote.ts:73`, `src/app/actions/proposal-vote.ts:62`, `src/app/actions/proposal-answer.ts:51`, and `src/lib/events/rsvp.ts:43` (inside a transaction) each run the identical unselected `prisma.user.findUnique({ where: { supabaseAuthId } })` on their own, none of them routed through this file. `current-user.ts:20` does cover every authenticated page, confirmed by checking every `page.tsx` except `/create`, which runs before any session exists. So the risk this item warns about is wider than first written, not narrower: several independent call sites go down the moment the migration is missing, not one chokepoint file.) The moment that query reaches a production database missing the two new columns, the database refuses it, and the site stays down until the migration is applied. Running the migration first carries no such risk in the other direction: the two columns are purely additive, so production briefly has columns the live code has never heard of, and nothing reads or depends on them until this slice's code ships.
+   *Detail:* Task 2 (this slice), migration `20260827034420_email_ask_tracking`, adding `User.emailAskCount` (defaults to 0) and `User.emailAskedAt` (nullable), tracking how many times and when Orbit has asked a member for their email. Applied to dev-test only as of this task; production still needs it, per the two-databases rule.
+
+*Items 2 to 6 added 27 Aug 2026 (email sign-in slice, Task 10), and they are all one obligation wearing five hats: **on the day this branch merges, nobody but the owner can receive a login code.** Supabase's built-in sender delivers only to members of the Supabase organisation, which is what made the whole slice buildable and provable on dev-test before any of this existed. It is also why none of it blocked the build and all of it blocks the product. Until items 2 to 5 are done, a member who taps "I've been here before" hands over an address and waits for mail that is never coming, and nothing on screen tells them so. Exact values are in the slice document's Task 11, which is written for the owner's hands.*
+
+2. ~~**Create the Resend account and add the sending domain `account.interplanetarygroups.com`.**~~ **DONE, 26 August 2026**, confirmed 28 August: Resend reports the domain Verified, DNS verified and domain verified four minutes apart on 26 Aug, provider Vercel, region us-east-1. *Original item follows.* **Create the Resend account and add the sending domain `account.interplanetarygroups.com`.** Free tier: 3,000 emails a month, 100 a day. That covers login codes now and a daily digest to roughly a hundred members later, which is why transactional-only versus transactional-plus-digest never changed the choice.
+   *Why the subdomain rather than the root:* Resend's own recommendation, and the notification-channel decision is what makes it matter here. `account.` carries login codes. When the digest arrives it gets `updates.` and its own sending reputation, so a digest that collects spam complaints can never drag login codes down with it. This is the first place a decision recorded for a future slice changed a choice inside this one.
+   *The $0-tier hazard, recorded rather than solved:* `/signin` and its `/join` twin both trigger outbound mail while signed out, so they are unauthenticated endpoints whose only limit is Supabase's own rate limit. At 100 emails a day, abuse takes login down for everybody. See item 6.
+
+3. ~~**Paste Resend's DNS records into Vercel's DNS panel.**~~ **DONE, 26 August 2026**, and it took no pasting: because the domain was bought through Vercel, Vercel's integration wrote the records itself when the domain was added to Resend. Worth knowing rather than filing as trivia, because the owner could not remember doing this step and the reason is that he effectively never did it. *Original item follows.* **Paste Resend's DNS records into Vercel's DNS panel**, since the domain was bought through Vercel and its DNS lives there. Nothing sends until these verify.
+
+4. **Three settings in the production Supabase project, in this order.** **4.1 and 4.2 DONE 28 August 2026; 4.3 is pasted but still unproven.** Two things the day added that the item did not anticipate. First, **the settings do not sync between the two Supabase projects**, and every one of them had been done on dev-test weeks earlier, which is exactly why they read as already-finished work. Second, **4.1 was already true on production before anyone touched it**, and the evidence was sitting in the owner's inbox: the confirmation code that arrived during QA came from `no-reply@account.interplanetarygroups.com`, an address Supabase's built-in sender cannot send from. A fourth setting joined the list on the day and is recorded here rather than as its own item, because it belongs to the same sitting: **Secure email change switched off on production**, matching dev-test. Left on, an attach needs confirmation from both the old and the new address and returns success with no user and no error, which is the failure the slice's Task 1 spike had already hit once.
+   1. **Custom SMTP, pointed at Resend.** This is the switch that ends the organisation-members-only limitation. It also raises Supabase's own ceiling from the built-in sender's two messages an hour to roughly thirty, which is a configuration value that was read rather than tested and should be confirmed on the day.
+   2. **The "Change email address" template switched to `{{ .Token }}`.** This is the one an existing member's *attach* goes through, and that is a measured fact rather than an assumption: the spike gave the candidate templates deliberately different subject lines and watched which one arrived.
+   3. **The sign-in template switched to `{{ .Token }}`.** The path is `signInWithOtp` on an address that already exists, which is Supabase's magic-link template. *This one is inferred rather than measured: the spike proved a code arrives on this path, not which template rendered it.* The check that settles it costs one send: request a code at `/signin` and confirm what lands is a code and not a link.
+   *Why templates at all:* the product's whole reason for a typed code over a clicked link is that a link opens in the mail app's own browser, which has different storage from the browser the person is sitting in. A template left on the default link undoes the decision silently, and it fails in exactly the way that is hardest to notice, because the link still works for the person who tests it on the device they read mail on.
+
+5. ~~**Confirm auto-renew and WHOIS privacy are on for `interplanetarygroups.com`.**~~ **DONE, 28 August 2026: both were already on.** Vercel reports auto-renewal on with a renewal date of 25 Aug 2027, and WHOIS registrant details Protected. The item was right to exist anyway: nothing had checked, and the cost of being wrong was the whole product plus every login email. *Original item follows.* **Confirm auto-renew and WHOIS privacy are on for `interplanetarygroups.com`.** Settled when the domain was bought, 25 Aug 2026, and listed here because "settled" and "switched on in the dashboard" are not the same thing and nothing has checked. *A lapsed domain takes the app's address and every login email in the same hour.* Same shape as the free-tier Supabase pause already recorded at the deploy entry: an accidental dependency nobody would connect to the symptom.
+
+6. **Before deciding anything about abuse on the two signed-out mail endpoints, read two Supabase rate-limit numbers, not one.** Five minutes in the dashboard, no code. The per-project ceiling is the one people reach for, and the **per-address** limit is the one that actually matters first: hammering one real address mail-bombs that member's inbox as well as burning the shared daily allowance, and a project-wide rule sized without knowing the per-address number is a guess. *Recommendation, not an obligation:* a Vercel WAF rule afterwards, which is configuration rather than code, and it has to name **both** doors. **There are two, and this item named only one until 27 Aug 2026 (final fix wave).** `/signin` is the obvious one; the other is the invite screen's "I've been here before" (`requestJoinSignInCodeAction`, reached at `/join/[token]`), which is unauthenticated and uncapped for the same unavoidable reason and sends through the same allowance. A rule on `/signin` alone leaves that door wide open, so it would read as solved while the cheaper path stayed free. Both now log a warning when the mail limit refuses, which is the trace, not the ceiling. **Nothing leaks either way; the risk is availability.** Raised by Task 8's implementer and left deliberately unbuilt, because sizing a limit against an unread setting is how you ship a limit that does nothing or locks out real people.
+
+   ***Read 28 August 2026, on production, and the item's own premise was wrong.*** **There is no per-address rate limit to read.** Supabase's Rate Limits page exposes a project-wide email ceiling and a set of per-IP limits, and nothing per-address; a fixed short cooldown between requests to the same address is believed to exist inside Supabase but is neither shown nor configurable *(not verified)*. So the instruction to read the per-address number before deciding anything could not be followed as written, and the decision has to be made against the numbers that do exist. Recorded rather than quietly dropped, because "read two numbers" would otherwise look like an unfinished item forever.
+
+   **What production actually reads.** Sending emails: **30 an hour, project-wide**. Sign-ups and sign-ins: 30 per 5 minutes, per IP. Token verifications: 30 per 5 minutes, per IP. Anonymous sign-ins: 30 an hour, per IP. (Dev-test was never touched and is presumably still on its defaults; if QA mail ever stops arriving there, this is the first place to look.)
+
+   **The shape of the risk is the opposite of what this item assumed, and that is the finding.** The item was written expecting the danger to be mail-bombing one member's inbox. The per-IP limits largely handle that: an attacker from one address gets 30 requests in five minutes and stops. **The real exposure is self-denial.** Those same 30 requests consume the entire project's hourly email allowance, so for the rest of that hour *nobody* can sign in, not just the person targeted. One bored person with a browser can take login down for the whole product for an hour, and it costs them five minutes.
+
+   **Recommendation, and it is to change nothing today.** Every available lever trades one failure for the other: raising the ceiling shortens the outage and lengthens the flood, lowering it does the reverse, and a WAF rule sized against a guess is the thing this item exists to prevent. **The real fix is app-level rather than configuration**, a per-address cooldown in our own code before Supabase is ever called, which is a slice and not a setting; a WAF rule naming both doors stays the cheap interim if one is ever wanted. **Trigger, not a date: real users beyond the owner and one friend.** With an audience of two, the attack is theoretical and the outage costs nothing.
+
+   **One number to carry into the digest slice:** 30 an hour is the whole project's email budget, login codes and digest together. A daily digest to a group of eight is eight messages and fits easily, but the ceiling is shared, and the digest is the first thing that will ever send in bulk.
+
+   ***Amended later the same day, 28 August 2026, at the owner's question, and the amendment is the useful half.*** He asked the obvious thing the entry had ducked: *when* does this stop being queued? "Real users beyond the owner and one friend" is not a number anybody can act on. Working it out surfaced that **the framing above is aimed at the wrong risk.** It treats this as an abuse problem, and abuse needs someone motivated; the thing that will actually empty the bucket is **the product succeeding**. The digest sends one message per member per day, all at once, so **thirty members across all groups spends the entire hourly budget in a single run** and blocks logins for the remainder of that hour, with no attacker involved. That version is also far cheaper to fix than the entry implies: it is the editable field on the Rate Limits page, not a slice. So the two risks separate cleanly, and only one of them needs code.
+
+   **Three triggers, replacing the vague one.**
+   1. **About 25 total members across all groups, or before the digest ships, whichever comes first.** Raise Supabase's hourly email limit. A setting, seconds, no deploy. This is the trigger that will actually fire.
+   2. **About 80 total members.** Resend's free tier is 100 messages a day, so a daily digest at that size plus login headroom is where it binds. Answer is the $20/month tier or a less-than-daily digest, and it is a billing decision rather than an engineering one.
+   3. **The product's URL becoming discoverable by strangers** (posted publicly, linked, indexed). **This is the abuse trigger and it is not a headcount at all**, which is the correction worth keeping: a private group of two hundred friends-of-friends is safer than one public post. Only this trigger justifies the app-level per-address cooldown, and only this one is a slice.
+
+   *Detection, so this is not found by a member giving up:* both signed-out mail endpoints already log a warning when the limit refuses them. The symptom is people reporting that no code arrives, and the log is what separates "the limit" from "the mail is broken."
+
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -4688,3 +4783,527 @@ web push versus a thin native notification shell. He asked to be reminded.
 of the sixteen. The list above this entry now describes something that has
 happened. It is left in place unchanged, per the append-only rule, as the record
 of what the day was supposed to contain.*
+
+## §11 entry: email sign-in (25 to 27 August 2026)
+
+**What the product gained, in one line: a member can come back as themselves.**
+Losing a session never locked anyone out. It duplicated them, silently, in the one
+product whose entire claim is accurate attendance. What shipped is described in
+CLAUDE.md's current-state section and not retold here; this entry records what was
+decided.
+
+**Test baseline 97 files / 955 tests at slice start, matching main. Finishing at
+111 / 1146, green, zero skipped.**
+
+*Declared deviation on length: this entry runs about ~~three~~ **five** times the
+400-to-600 target. It is a deliberate call rather than an overrun. The slice ran
+eleven tasks across three days, and the working ledger that holds its rulings, its
+~~two~~ **three** premise corrections and its ~~three~~ **six** generalising
+lessons is gitignored, so anything not carried here is simply lost. Everything
+below records something decided or learned; the "what shipped" retelling was cut
+instead.*
+
+*Amended 27 August 2026 (fix round 2), and struck rather than rewritten on
+purpose, because this paragraph sits in the entry where the sweep-every-restatement
+lesson lives and it had been quietly edited in place. **The original numbers were
+accurate when they were written**: the entry measured about 1,861 words then and
+about 2,990 now, and fix round 1 added one premise correction and three lessons.
+The length itself was reviewed and upheld; a review that went looking for padding
+proposed cutting nothing, on the grounds that §11 is where reasoning and rejected
+alternatives live while the slice document is intended-versus-shipped.*
+
+### The notification-channel decision, recorded because it lived only in chat
+
+None of it is built here. It is written down because three choices inside this
+slice were shaped by it. **The owner wants notifications eventually, and email is
+one of three channels, not the only one.** Calendar is already built and never
+counted as notifications. **An email digest, once or twice a day**, summarising
+chat somebody missed, explicitly *not* an email per message at any stage, which
+traces straight to the founding complaint about notification noise; alongside it,
+event-triggered mail for time-boxed moments, with a "these need your action now"
+block at the top. **Push is best for urgency and worst for adoption**, since iOS
+web push needs the site added to a home screen first, a heavy ask of somebody who
+just tapped a texted invite link. The digest is safer than it sounds because
+Orbit's speaking moments are already rationed in code rather than by convention,
+so an email channel mirroring them inherits that discipline. One tension recorded
+unsolved: if an urgent item already sent its own mail, repeating it atop the
+digest double-notifies.
+
+### What was settled with the owner before the build, compressed
+
+**Optional forever, asked twice.** "Eventually required" is only a gate with a
+delay on it. The owner overruled a single-ask recommendation: the first ask lands
+before a member has reason to trust the product, and the case for reminders gets
+stronger as the group proves itself. The second ask needs seven days **and** a
+fresh contribution, never a timer, because a timer lands on a quiet screen where
+nothing happened, which is exactly when a nudge reads as pestering. Accepted cost,
+stated rather than hidden: some people never get a second ask.
+
+**A typed code, not a magic link**, because a link opens in the mail app's own
+browser, which is the session fragility this slice exists to fix. Eight digits,
+not six: the spike measured it rather than assuming. **Wrong and expired codes are
+indistinguishable** from the service, so one honest message covers both; copy
+naming an expiry would be a lie the code cannot back up.
+
+**No automatic merge.** The cheap merge is unsafe: `Message.author` is
+`onDelete: SetNull`, so deleting a ghost leaves its messages in the feed with
+nobody attached. A safe merge reassigns every row and was priced at a third of the
+slice. So the fix moved upstream, and the set it cannot help stops growing the day
+this lands. **The rejoin hole stays open** (audit finding 10).
+
+**Resend, free tier, and the domain it forced.** Supabase's built-in sender
+reaches only members of the Supabase organisation, which is what made the whole
+arc provable on dev-test before Resend existed, and why none of the production
+setup blocked the build. `account.` sends login codes so a future `updates.`
+digest gets its own reputation. **Unsubscribe: build nothing, and deliberately
+build no seat**, because it is a per-channel preference and the channels are not
+decided, so a boolean guessed now is likelier wrong than right.
+
+**The per-member read position is declined here** and becomes the first task of
+the digest slice. It retrofits as one nullable column with no backfill, so the
+usual buy-it-early argument does not apply, and the expensive half cannot be bought
+early at all: deciding what counts as "read" with nothing reading it is a guess
+with no way to check it.
+
+### Four rulings the owner made during the build, each with the objection in front of him
+
+*A fifth is below, under the taken-email finding, because it changed what a task was required to build rather than only how something looked.*
+
+1. **"Email reminders are on." stays**, though the digest does not exist yet. The
+   digest slice will make it true.
+2. **The teal Save pill stays** on the group info row. The brief's "never teal"
+   clause governs the collapsed row, which remains a quiet text link.
+3. **The ask sits pinned above the composer**, chosen from three placements each
+   priced in screen height, on a screen whose height budget he has already fought
+   for once. The reservation is real and stated: an undecided member has a shorter
+   chat until they answer.
+4. **Tighten the ask's layout, never its settled copy.** Review found the note
+   rendering four to six lines against copy the placement had been priced at one.
+   The build cut its height by about a third and left every word alone. Whether
+   that is enough is his phone's call, not this document's.
+
+### One product decision made during the build, cheap to reverse
+
+**The three contribution queries are scoped to the group whose home is being
+rendered, not across every group the person belongs to.** So a member active in
+group A does not get asked on group B's screen. Two reasons: the page already
+holds the group's id, so it costs nothing; and the founder copy speaks about "the
+group you started", which a cross-group ask would make false. **The two-asks-per
+-person accounting is unaffected**, because the counter lives on `User` rather than
+on a membership, so the widest possible reading of the allowance still holds.
+Verified in the code: all three lookups (`rsvp`, `message`, `gaugeVote`) filter on
+`groupId` at `src/lib/auth/email-ask.ts:63-76`.
+
+Recorded here rather than left in a task report because it is product behaviour
+with a consequence for the multi-group home already queued at §8: on a multi-group
+screen there is no single group to scope to, and this decision is the thing that
+would have to be reopened. It was surfaced to the owner as cheap to reverse and he
+has not been asked to rule on it.
+
+### A second claim-to-fact boundary now exists, and it is stronger than the first
+
+CLAUDE.md names `src/lib/orbit/normalize.ts` as **the** claim-to-fact boundary,
+where the model's structured output stops being a claim and becomes something the
+product may act on. That wording was written when there was one. There are now
+two: `src/lib/auth/email.ts` does the same job for the *service*, turning every
+raw Supabase reply into one of a fixed set of results before any user-facing
+branch reads it.
+
+The reason to record it rather than treat it as a copy of the pattern: the final
+review judged it **stronger** than `normalize.ts`, on a mechanism worth reusing.
+Each screen's error map is typed as `Record<Exclude<AttachRequestResult, "ok">, string>`
+(`EmailAttachFlow.tsx:55`, and the sign-in equivalent at `SignInPanel.tsx:62` and
+`JoinSignIn.tsx:56`). So adding a new result variant is a **compile error at every
+call site**, rather than a member staring at a blank line where a message should
+be. `normalize.ts` has no equivalent guarantee. Whichever boundary is touched
+next, this is the shape to copy.
+
+### The sharpest product catch of the build
+
+The message a member met when the address they typed was already on an account
+read: *"That email is already saved to someone here. Try another one."* That copy
+dead-ends the exact person this slice exists to rescue, and invites them to cement
+their duplicate permanently. The owner's replacement points at the door instead:
+*"That email is already on an account. If it's yours, sign in with it instead of
+adding another."* It landed as a **hard requirement** that the route it names gets
+built, not as a wording change.
+
+Two things about it worth carrying. **The same dead end existed in two places**,
+and the second was found only by a later re-review; fixing the flagged one alone
+would have looked complete while the group info path dead-ended the same people.
+And **the route out is gated on state, not on a string match**, which matters
+because the info page overrides the wording, so a string match would have silently
+missed that surface while looking correct everywhere anyone would check.
+
+### What signing back in does not recover, and it is inherent
+
+If the duplicate identity joined a group the original is not in, signing in as the
+original drops that group off the front door, with nothing on screen saying so.
+That falls straight out of not merging identities, which was decided deliberately,
+and the founder's remove button is still the cleanup.
+
+### Six lessons that generalise past this slice
+
+- **A guard test's setup assertion must be structural, never a copy match.** The
+  new no-address-on-screen test checked that Orbit's ask was on screen by matching
+  its sentence. Printing an address into that sentence broke the sentence, so the
+  presence check failed *first* and the address assertion never ran: the guard
+  would have reported copy drift while saying nothing about the leak in front of
+  it, on precisely the edit it exists to catch.
+- **A defect class that appeared twice, independently.** `supabase.auth.signOut()`
+  reports a service failure by *returning* an error, not by throwing. Two agents,
+  working separately, both wrapped it in a bare try/catch and both wrote a test
+  exercising the throw that never happens. Both were caught only by a reviewer
+  opening the library's own type definitions.
+- **A trap left in the tests, and a future tidying pass would walk into it.** Two
+  bad-code tests import the shared message constant and compare it against itself,
+  so they cannot catch a copy change. The only real guards on that sentence are the
+  hardcoded literals at `EmailAttachFlow.test.tsx:127` and `EmailAskNote.test.tsx:207`.
+  **Converting those to imports, which looks like consistency, would delete the only
+  protection stopping that message drifting into claiming a code expired.**
+
+- **A correction must be swept, not spot-fixed, and this slice proved it twice
+  in the same file.** Both times a wrong claim was corrected where the problem was
+  *discovered* rather than everywhere the claim was *asserted*: once a fixture, and
+  once a comment sitting 230 lines from the primary docblock that still stated the
+  disproven thing as fact, in the position of most authority in a file whose only
+  value is that a future reader trusts it. **The rule: the close-out step for any
+  correction is a sweep for every restatement of the claim, not an edit at the site
+  that found it.** This is the direct antidote to the failure that sent five tasks
+  of this slice back, including the misquoted founder clause in §3 above, which was
+  this same shape.
+- **Never freeze a line-order reference into a permanent comment.** A pointer was
+  about to be written as "test 11" and "test 12"; the control it named was actually
+  the ninth block in the file, and the ordinal would have gone stale the moment
+  somebody inserted a case above it. Point by name. Caught only by counting against
+  the file rather than trusting the message that supplied the numbers.
+- **The positive companion to the trap above: a hardcoded literal in the right
+  place is a tripwire, not duplication.** The sixty-second resend wait is pinned by
+  **four hardcoded assertions across the three code screens**, none of them
+  self-comparing (`SignInPanel.test.tsx:192`, `EmailAskNote.test.tsx:186`,
+  `EmailAttachFlow.test.tsx:289`, `JoinSignIn.test.tsx:268`). That is deliberate,
+  and it is why the shared countdown hook takes no duration parameter: when the
+  rate-limit work lands and sixty changes, four tests go red and force a human to
+  look at every screen. A parameter would have made that change silent. This is
+  load-bearing on running-list item 6.
+
+### One correction that changes what a future change is allowed to cost
+
+The guard task's brief was wrong about how the pages fetch people, and the
+correction is the most valuable thing it produced. Only the verified-email lookup
+selects a single column. The group home, the group info page and event detail all
+pull **the whole `User` row**, and they are safe for exactly one reason: `User`
+carries no email column. **Adding one would leak an address onto three
+server-rendered screens with no other edit anywhere in the product.** That is now
+pinned by a test that reads the schema, so the day somebody adds the column is the
+day a test says so.
+
+### Declared out of lane, and it ships in this PR
+
+A Claude Design change request removed the hairline closing the group header, plus
+the air below it. It rides this slice because it touches the same file task 5
+touches, so the concurrent micro-PR route was closed by the owner's own rule, and
+because it hands about 13px back to the very screen the ask spends on the order of
+150px of. (That figure was priced at about 100px when the placement was chosen and
+shipped nearer 150: 135, 152.3 or 169.5px depending on which of the three copy
+variants a viewer gets. Ruling 4 above is why.)
+The scope was wider than the request knew: the hairline lives on the shared header
+component, so it comes off the group home, the group info page and event detail
+together, and the owner widened it deliberately, pulling the content under all
+three up so no screen is left looser than the one people spend their time on. All
+three land on the same 14px gap. The feed's own seam hairline stays and must not be
+removed for consistency.
+
+### Debt this slice opened, and what stays honest about it
+
+The address is stored twice, in Supabase as the credential and in `ContactMethod`
+as the app's copy, and they could drift; accepted over a service-role key that
+would bypass every protection in the product. A second identity is orphaned rather
+than merged, by decision. A member who mistypes an address they never check cannot
+see it, by rule, and re-running the attach flow is the whole recovery. **Two
+endpoints send mail while signed out, not one**, and both are uncapped with no
+limit but a Supabase rate limit nobody has read (running list item 6):
+`requestSignInCodeAction` on `/signin`, and `requestJoinSignInCodeAction` behind
+"I've been here before" on `/join/[token]`. (Corrected 27 Aug 2026, final fix
+wave: this paragraph and running item 6 both named `/signin` alone, and the WAF
+rule item 6 recommends would have covered that door and left the invite screen's
+open. Both now log a warning when the mail limit refuses, so an abuse run leaves
+the same trace whichever door it comes through; the ceiling itself is still
+unbuilt and still item 6's to size.) ~~A fourth copy of the bad-code sentence sits
+at `src/app/groups/[id]/info/EmailStatusRow.tsx:67` with neither a guard nor a
+shared source; queued, not fixed.~~ (Resolved 27 Aug 2026, final fix wave: the
+copy is deleted rather than guarded. It was byte-identical to the default and
+the override existed only to strip Orbit's first-person voice, which that
+sentence never had, so the info page now inherits `DEFAULT_BAD_CODE_MESSAGE` and
+there is nothing left to drift.) `src/lib/auth/` now mixes a client-only React
+hook (`email-code-flow.ts`, which carries no `"use client"` marker) in with the
+server-side seam modules beside it, and works today only because all three of its
+importers are client components; a category note for whoever adds the next file
+there. And at least fourteen user-facing strings shipped that
+the owner has never read; that count was taken partway through the slice and
+never retaken after the last two screens were built.
+
+### Postscript, 27 August 2026: the phone answered one of them, and it moved a standing rule
+
+The owner ran the built product on his phone and found the group info row
+wanting in three ways, all of them real, and the first one reopened a rule
+rather than a component.
+
+**The rule.** The data-model bullet said emails are never displayed anywhere in
+the UI, even after capture, and task 6 followed it literally, so the row showed
+no address even to the person who owns it. That row offers "Change email", and
+a member holding more than one address cannot answer "change it from what?".
+The bullet's own stated reasoning is about the GROUP seeing an address, so it
+had been written around its worst case rather than around what it was
+protecting. Amended the same day in CLAUDE.md's data-model section, which is
+the operative copy, with the rule restated where it was also carried in §3
+above and annotated where it was written down in the slice document. **Never
+shown to the group or to any other member; always shown to its owner, on the
+group info page, and nowhere else.**
+
+**What kept the amendment small enough to be safe.** The narrowing is one
+surface, one viewer, and a fetch that cannot reach a roster.
+`verifiedEmailAddress` takes one scalar user id, has exactly one call site, and
+that call site passes the viewer's own id from the session. The guard file did
+not lose its teeth to make room for this: it was narrowed, from "no query in the
+product can see an address" to four separate facts, and each one was proved to
+bite by breaking the code on purpose (leaking onto the member list, fetching per
+member, prefilling the change field, and printing an address in the group feed).
+
+**The other two findings, both copy.** "Email reminders are on." was a false
+affordance: it reads as a setting with a switch behind it and there is no
+switch anywhere in the product. And it repeated the eyebrow directly above it
+word for word. Both are gone, with nothing in their place: the address is the
+fact, and the eyebrow now reads EMAIL FOR SIGN-IN AND REMINDERS, which is the
+only thing on that screen saying what the address is for. **The lesson worth
+carrying: a status sentence that names no state the member can change is
+decoration that reads as a control.**
+
+**One consistency fix rode along.** The "Never mind" exit was centred on the
+sheet and left-justified inline, so the same control sat in two places
+depending on how a member reached it. Centred on the inline row that holds it
+rather than on the shared button, which is what left the sheet's own column
+untouched, and there is a test on each half saying so.
+
+### Two things only the owner's phone can settle, and they are on the QA script
+
+- **`--leading-tight` on the ask is the one lever that traded readability for
+  height**, and it is worth about a third of the saving. Reverting it is a
+  one-token change costing +21 / +26 / +31.5px, landing the note at 156 / 178.5 /
+  201px. **Two independent reads, formed separately, both leaned toward the owner
+  rejecting the tightening.** Recorded that way rather than as a recommendation,
+  because the whole point is that the screen decides.
+- **Two pinned notes can stack above the composer** and were never measured
+  together: `OrbitDownNote` and the email ask both render there
+  (`GroupHome.tsx:171` and `:175`, immediately above `ChatInput`). This is the
+  screen whose height budget the owner has already fought for once.
+
+**What is genuinely unverified, and this list is the honest part of the entry.**
+Nothing in this slice has been seen rendered by anyone. Every height figure is
+arithmetic. The rate limit was read in a dashboard, never exercised. Several sets of
+service error codes are inferred from Supabase's documentation rather than seen
+coming back, each flagged inline in the code where somebody deciding a behaviour
+would read it. The four screens
+this slice adds meet a human for the first time on the owner's phone.
+
+**And two more, both of which can make a shipped decision quietly untrue.**
+
+- **Which Supabase template the sign-in path renders was never measured**, and
+  this is the slice's most consequential unknown. The spike proved which template
+  the *attach* path uses, by giving the candidates deliberately different subject
+  lines. It never established the sign-in one. If that template is left on the
+  default link, **"a typed code, not a magic link" is true of this code and false
+  in the member's inbox**, and it fails in the way that is hardest to notice,
+  because the link still works for whoever tests it on the device they read mail
+  on. One send settles it; it is running-list item 4.3.
+- **Whether `signOut()` on a second Supabase client actually clears the cookie the
+  first client wrote inside the same request.** The seam's own docblock
+  (`email.ts:256`) warns that such a cookie "is not guaranteed to be readable by a
+  second client inside the same request", and if that visibility problem also
+  blocks the clear, then the protection against welding a new member onto an
+  unaccountable identity does not land even when `signOut` reports success. It
+  applies to both paths that do it (`join-signin.ts:115` and `signin.ts:143`), the
+  service is mocked everywhere, so **no test in this repo can see it**, and it
+  needs a hand-run check rather than more code. Task 8 settled a neighbouring
+  question, that no good session is destroyed either way; it did not settle this
+  one.
+
+---
+
+## The email ask becomes a sheet (27 August 2026, `email-sign-in` branch)
+
+Slice document: `docs/superpowers/specs/2026-08-27-email-ask-sheet-design.md`. Design
+source in the repo: `docs/design/design_handoff_round10/` (the B2 shell, the note
+grammar, the fields) and `docs/design/design_handoff_round11/` (frame A, the bottom).
+
+**What changed for a member.** Orbit's ask for an email left the chat feed. It was an
+inline note pinned above the composer, sticky until answered; it is now a bottom sheet
+over the group home, with the scrim behind it and the group still visible through it. The
+founder's extra sentence is gone, so there is one string per ask for everyone. A new line
+under the field says what happens to the address: "For sign-in and reminders. Never shared
+or sold." The group info page's row is untouched and stays inline; it gains the promise
+line, because the promise is about the address rather than about the surface.
+
+**Why a sheet is the anti-clutter answer rather than an exception to it.** This is the
+half worth carrying forward. The owner's diagnosis on a real phone was that the inline
+version was the worst case in between: not big enough to stand out, not small enough to
+work around. The sheet costs **less** total screen time, because the inline note competed
+with the chat feed for as long as a member stayed undecided, and the counter counts
+declines rather than appearances, so an ignored note stayed forever. A sheet takes the
+screen once and ends.
+
+**The product's first modal, and the four decisions that are now the precedent.** Nothing
+in this app used a scrim, a sheet or a dialog before today, so each of these was decided
+rather than inherited, and all four are written into `EmailAskNote.tsx`'s header for
+whoever builds the second one. Focus goes to the sheet itself, never to the email field,
+because focusing an input raises the phone keyboard over an ask nobody has read yet; it is
+trapped while open and returned on close. The page behind does not scroll: the scrim eats
+the pointer events, and `document.body`'s overflow is locked and restored to its previous
+value. Escape closes the sheet for free; the Android system back gesture is deliberately
+not intercepted, because catching it means pushing a history entry and putting a sheet into
+the router's back stack is a bigger decision than this element should make alone.
+Semantics are `role="dialog"` with `aria-modal`, labelled by the note's own eyebrow, not
+`alertdialog`, which announces an urgent interruption that has to be answered.
+
+**Drag-to-dismiss is not built.** The grab bar is drawn because it is what says "sheet" at
+a glance, and dragging it does nothing. Recorded rather than left ambiguous.
+
+**What each way out costs, and why it is asymmetric.** The worded exit spends one of the
+two lifetime asks; the scrim tap, Escape, and navigating away spend nothing. The silent
+gesture is the cheap one, and somebody who read the ask and tapped the worded exit has told
+us something. Both halves are tested, because testing only the expensive one would let the
+free ones quietly become expensive. Register rows are in "Where Orbit decides to speak or
+stay quiet" above.
+
+**Two declared departures from the drawn source.** The reassurance copy is the owner's, not
+round 11's first-person draft, and it is centred, which the boards do not draw: at 15px in
+Geist it measures 331px against 352px of available width, so it fits one line with 21px
+spare, and centred-and-short are one decision, since a centred line that wraps reads worse
+than a left-aligned one. And Save keeps the product's existing two-state grammar, quiet
+until there is something to send and teal after, where the boards draw it teal over an
+empty field: the boards are static frames with no interaction model in them, and following
+them literally would put a teal button on screen that refuses the tap. Teal still appears
+on Save and nowhere else. Both are one-line reversals if the owner prefers the drawn
+version.
+
+**One refactor that fell out of it.** `EmailAttachFlow`'s `compact` boolean is gone,
+replaced by `variant: "inline" | "sheet"`. `compact` existed only to squeeze the pinned
+inline note into a region the chat feed had to share; the sheet retired that note, so the
+pressure it answered no longer exists anywhere. The flow also gained `messageSlot`, which
+lets the sheet wrap Orbit's line in the labeled-note box while the flow keeps owning which
+line it is across the three steps.
+
+**A test that could not fail, found by mutation and fixed.** The new "has no founder
+variant left" test rendered the first ask, called `cleanup()`, rendered the second, and
+asserted on the body. Cleanup wipes the body before the assertion, so it only ever saw the
+second ask: putting the founder sentence back on the first ask left it green. It asserts
+per render now. Worth recording because the test read as covering both asks and did not,
+which is the same shape as this branch's already-recorded self-comparing copy tests.
+
+**Nothing in this slice has been seen rendered by anyone.** No dev server, by standing
+instruction. Every geometry here is ported arithmetic from the handoff CSS, and the owner's
+phone is the only real verification.
+
+**Postscript, same day, round 1 of review: the success path was a trap, and the inline
+version is why nobody saw it.** The done step hides the form, Save, the exit and the
+resend, and nothing unmounts the sheet, so a member who had just successfully saved their
+address sat inside a modal with a scroll lock, a scrim eating taps, focus pinned to the
+sheet by the zero-focusables branch, and not one control on it. The only way out was a tap
+on the dimmed strip above the sheet, which is exactly the gesture round 11 classified as a
+learned pattern rather than a legible one, on the step where deleting the X had already
+left a single worded exit as the whole argument.
+
+**The code was unchanged from the inline note, and that is the lesson worth keeping.** As
+a box above the composer, a control-less done state cost nothing: it could be ignored and
+the rest of the screen still worked. The same code inside a modal traps the member on the
+flagship flow's success path. **Moving an element into a modal re-prices every state it
+has**, and the states nobody looks at are the terminal ones. It was found by rendering the
+component through the real flow rather than by reading it, which is the second time on this
+branch that rendering beat reading.
+
+The fix is a worded control, "Back to the group", on the done step of the sheet variant
+only, wired to a callback that writes nothing: saving an address answers the offer by
+succeeding, and counting a decline there would spend an ask on the one member who said yes.
+Deliberately NOT solved by closing automatically once the code is confirmed, which flashes
+the thank-you away before it can be read; a test holds that shut. The group info page's
+inline row must not gain the control and does not: no scrim, no scroll lock, the rest of
+the page is right there. The label is the build controller's choice rather than the
+owner's, and it is a one-line change if he wants different words.
+
+Three smaller things from the same round. A comment claimed the actions column ran Save,
+resend, exit, when the code has always rendered Save, exit, resend; the comment was wrong
+and was fixed to describe the code, and it is the one artefact on this branch that reads as
+reconstructed rather than written, which is a useful thing to know about recovering a lost
+file. The overflow-restore test set the body's overflow to `""` before rendering, so it
+could not tell restore-what-was-there from hardcode-`""`; it sets `"scroll"` now, and a
+mutation proves it. And nothing pinned "grows, never clips", so the 65% floor, the
+`max-height: 100%` and the scrolling pad now have a test, because that requirement is what
+keeps Save on the screen at accessibility text sizes.
+
+**One thing that cannot be fixed here and is going on the phone QA script instead.** On
+iOS Safari the layout viewport does not shrink for the keyboard, so focusing the field may
+put Save and the worded exit behind it. Nothing in this element uses `dvh` or
+`visualViewport`. Named as a check rather than guessed at.
+
+*Answered 28 August 2026, on the owner's own iPhone, and the answer is that it does not
+happen: focusing the field pushes the sheet up, so the field, Save and the worded exit all
+stay above the keyboard together. **Recorded because the caveat above would otherwise read
+as an open risk**, and the obvious response to an open risk here is to reach for `dvh` or
+`visualViewport`, which this element does not need and which would be a change made against
+a problem that does not exist. This was the last structural unknown in the slice; every
+other unverified item on the list above is a matter of how something looks rather than
+whether it works.*
+
+**Postscript, round 2 of review: the owner met the sheet on a real phone, and both findings
+were real.**
+
+**The sheet vanished on success, and the component was innocent.** His words: "The dialogue
+after I entered in my code came up and disappeared way too fast. I didn't even have time to
+read it." Nothing in `EmailAskNote` closed it. Confirming the code writes a verified
+`ContactMethod`, the route re-renders, `page.tsx` recomputes the gate with
+`hasVerifiedEmail` now true, `shouldOfferEmail` correctly returns null, and the sheet
+unmounted mid-sentence. **The gate was behaving perfectly. The fault was that the sheet's
+lifetime was tied to a server prop that the member's own success invalidates**, which is a
+sentence worth carrying past this element: any surface whose visibility is derived from
+state the surface itself changes has this bug latent in it.
+
+The fix is a latch: once the address is attached, the sheet stays until the member closes
+it, whatever the server now says. It holds a sheet that is already open and can never open
+one, so a member the gate says nothing to still sees nothing; a test asserts that directly,
+and a mutation that widens the latch to unconditional reddens four tests. It stores which
+ask was live rather than a boolean, so the copy cannot switch asks under a member mid-read.
+**This codebase had already learned the same lesson one file over**, in `EmailStatusRow`'s
+local `attached` state, for the same reason and in the same words.
+
+**The test that proves it had to re-render, and that is the general point.** A component
+test structurally cannot see this, because jsdom never re-renders the server component. The
+test renders with an offer, drives to done, then re-renders the same instance with the offer
+now null, which is exactly what the route delivers. It fails against the pre-fix code
+(mutation M18 restores that code and reddens it) and passes after.
+
+**The way out of the taken-email dead end was being walked past.** "I missed the sign-in
+with that email link and didn't click it. I could see that being easy to miss." That route
+is the escape hatch for precisely the person this slice exists to rescue, so a route that
+reads as chrome defeats the slice. Two things were wrong at once. The error carried the
+instruction ("sign in with it instead of adding another") and the control below it repeated
+it, so the control read as an echo of prose rather than as the thing to tap; and the control
+was a 15px grey underlined link in the same register as the "Not now" exit, under a long red
+block.
+
+Both fixed together. The error now states the fact alone, "That email is already on an
+account.", and the instruction lives in the control. The control is outlined: a hairline
+border and a fill give it the shape of something you press, 17px at weight 600 lifts it
+above the surrounding copy, and a 48px target makes it real on a phone. **Not teal**, which
+belongs to Save alone on this sheet, and **not lime**, which is Orbit's brand; outlined
+rather than filled so it stays a route onward instead of competing with Save, which is the
+rung CLAUDE.md already assigns a secondary action. Nothing about it depends on hue. The
+27 August rewrite's intent, to point this person at signing in rather than at typing a
+different address, is unchanged and is now carried by something tappable rather than by a
+sentence. The group info page's separately worded copy was shortened in step, because
+fixing only one surface is the exact mistake that round already made once.
+
+**A test-only finding worth recording.** `email-taken-sign-in-route.test.tsx` mocked
+`next/link` as `({ href, children }) => <a href={href}>{children}</a>`, which silently drops
+every other prop including `style`. The anchor that file rendered was therefore not the
+anchor the product renders, and no assertion about its treatment could have been true. Found
+by writing one. The stand-in passes everything through now.

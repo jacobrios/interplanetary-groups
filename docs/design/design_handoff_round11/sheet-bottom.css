@@ -1,0 +1,42 @@
+/* Round 11 · the bottom of the sheet.
+   Additive over email-ask.css (round 10). Only the region below Orbit's note
+   changes: the field group, the reassurance line, and the single worded exit. */
+
+/* The sheet may now grow to the full page and scroll inside itself rather than
+   clip, which is what enlarged device text plus the long second ask needs. */
+.ea-sheet { max-height: 100%; }
+.ea-sheet .ea-pad { min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.ea-sheet .ea-pad::-webkit-scrollbar { width: 0; height: 0; }
+
+/* ---- field group: label, input, and the line that belongs to the input ---- */
+.ea-fieldgroup { display: flex; flex-direction: column; }
+.ea-fieldgroup .ea-input { margin-top: 0; }
+.ea-assure {
+  font-size: var(--type-meta); line-height: var(--leading-normal);
+  color: var(--text-secondary); margin-top: 9px; text-wrap: pretty;
+}
+
+/* ---- candidate B: the promise spoken inside Orbit's note ---- */
+.ea-note .stack { grid-column: 2; grid-row: 2; margin-top: 7px; display: flex; flex-direction: column; gap: 11px; }
+.ea-note .stack .copy { grid-column: auto; grid-row: auto; margin-top: 0; }
+.ea-note .copy.soft { font-size: var(--type-meta); color: var(--text-secondary); }
+
+/* ---- the one exit ---- */
+.ea-exit {
+  min-height: 48px; display: flex; align-items: center; justify-content: center;
+  font-size: var(--type-body); font-weight: 600; color: var(--text-secondary);
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px;
+  cursor: pointer;
+}
+
+/* ---- candidate C: reassurance and decline as one closing block ---- */
+.ea-closing { border-top: 1px solid var(--hairline); padding-top: 13px; display: flex; flex-direction: column; gap: 4px; }
+.ea-closing .ea-assure { margin-top: 0; }
+.ea-closing .ea-exit { justify-content: flex-start; min-height: 44px; }
+
+/* ---- candidate D: the X mounted on the scrim, clear of the sheet ---- */
+.ea-scrim.xtop { flex-direction: column; align-items: stretch; justify-content: flex-end; }
+.ea-xrow { flex: 0 0 auto; display: flex; justify-content: flex-end; padding: 10px 12px; }
+
+/* ---- candidate E: two exits at deliberately different weights ---- */
+.ea-x.bare { background: none; border: 0; color: var(--text-faint); }
