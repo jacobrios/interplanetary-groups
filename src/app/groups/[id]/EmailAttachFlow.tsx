@@ -36,7 +36,12 @@ import {
   confirmEmailAttachAction,
 } from "@/app/actions/email-ask"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
-import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
+import {
+  CODE_PLACEHOLDER,
+  DEFAULT_BAD_CODE_MESSAGE,
+  useResendCountdown,
+} from "@/lib/auth/email-code-flow"
+import { codeFieldTextStyle } from "@/components/pill-controls"
 
 /**
  * Where the email_taken message points. It lives here rather than in the copy
@@ -81,40 +86,18 @@ const SIGN_IN_LABEL = "Sign in with that email"
  */
 const ASSURANCE = "For sign-in and reminders. Never shared or sold."
 
-/**
- * What the empty code field says, and why it is four words rather than a
- * sentence.
+/*
+ * CODE_PLACEHOLDER moved to src/lib/auth/email-code-flow.ts on 28 Aug 2026,
+ * with its whole rationale, when the two sign-in screens stopped rendering a
+ * second string of their own. The one thing that must not get lost in the
+ * move: THIS surface, the inline row on the group info page, is the narrow
+ * field that sets the nine-character ceiling, because Save sits beside it
+ * rather than under it. That measurement is written out beside the constant.
  *
- * NOBODY DREW THIS. Round 10's frame E draws the code field only in its filled
- * state ("48261" plus a caret), so the empty state has no source to port and
- * this is our own call, not a departure from one.
- *
- * "Enter your code" shipped here and the owner met it on his phone as "Enter
- * your cod", cut off mid-word. The cause is the mono treatment below: at 24px
- * with 0.26em tracking every character costs 20.64px, and the INLINE field is
- * the narrow one because Save sits beside it rather than under it. Measured,
- * at a 390px viewport: the group info page's 28rem column less its 24px sides
- * leaves 342px, the row's own border and 12px padding leave 316px, the 8px gap
- * and Save's roughly 74px leave a 238px field, and its 1px border and 14px
- * padding leave about 204px of input. Fifteen characters wanted 309.6px. Eight
- * want 165.1px.
- *
- * WHY IT NAMES THE COUNT INSTEAD OF INSTRUCTING. The eyebrow above the field
- * already says CODE and the sentence above that already says a code was sent,
- * so "enter your code" was the third telling. What a member actually does not
- * know is how much of it there is, and eight is an unusual length. A row of
- * digits would carry the count too, and would read as a value already in the
- * field; words cannot be mistaken for one.
- *
- * ONE STRING ON BOTH SURFACES. The sheet is wider (322.8px of input at 390px)
- * so the old copy fit there with 13.2px to spare, but it clipped outright on a
- * 375px phone. Two placeholders for one field would have been two things to
- * keep true rather than one.
- *
- * If this is ever lengthened, nine characters is the ceiling the arithmetic
- * above allows, and EmailAttachFlow.test.tsx holds it there.
+ * Nobody drew the empty state. Round 10's frame E draws the code field filled
+ * only ("48261" plus a caret), so this is our own call rather than a departure
+ * from a source.
  */
-const CODE_PLACEHOLDER = "8 digits"
 
 /**
  * Exported so a caller reusing the default map (or writing its own) has the
@@ -569,27 +552,14 @@ export default function EmailAttachFlow({
           // not to. Round 10's handoff drew `.ea-code` with its own treatment
           // and no task ever ported it, so eight digits rendered in the same
           // proportional face as an address; the owner then met the flow on
-          // his phone and could barely tell the screen had changed. Mono with
-          // tabular figures and a wide track is what makes a string of digits
-          // legible AS digits at a glance, and it is the only thing on this
-          // row that does that job, since the box, the border and the button
-          // are all shared with the step before it.
+          // his phone and could barely tell the screen had changed.
           //
-          // One input, never eight boxes, and no length rule anywhere: the
-          // handoff records why, which is that paste has to work and that
-          // eight boxes read as a puzzle.
-          //
-          // --type-title is 24px, comfortably over the 16px below which iOS
-          // zooms the page on focus, so the constraint the email field's 17px
-          // exists to satisfy is satisfied here with room to spare.
-          ...(isCodeStep
-            ? {
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--type-title)",
-                letterSpacing: "0.26em",
-                fontVariantNumeric: "tabular-nums",
-              }
-            : null),
+          // Spread from pill-controls rather than written out here, 28 Aug
+          // 2026: this flow was the only one of the three code screens wearing
+          // the treatment, and the fix for that was one source, not a second
+          // and third copy. The reasoning for each property lives with it
+          // there.
+          ...(isCodeStep ? codeFieldTextStyle : null),
         }}
       />
     </div>

@@ -630,9 +630,12 @@ describe("EmailAttachFlow, what the inline surface's prose outranks", () => {
   it("keeps the resend wait faint, because it is the one line in the box that is genuinely chrome", async () => {
     // NOT brightened either. It is a transient status about a control rather
     // than something a member has to read to proceed, and it removes itself.
-    // Recorded as a finding for the owner rather than changed here: at 15px
-    // --text-faint measures 3.77:1 against --surface-base, under WCAG AA, and
-    // that is a question about the token everywhere, not about this row.
+    // Still not brightened, and it no longer needs to be. The finding this
+    // comment used to record (--text-faint at 3.77:1 on --surface-base, under
+    // WCAG AA) was answered on 28 Aug 2026 by lifting the token itself to
+    // #8D91A2, which was always the right level for it: the question was about
+    // the token everywhere, not about this row. The arithmetic now lives in
+    // src/app/__tests__/token-contrast.test.ts.
     render(<EmailAttachFlow {...baseProps()} />)
     await reachCodeStep()
 

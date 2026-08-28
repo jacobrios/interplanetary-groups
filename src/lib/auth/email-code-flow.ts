@@ -35,6 +35,32 @@ export const DEFAULT_BAD_CODE_MESSAGE =
   "That code didn't work. It might be typed wrong, or it might have expired. Ask for a new code and try again."
 
 /**
+ * The code field's placeholder, for every screen that draws the field.
+ *
+ * WHY IT NAMES THE COUNT INSTEAD OF INSTRUCTING. The eyebrow above the field
+ * already says CODE and the sentence above that already says a code was sent,
+ * so "enter your code" was the third telling. What a member actually does not
+ * know is how much of it there is, and eight is an unusual length. A row of
+ * digits would carry the count too, and would read as a value already in the
+ * field; words cannot be mistaken for one.
+ *
+ * ONE STRING ON EVERY SURFACE, and the narrowest one sets the budget. The
+ * mono treatment costs 20.64px a character (24px Geist Mono, 0.26em tracking),
+ * and the tightest field is the group info page's inline row, where Save sits
+ * BESIDE the field rather than under it: about 204px of input at a 390px
+ * viewport, so nine characters is the ceiling. Every other surface is wider
+ * and could afford more, which is exactly why the ceiling lives with the
+ * string rather than with any one screen. Measured widths, at 375px: the sheet
+ * about 307px, /signin and the invite screen 289px each.
+ *
+ * Moved here 28 Aug 2026, from EmailAttachFlow, when the two sign-in screens
+ * stopped rendering a second string of their own.
+ * EmailAttachFlow.test.tsx, SignInPanel.test.tsx and JoinSignIn.test.tsx each
+ * hold the nine-character ceiling.
+ */
+export const CODE_PLACEHOLDER = "8 digits"
+
+/**
  * The seam's rate limit has a sixty-second floor per user, so every resend
  * names the wait in plain words instead of letting somebody walk into an error.
  *

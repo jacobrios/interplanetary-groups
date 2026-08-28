@@ -117,7 +117,7 @@ export function PlaybackRow({
     maxWidth: "60%",
     overflowWrap: "break-word",
     // --ink-faint in the stylesheet is #A7AAB6, which is this project's
-    // --text-secondary (#A7AAB6), not --text-faint (#6F7280, a dimmer
+    // --text-secondary (#A7AAB6), not --text-faint (#8D91A2, a dimmer
     // gray). The stylesheet's own inline comment on --ink-faint says as
     // much: it names the token a retired dim gray now standing in for
     // secondary.

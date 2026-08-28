@@ -37,6 +37,53 @@ export const inputStyle: CSSProperties = {
   outline: "none",
 }
 
+/**
+ * The code field's TEXT treatment, and the only copy of it in the codebase.
+ *
+ * Round 10's handoff (docs/design/design_handoff_round10/README.md, "Fields")
+ * draws `.ea-input.ea-code` as one input, eight digits, mono, --type-title,
+ * 0.26em tracking, tabular figures, min-height 60. Mono with tabular figures
+ * and a wide track is what makes a string of digits legible AS digits, which
+ * is the whole job here: the member is checking what they typed against what
+ * is in their email, one character at a time.
+ *
+ * It lives in this file, spread by all three screens, because that job is
+ * identical at every door and it had already been ported to exactly one of
+ * them. Its four properties travel together; nothing should take three.
+ *
+ * NOT in here, deliberately: minHeight, which belongs to whichever box holds
+ * the text and differs per shell (the handoff's 60 on a full-width field, less
+ * in EmailAttachFlow's denser inline row).
+ *
+ * ONE INPUT, NEVER EIGHT BOXES, and no length rule anywhere: the handoff
+ * records why, which is that paste has to work and that eight boxes read as a
+ * puzzle. That is why there is no maxLength here and must not be one.
+ *
+ * --type-title is 24px, comfortably over the 16px under which iOS zooms the
+ * page on a focused input, so the constraint the email field's 17px exists to
+ * satisfy is satisfied here with room to spare.
+ */
+export const codeFieldTextStyle: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: "var(--type-title)",
+  letterSpacing: "0.26em",
+  fontVariantNumeric: "tabular-nums",
+}
+
+/**
+ * The pill field wearing that treatment, for the two sign-in screens, whose
+ * input IS the box (EmailAttachFlow draws its own box around a bare input and
+ * spreads codeFieldTextStyle onto the input alone).
+ *
+ * The handoff's 60px min-height, not a fixed height: at an enlarged device
+ * text size the box grows with the digits rather than clipping them.
+ */
+export const codeInputStyle: CSSProperties = {
+  ...inputStyle,
+  ...codeFieldTextStyle,
+  minHeight: 60,
+}
+
 export function buttonStyle(isPending: boolean): CSSProperties {
   return {
     width: "100%",

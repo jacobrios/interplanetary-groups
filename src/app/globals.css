@@ -15,7 +15,24 @@
   --text-primary: #ECEDF2;
   --text-secondary: #A7AAB6;
   --placeholder: #8c91a0;    /* empty-field text */
-  --text-faint: #6F7280;     /* eyebrows, incidental chrome */
+  /* Eyebrows, incidental chrome. LIFTED FOR WCAG AA, 28 Aug 2026, and this is
+     a floor rather than a taste: do not take it back down for looks.
+     #6F7280 measured 3.77:1 on --surface-base, 3.32:1 on --surface-low and
+     2.96:1 on --surface-raised, against the 4.5:1 AA asks of text under
+     18.66px, which is every use of this token. The owner reported this exact
+     grey as hard to read twice in two days, on two screens, not knowing both
+     were this one token.
+     The worst case is --surface-raised (#262b37), not --surface-base: light
+     text on a dark ground loses contrast as the ground gets LIGHTER, so the
+     darkest page is the flattering case. Two things render this token there,
+     ProposalSection's TIME CHANGE eyebrow and SendCircleButton's resting
+     arrow, which is what sets the bar. #8D91A2 is the smallest lift along the
+     original hue that clears it: 5.75 / 5.07 / 4.52 on base / low / raised.
+     Smallest on purpose, because this is the product's quiet register and
+     overshooting flattens it into --text-secondary.
+     Held by src/app/__tests__/token-contrast.test.ts, which recomputes the
+     ratios from this file. */
+  --text-faint: #8D91A2;
   --lime: #a4ef4e;           /* Orbit brand — never an action */
   --lime-ink: #233006;
   --action: #18bccb;         /* teal: an action that genuinely matters */

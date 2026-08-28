@@ -12,8 +12,10 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent } from "@testing-library/react"
+import { readFileSync } from "fs"
+import path from "path"
 import JoinSignIn from "../JoinSignIn"
-import { DEFAULT_BAD_CODE_MESSAGE } from "@/lib/auth/email-code-flow"
+import { CODE_PLACEHOLDER, DEFAULT_BAD_CODE_MESSAGE } from "@/lib/auth/email-code-flow"
 import type { SignInRequestResult } from "@/lib/auth/email"
 import type { ConfirmJoinSignInResult } from "@/app/actions/join-signin"
 
@@ -270,18 +272,112 @@ describe("JoinSignIn, the code step", () => {
   })
 })
 
+// ── One input doing one job should not look like three inputs ───────────────
+//
+// Round 10's handoff draws ONE code field, and three screens render it: the
+// group home sheet, the group info row (both EmailAttachFlow) and the two
+// sign-in panels. Only EmailAttachFlow ever got the drawn treatment. This one
+// did not clip and nobody reported it, which is exactly why it was about to
+// stay wrong: the treatment is not decoration, it is what makes a string of
+// eight digits checkable against the one in the member's email, and that is
+// equally true at every door.
+describe("JoinSignIn, the code field reads as a code field", () => {
+  it("gives the code input the drawn mono treatment", async () => {
+    renderPanel()
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(code.style.fontFamily).toBe("var(--font-mono)")
+    expect(code.style.fontSize).toBe("var(--type-title)")
+    expect(code.style.letterSpacing).toBe("0.26em")
+    expect(code.style.fontVariantNumeric).toBe("tabular-nums")
+  })
+
+  it("leaves the email input alone", () => {
+    renderPanel()
+    const field = screen.getByLabelText("Your email address") as HTMLInputElement
+
+    expect(field.style.fontFamily).toBe("")
+    expect(field.style.letterSpacing).toBe("")
+    expect(field.style.fontSize).toBe("var(--type-body)")
+  })
+
+  it("grows the box with the taller type instead of clipping it", async () => {
+    // The handoff's `.ea-code` is 60px against `.ea-input`'s 52px. This field
+    // has no minHeight at all on the email step, so the assertion is that the
+    // code step sets one.
+    renderPanel()
+    expect(
+      (screen.getByLabelText("Your email address") as HTMLInputElement).style.minHeight
+    ).toBe("")
+
+    await reachCodeStep()
+    expect(
+      (screen.getByLabelText("The code from your email") as HTMLInputElement).style.minHeight
+    ).toBe("60px")
+  })
+
+  it("shows the code's shape rather than instructing, in the one shared string", async () => {
+    // Imported, not retyped: EmailAttachFlow's inline row is the narrow field
+    // that set this budget, and a second copy here could drift past it.
+    renderPanel()
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(code.placeholder).toBe(CODE_PLACEHOLDER)
+  })
+
+  it("fits that placeholder in this screen's measured field width", async () => {
+    // Measured at the tightest phone this screen is built for. JoinForm wraps
+    // this panel in padding "10px 24px 18px" around a 28rem column, so at a
+    // 375px viewport the column is 327px; the input is border-box with a 1px
+    // border and 18px of side padding, leaving 289px of text. At 24px Geist
+    // Mono with 0.26em tracking each character costs 20.64px, so 14 fit here.
+    //
+    // The ceiling asserted is 9, not 14, because ONE string serves all three
+    // screens and EmailAttachFlow's inline row is the narrow one (about 204px,
+    // Save sitting beside it rather than under it). This screen has room to
+    // spare; the shared string may not use it.
+    //
+    // jsdom computes no layout, so this covers the string staying inside the
+    // budget the arithmetic produced, not the arithmetic itself.
+    renderPanel()
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(code.placeholder.length).toBeLessThanOrEqual(9)
+  })
+})
+
 describe("JoinSignIn, the rules the design system does not let it break", () => {
   // iOS Safari and iOS Chrome zoom the whole viewport when a focused input
   // computes under 16px, and nothing in layout.tsx suppresses it. This slice
   // already shipped that bug once on the group home's field.
-  it("keeps both fields at body size so a tap cannot zoom the page", async () => {
+  //
+  // Rewritten 28 Aug 2026: it used to pin both fields to --type-body, which
+  // stopped being true when the code field took the handoff's --type-title.
+  // Pinning the token NAME was never what the iOS rule needed anyway, since a
+  // name can be spelled right and resolve to 12px. This resolves both tokens
+  // out of globals.css, the single source, and checks the thing that matters.
+  it("keeps both fields above the 16px floor so a tap cannot zoom the page", async () => {
+    const css = readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8")
+    const px = (tokenName: string) => {
+      const m = css.match(new RegExp(`--${tokenName}:\\s*([\\d.]+)rem`))
+      expect(m).not.toBeNull()
+      return parseFloat(m![1]) * 16
+    }
+
     renderPanel()
-    const emailField = screen.getByLabelText("Your email address") as HTMLInputElement
-    expect(emailField.style.fontSize).toBe("var(--type-body)")
+    const emailSize = (screen.getByLabelText("Your email address") as HTMLInputElement).style
+      .fontSize
+    expect(emailSize).toMatch(/^var\(--(type-[a-z]+)\)$/)
+    expect(px(emailSize.slice(6, -1).replace("--", ""))).toBeGreaterThanOrEqual(16)
 
     await reachCodeStep()
-    const codeField = screen.getByLabelText("The code from your email") as HTMLInputElement
-    expect(codeField.style.fontSize).toBe("var(--type-body)")
+    const codeSize = (screen.getByLabelText("The code from your email") as HTMLInputElement).style
+      .fontSize
+    expect(codeSize).toMatch(/^var\(--(type-[a-z]+)\)$/)
+    expect(px(codeSize.slice(6, -1).replace("--", ""))).toBeGreaterThanOrEqual(16)
   })
 
   // type="email" was ruled out on the attach flow because the browser's own

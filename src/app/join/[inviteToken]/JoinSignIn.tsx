@@ -35,8 +35,12 @@ import {
   type ConfirmJoinSignInResult,
 } from "@/app/actions/join-signin"
 import type { SignInRequestResult } from "@/lib/auth/email"
-import { DEFAULT_BAD_CODE_MESSAGE, useResendCountdown } from "@/lib/auth/email-code-flow"
-import { inputStyle, buttonStyle } from "@/components/pill-controls"
+import {
+  CODE_PLACEHOLDER,
+  DEFAULT_BAD_CODE_MESSAGE,
+  useResendCountdown,
+} from "@/lib/auth/email-code-flow"
+import { inputStyle, codeInputStyle, buttonStyle } from "@/components/pill-controls"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 
 const PROMPT_MESSAGE = "Welcome back. What's the email you saved with me? I'll send you a code."
@@ -216,7 +220,11 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
             // seam's only length rule is that an empty string cannot be a code.
             inputMode={isCodeStep ? "numeric" : "email"}
             autoComplete={isCodeStep ? "one-time-code" : "email"}
-            placeholder={isCodeStep ? "Enter your code" : "you@example.com"}
+            // The shared string, imported rather than retyped. It names the
+            // code's length instead of instructing, because the sentence above
+            // has already said a code was sent; the reasoning and the character
+            // budget live with the constant.
+            placeholder={isCodeStep ? CODE_PLACEHOLDER : "you@example.com"}
             value={value}
             onChange={(e) => {
               ;(isCodeStep ? setCode : setEmail)(e.target.value)
@@ -225,7 +233,12 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
               if (errorMsg) setErrorMsg(null)
             }}
             disabled={isPending}
-            style={inputStyle}
+            // The code step is deliberately not the email step. Round 10 drew
+            // the code field with its own mono treatment; EmailAttachFlow got
+            // it and this screen did not, so the same eight digits read three
+            // different ways depending on which door somebody came through.
+            // One shared source now, in pill-controls.
+            style={isCodeStep ? codeInputStyle : inputStyle}
           />
         </div>
 
