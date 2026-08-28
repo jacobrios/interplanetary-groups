@@ -533,6 +533,16 @@ Seven High-priority items come due at the moment of the first production deploy.
 
    **One number to carry into the digest slice:** 30 an hour is the whole project's email budget, login codes and digest together. A daily digest to a group of eight is eight messages and fits easily, but the ceiling is shared, and the digest is the first thing that will ever send in bulk.
 
+   ***Amended later the same day, 28 August 2026, at the owner's question, and the amendment is the useful half.*** He asked the obvious thing the entry had ducked: *when* does this stop being queued? "Real users beyond the owner and one friend" is not a number anybody can act on. Working it out surfaced that **the framing above is aimed at the wrong risk.** It treats this as an abuse problem, and abuse needs someone motivated; the thing that will actually empty the bucket is **the product succeeding**. The digest sends one message per member per day, all at once, so **thirty members across all groups spends the entire hourly budget in a single run** and blocks logins for the remainder of that hour, with no attacker involved. That version is also far cheaper to fix than the entry implies: it is the editable field on the Rate Limits page, not a slice. So the two risks separate cleanly, and only one of them needs code.
+
+   **Three triggers, replacing the vague one.**
+   1. **About 25 total members across all groups, or before the digest ships, whichever comes first.** Raise Supabase's hourly email limit. A setting, seconds, no deploy. This is the trigger that will actually fire.
+   2. **About 80 total members.** Resend's free tier is 100 messages a day, so a daily digest at that size plus login headroom is where it binds. Answer is the $20/month tier or a less-than-daily digest, and it is a billing decision rather than an engineering one.
+   3. **The product's URL becoming discoverable by strangers** (posted publicly, linked, indexed). **This is the abuse trigger and it is not a headcount at all**, which is the correction worth keeping: a private group of two hundred friends-of-friends is safer than one public post. Only this trigger justifies the app-level per-address cooldown, and only this one is a slice.
+
+   *Detection, so this is not found by a member giving up:* both signed-out mail endpoints already log a warning when the limit refuses them. The symptom is people reporting that no code arrives, and the log is what separates "the limit" from "the mail is broken."
+
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
