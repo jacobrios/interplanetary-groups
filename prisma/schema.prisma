@@ -69,6 +69,12 @@ model Membership {
   userId   String
   groupId  String
   joinedAt DateTime @default(now())
+  /// When this member last opened this group's home. Null means never.
+  /// Records that they opened the group, not that they read every message:
+  /// the feed has no unread divider and no saved position, so this errs
+  /// toward assuming they saw more than they did, which keeps the digest
+  /// quiet rather than noisy. Written by markGroupSeen (src/lib/groups/seen.ts).
+  lastSeenAt DateTime?
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
