@@ -584,3 +584,140 @@ describe("EmailAttachFlow, the code field reads as a code field", () => {
     expect(parseFloat(title![1]) * 16).toBeGreaterThanOrEqual(16)
   })
 })
+
+// ── The owner's second phone pass, 28 Aug 2026 ──────────────────────────────
+//
+// Two findings, both on the group info page's inline row, neither reported
+// against the sheet. "All of that text in the box should be the bright or
+// white letters and not the dim gray. It's hard for me to read it. It just
+// kind of looks muted and disabled. If you look at the group invite link and
+// the who, those are the bright or white letters." And a screenshot of the
+// code step showing the placeholder cut off mid-word: "Enter your cod".
+
+describe("EmailAttachFlow, what the inline surface's prose outranks", () => {
+  // The rank argument, and it is the thing to read before "harmonising" these
+  // two surfaces. The sheet renders this same sentence through its own
+  // messageSlot at --text-primary and 17px, because Orbit's note is where the
+  // sentence the element exists to get read lives. The flow's own fallback
+  // paragraph, which in production only the group info page renders, was one
+  // step down at --text-secondary with nothing brighter above it to outrank
+  // it, which is what made it read as disabled.
+
+  it("renders its own message as the surface's main text, not one step down", () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+
+    expect(screen.getByText(PROMPT).style.color).toBe("var(--text-primary)")
+  })
+
+  it("carries the same rank onto the code step, where the sentence names the inbox to open", async () => {
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+
+    const sent = screen.getByText(/I sent a code to sam@example\.com/)
+    expect(sent.style.color).toBe("var(--text-primary)")
+  })
+
+  it("keeps the promise about the address subordinate, because it is a footnote on the field", () => {
+    // NOT brightened. The prompt is the ask; this is fine print under it, and
+    // on the group info page it very nearly restates the section eyebrow
+    // directly above the row ("Email for sign-in and reminders").
+    render(<EmailAttachFlow {...baseProps()} />)
+
+    const promise = screen.getByText("For sign-in and reminders. Never shared or sold.")
+    expect(promise.style.color).toBe("var(--text-secondary)")
+  })
+
+  it("keeps the resend wait faint, because it is the one line in the box that is genuinely chrome", async () => {
+    // NOT brightened either. It is a transient status about a control rather
+    // than something a member has to read to proceed, and it removes itself.
+    // Recorded as a finding for the owner rather than changed here: at 15px
+    // --text-faint measures 3.77:1 against --surface-base, under WCAG AA, and
+    // that is a question about the token everywhere, not about this row.
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+
+    const wait = screen.getByText(/You can ask for a new code in \d+ seconds?\./)
+    expect(wait.style.color).toBe("var(--text-faint)")
+  })
+
+  it("puts the inline step eyebrow in the register the group info page already uses", () => {
+    // Every eyebrow on that page ("Group invite link", "Email for sign-in and
+    // reminders") is --text-secondary. This one shipped at --text-faint, which
+    // made it the dimmest thing on a page that never goes that dim.
+    render(<EmailAttachFlow {...baseProps()} />)
+
+    expect(screen.getByText("Email").style.color).toBe("var(--text-secondary)")
+  })
+
+  it("leaves the sheet's step eyebrow faint, because a brighter eyebrow genuinely outranks it there", () => {
+    // The sheet's note carries "A note from Orbit" at --text-secondary. A
+    // second eyebrow at the same weight would flatten that ordering, and the
+    // owner did not report the sheet. The divergence is deliberate; this pins
+    // it so nobody collapses the two later.
+    render(<EmailAttachFlow {...baseProps({ variant: "sheet" })} />)
+
+    expect(screen.getByText("Email").style.color).toBe("var(--text-faint)")
+  })
+})
+
+describe("EmailAttachFlow, the code placeholder fits the field it sits in", () => {
+  // The mono treatment (24px, --font-mono, 0.26em tracking) makes every
+  // character cost 20.64px, and the inline field is the narrow one because
+  // Save sits BESIDE it rather than below. "Enter your code" needed 309.6px
+  // against about 204px of input, so it lost five characters off the end.
+  //
+  // Measured, not guessed: the advance widths come from the Geist Mono the app
+  // loads (0.6em per character, monospaced), and the field width from the page
+  // chain at a 390px viewport. Full arithmetic in the slice report. jsdom
+  // computes no layout, so THAT part is not what these tests cover; what they
+  // cover is the string staying inside the budget the arithmetic produced.
+
+  const CODE_PLACEHOLDER = "8 digits"
+
+  it.each(["inline", "sheet"] as const)(
+    "shows the code's shape rather than instructing, on the %s surface",
+    async (variant) => {
+      // One string on both surfaces, not two. The sheet had only 13.2px of
+      // spare at 390px and clips outright at 375px, so it was a clipping bug
+      // waiting for a narrower phone rather than a surface that was fine.
+      render(<EmailAttachFlow {...baseProps({ variant })} />)
+      await reachCodeStep()
+      const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+      expect(code.placeholder).toBe(CODE_PLACEHOLDER)
+    }
+  )
+
+  it("stays inside the character budget the inline field's measured width allows", async () => {
+    // 204px of input at a 390px viewport, 20.64px per character at 24px mono
+    // with 0.26em tracking, so nine characters is the ceiling. Eight leaves
+    // 39px of slack, which is what carries it down to a 375px phone too.
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(code.placeholder.length).toBeLessThanOrEqual(9)
+  })
+
+  it("cannot be mistaken for a value somebody might try to submit", async () => {
+    // A row of digits would show the shape and read as a prefilled code. This
+    // names the count in words instead, and Save stays disabled until the
+    // member actually types.
+    render(<EmailAttachFlow {...baseProps()} />)
+    await reachCodeStep()
+    const code = screen.getByLabelText("The code from your email") as HTMLInputElement
+
+    expect(/^\d+$/.test(code.placeholder)).toBe(false)
+  })
+
+  it("leaves the email placeholder alone, which measures comfortably at the same width", () => {
+    // 149.3px at 17px Geist against the same ~204px of input: it was never the
+    // one clipping, and it is allowlisted by name in the address guard at
+    // src/app/__tests__/no-email-address-on-screen.test.tsx, so changing it
+    // would redden that file on purpose.
+    render(<EmailAttachFlow {...baseProps()} />)
+    const field = screen.getByLabelText("Your email address") as HTMLInputElement
+
+    expect(field.placeholder).toBe("you@example.com")
+  })
+})

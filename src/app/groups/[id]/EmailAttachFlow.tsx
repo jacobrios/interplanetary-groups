@@ -82,6 +82,41 @@ const SIGN_IN_LABEL = "Sign in with that email"
 const ASSURANCE = "For sign-in and reminders. Never shared or sold."
 
 /**
+ * What the empty code field says, and why it is four words rather than a
+ * sentence.
+ *
+ * NOBODY DREW THIS. Round 10's frame E draws the code field only in its filled
+ * state ("48261" plus a caret), so the empty state has no source to port and
+ * this is our own call, not a departure from one.
+ *
+ * "Enter your code" shipped here and the owner met it on his phone as "Enter
+ * your cod", cut off mid-word. The cause is the mono treatment below: at 24px
+ * with 0.26em tracking every character costs 20.64px, and the INLINE field is
+ * the narrow one because Save sits beside it rather than under it. Measured,
+ * at a 390px viewport: the group info page's 28rem column less its 24px sides
+ * leaves 342px, the row's own border and 12px padding leave 316px, the 8px gap
+ * and Save's roughly 74px leave a 238px field, and its 1px border and 14px
+ * padding leave about 204px of input. Fifteen characters wanted 309.6px. Eight
+ * want 165.1px.
+ *
+ * WHY IT NAMES THE COUNT INSTEAD OF INSTRUCTING. The eyebrow above the field
+ * already says CODE and the sentence above that already says a code was sent,
+ * so "enter your code" was the third telling. What a member actually does not
+ * know is how much of it there is, and eight is an unusual length. A row of
+ * digits would carry the count too, and would read as a value already in the
+ * field; words cannot be mistaken for one.
+ *
+ * ONE STRING ON BOTH SURFACES. The sheet is wider (322.8px of input at 390px)
+ * so the old copy fit there with 13.2px to spare, but it clipped outright on a
+ * 375px phone. Two placeholders for one field would have been two things to
+ * keep true rather than one.
+ *
+ * If this is ever lengthened, nine characters is the ceiling the arithmetic
+ * above allows, and EmailAttachFlow.test.tsx holds it there.
+ */
+const CODE_PLACEHOLDER = "8 digits"
+
+/**
  * Exported so a caller reusing the default map (or writing its own) has the
  * exact key set to satisfy, and so a test can assert against it rather than
  * retyping every string.
@@ -415,7 +450,21 @@ export default function EmailAttachFlow({
         fontSize: "var(--type-eyebrow)",
         letterSpacing: "0.14em",
         textTransform: "uppercase",
-        color: "var(--text-faint)",
+        // COLOUR IS PER SURFACE for the same reason the spacing below it is:
+        // what outranks this label differs between the two, and rank is what
+        // the token carries.
+        //
+        // In the sheet, the note directly above says "A note from Orbit" at
+        // --text-secondary. A second eyebrow at that weight would flatten the
+        // ordering, so this one stays a step under it.
+        //
+        // Inline, the eyebrows above it on the group info page ("Group invite
+        // link", "Email for sign-in and reminders") are themselves
+        // --text-secondary, and that page never renders anything at
+        // --text-faint. Leaving this one faint made it the dimmest thing on a
+        // screen whose own register is a step brighter, which is half of what
+        // the owner was pointing at when he said the box read as disabled.
+        color: isSheet ? "var(--text-faint)" : "var(--text-secondary)",
         fontWeight: 700,
         marginBottom: isSheet ? 7 : 5,
       }}
@@ -482,7 +531,7 @@ export default function EmailAttachFlow({
         // be a code, and this matches it.
         inputMode={isCodeStep ? "numeric" : "email"}
         autoComplete={isCodeStep ? "one-time-code" : "email"}
-        placeholder={isCodeStep ? "Enter your code" : "you@example.com"}
+        placeholder={isCodeStep ? CODE_PLACEHOLDER : "you@example.com"}
         value={value}
         onChange={(e) => {
           ;(isCodeStep ? setCode : setEmail)(e.target.value)
@@ -609,11 +658,28 @@ export default function EmailAttachFlow({
       {messageSlot ? (
         messageSlot(message)
       ) : (
+        // THE MAIN TEXT OF ITS SURFACE, so --text-primary, and this is the
+        // comment to read before "harmonising" the two variants.
+        //
+        // In production only the inline surface renders this paragraph: the
+        // sheet passes messageSlot and puts the same sentence inside Orbit's
+        // labeled note, where it is ALREADY --text-primary at 17px, because it
+        // is the sentence the element exists to get read. This paragraph
+        // shipped at --text-secondary, which is a rank that only makes sense
+        // when something brighter is above it. On the group info page nothing
+        // is: there is no Orbit presence anywhere on that page, this is the
+        // main text of the row, and the invite-link value and the WHO names on
+        // the same screen are both --text-primary. The owner read the
+        // difference exactly as it looked, as disabled.
+        //
+        // Size stays --type-meta (15px), which is the info page's own value
+        // register (its InfoRow values are 15px --text-primary). Only the rank
+        // was wrong, not the scale.
         <p
           style={{
             fontSize: "var(--type-meta)",
             lineHeight: "var(--leading-normal)",
-            color: "var(--text-secondary)",
+            color: "var(--text-primary)",
             margin: 0,
           }}
         >
