@@ -171,7 +171,7 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
-- **The email arc, first post-MVP work (decided 11 Aug 2026, triage round two).** Email capture after the first RSVP, then an email digest that brings people back to the app: the web app's substitute for native notifications, with SMS priced out for an MVP and web push already registered below. The digest's shape is an anti-clutter product question that earns its own brainstorm, and a sending service is a new external seam, which is exactly what kept it out of the MVP push. An iOS app was considered for the same need and declined for now as a much larger lift.
+- **The email arc, first post-MVP work (decided 11 Aug 2026, triage round two).** Email capture after the first RSVP, then an email digest that brings people back to the app: the web app's substitute for native notifications, with SMS priced out for an MVP and web push already registered below. The digest's shape is an anti-clutter product question that earns its own brainstorm, and a sending service is a new external seam, which is exactly what kept it out of the MVP push. An iOS app was considered for the same need and declined for now as a much larger lift. **The digest's shape was settled 28 August 2026**; see docs/superpowers/specs/2026-08-28-digest-plumbing-design.md. Slice one is the plumbing (read position, Resend seam, unsubscribe door); slice two is the digest itself.
 - **Orbit-miss observability, and a user feedback affordance (queued 11 Aug 2026, triage round two).** A periodic digest to the owner of detection failures and quiet outcomes (today they fail toward silence and nobody would know), and a place in the product for users to leave feedback. Both declined for now while everyone with access knows the owner personally; queued so they are not lost when that stops being true. The interim answer, accepted knowingly: people who know the owner complain out of band, plus an occasional skim of the server logs once the investor group is live.
 - Multi-group home screen (backend ready day one; Orbit logo already positioned as home button).
 - Multi-venue event UI (data model ready day one).
@@ -545,6 +545,8 @@ Seven High-priority items come due at the moment of the first production deploy.
    3. **The product's URL becoming discoverable by strangers** (posted publicly, linked, indexed). **This is the abuse trigger and it is not a headcount at all**, which is the correction worth keeping: a private group of two hundred friends-of-friends is safer than one public post. Only this trigger justifies the app-level per-address cooldown, and only this one is a slice.
 
    *Detection, so this is not found by a member giving up:* both signed-out mail endpoints already log a warning when the limit refuses them. The symptom is people reporting that no code arrives, and the log is what separates "the limit" from "the mail is broken."
+
+   ***Corrected 28 August 2026, in the digest slice's brainstorm, and trigger 1's premise was wrong.*** **Supabase's hourly email ceiling does not bind the digest and never could.** Supabase Auth sends only its own auth templates; there is no generic send. The repo has no Resend dependency and no `RESEND_API_KEY`, because Resend is purely the SMTP relay behind Supabase Auth. So the digest calls Resend directly, and it spends none of Supabase's 30 an hour. **Trigger 1 is therefore disarmed as written:** raising that limit protects login codes and nothing else, so it is no longer a prerequisite for the digest shipping. **Trigger 2 stands unchanged and is now the one that binds:** Resend's free tier is 100 a day and 3,000 a month, shared with login codes because both leave the same Resend account. Trigger 3, the abuse trigger, is untouched. *Also corrected: "anything configured for this slice must be done on both Supabase projects" does not apply here, because nothing about the digest is a Supabase setting and Resend sending domains are account-level.*
 
 
 ### Data-foundation slice (18 to 19 June 2026)
@@ -4859,9 +4861,18 @@ this lands. **The rejoin hole stays open** (audit finding 10).
 reaches only members of the Supabase organisation, which is what made the whole
 arc provable on dev-test before Resend existed, and why none of the production
 setup blocked the build. `account.` sends login codes so a future `updates.`
-digest gets its own reputation. **Unsubscribe: build nothing, and deliberately
+digest gets its own reputation. ~~**Unsubscribe: build nothing, and deliberately
 build no seat**, because it is a per-channel preference and the channels are not
-decided, so a boolean guessed now is likelier wrong than right.
+decided, so a boolean guessed now is likelier wrong than right.~~ (Reversed 28
+August 2026 by the owner, in the digest slice's brainstorm, on deliverability
+grounds: "we definitely need an unsubscribe link or if not we're going to get
+marked as spam." He is right, and the original wording collapsed two different
+things. **A preference model is a settings screen** choosing which kinds of mail
+you get; that stays declined, and no seat is built for it. **An unsubscribe link
+is one door** that stops digests and touches nothing else. The digest slice
+builds the door. Without it the only available "stop this" is the spam button,
+which damages `updates.`'s sending reputation, which is the exact harm the
+subdomain split exists to prevent.)
 
 **The per-member read position is declined here** and becomes the first task of
 the digest slice. It retrofits as one nullable column with no backfill, so the
