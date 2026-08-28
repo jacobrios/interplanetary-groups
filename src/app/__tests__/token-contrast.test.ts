@@ -5,8 +5,16 @@
 // token. Nothing in the repo could have told him: a colour is the one kind of
 // value where the failure is invisible to every other test in the suite and
 // shows up only on a real phone in real light. So the arithmetic that decides
-// whether a token is legible lives here, computed from globals.css itself
+// whether --text-faint is legible lives here, computed from globals.css itself
 // rather than from numbers copied into a comment.
+//
+// SCOPE. This file covers --text-faint only, the token the owner actually
+// reported. It is not a general contrast guard for every colour token in the
+// system. --placeholder is the known gap: it renders at 4.4992:1 on
+// --surface-raised (pill-controls.ts's inputStyle, reached from the two
+// sign-in screens and JoinForm), a hair under the 4.5:1 AA floor. That is
+// already registered as knowingly shipped debt (docs/build-notes.md, "Two
+// grey tokens are now one colour"), not fixed or covered here.
 //
 // WHAT IT CAN AND CANNOT DO. It computes WCAG contrast ratios from the token
 // values, which is real arithmetic on the real source. It cannot see a screen,

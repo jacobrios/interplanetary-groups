@@ -645,8 +645,11 @@ describe("EmailAttachFlow, what the inline surface's prose outranks", () => {
 
   it("puts the inline step eyebrow in the register the group info page already uses", () => {
     // Every eyebrow on that page ("Group invite link", "Email for sign-in and
-    // reminders") is --text-secondary. This one shipped at --text-faint, which
-    // made it the dimmest thing on a page that never goes that dim.
+    // reminders") is --text-secondary. This one shipped at --text-faint,
+    // which is a rank mismatch (it sat a step under its neighbouring
+    // eyebrows), not a case of hitting the page's dimmest register: that
+    // page already renders --text-faint elsewhere, on the resend wait line
+    // and the disabled Save label.
     render(<EmailAttachFlow {...baseProps()} />)
 
     expect(screen.getByText("Email").style.color).toBe("var(--text-secondary)")

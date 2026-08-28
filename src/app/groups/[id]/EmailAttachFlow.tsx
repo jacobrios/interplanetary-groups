@@ -443,10 +443,13 @@ export default function EmailAttachFlow({
         //
         // Inline, the eyebrows above it on the group info page ("Group invite
         // link", "Email for sign-in and reminders") are themselves
-        // --text-secondary, and that page never renders anything at
-        // --text-faint. Leaving this one faint made it the dimmest thing on a
-        // screen whose own register is a step brighter, which is half of what
-        // the owner was pointing at when he said the box read as disabled.
+        // --text-secondary. That page does still render --text-faint
+        // elsewhere (the resend wait line, the disabled Save label below), so
+        // leaving this one faint did not make it the dimmest thing on the
+        // page; it only tied it with those two neighbours. The argument is
+        // rank, not brightness: this eyebrow sits among the page's other
+        // eyebrows and should read at their weight, which is half of what the
+        // owner was pointing at when he said the box read as disabled.
         color: isSheet ? "var(--text-faint)" : "var(--text-secondary)",
         fontWeight: 700,
         marginBottom: isSheet ? 7 : 5,
