@@ -30,9 +30,17 @@ export default function UnsubscribeForm({ token }: { token: string }) {
   }
 
   return (
-    <>
+    // Flex column with a gap, not a bare fragment: the stylesheet resets
+    // paragraph margins, so without an explicit layout the copy and the
+    // button sit flush against each other. The gap value (16) is taken from
+    // EmailAttachFlow's sheet layout (the space between its copy block and
+    // the action group beneath it), the closest comparable "copy above its
+    // action" spacing in the product. Using gap rather than a one-off
+    // marginTop on the button keeps the spacing correct whether or not the
+    // failure line is present.
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <p style={{ fontSize: "var(--type-body)", color: "var(--text-primary)" }}>
-        Orbit sends a short update when something in your group needs you. Stopping it
+        Orbit emails a short update when something in your group needs you. Stopping it
         won&rsquo;t affect your sign-in codes, and you can still open your group any time.
       </p>
       {failed && (
@@ -76,6 +84,6 @@ export default function UnsubscribeForm({ token }: { token: string }) {
       >
         Stop sending me these
       </button>
-    </>
+    </div>
   )
 }
