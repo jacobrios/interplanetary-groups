@@ -38,7 +38,12 @@ export interface SendEmailInput {
   subject: string
   text: string
   html: string
-  /** Absolute URL of the recipient's unsubscribe page. Sets the List-Unsubscribe header. */
+  /**
+   * Absolute URL of the recipient's one-click unsubscribe route handler
+   * (`/api/unsubscribe/[token]`, not the `/unsubscribe/[token]` page). Sets
+   * List-Unsubscribe and List-Unsubscribe-Post. The shape is unchanged from
+   * before slice two; only what a caller should pass here has changed.
+   */
   unsubscribeUrl?: string
 }
 
@@ -93,27 +98,27 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
         ? {
             // What this header does: it lets a mail client offer its own
             // unsubscribe control, which sends the member to our unsubscribe
-            // page rather than to the spam button. That alone is most of what
-            // protects `updates.`'s sending reputation, and it costs nothing.
+            // route rather than to the spam button. That alone is most of
+            // what protects `updates.`'s sending reputation, and it costs
+            // nothing.
             //
-            // What it deliberately does NOT do: advertise one-click. The
-            // companion `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
-            // header is not sent, on purpose, because it promises that this
-            // URL honours a POST and unsubscribes with no further interaction,
-            // and nothing here honours it. That was measured rather than
-            // assumed: this branch's final whole-branch review ran a POST at
-            // that path against a production build and got HTTP 200 with the
-            // full page HTML back, having written nothing. The cause is
-            // structural, which is why care in slice two cannot accidentally
-            // make it work: the URL is a Next.js page route, and a page route
-            // and a route handler cannot share a path, so the address carried
-            // in a List-Unsubscribe-Post header could never be honoured as
-            // written. Advertising it anyway would have a mail client report
-            // success to a member who is still subscribed, which is worse than
-            // offering nothing and is a sending-reputation liability in its
-            // own right. Dropping the header was the fix; building the POST
-            // endpoint is slice two's call.
+            // Why List-Unsubscribe-Post is honest now, when it was dropped
+            // before: this branch's final whole-branch review measured a POST
+            // to `/unsubscribe/[token]` against a production build and got
+            // HTTP 200 with the full page's HTML back, having written
+            // nothing. The cause was structural: that path is a Next.js page
+            // route, and a page route and a route handler cannot share a
+            // path, so nothing there could ever honour a POST. Advertising
+            // one-click anyway would have a mail client report success to a
+            // member who was still subscribed, which is worse than offering
+            // nothing. Slice two's fix is not a workaround of that
+            // constraint, it is a different path: `unsubscribeUrl` now points
+            // at `/api/unsubscribe/[token]`, a route handler with its own
+            // POST that performs the opt-out and requires no session, so the
+            // measurement above no longer applies to the URL this header
+            // carries.
             "List-Unsubscribe": `<${input.unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           }
         : undefined,
     })
