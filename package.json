@@ -13,6 +13,7 @@
     "db:which": "tsx scripts/db-which.ts",
     "eval:detect": "tsx scripts/eval-detect.ts",
     "eval:onboarding": "tsx scripts/eval-onboarding.ts",
+    "email:test": "tsx --env-file=.env scripts/send-test-email.ts",
     "qa:stage-cardstate": "tsx --env-file=.env scripts/qa-stage-cardstate.ts",
     "qa:stage-email": "tsx --env-file=.env scripts/qa-stage-email.ts",
     "qa:sweep": "tsx --env-file=.env scripts/qa-sweep.ts"

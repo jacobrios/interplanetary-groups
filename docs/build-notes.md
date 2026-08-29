@@ -548,6 +548,14 @@ Seven High-priority items come due at the moment of the first production deploy.
 
    ***Corrected 28 August 2026, in the digest slice's brainstorm, and trigger 1's premise was wrong.*** **Supabase's hourly email ceiling does not bind the digest and never could.** Supabase Auth sends only its own auth templates; there is no generic send. The repo has no Resend dependency and no `RESEND_API_KEY`, because Resend is purely the SMTP relay behind Supabase Auth. So the digest calls Resend directly, and it spends none of Supabase's 30 an hour. **Trigger 1 is therefore disarmed as written:** raising that limit protects login codes and nothing else, so it is no longer a prerequisite for the digest shipping. **Trigger 2 stands unchanged and is now the one that binds:** Resend's free tier is 100 a day and 3,000 a month, shared with login codes because both leave the same Resend account. Trigger 3, the abuse trigger, is untouched. *Also corrected: "anything configured for this slice must be done on both Supabase projects" does not apply here, because nothing about the digest is a Supabase setting and Resend sending domains are account-level.*
 
+*Items 7 to 9 added 28 Aug 2026 (digest plumbing slice, Task 5). The plumbing is built and proven only up to the guard that stops a local run mailing a real person; nothing has actually been sent, because these three are still outstanding and Task 5 was explicitly told not to do them.*
+
+7. **Add `updates.interplanetarygroups.com` as a sending domain in Resend, and verify its DNS.** Nothing sends until it verifies. Expect Vercel to write the DNS records itself, because the domain was bought through Vercel and that is what happened with `account.` on 26 Aug; check rather than assume.
+8. **Set `RESEND_API_KEY` in Vercel's production environment variables.** The same Resend account already relays login codes, so this is a key on an existing account rather than a new service.
+9. **Set `EMAIL_DEV_ALLOWLIST` in the local `.env`** to the owner's own address. Deliberately absent in production, where the guard does not apply. Unset means nothing sends locally, which is the intended fail-closed default.
+
+   *Deliberately NOT on this list, recorded so nobody adds it later out of superstition:* **nothing needs configuring in either Supabase project, and raising Supabase's hourly email limit is not a prerequisite for the digest.** The digest calls Resend directly and spends none of Supabase's allowance. See item 6's 28 August correction.
+
 
 ### Data-foundation slice (18 to 19 June 2026)
 
