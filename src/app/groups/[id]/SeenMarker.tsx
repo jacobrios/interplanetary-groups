@@ -1,7 +1,18 @@
 "use client"
 
 // Renders nothing. Its only job is to tell the server the viewer opened this
-// group, once per mount.
+// group, once per distinct group the instance is given.
+//
+// The guard tracks the last groupId actually fired, not a fired-or-not
+// boolean, because this instance can be reused across groups without
+// remounting: src/app/groups/[id]/page.tsx renders GroupHome (and this
+// marker under it) with no key={group.id}, and nothing scopes a layout to
+// that route segment, so a client-side navigation from one group to another
+// reconciles this component in place rather than tearing it down. A boolean
+// that only ever flips from false to true would fire for the first group and
+// then silently stop recording for every group after it. There is no
+// in-app route to a second group yet, so this is currently unreachable, but
+// it is exactly the path the queued multi-group work will open.
 //
 // A component rather than an effect inside GroupHome so it has its own test
 // seam and so GroupHome, which already carries the optimistic message list,
@@ -28,12 +39,12 @@ interface Props {
 }
 
 export default function SeenMarker({ groupId, viewerId }: Props) {
-  const fired = useRef(false)
+  const lastFiredGroupId = useRef<string | null>(null)
   const [, startTransition] = useTransition()
 
   useEffect(() => {
-    if (!viewerId || fired.current) return
-    fired.current = true
+    if (!viewerId || lastFiredGroupId.current === groupId) return
+    lastFiredGroupId.current = groupId
     startTransition(async () => {
       await markGroupSeenAction(groupId)
     })

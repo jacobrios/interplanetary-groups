@@ -41,4 +41,14 @@ describe("SeenMarker", () => {
     const { container } = render(<SeenMarker groupId="grp_1" viewerId="usr_1" />)
     expect(container.firstChild).toBeNull()
   })
+
+  it("fires again when the same instance is handed a different group", () => {
+    const { rerender } = render(<SeenMarker groupId="grp_1" viewerId="usr_1" />)
+    expect(markGroupSeenAction).toHaveBeenCalledTimes(1)
+    expect(markGroupSeenAction).toHaveBeenCalledWith("grp_1")
+
+    rerender(<SeenMarker groupId="grp_2" viewerId="usr_1" />)
+    expect(markGroupSeenAction).toHaveBeenCalledTimes(2)
+    expect(markGroupSeenAction).toHaveBeenLastCalledWith("grp_2")
+  })
 })
