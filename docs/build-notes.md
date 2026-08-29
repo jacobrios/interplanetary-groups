@@ -552,11 +552,19 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 *Items 7 to 9 added 28 Aug 2026 (digest plumbing slice, Task 5). The plumbing is built and proven only up to the guard that stops a local run mailing a real person; nothing has actually been sent, because these three are still outstanding and Task 5 was explicitly told not to do them.*
 
-7. **Add `updates.interplanetarygroups.com` as a sending domain in Resend, and verify its DNS.** Nothing sends until it verifies. Expect Vercel to write the DNS records itself, because the domain was bought through Vercel and that is what happened with `account.` on 26 Aug; check rather than assume.
-8. **Set `RESEND_API_KEY` in Vercel's production environment variables.** The same Resend account already relays login codes, so this is a key on an existing account rather than a new service.
-9. **Set `EMAIL_DEV_ALLOWLIST` in the local `.env`** to the owner's own address. Deliberately absent in production, where the guard does not apply. Unset means nothing sends locally, which is the intended fail-closed default.
+7. ~~**Add `updates.interplanetarygroups.com` as a sending domain in Resend, and verify its DNS.**~~ **DONE, 29 August 2026.** The domain is added and DNS verified, region `us-east-1` to match `account.` so both sending subdomains sit in the same place, and the custom Return-Path was left at Resend's default `send`. **The item's own prediction held and it is worth confirming rather than assuming a second time:** there was no pasting. Because the domain was bought through Vercel, Vercel's integration wrote the DNS records itself the moment the domain was added in Resend, exactly as it did for `account.` on 26 Aug. That is now twice, which makes it a property of this setup rather than a lucky one-off. *Original item follows.* **Add `updates.interplanetarygroups.com` as a sending domain in Resend, and verify its DNS.** Nothing sends until it verifies. Expect Vercel to write the DNS records itself, because the domain was bought through Vercel and that is what happened with `account.` on 26 Aug; check rather than assume.
+
+8. ~~**Set `RESEND_API_KEY` in Vercel's production environment variables.**~~ **DONE, 29 August 2026, and it took two keys rather than the one this item imagined.** Both carry Sending access only, and they are named `updates-production` and `updates-dev-test`, following the `supabase-production` / `supabase-dev-test` convention already in the account. `updates-production` is set in Vercel as `RESEND_API_KEY`, Production environment only, stored as Secret. Three choices inside that, each recorded because each could reasonably have gone the other way.
+   *Why the names say `updates` rather than `digest`:* the line that actually divides this product's mail is the channel, not the feature. `account.` mail leaves through Supabase's relay; `updates.` mail leaves through the app's own send seam. A key named after the digest would go stale the first time anything other than the digest sends on `updates.`, and a stale name on a credential is the kind that gets left in place because nobody is sure what it does.
+   *Why two keys rather than one:* the local key can be revoked without touching live sending, which matters because the local one lives in a `.env` on a laptop and the production one does not. It also makes Resend's "last used" column mean something: with one shared key, a send from the laptop and a send by the live site are indistinguishable, and the first time a member says a message arrived that should not have, that column is the only place to look.
+   *Why Secret rather than Config, given the deploy-day lesson said to prefer Config:* that lesson was about the two `NEXT_PUBLIC_` Supabase values, which reach a browser anyway, so marking them Secret bought nothing but blindness in the dashboard. This one is genuinely server-only and never reaches a client, so Secret costs nothing and is the right setting. **The lesson was about a class of value, not a blanket preference**, and this is the first time that distinction had to be drawn.
+   *Original item follows.* **Set `RESEND_API_KEY` in Vercel's production environment variables.** The same Resend account already relays login codes, so this is a key on an existing account rather than a new service.
+
+9. ~~**Set `EMAIL_DEV_ALLOWLIST` in the local `.env`** to the owner's own address.~~ **DONE, 29 August 2026.** Set in the local `.env` alongside `updates-dev-test`, to the owner's own address and nothing else. Still deliberately absent in production, and still fail-closed everywhere else. *Original item follows.* **Set `EMAIL_DEV_ALLOWLIST` in the local `.env`** to the owner's own address. Deliberately absent in production, where the guard does not apply. Unset means nothing sends locally, which is the intended fail-closed default.
 
    *Deliberately NOT on this list, recorded so nobody adds it later out of superstition:* **nothing needs configuring in either Supabase project, and raising Supabase's hourly email limit is not a prerequisite for the digest.** The digest calls Resend directly and spends none of Supabase's allowance. See item 6's 28 August correction.
+
+   *Closed 29 August 2026 (Resend sending setup). All three are done, and the digest plumbing slice's one unproven claim, that nothing had ever delivered an email, is no longer true. What the first real send taught is its own §11 entry below; two of the four findings belong to somebody about to repeat this setup rather than to the digest.*
 
 
 ### Data-foundation slice (18 to 19 June 2026)
@@ -5407,3 +5415,76 @@ older ones carry the same pattern and stay out of lane, with a test-only micro-P
 And `markGroupSeen` folds the membership check into the write's own where clause, a fifth form
 beyond the four in `src/lib/auth/membership.ts`: one round trip, a free refusal, and nothing
 leaked about whether a group exists. `membership.ts` itself was not edited.
+
+## The Resend sending setup, and four things the first real send taught (29 August 2026)
+
+**No code.** The owner worked running-list items 7, 8 and 9; the entries above record what was
+set. This is what doing it surfaced. *Declared deviation on length: about 910 words against a
+500-to-700 target. Two compression passes found nothing left to cut that was not a finding or the
+reasoning behind one, and one of the four reverses a decision shipped the previous day, which is
+the kind that costs more to under-explain than to over-explain.*
+
+**1. The pipe is proven, which closes the plumbing slice's one open claim.** Slice one shipped
+admitting nothing had ever delivered an email, because the sending domain and the key did not
+exist for it to try. A hand-run `npm run email:test` reached a real inbox, and the headers were
+read rather than trusted: DKIM passes twice, signed by `updates.interplanetarygroups.com` with the
+`resend` selector and by `amazonses.com`; SPF passes; the Return-Path aligns to
+`send.updates.interplanetarygroups.com`; TLS throughout. **The authentication half has nothing
+left to fix**, worth saying plainly because it is the half easiest to keep worrying about after it
+is done.
+
+**2. The first message landed in spam, measured rather than feared.** Slice one carried forward
+that `updates.` starts with no reputation and its early mail may be filtered; Gmail filed the very
+first one as spam, so that is a fact now. Two consequences. The owner clicked "Not Spam", which
+trains his own Gmail about this sender specifically, so **his inbox is no longer a usable
+instrument for judging whether reputation is improving**; a future reading needs another mailbox.
+And the product risk, the shape this project treats as the worst kind: **a digest that lands in
+spam does not fail, it silently does not work.** The member never knows a message was sent, and
+nothing on our side tells a filtered message from a delivered one. Hence slice two sending to the
+owner and one friend before it ever sends to a group.
+
+**3. There was no DMARC record at all, and now there is one.** Checked by DNS lookup rather than
+assumed: neither `_dmarc.interplanetarygroups.com` nor `_dmarc.updates.interplanetarygroups.com`
+existed, while SPF and DKIM were both already correct, which is the combination that looks
+finished and is not. Since 2024 the large mailbox providers treat a missing record as a negative
+signal, and on a new subdomain with no history it is one of the few things they can judge. Added
+at the **root**, `v=DMARC1; p=none; rua=mailto:rios81@gmail.com`, because DMARC falls back to the
+organisational domain, so one record covers `updates.`, `account.` and anything added later.
+**`p=none` is monitor-only and cannot affect delivery**, which mattered rather than being a
+technicality: the record sits at the root, so it covers the subdomain carrying login codes too,
+and a stricter policy could in principle bounce mail somebody needs to get back into the product.
+Verified live by lookup after saving. The honest limit: **DMARC removes a penalty, it does not
+build reputation**, which comes only from sending consistently to people who engage.
+
+**4. Gmail shows no unsubscribe control, and the fix is to build the endpoint we declined
+yesterday.** This reverses a decision shipped a day ago, so the reasoning matters more than the
+conclusion. Yesterday's final review measured that `send.ts` advertised `List-Unsubscribe-Post:
+One-Click` while no endpoint honoured a POST, returning 200 with the page's HTML and writing
+nothing; the ruling was to drop the header rather than ship an untested endpoint in a slice's last
+hour. **That reasoning still stands for yesterday.** Today's evidence points the other way about
+what happens next. The raw message source was read: `List-Unsubscribe` is present, points at our
+own domain untouched, and sits inside the DKIM `h=` list, so it is signed and was not stripped in
+transit. Gmail is choosing not to render a button rather than failing to find one, and the
+likeliest reason is the absent one-click header, since Gmail's control is tied to one-click
+support *(well supported by the evidence, not certain)*. **Why that is important rather than
+cosmetic, on evidence rather than theory:** the product landed in spam on its first send, and the
+unsubscribe button is the main thing giving an annoyed member an exit that is not the spam button,
+which is exactly what damages the reputation the `account.` / `updates.` split exists to protect.
+Right now they have no such exit. **Recommendation: slice two builds the POST route handler and
+re-adds the one-click header.** One route, in an area that slice is opening anyway.
+
+**One thing that stays unsettled and should not be chased.** Whether click tracking rewrites body
+links is still unknown: the test email's body had no links, and headers are not rewritten. The
+tracking controls were greyed out on the domain creation form with click tracking apparently
+checked, and the same happened for `account.`, so that is a property of the form rather than
+something done wrong here. **It answers itself the moment slice two sends its first digest**,
+which is mostly links.
+
+**The decision that tracking stays off, recorded so nobody switches it on later thinking it is
+free instrumentation.** Click tracking routes every link through the sender's tracking host, turning
+a readable URL back into a group into an opaque redirect, adding a third-party hop, and risking
+deliverability on a domain with no reputation to spend. Open tracking embeds a pixel reporting
+when somebody read their mail, which for a product whose brand is anti-clutter and whose email
+rule is that every nudge must justify itself is something a member never agreed to. Neither buys
+anything: there is no engagement dashboard to feed, and the digest's success measure is whether
+people answer, already visible in the RSVP and vote rows the product owns.
