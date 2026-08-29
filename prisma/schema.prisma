@@ -84,6 +84,17 @@ model Membership {
   /// toward assuming they saw more than they did, which keeps the digest
   /// quiet rather than noisy. Written by markGroupSeen (src/lib/groups/seen.ts).
   lastSeenAt DateTime?
+  /// When a digest was last attempted for this member in this group. Null
+  /// means never. A SCHEDULE MARKER, NOT A SEND LOG: it records that a send
+  /// was attempted, never that anything arrived in an inbox. Do two jobs
+  /// with it and no more: (1) half of the digest's read position, alongside
+  /// lastSeenAt (the later of the two, falling back to joinedAt; see
+  /// src/lib/digest/you-missed.ts), so a member who reads a digest without
+  /// ever opening the group is not told about the same chat twice; and (2)
+  /// task 6's once-a-day guard, so the same member cannot be sent two
+  /// digests inside one day. Nullable, no backfill: every existing row
+  /// starts as "never sent one", which is true.
+  lastDigestSentAt DateTime?
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
