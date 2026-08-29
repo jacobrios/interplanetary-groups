@@ -15,6 +15,15 @@ model User {
   supabaseAuthId  String?           @unique
   emailAskCount   Int               @default(0)
   emailAskedAt    DateTime?
+  /// Set when this person unsubscribed from digests. Null means subscribed.
+  /// Digests only: it must never gate a login code, which is transactional and
+  /// leaves through a different subdomain. Somebody who stops wanting digests
+  /// still has to be able to sign in.
+  digestOptOutAt    DateTime?
+  /// The capability in their unsubscribe link. Generated lazily, the first time
+  /// a digest is composed for them, with randomUUID() as reset-invite.ts:34
+  /// does, so one link can never be guessed from another.
+  unsubscribeToken  String?   @unique
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   contactMethods  ContactMethod[]
@@ -69,6 +78,12 @@ model Membership {
   userId   String
   groupId  String
   joinedAt DateTime @default(now())
+  /// When this member last opened this group's home. Null means never.
+  /// Records that they opened the group, not that they read every message:
+  /// the feed has no unread divider and no saved position, so this errs
+  /// toward assuming they saw more than they did, which keeps the digest
+  /// quiet rather than noisy. Written by markGroupSeen (src/lib/groups/seen.ts).
+  lastSeenAt DateTime?
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
 

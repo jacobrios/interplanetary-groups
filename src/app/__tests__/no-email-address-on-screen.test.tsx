@@ -755,7 +755,10 @@ describe("only one query can see an address, and only for one user at a time", (
     // be named after the thing it leaks. A new field of any kind reddens here
     // and gets a sentence about whether the three whole-User-row pages can
     // still carry it safely. emailAskCount and emailAskedAt are how many times
-    // Orbit asked and when; neither holds an address.
+    // Orbit asked and when; neither holds an address. digestOptOutAt (task 4,
+    // digest slice) is a timestamp recording that this person opted out of
+    // digests, and unsubscribeToken is an unguessable capability token in the
+    // same shape as the existing invite token; neither is an address.
     const schema = read("prisma/schema.prisma")
     const user = braceBlockAfter(schema, schema.indexOf("model User"))
     const fields = Array.from(user.matchAll(/^\s+(\w+)\s+\S/gm)).map((m) => m[1])
@@ -765,6 +768,8 @@ describe("only one query can see an address, and only for one user at a time", (
       "supabaseAuthId",
       "emailAskCount",
       "emailAskedAt",
+      "digestOptOutAt",
+      "unsubscribeToken",
       "createdAt",
       "updatedAt",
       "contactMethods",

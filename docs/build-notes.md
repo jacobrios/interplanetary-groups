@@ -171,7 +171,7 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 
 ### Fast-follow & post-MVP (data model ready, MVP does not implement)
 
-- **The email arc, first post-MVP work (decided 11 Aug 2026, triage round two).** Email capture after the first RSVP, then an email digest that brings people back to the app: the web app's substitute for native notifications, with SMS priced out for an MVP and web push already registered below. The digest's shape is an anti-clutter product question that earns its own brainstorm, and a sending service is a new external seam, which is exactly what kept it out of the MVP push. An iOS app was considered for the same need and declined for now as a much larger lift.
+- **The email arc, first post-MVP work (decided 11 Aug 2026, triage round two).** Email capture after the first RSVP, then an email digest that brings people back to the app: the web app's substitute for native notifications, with SMS priced out for an MVP and web push already registered below. The digest's shape is an anti-clutter product question that earns its own brainstorm, and a sending service is a new external seam, which is exactly what kept it out of the MVP push. An iOS app was considered for the same need and declined for now as a much larger lift. **The digest's shape was settled 28 August 2026**; see docs/superpowers/specs/2026-08-28-digest-plumbing-design.md. Slice one is the plumbing (read position, Resend seam, unsubscribe door); slice two is the digest itself.
 - **Orbit-miss observability, and a user feedback affordance (queued 11 Aug 2026, triage round two).** A periodic digest to the owner of detection failures and quiet outcomes (today they fail toward silence and nobody would know), and a place in the product for users to leave feedback. Both declined for now while everyone with access knows the owner personally; queued so they are not lost when that stops being true. The interim answer, accepted knowingly: people who know the owner complain out of band, plus an occasional skim of the server logs once the investor group is live.
 - Multi-group home screen (backend ready day one; Orbit logo already positioned as home button).
 - Multi-venue event UI (data model ready day one).
@@ -204,6 +204,8 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
   - **On MIT specifically**, since the owner named it: it is a short permissive licence that lets anyone use, modify and redistribute the code including commercially, provided the copyright notice travels with it, and it carries an explicit "AS IS" warranty disclaimer and a liability limitation. That disclaimer is the part the owner is reaching for. **Whether it actually achieves the protection he wants is a question for a lawyer and not for this record**, and the same is true of every question on the commercialise branch.
   - **SMS as the sign-in channel is queued to the same trigger, and it is the same question wearing different clothes. Raised by the owner 27 August 2026 while looking at the Supabase auth providers list.** He is right that it fits better: this is a phone application, and a texted code beats switching to a mail app and back, which is most of what the code-not-a-link decision was working around. Two things stop it, and neither is fitness. **Supabase does not send SMS itself**, so it needs a third-party account (Twilio, MessageBird, Vonage or TextLocal, each configured separately), and every message costs, against Resend's free tier at zero. And in the United States, automated messages to consumers require A2P 10DLC registration of a brand and a campaign with the carriers, which generally wants business identity details, **so SMS is effectively gated behind the entity question above** (confident on the requirement, not on current thresholds or whether a sole proprietor can register). Two smaller differences worth knowing before anyone plans around it: Supabase's SMS codes are six digits expiring in sixty seconds, against email's eight digits and an hour, so the timing gets tighter; and the cross-device problem the code was designed for disappears, because the code arrives on the device the member is already holding. **Revisit if the investor says yes**, because the blocker dissolves at the same moment the entity does.
   - **What can be done cheaply and early, whichever branch wins:** decide the licence question deliberately, and know that the answer changes if the code is ever run as a service for other people rather than only read.
+- **A person can delete their account and their data. Raised by the owner 29 August 2026, looking at the digest slice's unsubscribe screen and asking what happens to somebody who wants out entirely rather than just out of the emails.** One assumption he brought to the question turned out wrong, and the correction narrows the gap rather than widening it: leaving a group is already self-service. `src/app/groups/[id]/info/LeaveGroupButton.tsx` has been on the group info page since 10 August 2026, member-only, warmly confirmed, never shown to the founder. Asking the founder to remove someone is the removal path, which is a different thing. What genuinely does not exist is any way to delete an account, or the data attached to it. **Why this got sharper now rather than being an old gap**: until the email sign-in slice (25 to 27 August 2026) the product stored names only; it now stores email addresses, which is personal data, and it sends mail to them. That is the same change that turned the privacy-policy question above from a formality into a real one, so the two belong in one conversation rather than two, and whoever answers one is already holding the context for the other. **The one genuine complication, so a future reader is not surprised by it**: `Message.author` is `onDelete: SetNull`, so deleting a person leaves their messages sitting in the group feed with nobody attached. The email sign-in slice already priced this same problem when it declined to auto-merge duplicate identities, at roughly a third of a slice, because a safe deletion has to decide what happens to a departed person's messages, votes and RSVPs. Deletion is a real feature to plan, not a checkbox to add. **The owner said explicitly this does not have to be an MVP feature.** And the decision that came with the question, so it is not relitigated: the unsubscribe page itself deliberately says nothing about leaving the group or deleting an account. Somebody reaching that page came from an email wanting less email; offering "or leave entirely" turns a small ask into a big one at the moment they are mildly annoyed, which is the opposite of the soft-decline rule. The door they wanted is the one they are already standing in front of.
+- **The email QA stager attaches an address it never prints. Found 29 August 2026, digest plumbing slice.** `scripts/qa-stage-email.ts`'s `--seed-viewer <groupId> email-on` mode writes a fake address of the form `qa-email-on-<timestamp>@example.invalid` onto the viewer's `ContactMethod` row and never surfaces it in the script's own JSON output. It came up when the digest slice's own QA script told the owner to feed that address to `npm run email:test`, and there was no way to read it back out of anything the stager had printed; recovering it took a hand-written database query, which is exactly the friction a staging script exists to remove. The fix is one line of output. It belongs to the email sign-in slice's script rather than to the digest slice, which is why it is queued here rather than fixed on this branch. Worth carrying past this one occasion: a QA handoff is only turnkey if every value the script writes is also a value the script shows, and a value the stager writes but does not surface breaks that for anything downstream that needs it.
 
 ## 9. Engineering process
 
@@ -545,6 +547,16 @@ Seven High-priority items come due at the moment of the first production deploy.
    3. **The product's URL becoming discoverable by strangers** (posted publicly, linked, indexed). **This is the abuse trigger and it is not a headcount at all**, which is the correction worth keeping: a private group of two hundred friends-of-friends is safer than one public post. Only this trigger justifies the app-level per-address cooldown, and only this one is a slice.
 
    *Detection, so this is not found by a member giving up:* both signed-out mail endpoints already log a warning when the limit refuses them. The symptom is people reporting that no code arrives, and the log is what separates "the limit" from "the mail is broken."
+
+   ***Corrected 28 August 2026, in the digest slice's brainstorm, and trigger 1's premise was wrong.*** **Supabase's hourly email ceiling does not bind the digest and never could.** Supabase Auth sends only its own auth templates; there is no generic send. The repo has no Resend dependency and no `RESEND_API_KEY`, because Resend is purely the SMTP relay behind Supabase Auth. So the digest calls Resend directly, and it spends none of Supabase's 30 an hour. **Trigger 1 is therefore disarmed as written:** raising that limit protects login codes and nothing else, so it is no longer a prerequisite for the digest shipping. **Trigger 2 stands unchanged and is now the one that binds:** Resend's free tier is 100 a day and 3,000 a month, shared with login codes because both leave the same Resend account. Trigger 3, the abuse trigger, is untouched. *Also corrected: "anything configured for this slice must be done on both Supabase projects" does not apply here, because nothing about the digest is a Supabase setting and Resend sending domains are account-level.*
+
+*Items 7 to 9 added 28 Aug 2026 (digest plumbing slice, Task 5). The plumbing is built and proven only up to the guard that stops a local run mailing a real person; nothing has actually been sent, because these three are still outstanding and Task 5 was explicitly told not to do them.*
+
+7. **Add `updates.interplanetarygroups.com` as a sending domain in Resend, and verify its DNS.** Nothing sends until it verifies. Expect Vercel to write the DNS records itself, because the domain was bought through Vercel and that is what happened with `account.` on 26 Aug; check rather than assume.
+8. **Set `RESEND_API_KEY` in Vercel's production environment variables.** The same Resend account already relays login codes, so this is a key on an existing account rather than a new service.
+9. **Set `EMAIL_DEV_ALLOWLIST` in the local `.env`** to the owner's own address. Deliberately absent in production, where the guard does not apply. Unset means nothing sends locally, which is the intended fail-closed default.
+
+   *Deliberately NOT on this list, recorded so nobody adds it later out of superstition:* **nothing needs configuring in either Supabase project, and raising Supabase's hourly email limit is not a prerequisite for the digest.** The digest calls Resend directly and spends none of Supabase's allowance. See item 6's 28 August correction.
 
 
 ### Data-foundation slice (18 to 19 June 2026)
@@ -4859,9 +4871,18 @@ this lands. **The rejoin hole stays open** (audit finding 10).
 reaches only members of the Supabase organisation, which is what made the whole
 arc provable on dev-test before Resend existed, and why none of the production
 setup blocked the build. `account.` sends login codes so a future `updates.`
-digest gets its own reputation. **Unsubscribe: build nothing, and deliberately
+digest gets its own reputation. ~~**Unsubscribe: build nothing, and deliberately
 build no seat**, because it is a per-channel preference and the channels are not
-decided, so a boolean guessed now is likelier wrong than right.
+decided, so a boolean guessed now is likelier wrong than right.~~ (Reversed 28
+August 2026 by the owner, in the digest slice's brainstorm, on deliverability
+grounds: "we definitely need an unsubscribe link or if not we're going to get
+marked as spam." He is right, and the original wording collapsed two different
+things. **A preference model is a settings screen** choosing which kinds of mail
+you get; that stays declined, and no seat is built for it. **An unsubscribe link
+is one door** that stops digests and touches nothing else. The digest slice
+builds the door. Without it the only available "stop this" is the spam button,
+which damages `updates.`'s sending reputation, which is the exact harm the
+subdomain split exists to prevent.)
 
 **The per-member read position is declined here** and becomes the first task of
 the digest slice. It retrofits as one nullable column with no backfill, so the
@@ -5311,3 +5332,78 @@ fixing only one surface is the exact mistake that round already made once.
 every other prop including `style`. The anchor that file rendered was therefore not the
 anchor the product renders, and no assertion about its treatment could have been true. Found
 by writing one. The stand-in passes everything through now.
+
+## §11 entry: the digest, slice one, the plumbing (28 August 2026)
+
+**What it is.** The pipe a digest will run through, and none of the digest. Spec and plan in one
+document, `docs/superpowers/specs/2026-08-28-digest-plumbing-design.md`, riding this branch from
+before any code; the shape lives there. Baseline 113 files / 1237 tests, matching main at
+`72013b1`; finishing at 120 / 1286, green. *Declared deviation on length: about 930 words against
+the 400-to-600 target. The slice settled eleven things, none of them a retelling of what
+happened, and a compression pass found nothing to cut that was not a decision.*
+
+**The digest's shape was settled in the brainstorm, though slice one builds none of it.** Two
+blocks in one email. What needs you (an idea you have not voted on, an event you have not
+RSVP'd to, a time-change vote you have not answered), sent whether or not you opened the app,
+since this is the only notification channel the product has. What you missed (chat since you last
+opened the group), suppressed entirely if you have been in. Both empty means no email, which is
+what makes a daily cadence safe. One per group to start, per person later.
+
+**Two send rules, and the second is the one to carry.** Rule one is "the day it was created" and
+covers only what a person did, an idea floated or a time change asked for. Rule two is "three
+days before it happens" and covers everything with a date. Rule one deliberately excludes an
+event Orbit created itself, on a checked fact rather than taste: `upcoming-list.ts:39` matches on
+`startsAt >= now`, so next Saturday's climb is created on Saturday, about an hour after the
+current one starts. Rule one applied to it would mail the group that evening asking them to RSVP
+for a climb six days out, on the one day nobody needs reminding that this group climbs. Rule one
+means "a human did something, go weigh in"; a plan Orbit scheduled is not news. Cost to a member:
+a group with a weekly climb and nothing else hears once a week, on Wednesday.
+
+**Both rules are arithmetic on dates already stored, so nothing has to remember what it sent.**
+That is what makes this affordable, and it is the slice's main accepted debt: no send log, so
+when somebody says they never got it, the only evidence is Resend's dashboard.
+
+**Two recorded premises were wrong, both checked against the repo.** Supabase Auth sends its own
+auth templates and nothing else, so the digest calls Resend directly; the hourly Supabase ceiling
+never bound it, and the "raise it before the digest ships" trigger is disarmed. A Resend sending
+domain is account-level, so the rule about configuring both Supabase projects does not reach
+here. What binds is Resend's free tier, 100 a day and 3,000 a month shared with login codes,
+which runs out around 80 members.
+
+**Unsubscribe was reversed by the owner, on deliverability rather than principle.** Without a
+link the only "stop this" available is the spam button, which damages the reputation of the very
+subdomain the split was protecting. The old wording collapsed two things: a preference model is a
+settings screen choosing which mail you get, still declined; an unsubscribe link is one door, now
+built. Per person, stopping digests for every group because that is what somebody means by it,
+and it never touches sign-in.
+
+**`lastSeenAt` sits on `Membership`, not `User`, because it is a fact about a person in a
+group.** "Seen" means less than the word suggests: the feed scrolls to the newest message on
+mount and has no unread divider, so the column records that a member opened the group, not that
+they read it. It errs toward under-notifying, the safe direction, which is why a cheap column is
+enough. The unread divider is its own queued slice.
+
+**The send seam fails closed outside production**, sending only to an allowlisted address, an
+unset allowlist sending nothing. Dev-test holds QA rows carrying real addresses, so a local run
+was one command from mailing a real person.
+
+**`List-Unsubscribe-Post: One-Click` was dropped rather than honoured.** The final review
+measured it: a POST there returns 200 with the page's HTML and writes nothing, because the URL is
+a Next.js page route and a page route cannot share a path with a route handler. Advertising
+one-click would have a mail client report success to a member who is still subscribed. The
+endpoint is slice two's call.
+
+**The one unproven claim, plainly: nothing here has delivered an email.** The guard was
+exercised, and every mapping from a Resend reply to a product result is tested against a mocked
+client, but the step proving a message reaches an inbox could not run, because the `updates.`
+domain, its DNS and the API key do not exist yet. Slice two's first digest attempt is also the
+first real test of the pipe, so it should send one test message before a real one.
+
+**Two smaller findings, both left alone.** A pre-existing jsdom teardown flake became visible
+here: React defers a passive-effects flush through its scheduler, and if vitest disposes the
+environment first it throws "window is not defined", blamed on whichever file was running rather
+than the one that queued the work. It has never failed a test; two new files were hardened, three
+older ones carry the same pattern and stay out of lane, with a test-only micro-PR recommended.
+And `markGroupSeen` folds the membership check into the write's own where clause, a fifth form
+beyond the four in `src/lib/auth/membership.ts`: one round trip, a free refusal, and nothing
+leaked about whether a group exists. `membership.ts` itself was not edited.

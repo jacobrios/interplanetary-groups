@@ -34,6 +34,7 @@ import type { FeedGroupProposal } from "./GroupProposalChips"
 import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
+import SeenMarker from "./SeenMarker"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
 interface Props {
@@ -150,6 +151,8 @@ export default function GroupHome({
         minHeight: 0, // allows flex children to scroll properly
       }}
     >
+      <SeenMarker groupId={groupId} viewerId={viewerId} />
+
       {/* Scrollable feed */}
       <MessageFeed
         messages={optimisticMessages}

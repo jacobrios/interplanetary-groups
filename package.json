@@ -13,6 +13,7 @@
     "db:which": "tsx scripts/db-which.ts",
     "eval:detect": "tsx scripts/eval-detect.ts",
     "eval:onboarding": "tsx scripts/eval-onboarding.ts",
+    "email:test": "tsx --env-file=.env scripts/send-test-email.ts",
     "qa:stage-cardstate": "tsx --env-file=.env scripts/qa-stage-cardstate.ts",
     "qa:stage-email": "tsx --env-file=.env scripts/qa-stage-email.ts",
     "qa:sweep": "tsx --env-file=.env scripts/qa-sweep.ts"
@@ -26,7 +27,8 @@
     "next": "16.3.2",
     "pg": "^8.21.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^6.25.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

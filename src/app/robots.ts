@@ -1,8 +1,8 @@
 // src/app/robots.ts
 //
 // The front door is the only page written to be found by a stranger. A group
-// URL, an event URL and an invite link are all credentials or contain one, and
-// none of them belongs in a search result.
+// URL, an event URL, an invite link and an unsubscribe link are all
+// credentials or contain one, and none of them belongs in a search result.
 //
 // This is NOT access control. robots.txt is a request that well-behaved
 // crawlers honour, and nothing more. The membership wall
@@ -17,7 +17,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/groups/", "/events/", "/join/", "/create"],
+      disallow: ["/groups/", "/events/", "/join/", "/create", "/unsubscribe/"],
     },
     // Deliberately no `sitemap` key: this product has no /sitemap.xml, and a
     // file whose whole job is telling crawlers what is true should not open by
