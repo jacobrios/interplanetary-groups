@@ -4,12 +4,20 @@
 // sure", no alternatives offered. That is the anti-clutter brand applied to
 // the exit as well as the entrance. The button is the screen's one real
 // action, so it takes --action.
+//
+// The confirmation is shown only on a recorded "ok", never on the mere fact
+// that the call returned. This screen exists to tell somebody their opt-out
+// landed, and saying so when it did not is the worst failure available here:
+// they keep getting mail they believe they stopped, and reach for the spam
+// button instead of this page. On a failure the button stays live so the tap
+// can simply be repeated, which is the whole recovery.
 
 import { useState, useTransition } from "react"
 import { unsubscribeAction } from "@/app/actions/unsubscribe"
 
 export default function UnsubscribeForm({ token }: { token: string }) {
   const [done, setDone] = useState(false)
+  const [failed, setFailed] = useState(false)
   const [pending, startTransition] = useTransition()
 
   if (done) {
@@ -27,13 +35,31 @@ export default function UnsubscribeForm({ token }: { token: string }) {
         Orbit sends a short update when something in your group needs you. Stopping it
         won&rsquo;t affect your sign-in codes, and you can still open your group any time.
       </p>
+      {failed && (
+        <p
+          role="status"
+          style={{ fontSize: "var(--type-meta)", color: "var(--danger)" }}
+        >
+          That didn&rsquo;t go through, so nothing has changed yet. Please try again.
+        </p>
+      )}
       <button
         type="button"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
-            await unsubscribeAction(token)
-            setDone(true)
+            // The catch covers the trip itself, the way SeenMarker's does:
+            // the action is soft on the server, but a dropped connection
+            // rejects out here, and an uncaught rejection in a transition
+            // would replace this page with the error screen instead of
+            // letting the member simply tap again.
+            const result = await unsubscribeAction(token).catch(() => "service_error")
+            if (result === "ok") {
+              setFailed(false)
+              setDone(true)
+            } else {
+              setFailed(true)
+            }
           })
         }
         style={{

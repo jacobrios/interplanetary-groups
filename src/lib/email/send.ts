@@ -38,7 +38,7 @@ export interface SendEmailInput {
   subject: string
   text: string
   html: string
-  /** Absolute URL of the recipient's unsubscribe page. Sets the List-Unsubscribe headers. */
+  /** Absolute URL of the recipient's unsubscribe page. Sets the List-Unsubscribe header. */
   unsubscribeUrl?: string
 }
 
@@ -91,11 +91,23 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       html: input.html,
       headers: input.unsubscribeUrl
         ? {
-            // Lets a mail client offer its own unsubscribe control, so a member
-            // who wants out reaches for that instead of the spam button. Costs
-            // nothing and is most of what protects `updates.`'s reputation.
+            // What this header does: it lets a mail client offer its own
+            // unsubscribe control, which sends the member to our unsubscribe
+            // page rather than to the spam button. That alone is most of what
+            // protects `updates.`'s sending reputation, and it costs nothing.
+            //
+            // What it deliberately does NOT do: advertise one-click. The
+            // companion `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+            // header is not sent, on purpose. That header is a promise that
+            // the URL honours a POST and unsubscribes without any further
+            // interaction, and nothing here honours it: the URL is a Next.js
+            // page route, a page route and a route handler cannot share a
+            // path, and a POST to it verified as returning 200 with the page's
+            // own HTML while writing nothing. Advertising it would mean Gmail
+            // reporting success to a member who is still subscribed, which is
+            // worse than not offering it and is itself a reputation
+            // liability. Adding the POST endpoint is slice two's call.
             "List-Unsubscribe": `<${input.unsubscribeUrl}>`,
-            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           }
         : undefined,
     })

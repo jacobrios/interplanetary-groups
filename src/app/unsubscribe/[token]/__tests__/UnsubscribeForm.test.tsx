@@ -8,19 +8,34 @@
 // itself above that point, which is the documented fix for this exact
 // ordering (see SeenMarker.test.tsx).
 
-import { afterEach, describe, expect, it, vi } from "vitest"
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { act, cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
 
 const { unsubscribeAction } = vi.hoisted(() => ({
-  unsubscribeAction: vi.fn(() => Promise.resolve()),
+  unsubscribeAction: vi.fn<(token: string) => Promise<"ok" | "service_error">>(),
 }))
 vi.mock("@/app/actions/unsubscribe", () => ({ unsubscribeAction }))
 
 import UnsubscribeForm from "../UnsubscribeForm"
 
-afterEach(() => {
+beforeEach(() => {
+  unsubscribeAction.mockResolvedValue("ok")
+})
+
+// Why the flush: this file settles transitions outside act(), and React answers
+// a commit carrying passive effects by queueing a deferred flush through its
+// scheduler (a setImmediate in Node) whose first statement reads `window.event`.
+// If vitest disposes the jsdom environment first, the run reddens with
+// "ReferenceError: window is not defined", blamed on whichever file was running
+// rather than this one. Draining the queue inside act() leaves nothing pending.
+// Fuller note, including the three pre-existing files with the same pattern, is
+// in src/app/groups/[id]/__tests__/SeenMarker.test.tsx.
+afterEach(async () => {
   cleanup()
-  unsubscribeAction.mockClear()
+  await act(async () => {
+    await new Promise((resolve) => setImmediate(resolve))
+  })
+  unsubscribeAction.mockReset()
 })
 
 describe("UnsubscribeForm", () => {
@@ -48,5 +63,66 @@ describe("UnsubscribeForm", () => {
   it("uses no dashes in its copy, per the product voice rule", () => {
     const { container } = render(<UnsubscribeForm token="tok_1" />)
     expect(container.textContent).not.toMatch(/[—–]/)
+  })
+
+  // The whole reason the action returns a result. A member told "you're
+  // unsubscribed" over a write that never landed keeps getting mail they
+  // believe they stopped, and the only thing left to reach for is the spam
+  // button, which is what the `updates.` subdomain split exists to prevent.
+  describe("when the write does not land", () => {
+    it("says so instead of confirming, and does not claim the opt-out", async () => {
+      unsubscribeAction.mockResolvedValue("service_error")
+      render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+
+      expect(await screen.findByText(/nothing has changed yet/)).toBeTruthy()
+      expect(screen.queryByText(/unsubscribed\. Orbit/)).toBeNull()
+    })
+
+    it("leaves the button usable so the tap can be repeated", async () => {
+      unsubscribeAction.mockResolvedValue("service_error")
+      render(<UnsubscribeForm token="tok_1" />)
+      const button = screen.getByRole("button", { name: "Stop sending me these" })
+      fireEvent.click(button)
+      await screen.findByText(/nothing has changed yet/)
+
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+
+      // The retry succeeds, and the failure line goes with it.
+      unsubscribeAction.mockResolvedValue("ok")
+      fireEvent.click(button)
+      expect(await screen.findByText(/unsubscribed\. Orbit/)).toBeTruthy()
+      expect(unsubscribeAction).toHaveBeenCalledTimes(2)
+    })
+
+    // A rejected async transition surfaces to the nearest error boundary, so
+    // without the caller's own catch a dropped connection would replace this
+    // page with the error screen rather than a line the member can act on.
+    it("treats a failed trip as a failure, not as an error boundary", async () => {
+      const escaped: unknown[] = []
+      const record = (reason: unknown) => escaped.push(reason)
+      process.on("unhandledRejection", record)
+      process.on("uncaughtException", record)
+
+      unsubscribeAction.mockRejectedValue(new Error("Failed to fetch"))
+      render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+
+      expect(await screen.findByText(/nothing has changed yet/)).toBeTruthy()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      process.off("unhandledRejection", record)
+      process.off("uncaughtException", record)
+      expect(escaped).toEqual([])
+    })
+
+    it("uses no dashes in its failure copy either", async () => {
+      unsubscribeAction.mockResolvedValue("service_error")
+      const { container } = render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+      await screen.findByText(/nothing has changed yet/)
+
+      expect(container.textContent).not.toMatch(/[—–]/)
+    })
   })
 })

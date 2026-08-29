@@ -28,6 +28,15 @@ describe("robots", () => {
     expect(list).toContain("/join/")
   })
 
+  // Same shape as an invite link and the same reasoning: the token in the URL
+  // is the whole authorisation, so a crawled one is an opt-out anybody can
+  // trigger for its owner.
+  it("keeps unsubscribe links out of search results", () => {
+    const disallow = rules().disallow
+    const list = Array.isArray(disallow) ? disallow : [disallow]
+    expect(list).toContain("/unsubscribe/")
+  })
+
   it("does not advertise a sitemap this product does not have", () => {
     expect(robots().sitemap).toBeUndefined()
   })

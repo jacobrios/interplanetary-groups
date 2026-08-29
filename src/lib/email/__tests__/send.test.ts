@@ -123,18 +123,49 @@ describe("the result mapping", () => {
     expect(sendMock).not.toHaveBeenCalled()
   })
 
-  it("sets both List-Unsubscribe headers when given a URL, and neither when not", async () => {
+  it("sets the List-Unsubscribe header when given a URL, and none when not", async () => {
     sendMock.mockResolvedValue({ data: { id: "msg_1" }, error: null })
     const { sendEmail } = await import("../send")
 
     await sendEmail({ to: "a@b.com", ...MESSAGE, unsubscribeUrl: "https://x.test/u/tok" })
     expect(sendMock.mock.calls[0][0].headers).toEqual({
       "List-Unsubscribe": "<https://x.test/u/tok>",
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     })
 
     await sendEmail({ to: "a@b.com", ...MESSAGE })
     expect(sendMock.mock.calls[1][0].headers).toBeUndefined()
+  })
+
+  // Its own test rather than a line in the one above, because it pins a
+  // decision rather than a shape. One-click is a promise that the URL honours
+  // a POST and unsubscribes with no further interaction. It does not: that URL
+  // is a Next.js page route, and a POST to it returns the page's HTML and
+  // writes nothing. Advertising it would have Gmail telling a member they were
+  // unsubscribed when they were not. Whoever adds the POST endpoint in slice
+  // two should delete this test in the same change that makes it false.
+  it("does not advertise one-click, because no endpoint honours a POST yet", async () => {
+    sendMock.mockResolvedValue({ data: { id: "msg_1" }, error: null })
+    const { sendEmail } = await import("../send")
+
+    await sendEmail({ to: "a@b.com", ...MESSAGE, unsubscribeUrl: "https://x.test/u/tok" })
+    expect(sendMock.mock.calls[0][0].headers["List-Unsubscribe-Post"]).toBeUndefined()
+  })
+
+  // The `updates.` subdomain is the whole point of this seam: CLAUDE.md,
+  // build-notes and the List-Unsubscribe header above all rest on digest mail
+  // leaving through a sending identity separate from the `account.` subdomain
+  // that carries login codes. Nothing else in this file would notice somebody
+  // repointing FROM at `account.` while chasing a deliverability problem, and
+  // the split would quietly stop existing with the suite still green.
+  it("sends from the updates. subdomain, never the account. one login codes use", async () => {
+    sendMock.mockResolvedValue({ data: { id: "msg_1" }, error: null })
+    const { sendEmail } = await import("../send")
+
+    await sendEmail({ to: "a@b.com", ...MESSAGE })
+
+    const from = sendMock.mock.calls[0][0].from as string
+    expect(from).toContain("@updates.")
+    expect(from).not.toContain("@account.")
   })
 
   it("never logs the address itself, on a generic error and on the validation branch", async () => {
