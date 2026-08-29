@@ -16,9 +16,22 @@ interface Props {
   note: string
   linkHref: string
   linkLabel: string
+  // Optional second, quieter way onward. Added for the members-only wall,
+  // which needs both a real door back in (sign-in) and a secondary option
+  // for a genuine stranger (start a group of their own). The bad-invite-
+  // token screen, this component's only other caller, has one link and
+  // passes nothing here, so it renders exactly as it did before.
+  secondaryLinkHref?: string
+  secondaryLinkLabel?: string
 }
 
-export default function OrbitNoteScreen({ note, linkHref, linkLabel }: Props) {
+export default function OrbitNoteScreen({
+  note,
+  linkHref,
+  linkLabel,
+  secondaryLinkHref,
+  secondaryLinkLabel,
+}: Props) {
   return (
     <main
       style={{
@@ -86,10 +99,13 @@ export default function OrbitNoteScreen({ note, linkHref, linkLabel }: Props) {
           </p>
         </div>
 
-        {/* Points at /create rather than "/" so the label does exactly what
-            it says. Step 1 of the wizard now has its own way out, so
-            someone who would rather look around first is not trapped.
-            Deliberately not teal: what this person wanted was something
+        {/* Destination and label are entirely the caller's: the bad-invite-
+            token screen points this at /create ("Start your own group"),
+            since step 1 of the wizard now has its own way out, so someone
+            who would rather look around first is not trapped; the
+            members-only wall points it at /signin ("Sign in"), the real
+            door back in for a member who lost their session. Deliberately
+            not teal either way: what this person wanted was something
             else, and teal would oversell a consolation prize. */}
         <Link
           href={linkHref}
@@ -106,6 +122,29 @@ export default function OrbitNoteScreen({ note, linkHref, linkLabel }: Props) {
         >
           {linkLabel}
         </Link>
+
+        {/* Quieter still than the link above: a secondary way onward for
+            whoever does not want the first one. Smaller, dimmer, and less
+            spaced from its neighbor, so hierarchy reads from weight alone
+            rather than a competing color (CLAUDE.md: teal marks a weight,
+            never a count, and this is deliberately not that). */}
+        {secondaryLinkHref && secondaryLinkLabel && (
+          <Link
+            href={secondaryLinkHref}
+            style={{
+              display: "block",
+              width: "fit-content",
+              margin: "0.5rem auto 0",
+              padding: "0.25rem 0.5rem",
+              color: "var(--text-faint)",
+              fontSize: "var(--type-meta)",
+              lineHeight: "var(--leading-normal)",
+              textDecoration: "underline",
+            }}
+          >
+            {secondaryLinkLabel}
+          </Link>
+        )}
       </div>
     </main>
   )
