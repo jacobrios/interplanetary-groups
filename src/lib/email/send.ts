@@ -98,15 +98,21 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
             //
             // What it deliberately does NOT do: advertise one-click. The
             // companion `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
-            // header is not sent, on purpose. That header is a promise that
-            // the URL honours a POST and unsubscribes without any further
-            // interaction, and nothing here honours it: the URL is a Next.js
-            // page route, a page route and a route handler cannot share a
-            // path, and a POST to it verified as returning 200 with the page's
-            // own HTML while writing nothing. Advertising it would mean Gmail
-            // reporting success to a member who is still subscribed, which is
-            // worse than not offering it and is itself a reputation
-            // liability. Adding the POST endpoint is slice two's call.
+            // header is not sent, on purpose, because it promises that this
+            // URL honours a POST and unsubscribes with no further interaction,
+            // and nothing here honours it. That was measured rather than
+            // assumed: this branch's final whole-branch review ran a POST at
+            // that path against a production build and got HTTP 200 with the
+            // full page HTML back, having written nothing. The cause is
+            // structural, which is why care in slice two cannot accidentally
+            // make it work: the URL is a Next.js page route, and a page route
+            // and a route handler cannot share a path, so the address carried
+            // in a List-Unsubscribe-Post header could never be honoured as
+            // written. Advertising it anyway would have a mail client report
+            // success to a member who is still subscribed, which is worse than
+            // offering nothing and is a sending-reputation liability in its
+            // own right. Dropping the header was the fix; building the POST
+            // endpoint is slice two's call.
             "List-Unsubscribe": `<${input.unsubscribeUrl}>`,
           }
         : undefined,
