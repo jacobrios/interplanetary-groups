@@ -15,6 +15,15 @@ model User {
   supabaseAuthId  String?           @unique
   emailAskCount   Int               @default(0)
   emailAskedAt    DateTime?
+  /// Set when this person unsubscribed from digests. Null means subscribed.
+  /// Digests only: it must never gate a login code, which is transactional and
+  /// leaves through a different subdomain. Somebody who stops wanting digests
+  /// still has to be able to sign in.
+  digestOptOutAt    DateTime?
+  /// The capability in their unsubscribe link. Generated lazily, the first time
+  /// a digest is composed for them, with randomUUID() as reset-invite.ts:34
+  /// does, so one link can never be guessed from another.
+  unsubscribeToken  String?   @unique
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   contactMethods  ContactMethod[]
