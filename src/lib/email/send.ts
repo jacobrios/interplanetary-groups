@@ -13,8 +13,16 @@
 //
 // Every service_error branch logs the underlying error before returning. That
 // is not defensive habit: the production deploy cost two hours because
-// create-group.ts:73 threw Supabase's error away. The address itself is never
-// logged; it is the member's, given to Orbit rather than to the group.
+// create-group.ts:73 threw Supabase's error away.
+//
+// What is never logged deliberately: the address itself. It is the member's,
+// given to Orbit rather than to the group, and a server log is not a place it
+// needs to be. This is not an absolute guarantee: the validation_error branch
+// logs whatever message Resend sends back, and Resend's own validation errors
+// for a malformed `to` field can echo the offending address into that message.
+// Our code never puts input.to into a log call itself; the residual risk lives
+// entirely in the service's own error text, the same caveat src/lib/auth/email.ts
+// carries for Supabase.
 
 import { Resend } from "resend"
 

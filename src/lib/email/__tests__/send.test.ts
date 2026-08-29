@@ -137,20 +137,52 @@ describe("the result mapping", () => {
     expect(sendMock.mock.calls[1][0].headers).toBeUndefined()
   })
 
-  it("never logs the address", async () => {
+  it("never logs the address itself, on a generic error and on the validation branch", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { sendEmail } = await import("../send")
+
     sendMock.mockResolvedValue({
       data: null,
       error: { name: "internal_server_error", message: "boom" },
     })
-    const { sendEmail } = await import("../send")
+    await sendEmail({ to: "secret@member.com", ...MESSAGE })
 
+    // The validation branch is the highest-risk one: it logs error.message
+    // verbatim, so this proves our own code adds nothing, using a message
+    // that (unlike a real Resend reply might) does not itself contain the
+    // address. What a real echoed address would do is covered separately,
+    // below, as a documented residual rather than asserted away here.
+    sendMock.mockResolvedValue({
+      data: null,
+      error: { name: "validation_error", message: "invalid to field" },
+    })
     await sendEmail({ to: "secret@member.com", ...MESSAGE })
 
     const logged = [...warn.mock.calls, ...error.mock.calls].flat().join(" ")
     expect(logged).not.toContain("secret@member.com")
     warn.mockRestore()
+    error.mockRestore()
+  })
+
+  it("documents the residual risk: a validation message that echoes the address reaches the log", async () => {
+    // This is the known limitation named in send.ts's header, pinned rather
+    // than hidden: our code never puts input.to into a log call itself, but
+    // the validation branch logs error.message verbatim, and Resend's real
+    // validation errors for a malformed `to` field can echo the offending
+    // address back in that message. This test is not catching a bug; it is
+    // proving the caveat is true so nobody "fixes" it into a false guarantee.
+    const error = vi.spyOn(console, "error").mockImplementation(() => {})
+    sendMock.mockResolvedValue({
+      data: null,
+      error: { name: "validation_error", message: "invalid to field: secret@member.com" },
+    })
+    const { sendEmail } = await import("../send")
+
+    await sendEmail({ to: "secret@member.com", ...MESSAGE })
+
+    const logged = error.mock.calls.flat().join(" ")
+    expect(logged).toContain("secret@member.com")
     error.mockRestore()
   })
 })
