@@ -54,19 +54,30 @@ describe("ensureUnsubscribeToken", () => {
     // which guarantees both callers observe a null token before either one
     // writes. Without this barrier the race is possible but not certain, and
     // an uncertain race is not evidence.
-    const originalFindUnique = prisma.user.findUnique.bind(prisma.user)
+    type FindUniqueFn = typeof prisma.user.findUnique
+    const originalFindUnique: FindUniqueFn = prisma.user.findUnique.bind(prisma.user)
     let entered = 0
     let releaseBoth: () => void
     const bothEntered = new Promise<void>((resolve) => {
       releaseBoth = resolve
     })
-    const spy = vi.spyOn(prisma.user, "findUnique").mockImplementation(async (...args) => {
-      entered += 1
-      if (entered >= 2) releaseBoth()
-      await bothEntered
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return originalFindUnique(...(args as [any]))
-    })
+    // Prisma's findUnique returns Prisma__UserClient, a thenable that also
+    // carries relation-navigation methods (.contactMethods(), etc.) this test
+    // never calls; every caller below only ever `await`s the result, and
+    // `await` unwraps any thenable transparently at runtime. A plain async
+    // function honours that contract but cannot be typed as the literal
+    // Prisma__UserClient return type (it has no navigation methods to offer),
+    // so this cast is the genuine "the type system can't express this, the
+    // runtime contract is honoured" case rather than a way to skip checking.
+    const spy = vi.spyOn(prisma.user, "findUnique")
+    spy.mockImplementation(
+      (async (...args: Parameters<FindUniqueFn>) => {
+        entered += 1
+        if (entered >= 2) releaseBoth()
+        await bothEntered
+        return originalFindUnique(...args)
+      }) as unknown as FindUniqueFn
+    )
 
     try {
       const [first, second] = await Promise.all([
