@@ -4,7 +4,7 @@
 // naming isVerified: unsubscribing must never touch it, because login codes
 // are transactional and leave through a different subdomain than digests do.
 
-import { describe, it, expect, afterAll } from "vitest"
+import { describe, it, expect, afterAll, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { ensureUnsubscribeToken, unsubscribeByToken } from "../unsubscribe"
 
@@ -42,6 +42,45 @@ describe("ensureUnsubscribeToken", () => {
     const a = await makeUser("a")
     const b = await makeUser("b")
     expect(await ensureUnsubscribeToken(a.id)).not.toBe(await ensureUnsubscribeToken(b.id))
+  })
+
+  it("returns the same token to two concurrent callers, and the row agrees", async () => {
+    const user = await makeUser("racer")
+
+    // Two digests composing for the same person at once can both see no
+    // token and both try to mint one. A plain Promise.all does not reliably
+    // interleave, so this forces it: every prisma.user.findUnique call is
+    // held open until a second caller has also reached its own findUnique,
+    // which guarantees both callers observe a null token before either one
+    // writes. Without this barrier the race is possible but not certain, and
+    // an uncertain race is not evidence.
+    const originalFindUnique = prisma.user.findUnique.bind(prisma.user)
+    let entered = 0
+    let releaseBoth: () => void
+    const bothEntered = new Promise<void>((resolve) => {
+      releaseBoth = resolve
+    })
+    const spy = vi.spyOn(prisma.user, "findUnique").mockImplementation(async (...args) => {
+      entered += 1
+      if (entered >= 2) releaseBoth()
+      await bothEntered
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return originalFindUnique(...(args as [any]))
+    })
+
+    try {
+      const [first, second] = await Promise.all([
+        ensureUnsubscribeToken(user.id),
+        ensureUnsubscribeToken(user.id),
+      ])
+
+      expect(first).toBe(second)
+
+      const row = await prisma.user.findUnique({ where: { id: user.id } })
+      expect(row?.unsubscribeToken).toBe(first)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 
