@@ -5330,3 +5330,78 @@ fixing only one surface is the exact mistake that round already made once.
 every other prop including `style`. The anchor that file rendered was therefore not the
 anchor the product renders, and no assertion about its treatment could have been true. Found
 by writing one. The stand-in passes everything through now.
+
+## §11 entry: the digest, slice one, the plumbing (28 August 2026)
+
+**What it is.** The pipe a digest will run through, and none of the digest. Spec and plan in one
+document, `docs/superpowers/specs/2026-08-28-digest-plumbing-design.md`, riding this branch from
+before any code; the shape lives there. Baseline 113 files / 1237 tests, matching main at
+`72013b1`; finishing at 120 / 1286, green. *Declared deviation on length: about 930 words against
+the 400-to-600 target. The slice settled eleven things, none of them a retelling of what
+happened, and a compression pass found nothing to cut that was not a decision.*
+
+**The digest's shape was settled in the brainstorm, though slice one builds none of it.** Two
+blocks in one email. What needs you (an idea you have not voted on, an event you have not
+RSVP'd to, a time-change vote you have not answered), sent whether or not you opened the app,
+since this is the only notification channel the product has. What you missed (chat since you last
+opened the group), suppressed entirely if you have been in. Both empty means no email, which is
+what makes a daily cadence safe. One per group to start, per person later.
+
+**Two send rules, and the second is the one to carry.** Rule one is "the day it was created" and
+covers only what a person did, an idea floated or a time change asked for. Rule two is "three
+days before it happens" and covers everything with a date. Rule one deliberately excludes an
+event Orbit created itself, on a checked fact rather than taste: `upcoming-list.ts:39` matches on
+`startsAt >= now`, so next Saturday's climb is created on Saturday, about an hour after the
+current one starts. Rule one applied to it would mail the group that evening asking them to RSVP
+for a climb six days out, on the one day nobody needs reminding that this group climbs. Rule one
+means "a human did something, go weigh in"; a plan Orbit scheduled is not news. Cost to a member:
+a group with a weekly climb and nothing else hears once a week, on Wednesday.
+
+**Both rules are arithmetic on dates already stored, so nothing has to remember what it sent.**
+That is what makes this affordable, and it is the slice's main accepted debt: no send log, so
+when somebody says they never got it, the only evidence is Resend's dashboard.
+
+**Two recorded premises were wrong, both checked against the repo.** Supabase Auth sends its own
+auth templates and nothing else, so the digest calls Resend directly; the hourly Supabase ceiling
+never bound it, and the "raise it before the digest ships" trigger is disarmed. A Resend sending
+domain is account-level, so the rule about configuring both Supabase projects does not reach
+here. What binds is Resend's free tier, 100 a day and 3,000 a month shared with login codes,
+which runs out around 80 members.
+
+**Unsubscribe was reversed by the owner, on deliverability rather than principle.** Without a
+link the only "stop this" available is the spam button, which damages the reputation of the very
+subdomain the split was protecting. The old wording collapsed two things: a preference model is a
+settings screen choosing which mail you get, still declined; an unsubscribe link is one door, now
+built. Per person, stopping digests for every group because that is what somebody means by it,
+and it never touches sign-in.
+
+**`lastSeenAt` sits on `Membership`, not `User`, because it is a fact about a person in a
+group.** "Seen" means less than the word suggests: the feed scrolls to the newest message on
+mount and has no unread divider, so the column records that a member opened the group, not that
+they read it. It errs toward under-notifying, the safe direction, which is why a cheap column is
+enough. The unread divider is its own queued slice.
+
+**The send seam fails closed outside production**, sending only to an allowlisted address, an
+unset allowlist sending nothing. Dev-test holds QA rows carrying real addresses, so a local run
+was one command from mailing a real person.
+
+**`List-Unsubscribe-Post: One-Click` was dropped rather than honoured.** The final review
+measured it: a POST there returns 200 with the page's HTML and writes nothing, because the URL is
+a Next.js page route and a page route cannot share a path with a route handler. Advertising
+one-click would have a mail client report success to a member who is still subscribed. The
+endpoint is slice two's call.
+
+**The one unproven claim, plainly: nothing here has delivered an email.** The guard was
+exercised, and every mapping from a Resend reply to a product result is tested against a mocked
+client, but the step proving a message reaches an inbox could not run, because the `updates.`
+domain, its DNS and the API key do not exist yet. Slice two's first digest attempt is also the
+first real test of the pipe, so it should send one test message before a real one.
+
+**Two smaller findings, both left alone.** A pre-existing jsdom teardown flake became visible
+here: React defers a passive-effects flush through its scheduler, and if vitest disposes the
+environment first it throws "window is not defined", blamed on whichever file was running rather
+than the one that queued the work. It has never failed a test; two new files were hardened, three
+older ones carry the same pattern and stay out of lane, with a test-only micro-PR recommended.
+And `markGroupSeen` folds the membership check into the write's own where clause, a fifth form
+beyond the four in `src/lib/auth/membership.ts`: one round trip, a free refusal, and nothing
+leaked about whether a group exists. `membership.ts` itself was not edited.
