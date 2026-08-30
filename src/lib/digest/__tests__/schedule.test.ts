@@ -214,6 +214,23 @@ describe("isDigestEligibleToday", () => {
     expect(out).toBe(true)
   })
 
+  // This is the guard's own discriminating case, distinct from the two
+  // above: those sit far apart in the refusing direction (13h, same day)
+  // and far apart in the permitting direction (33h, next day), so a rolling
+  // 24-hour window would pass both by accident. Here the gap is only 9
+  // hours -- well under 24 -- but it crosses the America/Chicago local
+  // midnight, so the correct group-local-day answer is "permit" while a
+  // rolling `now - lastSent >= 24h` check would answer "refuse". This is
+  // the exact wrong implementation the brief named ("a 24-hour window would
+  // drift the send time later every day"), and this is the test that would
+  // catch it: see the task report for the mutation proof.
+  it("permits a send across a 9-hour gap that crosses the group-local day boundary (proves this is a calendar-day guard, not a rolling 24-hour window)", () => {
+    const lastDigestSentAt = chicagoDay(-1, 23) // 11pm yesterday, Chicago-local
+    const now = chicagoDay(0, 8) // 8am today, Chicago-local -- 9 hours later
+    const out = isDigestEligibleToday({ now, timeZone: TZ, lastDigestSentAt, digestOptOutAt: null })
+    expect(out).toBe(true)
+  })
+
   it("refuses when digestOptOutAt is set, regardless of lastDigestSentAt", () => {
     const out = isDigestEligibleToday({
       now: NOW,
