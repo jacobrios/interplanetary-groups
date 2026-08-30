@@ -293,7 +293,7 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 
 *This is a different kind of entry from every row above it, and saying so plainly is the point of the heading. Every other decision on this list ends in Orbit writing a message into the group feed, or not writing one. These end in neither: the ask is **rendered per viewer**, so it exists on one member's screen and on nobody else's, and no message row is written anywhere. It is still Orbit deciding to speak, so it belongs on this list; a future reader auditing "where does Orbit talk to people" by searching for feed writes would miss it entirely, which is exactly the failure mode this section exists to prevent.*
 
-*The pattern's precedent is the time-change-ending slice's vote-counted line (`ProposalSection.tsx:67`), which is rendered per viewer for the same reason. Noting a gap while it is in front of us rather than fixing it out of lane: that line has never had a row on this list either.*
+*The pattern's precedent is the time-change-ending slice's vote-counted line (`ProposalSection.tsx:67`), which is rendered per viewer for the same reason. ~~Noting a gap while it is in front of us rather than fixing it out of lane: that line has never had a row on this list either.~~ **Closed 29 August 2026 (digest slice two): it has one now, the last row of the table below. The trigger `CLAUDE.md` carried said the row belonged to whichever slice next touched `ProposalSection.tsx` or the time-change flow, and this slice read time-change votes in order to mail them; the reasoning for calling that a touch is in this slice's §11 entry.***
 
 | Where | What it does | Leans |
 |---|---|---|
@@ -303,8 +303,36 @@ Recorded so it isn't lost, and so nobody designs the MVP around it. These are di
 | `dismissEmailOfferAction` (`src/app/actions/email-ask.ts`), the counter counts declines | The note stays on screen until it is answered, and only a dismissal advances the counter; ignoring it is not answering it. Keeps speaking, to that one viewer, until answered. Counting appearances instead would spend both asks on somebody who never looked, and would send the second ask to the wrong person. | Correct |
 | `dismissEmailOfferAction`, a failed write still dismisses | The member said no. Refusing to go away because a database write failed would be the worst possible reading of that answer, so the note goes regardless and the cost is that the ask may return on a later render. A repeat, not a betrayal. Stays quiet. | Correct |
 | `EmailAskNote`, the three free ways out (added 27 Aug 2026, sheet redesign) | Only the worded exit ("Not now" / "No thanks") spends one of the two lifetime asks. Tapping the scrim, pressing Escape, and navigating away all close the sheet and write nothing, so Orbit will ask again. The asymmetry points one way on purpose: the silent gesture is the cheap one, and somebody who read the ask and tapped the worded exit told us something worth spending an ask on. Inverted, it would be a bug. Keeps speaking, to that one viewer, until answered in words. | Correct |
+| `ProposalSection` (`src/app/events/[id]/ProposalSection.tsx:67`), the vote-counted line (built 18 Aug 2026, time-change-ending slice; row added 29 Aug 2026, digest slice two) | A member who has voted on a group time-change sees one quiet line telling them it counted and that Orbit will say something if the plan moves. Speaks, to one viewer, off the feed. It exists because the tally and the card notice were both deleted, so without it a member voting into a proposal two yeses short cannot tell "counted, not enough yet" from "nothing happened". It deliberately names nobody, counts nothing and states no bar, which is what keeps the deleted tally deleted. Everyone who has not voted sees nothing. | Correct |
 
 *Amended 27 August 2026, sheet redesign. Two rows above say "the note", which is what this was: an inline note pinned above the composer. It is a bottom sheet over the group home now. Nothing about what Orbit decides changed, only what the member sees when it decides to speak, and the counter still counts declines rather than appearances.*
+
+### The digest: Orbit speaking into an inbox (added 29 Aug 2026, digest slice two)
+
+*A third kind of entry, and it is a bigger step than the one above it. The rows above end in a message in the group feed, or in something drawn on one member's screen; either way the member is already here. These end in mail leaving the product entirely and arriving when nobody is looking at anything. It is the only notification channel this product has, it reaches somebody who is not asking for it, and the anti-clutter north star therefore bites harder here than anywhere else on this list. **The decision is spread across four pure modules and one job**, deliberately, and the split is worth knowing before changing how eager the digest is: `schedule.ts` decides whether we may speak at all, `needs-you.ts` and `you-missed.ts` each decide whether they have anything to say, `compose.ts` refuses to build an empty email, and `run.ts` decides when. Loosening one of them looks complete from every angle except the others, which is the 29 July failure mode this section exists to catch.*
+
+| Where | What it does | Leans |
+|---|---|---|
+| `isNeedsYouGateOpen` (`src/lib/digest/schedule.ts`), rule one, "the day a person created it" | A member floated an idea or asked for a time change today, so today the group hears what is waiting on them. Speaks. Rule one means "a human did something, go weigh in". | Correct |
+| `isNeedsYouGateOpen`, rule one excluding an event Orbit created | A recurring plan Orbit scheduled by itself is not news, and it is created about an hour after the previous one starts, so rule one would mail the group on the one evening nobody needs reminding that this group climbs. Stays quiet. | Correct |
+| `isNeedsYouGateOpen`, rule one including a sparked event | An event created by a third yes is a person doing something, not Orbit. Speaks. Narrow in practice: everyone who voted already holds an RSVP, so it reaches only somebody who never voted, which is the person worth reaching. | Correct |
+| `isNeedsYouGateOpen`, rule two, "three days before it happens" | Anything with a date, both kinds of event and an idea's proposed day, gets one reminder three days out. Speaks. | Correct |
+| `isNeedsYouGateOpen`, neither rule firing today | The "needs you" block is empty **even though outstanding items exist**. Stays quiet, and this is the row most likely to be misread as a bug: a member who has not RSVP'd is not by itself news, and mailing daily until they answer is the nagging this product was founded against. | Correct |
+| `isNeedsYouGateOpen`, open gate carrying everything outstanding | When a rule does fire, the block carries the member's whole outstanding list, not just the item that opened the gate. Once we are mailing somebody anyway, a partial list is a worse email for no gain. Speaks, fully. | Correct |
+| `deriveNeedsYouItems` (`src/lib/digest/needs-you.ts`), an item already answered, declined, promoted or dead | Never named. A digest asking for an answer somebody already gave is worse than no digest, and liveness is not re-derived here: it is inherited from `findLiveGauges` and `findLiveProposals`, so the email cannot disagree with the screen. Stays quiet. | Correct |
+| `deriveNeedsYouItems`, an idea the viewer is IN on | Excluded, matching the card. It needs other people, not them. Stays quiet. | Correct |
+| `deriveNeedsYouItems`, the time-change vote kind | Carried even though the card ladder has no rung for it, per the owner's decision 2. Speaks. The email stands in for the whole screen rather than the card strip, and a stalled time-change vote is already the most invisible thing in the product. | Correct |
+| `deriveNeedsYouItems`, a VERIFY-kind proposal | Excluded: it is Orbit's clarifying question to one member, not a group vote with a bar, and it was never on the card ladder. **But an asker sitting on an unanswered VERIFY genuinely does have something waiting on them specifically, and the digest will never mention it.** Surfaced by task 4's reviewer, out of that task's scope, no decision made. | **Open** |
+| `deriveYouMissed` (`src/lib/digest/you-missed.ts`), real missed chat | Opens the "you missed" block **on its own**, ungated by the two send rules, so a member who drifted away from a talkative group hears about it on a day no rule fired. Speaks. | Correct |
+| `deriveYouMissed`, Orbit's own messages and join announcements | Excluded from both the count and the three quoted lines. Anything needing a response is already in the block above, and an email from Orbit quoting Orbit reads wrong. Accepted cost, stated: a plan Orbit announced that the member has already answered appears nowhere in the digest, which is correct, because nothing about it needs them. Stays quiet. | Correct |
+| `deriveYouMissed`, the read position | The later of the member's last visit and our last email, falling back to their join date. Stays quiet about anything already reported: without the second date, a week away from a chatty group would mean seven emails each re-reporting the same messages, and a member who has never opened the group would be told they missed 340. | Correct |
+| `deriveYouMissed`, zero missed messages | Nothing to report. Stays quiet. | Structural |
+| `composeDigestEmail` (`src/lib/digest/compose.ts`), both blocks empty | Returns nothing rather than an empty email. This is the rule that makes a daily cadence safe at all, and it lives here as well as in the job, so a caller that forgets it still cannot send an empty digest. Stays quiet. | Correct |
+| `isDigestEligibleToday` (`src/lib/digest/schedule.ts`), the once-a-day guard | At most one email per member per group per group-local day, whatever else is true. A duplicate email is the single likeliest thing to make somebody unsubscribe, which is worth a stored column. Stays quiet. | Correct |
+| `isDigestEligibleToday`, `User.digestOptOutAt` | Somebody who unsubscribed never hears from the digest again, in any group, and the check sits here so no caller can forget it. Stays quiet, permanently. | Correct |
+| `runDailyDigest` (`src/lib/digest/run.ts`), the group-local 8pm hour | The hourly cron mails a group only in the one hour its own clock reads 8pm; every other hour it passes over that group without looking. Speaks once a day at most, in the evening, in the group's own time. | Correct |
+| `runDailyDigest`, a member with no verified address | Nothing to send to. Stays quiet. Attaching an address is optional forever, so this population never empties. | Structural |
+| `runDailyDigest`, one group or one member failing | A per-group and a per-member `try/catch`, returning a `failed` result rather than throwing, so one group's bad data can never cost every other group its digest. The same shape `reconcile.ts` was given in the pre-deploy slice, one level deeper. Stays quiet about that one member and speaks to everybody else. | Correct |
 
 ### Everything else that ends in silence
 
@@ -565,6 +593,16 @@ Seven High-priority items come due at the moment of the first production deploy.
    *Deliberately NOT on this list, recorded so nobody adds it later out of superstition:* **nothing needs configuring in either Supabase project, and raising Supabase's hourly email limit is not a prerequisite for the digest.** The digest calls Resend directly and spends none of Supabase's allowance. See item 6's 28 August correction.
 
    *Closed 29 August 2026 (Resend sending setup). All three are done, and the digest plumbing slice's one unproven claim, that nothing had ever delivered an email, is no longer true. What the first real send taught is its own §11 entry below; two of the four findings belong to somebody about to repeat this setup rather than to the digest.*
+
+*Items 10 and 11 added 29 Aug 2026 (digest slice two, Task 10). The list reopens rather than staying closed, because the digest itself creates two obligations that must reach production before its code does.*
+
+10. **Run the digest migrations against production before this branch merges to main, and check whether slice one's two ever ran.** The command and the method are item 1's, unchanged and for the same reason: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy` as a one-off inline override on that single command, never by editing `.env`, then `npm run db:which` immediately afterwards to confirm the checkout is back on dev-test. Port 5432, the session pooler; 6543 hangs silently.
+    *This slice's own:* `20260829235127_membership_last_digest_sent`, adding `Membership.lastDigestSentAt` (nullable, no backfill), the marker that guarantees at most one digest a day.
+    *And the part worth checking rather than assuming:* **slice one merged two migrations (`20260828234555_membership_last_seen` and `20260829002014_digest_unsubscribe`) and never added an item to this list**, so nothing here records whether they reached production. They probably did, because `lastSeenAt` is written on every group-home render and a missing column would have taken the live site down for every member the moment slice one shipped; that is an inference from how the code behaves, not a record of anybody running the command. `migrate status` is read-only and free, so run it first and let it answer for all three at once.
+    *Why it blocks the merge:* the same asymmetry item 1 spelled out. Applying a purely additive column early costs nothing, because production briefly holds a column no live code has heard of. Applying it late means the running code asks for a column that is not there.
+    *The process lesson, worth more than the item:* the list's own header says every new obligation belongs here the day it is created, and slice one created two and recorded neither. The only session that reliably knows about an obligation is the one that created it.
+
+11. **Nothing else needs setting anywhere, and that is checked rather than assumed.** Recorded so nobody goes hunting on merge day. The digest reads no new environment variable: `RESEND_API_KEY` and `EMAIL_DEV_ALLOWLIST` are items 8 and 9, already done and unchanged; the absolute links in the email body come from `src/lib/site-url.ts`, which reads the host Vercel already sets; the job rides the existing hourly cron behind the existing `CRON_SECRET`, so `vercel.json` is untouched and no second scheduled task exists. **The one thing to know rather than to do:** the hourly cron now carries three sweeps plus one Resend call per emailed member in a single invocation during a group's 8pm hour, so its function duration grows with the number of members holding an address. At today's size this is a note, not a risk.
 
 
 ### Data-foundation slice (18 to 19 June 2026)
@@ -5488,3 +5526,89 @@ when somebody read their mail, which for a product whose brand is anti-clutter a
 rule is that every nudge must justify itself is something a member never agreed to. Neither buys
 anything: there is no engagement dashboard to feed, and the digest's success measure is whether
 people answer, already visible in the RSVP and vote rows the product owns.
+
+## §11 entry: the digest, slice two, the digest itself (29 August 2026)
+
+**What it is.** Slice one built the pipe and said plainly that nothing ran through it. This is what
+runs through it: a member holding a confirmed address now hears, at most once a day and only when
+there is something to say, what is waiting on them and what they missed, and can stop it in one
+click. Ten tasks, including the one-click unsubscribe endpoint slice one dropped, a real way in from
+the members-only wall, and a job riding the existing hourly cron as a fourth step. Spec and plan in
+`docs/superpowers/specs/2026-08-29-digest-slice-two-design.md`, riding this branch from before any
+code. Baseline at `50cfeed`: 120 files / 1286 tests. Finishing: **126 files / 1372 tests, green, zero
+skipped, zero type errors.** *Declared deviation on length: about 1,110 words against the 400-to-600
+target, and longer than the two entries above it (946 and 963, counted rather than estimated). Seven
+owner decisions, one still open, a headline claim that has to be stated in the negative, and a debt
+list of six. Two compression passes cut about 200 words and then stopped finding anything that was
+not a decision.*
+
+**The claim to state in the negative first, because this project has been burned by the opposite.**
+*No digest has been delivered to anyone.* The hand-run script (`npm run digest:test`) composes a real
+digest through the real production path and refuses production; it was exercised as far as the
+environment guard, which suppressed the send exactly as it should. Sending real mail is an
+outward-facing act and the friend's address is not the build's to know, so the send is the owner's,
+handed over turnkey. It is not a formality: a digest that lands in spam does not fail, it silently
+does not work, and the first message this product ever sent was filtered. It also answers what slice
+one could not, whether the service rewrites body links.
+
+**The seven the owner settled, 29 August, in his terms rather than the plan's.**
+
+**1. Unsubscribe first, and race-safety before the button.** A dead unsubscribe link is worse than a
+missing one. Two digests composed for one person in the same moment could each mint a token, and the
+one already sitting in a sent email loses, forever, with nothing reporting it.
+
+**2. The email carries a time-change vote even though the cards do not.** That rung was deleted on
+purpose in August when the vote moved to chat and the event screen. The email stands in for the whole
+screen, not the card strip, and a stalled time-change vote is already the most invisible thing in the
+product. A knowing, narrow departure from "the email and the group home can never disagree", written
+into the module's header so nobody tidies it away later.
+
+**3. The members-only wall gains a way in.** A digest tapped on a device holding no session used to
+land on a screen whose one button offered to start a second group, a cousin of the duplicate-identity
+problem the email slice had just closed. `/signin` is the primary door now; "Start your own group"
+stays as a quieter second link.
+
+**4. "You missed" prints people only.** Three lines, newest last; neither the count nor the quotes
+include Orbit or the quiet join notices, because an email from Orbit quoting Orbit reads wrong and
+anything needing an answer is already in the block above. Accepted cost: a plan Orbit announced that
+the member has answered appears nowhere, which is right, because nothing about it needs them.
+
+**5. A duplicate email is worse than a missed one, so the slice spends a column.** The
+counter-argument was heard and rejected: `Membership.lastDigestSentAt` is a stored fact the send rules
+were shaped to avoid needing, but a duplicate is the likeliest thing to make somebody unsubscribe. It
+pays for itself twice: "you missed" counts from the later of the last visit and the last email, so a
+week away from a chatty group is one email rather than seven re-reporting the same messages.
+
+**6. A sparked event counts as somebody doing something.** Rule one excludes a plan Orbit scheduled by
+itself; an event created by a third yes is not that. Narrow in practice, since everyone who voted
+already holds an RSVP, so it reaches only somebody who never voted, which is the person worth
+reaching.
+
+**7. Subject lines group by the word the product says, not the table underneath.** Three separate
+things in the database, two words on screen; an idea vote and a time-change vote are both "a vote" to
+a member. Collapsing everything to "votes" was declined: it would have the email contradict the
+screen, which is what decision 2 already stretches as far as it should go. The group name always
+leads, because on a phone it is often all that survives truncation.
+
+**One decision is open and it is the owner's, not this branch's.** The digest has to read several
+members' addresses in one pass to mail them, and the privacy guard's own comment says a third read
+site "gets a decision rather than a default". A narrow query was added that reads a user id and an
+address for one group's roster and nothing else, deliberately not an include on the whole User row,
+and the guard was amended to name it, hold it un-exported and mentioned only inside its own file, and
+redden on a fourth. A proposal with its reasoning attached, not a ruling.
+
+**Honest about how the build went.** Three of the ten tasks needed a fix round: a type error one
+review missed, caught by the next task's implementer; guard tests that passed against the exact wrong
+implementation, proven by a reviewer mutating the once-a-day check into a rolling twenty-four hours
+and watching all twenty stay green; and two evidence gaps. Each fix was independently re-reviewed and
+mutation-tested, which is what makes the history worth recording rather than hiding.
+
+**Debt, all of it knowing.** **Still no send log**: the marker records that we tried, never that
+anything arrived. **The once-a-day guard is check-then-write with no atomicity**, so two overlapping
+cron runs for one group could in principle both mail; it is the shape task 1 fixed elsewhere, and it
+cannot be fixed that way here without breaking the rule that the marker is stamped only after a send.
+**The missed-chat query is unbounded**, the same shape as the confirmed latency debt. **One email per
+group, not per person**, free until the multi-group home. **The unsubscribe token never rotates**,
+carried forward. And **`updates.` still has no sending reputation**, so the first digest may be
+filtered: measured rather than feared, and the reason the owner's send goes to himself and one friend
+before any group.
