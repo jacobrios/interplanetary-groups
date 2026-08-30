@@ -536,6 +536,7 @@ function braceBlockAfter(source: string, openerIndex: number): string {
 
 const EMAIL_ASK = "src/lib/auth/email-ask.ts"
 const INFO_PAGE = "src/app/groups/[id]/info/page.tsx"
+const DIGEST_RUN = "src/lib/digest/run.ts"
 
 /** The `findFirst` call block belonging to the named exported function. */
 function contactMethodQueryIn(source: string, functionName: string): string {
@@ -546,16 +547,30 @@ function contactMethodQueryIn(source: string, functionName: string): string {
   return braceBlockAfter(source, call)
 }
 
-describe("only one query can see an address, and only for one user at a time", () => {
-  it("has exactly two reads of ContactMethod in the whole product, both in the auth seam", () => {
+describe("a fixed, named set of queries can see an address, each scoped to who is allowed to", () => {
+  it("has exactly three reads of ContactMethod in the whole product, and names the one outside the auth seam", () => {
     // Most of the rule still rests on this. An address that is never read back
     // cannot be passed to a component, cannot be logged, and cannot be
-    // rendered by a server page this repo has no way to test. There are now
-    // two reads rather than one, because the group info page has to show a
-    // member the address it is offering to change. A THIRD read site is not
-    // automatically a leak, but it is the moment somebody has to think about
-    // this again, so it reddens here and gets a decision rather than a
-    // default.
+    // rendered by a server page this repo has no way to test. There were two
+    // reads for a while, both in the auth seam (src/lib/auth/email-ask.ts):
+    // hasVerifiedEmail (a boolean, blind to the address) and
+    // verifiedEmailAddress (the group info page showing a member the address
+    // it is offering to change). A THIRD read site is not automatically a
+    // leak, but it is the moment somebody has to think about this again, so
+    // it reddened here and got a decision rather than a default, when the
+    // digest slice needed to mail more than one member's address in a single
+    // pass.
+    //
+    // THE DECISION (digest slice two, task 8): sanctioned, deliberately a
+    // different shape from the other two. loadVerifiedEmails
+    // (src/lib/digest/run.ts) is scoped to a caller-supplied list of user ids
+    // rather than one id, because mailing a digest necessarily reads more
+    // than one member's address in the same pass — the exact shape
+    // hasVerifiedEmail/verifiedEmailAddress are built to make impossible for
+    // a single viewer's screen. What it returns is never rendered: the only
+    // place it goes is sendEmail's `to` field, a fire-and-forget service
+    // call, never a page, a prop, or a log line. A FOURTH read site is the
+    // next one that reddens here and needs its own decision.
     const files = readAllSourceFiles()
     const readOps = /\b(?:prisma|tx)\.contactMethod\.(findFirst|findUnique|findUniqueOrThrow|findFirstOrThrow|findMany|count|aggregate|groupBy)\s*\(/g
 
@@ -563,7 +578,11 @@ describe("only one query can see an address, and only for one user at a time", (
     for (const [relative, source] of files) {
       for (const match of source.matchAll(readOps)) sites.push(`${relative}:${match[1]}`)
     }
-    expect(sites).toEqual([`${EMAIL_ASK}:findFirst`, `${EMAIL_ASK}:findFirst`])
+    expect(sites).toEqual([
+      `${EMAIL_ASK}:findFirst`,
+      `${EMAIL_ASK}:findFirst`,
+      `${DIGEST_RUN}:findMany`,
+    ])
 
     // The scan above only sees Prisma's model methods, so raw SQL would walk
     // straight past it. There is none in the product today, which is what
