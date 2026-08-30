@@ -682,6 +682,33 @@ describe("a fixed, named set of queries can see an address, each scoped to who i
     expect(Object.fromEntries(mentions)).toEqual({ [INFO_PAGE]: 2, [EMAIL_ASK]: 1 })
   })
 
+  it("keeps loadVerifiedEmails un-exported and mentioned only inside its own file (fix round 1, Important finding 2)", () => {
+    // The site-count assertion above has teeth: it counts every
+    // prisma.contactMethod.* call in the product and pins the third one to
+    // DIGEST_RUN. What it does NOT do on its own is stop loadVerifiedEmails
+    // from being exported and reused somewhere that DOES render, which is
+    // exactly the shape of the file's own recorded MUT B ("a wrapper in this
+    // same seam") applied to the new site instead of the old one: export
+    // loadVerifiedEmails and call it from the info page's roster map, and the
+    // site count stays exactly three, the relation-include scan still sees
+    // nothing, and every assertion above this one stays green. Concretely:
+    // not exported, and its name is written down nowhere but the one file
+    // that both declares and calls it — the identical proof shape "names the
+    // address read in exactly two places" above uses for verifiedEmailAddress,
+    // applied to the new site so the guard is exactly as strong for it.
+    const digestRunSource = read(DIGEST_RUN)
+    expect(digestRunSource).toMatch(/\basync function loadVerifiedEmails\(/)
+    expect(digestRunSource).not.toMatch(/export\s+(async\s+)?function\s+loadVerifiedEmails\b/)
+    expect(digestRunSource).not.toMatch(/export\s*\{[^}]*\bloadVerifiedEmails\b[^}]*\}/)
+    expect(digestRunSource).not.toMatch(/export\s+default\s+loadVerifiedEmails\b/)
+
+    const mentions = readAllSourceFiles()
+      .map(([relative, source]) => [relative, countIdentifier(source, "loadVerifiedEmails")] as const)
+      .filter(([, count]) => count > 0)
+    // Declaration plus its one call site, both in run.ts, none anywhere else.
+    expect(Object.fromEntries(mentions)).toEqual({ [DIGEST_RUN]: 2 })
+  })
+
   it("passes the viewer's own id at the one call site, across line breaks", () => {
     // The count above proves nothing else reaches the function. This proves
     // the one thing that does reaches it with the right argument, which is the

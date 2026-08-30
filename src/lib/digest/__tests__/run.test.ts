@@ -194,6 +194,44 @@ describe("runDailyDigest", () => {
     expect(membership.lastDigestSentAt?.toISOString()).toBe(NOW.toISOString())
   })
 
+  it("stamps the marker even when sendEmail returns suppressed_dev, not just \"ok\" (fix round 1, Important finding 1)", async () => {
+    // The stamp rule is "for every outcome that means we tried, including
+    // suppressed_dev" (brief's own wording). Every other test in this file
+    // mocks sendEmail to resolve "ok", so a mutation that only stamps on
+    // "ok" specifically would pass the whole suite without this one. The
+    // code never branches on the result at all; this proves that by feeding
+    // it the one outcome most likely to be special-cased by accident.
+    const poster = await makeUser("SuppressedPoster")
+    const member = await makeUser("SuppressedMember")
+    await addVerifiedEmail(member.id, `suppressed-${stamp}@example.test`)
+    const group = await makeGroup("Suppressed Group", poster.id, [poster.id, member.id])
+
+    await makeOpenIdeaGauge({
+      groupId: group.id,
+      posterId: poster.id,
+      createdAt: GAUGE_CREATED_TODAY,
+      proposedDate: GAUGE_PROPOSED_DATE,
+    })
+    await prisma.membership.update({
+      where: { userId_groupId: { userId: member.id, groupId: group.id } },
+      data: { lastSeenAt: GAUGE_CREATED_TODAY },
+    })
+
+    sendEmailMock.mockResolvedValue("suppressed_dev")
+
+    const results = await runDailyDigest(NOW, { groupIds: [group.id] })
+
+    expect(results).toEqual([
+      { groupId: group.id, status: "processed", considered: 2, sent: 1, skipped: 1 },
+    ])
+    expect(sendEmailMock).toHaveBeenCalledTimes(1)
+
+    const membership = await prisma.membership.findFirstOrThrow({
+      where: { groupId: group.id, userId: member.id },
+    })
+    expect(membership.lastDigestSentAt?.toISOString()).toBe(NOW.toISOString())
+  })
+
   it("an opted-out member gets no email even with something to report", async () => {
     const poster = await makeUser("OptOutPoster")
     const member = await makeUser("OptOutMember")
