@@ -22,13 +22,23 @@ async function main() {
 
   // A real, working unsubscribe link rather than a stub, so the one email this
   // slice sends exercises the whole door including the List-Unsubscribe header.
+  //
+  // Points at /api/unsubscribe/[token], the route handler task 2 built, not
+  // /unsubscribe/[token], the human page: send.ts's own unsubscribeUrl
+  // contract names the route handler, because that is the path with a POST
+  // and no session requirement, which is what the List-Unsubscribe-Post
+  // header actually needs to be honest. Found during task 9 of the digest
+  // slice two build (this script still pointed at the page), decided to be
+  // in this task's lane rather than out of it: it is a one-line change in a
+  // hand-run script, not product code, and it is the exact class of bug
+  // this task exists to catch (a wrong link nobody would otherwise notice).
   const method = await prisma.contactMethod.findFirst({
     where: { type: "EMAIL", value: to },
     select: { userId: true },
   })
   const token = method ? await ensureUnsubscribeToken(method.userId) : null
   const unsubscribeUrl = token
-    ? `https://interplanetarygroups.com/unsubscribe/${token}`
+    ? `https://interplanetarygroups.com/api/unsubscribe/${token}`
     : undefined
   if (!token) {
     console.warn("No account holds that address, so this test sends without an unsubscribe link.")
