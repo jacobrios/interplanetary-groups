@@ -5902,3 +5902,33 @@ carried qualifiers before the cut.
 as an oversight: the onboarding bullet does not re-add the fail-soft caveat about the first
 event. It happens on the happy path, the hourly job is the backstop, and the detail belongs
 in this file rather than in a list the owner asked to keep scannable.
+
+**Amended 31 August 2026, second owner pass: 2,426 words to 2,014, and the section that
+carries the process got a name that says what it is.** His reads, all taken: the deploy-date
+banner, two sentences of the problem statement and the investor line went (the last because
+that relationship is not active enough to lean on in a public file); "Where the thinking
+lives" is generic and became "How I built this with AI"; leading that section with "most of
+the work is not in the diffs" starts on what the work is not, so it leads with what it is;
+"How Orbit decides things" should be about keeping the agent correct, efficient and cheap
+rather than about product detail, so bullets like the three-yes seeding rule left and the
+bounded context window, the no-model digest and the graded benches came in; and "Where it
+stands" was still using vocabulary no first-time reader has, "the spark" and "gauge" and
+"endgame sweep" among them.
+
+**The lesson this pass actually produced, and it is not about wording.** Two of the six
+repairs recorded in the amendment above were **undone by the very next rewrite**, in
+different words: the duplicate-member consequence softened back into a roster problem, and
+the latency line losing "gets slower the more the group talks". Both had been fixed three
+commits earlier, both were re-broken while restructuring around unrelated feedback, and both
+were caught only because the restructure was reviewed rather than trusted. **A repair is not
+durable just because it is recorded; a rewrite passes over the same ground and has to be
+checked against the repair, not only against the source.** The second one was worse this time
+than last, because a new bullet said a model call's cost does not grow with the group's
+history, so the two lines together told a reader that nothing grows.
+
+**One compression error worth its own line, because it is the shape that keeps recurring.**
+The hourly job's table row was shortened to "closes votes that have run out of time". That
+job also posts a last-call bump, asks the group a follow-up question, and can open an entirely
+new idea, and the proposals sweep closes votes that are moot as well as expired. A summary
+that names one of a job's five behaviours is not a shorter true sentence, it is a different
+and false one.
