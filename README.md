@@ -41,11 +41,11 @@ Work ships in vertical slices, one at a time, each one usable on its own and eac
 
 **Anyone can start something.** When a member floats an idea in chat, Orbit proposes a specific day and time with one-tap responses and a running tally. Three yeses and it creates the event in that same tap, inheriting the group's usual venue when the activity matches. The votes carry through as RSVPs, so nobody answers twice.
 
-**An idea has an ending as well as a beginning.** A stalled idea earns one nudge, then closes. If the day was the only thing blocking it, Orbit asks what day would work instead, hears the answer, and opens a fresh gauge on that day at the time the group already agreed on.
+**An idea has an ending as well as a beginning.** A stalled idea earns at most one nudge, then closes. If the day was the only thing blocking it, Orbit asks what day would work instead, hears the answer, and opens a fresh gauge on that day with the original's time carried over.
 
-**Plans move by group decision, not by one person's word.** Asking to change an event's time in plain language opens a vote. The plan moves only when the new time clears the same bar and beats the number of people still in on the old one.
+**Plans move by group decision, not by one person's word.** Asking to change an event's time in plain language opens a vote. The plan moves only when the new time clears the group's bar and beats the number of people still in on the old one.
 
-**The plan reaches people outside the app.** An event hands a member's own calendar the plan, its meeting spot and its address. A digest carries what needs them and what they missed, at most once a day, and only when there is something to say.
+**The plan reaches people outside the app.** An event hands a member's own calendar the plan, its meeting spot and its address, and a plan that moves after that is announced in the group feed. A digest carries what needs them and what they missed, at most once a day per group, and only when there is something to say.
 
 ---
 
@@ -61,7 +61,7 @@ Work ships in vertical slices, one at a time, each one usable on its own and eac
 
 ## How Orbit decides things
 
-Orbit is an agent: tools, context, and guardrails about when to act, when to ask, and when to stay quiet. The guardrails are the interesting part, and most of them exist because something taught us they needed to.
+Orbit is an agent: tools, context, and guardrails about when to act, when to ask, and when to stay quiet. The guardrails are the interesting part, and most of them exist because something went wrong first.
 
 **Model output is a claim, not a fact.** Every structured extraction passes through a normalization boundary before any user-facing behavior keys off it, so nothing branches on a raw model response. Extraction once reported a field as missing that the schema never required, which would have sent Orbit to ask the founder about something the product had no reason to know. There is a second boundary of the same kind for the auth service, typed so that a new failure result is a compile error at every call site rather than a member staring at a blank line.
 
@@ -100,9 +100,9 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 **Not built yet**
 
 - Orbit changes an event's **time** and nothing else. A wrong venue, day, or cadence gets an honest decline in chat, and each is its own future slice.
-- A member who has attached an email comes back as themselves. One who never attached one is treated as a new person if they lose their session, which leaves the group with a duplicate member to tidy up. Closing that fully is queued.
+- A member who has attached an email comes back as themselves. One who never attached one is treated as a new person if they lose their session, so the group ends up holding two of them and its counts stop being accurate. The founder can remove the extra member, and closing the gap properly is queued.
 - There is no way into a second group from inside the app.
-- Sending a message is slower than it should be in a chatty group. That is the next thing being built.
+- Sending a message takes a few seconds once a group has any history, and gets slower the more the group talks. That is the next thing being built.
 
 **Out of scope for the MVP**
 
@@ -118,13 +118,13 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 | Database | Postgres via Prisma 7, with a driver adapter |
 | Auth | Supabase, auth only. The Data API is off and Prisma owns the schema, so there is exactly one source of truth. |
 | AI | Claude via the Anthropic SDK, for structured extraction and Orbit's chat copy |
-| Email | Resend, on two separate sending subdomains so a digest that collects spam complaints can never affect login-code delivery |
+| Email | Resend, on two separate sending subdomains so a digest that collects spam complaints cannot damage the sending reputation login codes depend on |
 | Testing | Vitest, plus two graded model benches that run outside the suite |
 | Hosting | Vercel, with an hourly cron carrying the recurring-event job, both endgame sweeps, and the digest |
 
 **The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders, the calendar button, and check-ins need anyway. Nothing in the digest calls a model at all.
 
-**Testing, and a second kind of evidence for the model.** 1,374 tests across 126 files cover the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters. A unit test cannot tell you whether Orbit recognizes a request, so two graded benches do that instead, running realistic cases through the real production path and scoring each as a rate over repeated runs. `npm run eval:detect` grades 33 cases on what Orbit must recognize and what it must stay quiet about; `npm run eval:onboarding` grades 14 on rhythm extraction and the gap-ask merge. Both are kept outside the test runner, because they cost money and hit the network.
+**Testing, and a second kind of evidence for the model.** 1,374 tests across 126 files cover the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters. A unit test cannot tell you whether Orbit recognizes a request, so two graded benches do that instead, running realistic cases through the real production path and scoring each as a rate over repeated runs. `npm run eval:detect` grades 33 cases on how Orbit reads a message; `npm run eval:onboarding` grades 14 on rhythm extraction and the gap-ask merge. Both are kept outside the test runner, because they cost money and hit the network.
 
 ---
 
