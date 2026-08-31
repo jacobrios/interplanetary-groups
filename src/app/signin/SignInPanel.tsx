@@ -234,11 +234,16 @@ export default function SignInPanel() {
       </form>
 
       {/* Wraps rather than squeezing: at an enlarged device text size the way
-          out and the resend stack instead of sharing a cramped row. */}
+          out and the resend stack instead of sharing a cramped row.
+          justifyContent centered (owner QA on PR #91): this row used to sit
+          left-aligned under the full-width teal button above it, and the
+          owner asked for it centered. Alignment only; nothing else in this
+          row changed. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: 12,
           flexWrap: "wrap",
           marginTop: 4,
