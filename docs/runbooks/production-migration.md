@@ -28,6 +28,10 @@ npm run db:which
 
 It must print `DEV-TEST`. If it does not, stop.
 
+**If any `op` command above errors, do not work around it.** Jump to
+[When `op` errors](#when-op-errors) at the end of this file. It is a two minute fix, and it
+has already cost one incident more time than it should have.
+
 ---
 
 ## Why it is shaped this way
@@ -57,6 +61,10 @@ session. The `op read` form removes the exposure anyway, which is most of why it
 advisory lock Prisma takes before migrating, so `migrate deploy` sits forever with no error
 and no cursor. **5432, the session pooler, is the one.** Ctrl-C is safe and applies nothing;
 re-run `migrate status` to confirm. This looks like a network problem and is not.
+
+**The Prisma CLI offered an upgrade to 8.0.0-rc.12 during the 31 August run. Do not take it,
+or any release candidate it offers.** It had nothing to do with the outage, and mid-incident
+is the worst possible moment to change the tool doing the migrating. Ignore it and carry on.
 
 **Storing both pooler URLs in one item is how the wrong one gets used.** The `op read`
 reference names the field, which is what makes this unrepeatable once the command is saved.
@@ -91,11 +99,35 @@ the password. A count about 13 too high means the `DIRECT_URL="` prefix is still
 
 ---
 
-## Setup, if `op` is ever gone
+## When `op` errors
+
+Neither of these is a dead end and neither needs a workaround. The second one cost real time
+on 31 August 2026, because its answer was filed under installing from scratch, and nothing
+was gone.
+
+**`account is not signed in`** means you are signed out. That is the whole fix:
+
+```bash
+op signin
+```
+
+It asks you to authenticate, by fingerprint on this machine. Re-running `op whoami` will not
+do it: on 31 August that kept printing the same error with the app open, unlocked and signed
+in, and raised no prompt. If `op signin` itself fails, quit and reopen the 1Password app,
+unlock it, and try once more before anything else.
+
+**`no account found for filter`** means no account is attached to the CLI at all. Turn the
+integration on first, in the 1Password app under Settings, Developer, "Integrate with
+1Password CLI", then `op signin` as above.
+
+Either way, confirm with the safe check above, which prints `starts correctly` and nothing
+else.
+
+### Installing from scratch, if `op` is gone entirely
 
 ```bash
 brew install --cask 1password-cli
 ```
 
-Then in the 1Password app: Settings, Developer, "Integrate with 1Password CLI". Then
-`op signin`, with the app running and unlocked. `op whoami` should name the account.
+Then the integration toggle and `op signin`, both as above. Once a session exists,
+`op whoami` names the account.
