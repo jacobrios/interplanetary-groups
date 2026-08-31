@@ -5935,35 +5935,26 @@ and false one.
 
 **Postscript, 31 August 2026: the machine-level rules now have a public home.**
 `github.com/jacobrios/ai-build-process` went up the same day, public, as a curated subset of
-the private `~/.claude` configuration backup: the standing rules, the record of why each
-exists, the hooks that mechanically block a tool call, the project templates and the two
-checklists. The top-level `settings.json` is deliberately not mirrored, because it profiles
-other projects (their deploy URLs, how their secrets are held, which branches nothing
-protects), which is an operational map rather than a credential but still not this artifact's
-to publish. *(No file count here on purpose: the entry two paragraphs into CLAUDE.md's queue
-notes had just finished saying that a count inside a note is a fact about a day, and the
-mirrored set and the repo's tracked set are two different numbers anyway.)*
+the private `~/.claude` configuration backup. The top-level `settings.json` is deliberately
+not mirrored: it profiles other projects, their deploy URLs and how their secrets are held,
+which is an operational map rather than a credential but still not this artifact's to publish.
 
-**The design decision worth carrying, because it is the same failure this slice was about.**
-A curated public copy of a private file goes stale the moment the private one is edited,
-silently, and a stale copy of a document whose entire claim is "these are the rules I actually
-work under" is worse than no copy. So it is **generated rather than hand-maintained**:
-`tools/sync-from-source.mjs` mirrors the tracked file set, propagates deletions so a rule
-removed upstream cannot survive in the public copy, and never rewrites file contents, which is
-what lets machine paths stay true instead of being edited into something plausible. **It
-earned itself immediately**: in the two minutes between the repo's first commit and its
-second it caught edits to `CLAUDE.md` and to `rule-lineage.md`, which would otherwise have
-shipped a public copy that was already behind. Two minutes is a small window and proves
-less than a long one would; what it does establish is that the check runs and reports.
+**The design decision, and it is the same failure this slice was about.** A hand-copied public
+subset of a private file goes stale the moment the private one is edited, silently, and a
+stale copy of a document claiming to be the rules somebody actually works under is worse than
+no copy. So it is generated: `tools/sync-from-source.mjs` mirrors the tracked file set,
+propagates deletions so a rule removed upstream cannot survive in the public copy, and never
+rewrites file contents, which is what lets machine paths stay true. It earned itself in the
+two minutes between that repo's first commit and its second, catching edits to `CLAUDE.md`
+and `rule-lineage.md` that would otherwise have shipped already behind.
 
-**What is honest about that claim, and what is not.** The script was exercised by tampering
-during the build, a modified file and an orphaned file, and both were detected and repaired.
-**That run left no artifact.** There is no test for the sync script in either repo and nothing
-recording the tamper check, so the only evidence a future reader can reach is the mechanism
-itself and this sentence. By this project's own standard that is an admitted gap rather than a
-proof, and a test for it belongs in whichever change next touches that script.
+**What is honest about that, and what is not.** The script was exercised by tampering, a
+modified file and an orphan, both detected and repaired. **That run left no artifact**: there
+is no test for the sync script and nothing recording the check, so the only evidence a future
+reader can reach is the mechanism and this sentence. An admitted gap rather than a proof, and
+a test belongs in whatever next touches that script.
 
-**The trigger this created is in CLAUDE.md** rather than here, because it is a rule about what
-must change when something happens rather than a piece of reasoning. It is recorded on this
-side deliberately: when this repo goes public, a clause in the other repo's README stops being
-true, and nothing in that repo can observe this repo's visibility.
+**The trigger it created is in CLAUDE.md**, since it is a rule rather than reasoning. The
+count there says "fired as written twice" rather than three times: the carousel-placement
+trigger also fired, earlier than its own written condition, which is what the qualifier is
+doing and why it is not decoration.
