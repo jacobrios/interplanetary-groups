@@ -5508,21 +5508,38 @@ nothing; the ruling was to drop the header rather than ship an untested endpoint
 hour. **That reasoning still stands for yesterday.** Today's evidence points the other way about
 what happens next. The raw message source was read: `List-Unsubscribe` is present, points at our
 own domain untouched, and sits inside the DKIM `h=` list, so it is signed and was not stripped in
-transit. Gmail is choosing not to render a button rather than failing to find one, and the
+transit. Gmail is choosing not to render a button rather than failing to find one, and ~~the
 likeliest reason is the absent one-click header, since Gmail's control is tied to one-click
-support *(well supported by the evidence, not certain)*. **Why that is important rather than
+support *(well supported by the evidence, not certain)*~~. **Why that is important rather than
 cosmetic, on evidence rather than theory:** the product landed in spam on its first send, and the
 unsubscribe button is the main thing giving an annoyed member an exit that is not the spam button,
 which is exactly what damages the reputation the `account.` / `updates.` split exists to protect.
 Right now they have no such exit. **Recommendation: slice two builds the POST route handler and
 re-adds the one-click header.** One route, in an area that slice is opening anyway.
 
-**One thing that stays unsettled and should not be chased.** Whether click tracking rewrites body
-links is still unknown: the test email's body had no links, and headers are not rewritten. The
+***Amended 31 August 2026, after the owner's QA of PR #91: the struck reasoning above is
+falsified, and the recommendation it produced was carried out and was still correct.** Slice two
+built the POST route handler and re-added the header. The delivered digest provably carries
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` with both unsubscribe headers inside the DKIM
+signed-header list, so nothing stripped them, and **Gmail still shows no control**. The absent
+header was therefore not the cause. Current best explanation, confidence stated rather than
+implied: Gmail reserves that control for senders it recognises as bulk by volume and reputation,
+and this domain has sent a handful of messages ever *(plausible, unverifiable from outside
+Google)*. Everything under "why that is important" still holds, and the work still had to be done;
+full reasoning, including why it was not wasted, in the 31 August postscript to the slice-two
+entry below.*
+
+**One thing that stays unsettled and should not be chased.** ~~Whether click tracking rewrites body
+links is still unknown: the test email's body had no links, and headers are not rewritten.~~ The
 tracking controls were greyed out on the domain creation form with click tracking apparently
 checked, and the same happened for `account.`, so that is a property of the form rather than
-something done wrong here. **It answers itself the moment slice two sends its first digest**,
-which is mostly links.
+something done wrong here. ~~**It answers itself the moment slice two sends its first digest**,
+which is mostly links.~~
+
+***Answered 31 August 2026, exactly as this paragraph predicted: it does not rewrite them.** The
+owner read the full raw source of the first delivered digest, and every link in the body points at
+`https://interplanetarygroups.com/...` as composed, with no redirect through any tracking host.
+Nothing here needs chasing further, and the decision below to keep tracking off costs nothing.*
 
 **The decision that tracking stays off, recorded so nobody switches it on later thinking it is
 free instrumentation.** Click tracking routes every link through the sender's tracking host, turning
@@ -5619,3 +5636,80 @@ group, not per person**, free until the multi-group home. **The unsubscribe toke
 carried forward. And **`updates.` still has no sending reputation**, so the first digest may be
 filtered: measured rather than feared, and the reason the owner's send goes to himself and one friend
 before any group.
+
+### Postscript, 31 August 2026: the owner's QA of PR #91, and a hypothesis this slice acted on turns out to be false
+
+*Five things, all of them verified rather than reported. The third is the one worth reading slowly: this
+slice built something on a stated belief, the belief has now been disproved, and the work was still
+right.*
+
+**1. A digest has been delivered, so this entry's headline claim is now false and is corrected here.**
+The entry above opens by stating in the negative that no digest had reached anyone, because the send
+was the owner's to make. He made it on 31 August, running the hand-run script against his own address;
+the result was `ok` and the message arrived in his Gmail **inbox**, not the spam folder. The pipe now
+carries a real digest composed by the real production path, end to end, to a real person. **The caveat
+survives the correction and is not optional.** After the 29 August test message was filtered he clicked
+"Not Spam" on this sender, which trains his own Gmail about `updates.interplanetarygroups.com`
+specifically. His inbox is therefore a trained instrument, and an inbox delivery to it is **not**
+evidence that the subdomain's reputation has improved. A friend's mailbox is the only clean instrument
+this product has, and that send has not happened. The debt line "`updates.` still has no sending
+reputation" stands exactly as written, and so does the reason for sending to one friend before any
+group.
+
+**2. Click tracking does not rewrite body links. The question carried since 29 August is closed.** That
+entry recorded that nobody knew whether the service rewrites links, because the only message ever sent
+had none, and predicted the question would answer itself the moment slice two sent a digest. It did.
+The owner supplied the full raw delivered message, and every link in it points at
+`https://interplanetarygroups.com/...` exactly as composed, with no redirect through any tracking host
+anywhere in the body. The recorded decision to leave tracking off is unaffected, and it now costs
+nothing to keep: a member's link back into their group is a readable URL to their group.
+
+**3. Gmail still shows no unsubscribe control, so the reason recorded on 29 August was wrong.** What was
+believed: the 29 August entry read Gmail's missing unsubscribe button as a consequence of the absent
+`List-Unsubscribe-Post` header, tagged *(well supported by the evidence, not certain)*, and recommended
+slice two build the POST endpoint and re-add the header. What was built on it: exactly that, as this
+slice's task 1. What the evidence now shows: the delivered message provably carries
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` alongside the plain `List-Unsubscribe`, **both
+inside the DKIM signed-header list**, so nothing stripped them in transit and nothing about the header
+is malformed or missing. Gmail renders no control anyway. The recorded cause is therefore falsified,
+not merely unproven.
+
+**The current best explanation, and its confidence stated honestly:** Gmail appears to reserve that
+control for senders it recognises as bulk, judged on volume and reputation, and this domain has sent a
+handful of messages in its entire life. *(Plausible and consistent with everything observed; nobody
+outside Google can verify it, and no test we can run here would settle it. Treat it as the working
+guess, not a fact.)* The practical consequence: nothing we can do to the headers will make that button
+appear, so waiting for it is not a plan and it should not be chased again from this direction.
+
+**Why the work was still correct, recorded so a future reader does not file it as wasted.** Three
+reasons, none of which depended on the hypothesis being true. The header is required by the large
+mailbox providers' own bulk-sender rules, so shipping without it is a defect regardless of what Gmail
+draws. It is what makes one-click actually work in the clients that do honour it, and Gmail is not the
+only inbox this product will ever reach. And the product's own "Stop these emails" link in the body is
+the path that always works, is under our control rather than a mail client's, and **did render in the
+delivered message**. A member who wants out has an exit that is not the spam button, which was the
+whole reason the 29 August entry ranked this above cosmetic. What changed is the diagnosis, not the
+priority and not the fix.
+
+*Checked while recording this and deliberately not changed: no row in "Where Orbit decides to speak or
+stay quiet" needs amending. That list records where Orbit decides to speak or stay silent; whether a
+mail client draws a button on a message Orbit already sent is not one of those decisions, and the
+`User.digestOptOutAt` row (somebody who unsubscribed never hears from the digest again) is untouched by
+this, since the endpoint honouring an unsubscribe works exactly as built.*
+
+**4. Three visual changes the owner asked for while looking at the real screens** (commit `e64e057`,
+independently reviewed clean). On the members-only wall, "Been here before? You can sign in with your
+email" is now bold, because he judged as one flat paragraph it was the sentence people would skim past,
+and it is the one that gets a returning member back in as themselves instead of duplicating them. And
+"Sign in" is now a teal button while "Start your own group" stays a quiet text link. **That second one
+is the colour rule being followed rather than an exception to it:** teal marks an action that genuinely
+matters and never a secondary one, and two equal-weight text links were telling a member who had just
+lost their session that starting a second group weighed the same as getting their own back. **Declared
+out of lane:** the "Never mind, take me back" link on `/signin` was centred, one line, alignment only,
+in a file this slice does not otherwise touch, changed because the owner asked directly during QA.
+
+**5. The 100-character quote truncation is settled, by observation.** The whole-branch review suspected
+100 characters read closer to two lines than one on a phone and could not settle it from code, so it
+went onto the QA script for the owner's own eye. He looked at the real rendered email and judged it
+fine. Closed as settled rather than carried, and it is worth noting which way it was settled: by
+looking at the thing, which is the only instrument that could have answered it.
