@@ -6,7 +6,7 @@ The group is the persistent thing. Events are activations of it.
 
 > ### Live at [interplanetarygroups.com](https://interplanetarygroups.com)
 >
-> Deployed 25 August 2026, on its own domain since 26 August. The front door lets you start a group and walk the whole arc; everything past that is invite-only by design, so a group's page is never reachable by anyone holding a URL. It is a real product, in use by a handful of people, still under active construction. What is deliberately unbuilt is listed under [Where it stands](#where-it-stands).
+> Deployed 25 August 2026, on its own domain since 26 August. The front door lets you start a group and walk the whole arc; everything past that is invite-only by design, so a group's page is never reachable by anyone holding a URL. It is live and still under active construction. What is deliberately unbuilt is listed under [Where it stands](#where-it-stands).
 
 ---
 
@@ -42,7 +42,7 @@ I'm building this with a local investor who wants the product to exist. That set
 
 ## Designs
 
-> **These are design mockups, not screenshots of the running application.** They show intended behavior, including some the build has not reached and some it has deliberately moved past. One of the screens below draws a monthly "beers" rhythm that no field in the product can store, which is exactly the kind of gap a design is supposed to surface before anyone builds around it. For what actually works today, read [Where it stands](#where-it-stands), or open [the live site](https://interplanetarygroups.com).
+> **These are design mockups, not screenshots of the running application.** They show intended behavior, including some the build has not reached and some it has deliberately moved past. The monthly "beers" row drawn on the screen below is an example of the first: the product stores that rhythm and plays it back, but the recurring engine only schedules weekly ones, so it never turns into a plan. For what actually works today, read [Where it stands](#where-it-stands), or open [the live site](https://interplanetarygroups.com).
 
 ![Onboarding: Orbit asks about a missing climb time, and the invite link screen](docs/design/walkthrough-screens/screens-03-04.png)
 
@@ -64,7 +64,7 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 
 **Three yeses, and a rule about who counts.** The person who floated the idea is counted automatically only when they named the day Orbit is proposing, because in that case their message already was the yes. When Orbit picked the day itself, they vote like everyone else. A threshold reached after the proposed start time creates nothing.
 
-**When nobody said a time, say where the time came from.** A stated time always wins. Failing that, am/pm is read from the activity, so "beers at 8" is evening and "breakfast at 8" is morning. When the hour is stated but the half of the day is a genuine toss-up, Orbit keeps the hour, puts it in the evening, and says out loud how it read them ("You said 8, so I'm taking that as 8pm"), because a card silently reading 7 when somebody said 8 would contradict them. Nothing here is random: the decision is deterministic in every branch, and the person who said the ambiguous thing is told what it was taken to mean. All the fallbacks live in one module and are marked as placeholders for a later slice that learns from overrides.
+**When nobody said a time, say where the time came from.** A stated time always wins. Failing that, am/pm is read from the activity, so "beers at 8" is evening and "breakfast at 8" is morning. When the hour is stated but the half of the day is a genuine toss-up, Orbit keeps the hour, puts it in the evening, and says out loud how it read them ("You said 8, so I'm taking that as 8pm"), because a card silently reading 7 when somebody said 8 would contradict them. Nothing here is random: the decision is deterministic in every branch, and the person who said the ambiguous thing is told what it was taken to mean. Those fallbacks live in one module, marked as placeholders for a later slice that learns from overrides. Somebody asking to move an existing plan gets a second, deliberately different answer in its own module, because the plan's current time is a signal the new-idea path never has: 9 on an 8am plan is 9am, and no toss-up arises.
 
 **Silence is a feature, but never in reply to a direct ask.** Tapping a response updates a tally; it never posts a message. Orbit pings the group only when doing so changes an outcome. That governs Orbit speaking up on its own initiative, and it does not govern replies: a member plainly asking Orbit for something gets a question back rather than nothing. That distinction is an amendment, made after QA found direct requests dying in silence, and the fix had to be made in two places that disagreed, the code and the prompt.
 
@@ -96,7 +96,7 @@ Orbit is an agent: tools, context, and guardrails about when to act, when to ask
 
 **Working end to end**
 
-- Founder onboarding in three steps: free-text description, structured extraction, a conversational loop for a missing day or time, optional meeting spot, playback, confirmation that creates the group and its timezone in one transaction, and the invite link to share. The first scheduled event is created straight after, on purpose outside that transaction, so a failure there can never destroy a group that was otherwise made correctly
+- Founder onboarding in three steps: free-text description, structured extraction, a conversational loop for a missing day or time, optional meeting spot, playback, confirmation that creates the group with its first scheduled event and its timezone, and the invite link to share. A founder always ends up with a real group, even in the case where the first event has to wait for the hourly job
 - Invite links and joining, with existing sessions routed in rather than duplicated, and a quiet join line in the feed
 - Group home: a card region of upcoming plans over a live chat feed, with unanswered ideas appearing as their own cards mingled with confirmed plans in date order, five at most
 - A card-state grammar where teal marks what needs the viewer and never leans an open question, and status is never carried by hue alone
@@ -148,7 +148,7 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 | Testing | Vitest, plus two graded model benches that run outside the suite |
 | Hosting | Vercel, with an hourly cron carrying the recurring-event job, both endgame sweeps, and the digest |
 
-**The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders, the calendar button, and check-ins need anyway. Orbit's reading and writing of language lives under `src/lib/orbit/`, one module per job, with the arithmetic that acts on it split out beside it (`src/lib/gauges/`, `src/lib/proposals/`, `src/lib/digest/`). Nothing in the digest calls a model at all.
+**The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders, the calendar button, and check-ins need anyway. Orbit's modules live under `src/lib/orbit/`, `src/lib/gauges/`, `src/lib/proposals/` and `src/lib/digest/`, one module per job. Nothing in the digest calls a model at all.
 
 **Testing.** 1,374 tests across 126 files, covering the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
 
