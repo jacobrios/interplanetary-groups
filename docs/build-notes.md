@@ -5951,9 +5951,10 @@ work under" is worse than no copy. So it is **generated rather than hand-maintai
 `tools/sync-from-source.mjs` mirrors the tracked file set, propagates deletions so a rule
 removed upstream cannot survive in the public copy, and never rewrites file contents, which is
 what lets machine paths stay true instead of being edited into something plausible. **It
-earned itself immediately**, catching two edits to the working rules that were made between
-the repo's first commit and its second, which would otherwise have shipped a public copy that
-was already behind.
+earned itself immediately**: in the two minutes between the repo's first commit and its
+second it caught edits to `CLAUDE.md` and to `rule-lineage.md`, which would otherwise have
+shipped a public copy that was already behind. Two minutes is a small window and proves
+less than a long one would; what it does establish is that the check runs and reports.
 
 **What is honest about that claim, and what is not.** The script was exercised by tampering
 during the build, a modified file and an orphaned file, and both were detected and repaired.
