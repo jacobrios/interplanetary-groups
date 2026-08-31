@@ -10,20 +10,19 @@
 
 Casual groups pick between two bad options. Low-effort coordination ("show up if you want") means nobody shows up. High-effort coordination (polls, forms, a group text with forty replies) feels like planning a wedding for a casual Sunday.
 
-Interplanetary Groups gives that job to an AI coordinator named Orbit. People say what they want in plain language. Orbit checks in, gauges interest, proposes a concrete plan, and produces a clean event page. The organizer role dissolves.
+Interplanetary Groups gives that job to an AI coordinator named Orbit. People say what they want in plain language. Orbit checks in, sees who is interested, proposes a concrete plan, and produces a clean event page. The organizer role dissolves.
 
 ---
 
 ## How I built this with AI
 
-The code was written with AI assistance, directed by me. What makes that work is not the tool, it is what the tool is given: a standing brief it reads at the start of every session, a written plan for each slice before any code exists, and a decision record it has to update before the work is done. All three live in this repo, and they are the most useful thing in it.
+The code was written with AI assistance, directed by me. Work ships in vertical slices, one at a time, each usable on its own. A slice is planned in writing before any code exists, reviewed by an independent agent that can read but not write, and closed with a record of what it decided along the way. Three written artifacts carry that, and all three live in this repo alongside the code.
 
 - **[CLAUDE.md](CLAUDE.md)** is the project brief: product north stars, Orbit's guardrails, the load-bearing data model rules, and the UI and copy system. It states rules rather than explaining them, so it can be followed rather than interpreted.
 - **[docs/build-notes.md](docs/build-notes.md)** is the decision record: the reasoning, the alternatives rejected, and the lineage behind each choice. Section 11 holds one entry per slice. Corrections land as dated annotations rather than edits, so the file shows what happened rather than only what it currently claims.
-- **[docs/superpowers/specs/](docs/superpowers/specs/)** holds the document written before each slice was built: what was already settled, the non-goals and where each one belongs instead, how the slice would be verified, and the debt it was expected to open. Reading one beside its build-notes entry shows intended against shipped.
-- **[docs/audits/](docs/audits/)** holds the whole-codebase audit run before the first deploy. **[docs/runbooks/](docs/runbooks/)** holds the procedures that touch production.
+- **[docs/superpowers/specs/](docs/superpowers/specs/)** holds the planning documents: what was already settled, the non-goals and where each one belongs instead, how the work would be verified, and the debt it was expected to open. Reading one beside its build-notes entry shows intended against shipped.
 
-Work ships in vertical slices, one at a time, each usable on its own. Each slice is planned before it is built, reviewed by an independent agent that can read but not write, and closed with a record of what it decided along the way.
+**[docs/audits/](docs/audits/)** holds the whole-codebase audit run before the first deploy, and **[docs/runbooks/](docs/runbooks/)** holds the procedures that touch production.
 
 ---
 
@@ -49,7 +48,7 @@ Work ships in vertical slices, one at a time, each usable on its own. Each slice
 
 ![Onboarding: Orbit asks about a missing climb time, and the invite link screen](docs/design/walkthrough-screens/screens-03-04.png)
 
-![The spark: Orbit gauges interest in a chat idea, then creates the event when the third person is in](docs/design/walkthrough-screens/screens-07-08.png)
+![Orbit picks up an idea from the chat, asks who is in, and creates the event once enough people say yes](docs/design/walkthrough-screens/screens-07-08.png)
 
 ---
 
@@ -61,7 +60,7 @@ Work ships in vertical slices, one at a time, each usable on its own. Each slice
 
 **Stored state is carried, never regenerated.** When Orbit merges a new answer into an existing group profile, untouched fields are copied verbatim rather than re-derived. Without that rule, one clarifying question was enough to make the stored activity label drift from `CLIMBING` to `CLIMB`.
 
-**Context is bounded.** Orbit reads the last twenty messages when working out what somebody meant, not the whole feed, so the cost of a call does not grow with the group's history.
+**Context is bounded.** Orbit reads the last twenty messages when working out what somebody meant, not the whole feed, so what a model call costs does not grow with the group's history.
 
 **Whole features run without a model at all.** The digest is composed entirely from stored rows and date arithmetic. Nothing in it calls a model.
 
@@ -86,10 +85,10 @@ Work ships in vertical slices, one at a time, each usable on its own. Each slice
 
 **Deferred on purpose, and queued**
 
-- Belonging to more than one group inside the app. The data model has supported it from day one; the screens do not yet.
+- Getting into a second group from inside the app. Someone can belong to several groups already, and the data model has supported that from day one, but the app only ever opens the most recent one.
 - Changing anything about a plan except its time. A wrong venue, day, or cadence gets an honest decline in chat rather than a silent guess, and each is queued on its own.
-- Making it impossible to end up as two people. Signing in with an email is built; someone who never adds one can still come back as a second member, and closing that is queued.
-- Sending a message faster. It takes a few seconds once a group has any history, and that is the next thing being built.
+- Making it impossible to end up as two people. Signing in with an email is built; someone who never adds one can still come back as a second member, which leaves the group's counts wrong in the one product whose whole claim is accurate attendance. Closing that is queued.
+- Sending a message faster. It takes a few seconds once a group has any history, and gets slower the more the group talks. That is the next thing being built.
 
 **Out of scope for the MVP**
 
@@ -107,7 +106,7 @@ Multiple venues per event, nested events, travel and logistics features, forward
 | AI | Claude via the Anthropic SDK, for structured extraction and Orbit's chat copy |
 | Email | Resend, on two separate sending subdomains so a digest that collects spam complaints cannot damage the sending reputation login codes depend on |
 | Testing | Vitest, plus two graded model benches that run outside the suite |
-| Hosting | Vercel, with an hourly cron that schedules the next recurring plan, closes votes that have run out of time, and sends the digest |
+| Hosting | Vercel, with an hourly cron that schedules the next recurring plan, follows up on ideas and votes that have stalled, and sends the digest |
 
 1,374 tests across 126 files cover the normalization boundary, vote thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
 
