@@ -5811,3 +5811,124 @@ its lane.
   availability alone. Not designed and not estimated here, on purpose: the owner ranks his own queue, and
   this joins it behind the three items he already ordered (the digest, done; the message-latency fix,
   next; the web-push-versus-native-shell brainstorm, third), unranked among them and his to place.
+
+---
+
+## §11 entry: the README rewrite (31 August 2026)
+
+**What it is.** Documentation only, no product code. `README.md` was roughly six weeks
+behind the build and one of its lines was wrong rather than stale. Baseline 126 files /
+1374 tests at slice start, green, zero skipped; unchanged at finish, as a docs-only change
+must be. Both numbers were taken by running the suite rather than read off a record, which
+is what caught that the queue note's "955 across 97" had itself gone stale.
+
+**The audience decided everything else.** Two readers, both scanning: a technically fluent
+product manager who does not write code, and an engineer. The binding rule was that reader
+one must never hit a paragraph only reader two can parse. That is what moved transaction
+boundaries out of the feature list, kept the stack to a table, and put the reasoning, the
+alternatives rejected and the bugs that changed a rule, in the body where both readers get
+the same thing out of it.
+
+**The voice, which is the part most likely to drift back.** The README is the owner
+describing his product, not the engineer narrating his own craft. Technical facts stated as
+properties of the system are wanted; "I implemented" is not, and neither is any sentence
+apologising for or explaining the arrangement. Authorship is named once, flatly, in "Where
+the thinking lives": the code was written with AI assistance under the owner's direction.
+Leaving it unstated was the only version that could read as concealment, with `CLAUDE.md`
+sitting in the repo root and Claude in the stack table.
+
+**The correction that mattered most.** The old file claimed a member who lost their session
+"sees the invite-only screen until they tap the invite link again". They do not; they rejoin
+as a second person and every count quietly stops being true. That claim was struck from
+CLAUDE.md on 23 Aug and the README was never swept, which is this project's own
+sweep-every-restatement lesson failing in the one file a stranger opens first. It is now
+wrong twice over and is corrected as two populations: somebody who attached an address comes
+back as themselves, somebody who never did still duplicates.
+
+**Two independent reviews, and the second one is why there were two.** The first found nine
+problems, two of which the code contradicted outright: the first event is deliberately created
+outside the group's transaction, and Orbit does not flip a coin, because "a genuine coin flip"
+in the source is a name for the situation rather than a description of an action. The fix pass
+was then reviewed in turn and **two of its own fixes were wrong**: the mockup's monthly "beers"
+row is stored and played back, it just never gets scheduled, and the tidy "language in
+`src/lib/orbit/`, arithmetic beside it" boundary is not one the code draws in either direction.
+**The lesson is narrow and worth keeping: a fix pass is new claims, so it gets reviewed like
+any other, and a docs change gets fact-checked against the code rather than against the
+document it is copying from.**
+
+**Four gaps the reviews surfaced that were recorded elsewhere and missing from the README**,
+now listed: a saved calendar entry does not follow a moved plan, the unsubscribe token never
+rotates, the founder's remove button is only a partial cleanup, and a failed first-event
+reconcile leaves the founder on an empty group home with nothing saying why.
+
+**Found and deliberately not fixed, both out of lane.** `.env.example` still calls the cron a
+"daily scheduled job" and `create-group.ts:95` still says "the daily cron catches up"; both
+have been hourly since 18 Aug. And CLAUDE.md and this file disagree on how the four-day outage
+was found, CLAUDE.md saying the owner happened to open the app and this file saying the
+read-only migrate check forced by after-launch item 10. The README avoids picking a side
+("found by luck, on day four"), which is true either way, and the disagreement is the owner's
+to settle.
+
+**Amended 31 August 2026, same day, after the owner read it: cut roughly in half, 4,219
+words to 2,426, and resequenced.** His read was that the whole thing was too long, that
+"Where the thinking lives" was the section telling the story and was sitting at the bottom,
+and that "Three things that went wrong, and what they changed" did not belong in a README at
+all. All three were right. The thinking section moved up to sit directly after the problem
+statement, the failure post-mortem was cut whole (its reasoning survives inside the guardrails
+that came out of it, which is a more useful place for it), "Where it stands" went from a
+twenty-bullet inventory to seven themed lines plus four honest ones, and the opening "the
+group is the persistent thing, events are activations of it" was cut for needing context the
+reader does not have yet. One line went for a reason worth recording: "the code is the
+cheapest part and it is the part that gets rewritten" was true and would have read to an
+engineer as a swipe, in a file whose whole job is to be read by engineers.
+
+**The third review was of the cut, and it earned its keep.** Compression is where a true
+sentence quietly becomes false, and six did. The worst two are the general lesson. A revived
+idea was described as opening "at the time the group already agreed on"; it carries the
+original gauge's stored time (`endgame.ts:472`), on an idea that by definition stalled, so
+the group agreed on nothing. And the duplicate-member gap had been softened into "a duplicate
+member to tidy up", which reads as roster untidiness when the real consequence is that the
+group's counts stop being accurate, the one claim this entire product rests on, and when
+`remove-member.ts:40` deletes a membership row and nothing else. **Both were introduced while
+following an instruction to be less negative, and neither had to be: the fix in both cases was
+to state the fact plainly rather than either dramatise it or soften it.** Also repaired: a
+bench count that only accounted for 28 of 33 cases after a bucket was dropped from the
+sentence, a measured latency figure hidden behind "a chatty group", an absolute about what
+separate sending subdomains prevent, a calendar sentence left sitting under the one about
+plans moving with nothing saying a saved entry does not follow, and two absolutes that had
+carried qualifiers before the cut.
+
+**One reviewer point taken and deliberately not acted on**, recorded so it is not re-raised
+as an oversight: the onboarding bullet does not re-add the fail-soft caveat about the first
+event. It happens on the happy path, the hourly job is the backstop, and the detail belongs
+in this file rather than in a list the owner asked to keep scannable.
+
+**Amended 31 August 2026, second owner pass: 2,426 words to 2,014, and the section that
+carries the process got a name that says what it is.** His reads, all taken: the deploy-date
+banner, two sentences of the problem statement and the investor line went (the last because
+that relationship is not active enough to lean on in a public file); "Where the thinking
+lives" is generic and became "How I built this with AI"; leading that section with "most of
+the work is not in the diffs" starts on what the work is not, so it leads with what it is;
+"How Orbit decides things" should be about keeping the agent correct, efficient and cheap
+rather than about product detail, so bullets like the three-yes seeding rule left and the
+bounded context window, the no-model digest and the graded benches came in; and "Where it
+stands" was still using vocabulary no first-time reader has, "the spark" and "gauge" and
+"endgame sweep" among them.
+
+**The lesson this pass actually produced, and it is not about wording.** Two of the six
+repairs recorded in the amendment above were **undone by the very next rewrite**, in
+different words: the duplicate-member consequence softened back into a roster problem, and
+the latency line losing "gets slower the more the group talks". Both had been fixed three
+commits earlier, both were re-broken while restructuring around unrelated feedback, and both
+were caught only because the restructure was reviewed rather than trusted. **A repair is not
+durable just because it is recorded; a rewrite passes over the same ground and has to be
+checked against the repair, not only against the source.** The second one was worse this time
+than last, because a new bullet said a model call's cost does not grow with the group's
+history, so the two lines together told a reader that nothing grows.
+
+**One compression error worth its own line, because it is the shape that keeps recurring.**
+The hourly job's table row was shortened to "closes votes that have run out of time". That
+job also posts a last-call bump, asks the group a follow-up question, and can open an entirely
+new idea, and the proposals sweep closes votes that are moot as well as expired. A summary
+that names one of a job's five behaviours is not a shorter true sentence, it is a different
+and false one.
