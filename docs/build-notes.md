@@ -597,13 +597,20 @@ Seven High-priority items come due at the moment of the first production deploy.
 *Items 10 and 11 added 29 Aug 2026 (digest slice two, Task 10). The list reopens rather than staying closed, because the digest itself creates two obligations that must reach production before its code does.*
 
 10. **Run the digest migrations against production before this branch merges to main, and check whether slice one's two ever ran.** The command and the method are item 1's, unchanged and for the same reason: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy` as a one-off inline override on that single command, never by editing `.env`, then `npm run db:which` immediately afterwards to confirm the checkout is back on dev-test. Port 5432, the session pooler; 6543 hangs silently.
+
+    ***Closed 31 August 2026, and it was not a formality: the check found four days of real damage.*** `migrate status` against production reported **15 of 18 applied, with exactly three pending**, and `npx prisma migrate deploy` (item 1's method exactly: a one-off inline `DIRECT_URL`, the session pooler on port 5432, never through `.env`) applied all three cleanly: `20260828234555_membership_last_seen`, `20260829002014_digest_unsubscribe`, and this branch's own `20260829235127_membership_last_digest_sent`. `npm run db:which` immediately afterwards printed DEV-TEST (`pxbewardwvoyqqcvogel`) on all three sources, so the checkout came back where it belongs.
+    **Two things follow.** *This PR's deploy obligation is satisfied ahead of the merge rather than after it*, which is the order the paragraphs below spend four attempts arguing for. And *slice one's two had never been applied*: **genuinely missing, not merely unrecorded**, and they had taken the live site down for every signed-in person from 28 to 31 August while logged-out visitors saw a perfectly healthy site. What that cost and how it hid is its own §11 entry below, "the four-day outage nobody could see".
     *This slice's own:* `20260829235127_membership_last_digest_sent`, adding `Membership.lastDigestSentAt` (nullable, no backfill), the marker that guarantees at most one digest a day.
     *And the part worth checking rather than assuming:* **slice one merged two migrations (`20260828234555_membership_last_seen` and `20260829002014_digest_unsubscribe`) and never added an item to this list**, so nothing here records whether they reached production. ~~**Nobody knows, and the code cannot tell us**, which is the opposite of the reassuring answer and is why this is the first thing to do rather than a formality. The read-position write is deliberately soft at both layers, server and client, and nothing on any page path reads the column, so a missing column would have failed silently on every render, logged where nobody was looking, and shown no member anything. There is no behavioural evidence in either direction; the absence of a record is all the evidence there is.~~ `migrate status` is read-only and free, so run it first and let it answer for all three at once.
     ~~*And the consequence, now that the digest exists:* a missing column does not degrade gracefully any more. `src/lib/digest/run.ts` selects `lastSeenAt` when it loads a group's memberships, so the query itself would throw, the per-group catch would record a `failed` result, and that group would simply never receive a digest, logged and otherwise silent. The first thing anybody notices is that the feature does not work, with nothing on screen saying why.~~
 
     ***Corrected 29 August 2026, final whole-branch review, and the two struck paragraphs above were wrong in opposite directions within the same day. Both are kept struck rather than deleted, because the flip-flop is itself the useful part: an inference about what production holds is worth very little, and this item talked itself into a reassuring one and then into an alarming one before anybody looked at the actual query.*** What settled it was capturing the SQL Prisma generates rather than reasoning about the code. `src/app/groups/[id]/page.tsx:63` and `src/app/groups/[id]/info/page.tsx:45` each load the group with `memberships: { include: { user: true } }` and **no `select`**, and an unrestricted include makes Prisma name every scalar column explicitly. So the group home's own query has been asking for `lastSeenAt` and `lastDigestSentAt` by name, and through the user include for `digestOptOutAt` and `unsubscribeToken` as well.
     **Two things follow, and they replace both struck paragraphs.**
-    *On slice one's two migrations: there is behavioural evidence after all, and it points at "applied".* Those pages have been serving on the live site since slice one merged, and they could not have if the columns were missing. Run `migrate status` anyway: it is free, it is definitive, and an inference is still not a record, which is the whole reason this item exists.
+    ~~*On slice one's two migrations: there is behavioural evidence after all, and it points at "applied".* Those pages have been serving on the live site since slice one merged, and they could not have if the columns were missing. Run `migrate status` anyway: it is free, it is definitive, and an inference is still not a record, which is the whole reason this item exists.~~
+
+    ***Corrected 31 August 2026, and this is the third answer this item has given in three directions. Every version is kept struck rather than deleted, because the sequence is worth more than any one of them.*** The three, in order: **first** the two paragraphs above it, which said nobody could know and a missing column would fail silently; **then** this paragraph, which said the columns were provably there; **then** the truth, which is that they were never applied and the site had been down for four days by the time anybody looked. *An inference about what production holds has now been wrong three times running, in three different directions, on the same question, inside three days.*
+    **Why this one was wrong, which is the part with lasting value.** The reasoning was that the group home and the group info page load memberships with an unrestricted include, so their query names `lastSeenAt` by name, so those pages could not have been serving if the column were missing. Every clause of that is true. **The conclusion does not follow, because it assumed the pages were serving successfully to members without anybody checking that they were.** They were not. `getCurrentUser()` returns early for a visitor with no session, before it ever reaches the database, so a logged-out visitor never reads a `User` row and never touches a missing column: the front door, the join screen and the invite screen all looked perfectly healthy the entire time. The only people who could have falsified the inference were the signed-in members, and for them every one of those pages was a 500. **What the inference actually observed was that the site was up for strangers.**
+    **The absence of a record was the correct signal all along, and this paragraph talked past it.** The item existed because nothing recorded whether those two migrations had run; the honest answer to "is there a record?" was no, and no amount of reading the code was ever going to substitute for the one read-only command that would have answered it in seconds.
     *On the consequence, which is much worse than the struck paragraph said.* A missing `lastDigestSentAt` in production does not cost a group its digest quietly. **The group home and the group info page throw on every render, for every member, immediately**: a 500 on the product's two main screens, from the moment the code that ships them goes live. **So this is an ordering constraint, not a formality, and "before this branch merges" means exactly that: the migration reaches production first, and the code that ships these pages second.** The reverse order takes the product down for everybody until somebody runs the command.
     *Why it blocks the merge:* the same asymmetry item 1 spelled out. Applying a purely additive column early costs nothing, because production briefly holds a column no live code has heard of. Applying it late means the running code asks for a column that is not there.
     *The process lesson, worth more than the item:* the list's own header says every new obligation belongs here the day it is created, and slice one created two and recorded neither. The only session that reliably knows about an obligation is the one that created it.
@@ -5713,3 +5720,80 @@ in a file this slice does not otherwise touch, changed because the owner asked d
 went onto the QA script for the owner's own eye. He looked at the real rendered email and judged it
 fine. Closed as settled rather than carried, and it is worth noting which way it was settled: by
 looking at the thing, which is the only instrument that could have answered it.
+
+
+## §11 entry: the four-day outage nobody could see (31 August 2026)
+
+*Its own entry rather than a postscript to a slice, deliberately, because it belongs to no slice: it
+was **caused** by digest slice one (PR #89), **found and fixed** on 31 August outside any slice's
+work, and it was only **noticed** because digest slice two's after-launch item 10 forced somebody to
+run one read-only command before merging. Filing it under slice two would put a slice one defect
+under the wrong heading; filing it under slice one would rewrite a closed record. It stands alone and
+both entries point at it.*
+
+**What broke, in product terms.** From 28 to 31 August 2026, four days, **the live site was down for
+every signed-in person**. A member opening their group home, their group info page or an event got a
+server error. Signing in could not complete either. Nobody could use the product.
+
+**Why nobody noticed, which is the whole story.** A logged-out visitor saw a perfectly healthy site
+the entire time: the front door, the invite screen and the sign-in screen all rendered normally. The
+reason is a single early return. `getCurrentUser()` (`src/lib/auth/current-user.ts:20`) reads a whole
+`User` row with `prisma.user.findUnique` and no `select`, so it names every column on that table, and
+it runs on every page for anyone holding a session; its `if (!user) return null` guard sits **before**
+the database call. So a visitor with no session never touches the database and never touches the
+broken column, while a member touches it on every single page load. **The product was broken for
+exactly the people who use it and healthy for exactly the people who were watching.**
+
+**Root cause, verbatim from the Vercel runtime logs:**
+`Error [PrismaClientKnownRequestError]: The column User.digestOptOutAt does not exist in the current
+database. code: 'P2022'`
+
+Digest slice one merged two migrations that were never applied to production and never recorded as an
+obligation anywhere: `20260828234555_membership_last_seen` and `20260829002014_digest_unsubscribe`.
+The code that asks for those columns shipped; the columns did not.
+
+**How it looked to the owner rather than to a log.** Sign-in appeared to reject a good code. `verifyOtp`
+succeeded, the user lookup immediately after it threw, and the retry then failed as an already-spent
+code, so the screen said **"That code didn't work"**. A member in that position would conclude the
+product's sign-in is broken, which is a worse read than "the site is down", and nothing anywhere said
+otherwise.
+
+**The fix.** `npx prisma migrate deploy` against production by the runbook's method, on 31 August:
+a one-off inline `DIRECT_URL`, the session pooler on port 5432, never through `.env`. `migrate status`
+beforehand reported 15 of 18 applied with exactly three pending, and all three applied cleanly:
+`20260828234555_membership_last_seen`, `20260829002014_digest_unsubscribe`, and digest slice two's own
+`20260829235127_membership_last_digest_sent`.
+
+**Verification.** `npm run db:which` immediately afterwards printed DEV-TEST (`pxbewardwvoyqqcvogel`)
+on all three sources, so the checkout is back where it belongs. And the product itself: **the owner's
+group home loads on his phone**, which is the only instrument that could have closed this.
+
+**One thing that came out of it for free.** The third migration is digest slice two's own, so PR #91's
+deploy obligation is satisfied ahead of its merge rather than after it, which is the ordering after-launch
+item 10 argued for at length.
+
+**What this proves about the process lesson, which was theoretical until now.** The after-launch list's
+own header says every deploy obligation belongs on it the day it is created, and slice one created two
+and recorded neither. That lesson now has a price attached: four days of downtime for every member, and
+it was found by luck, in the sense that the only thing that surfaced it was the *next* slice happening to
+have a migration of its own. Related and just as costly: item 10 answered its own question three times in
+three directions before anybody ran the command that settles it in seconds. The three answers are kept
+struck in place at the item so the flip-flopping is visible. **Reading the code is not a substitute for
+reading the database.**
+
+### Queued out of this, and deliberately not done here
+
+*Both recorded rather than acted on, because this PR is a documentation-only change on `digest-slice-two`
+and neither belongs in its lane.*
+
+- **`docs/runbooks/production-migration.md` should gain two notes, in its own change rather than this
+  one.** That file is on `main` from an earlier PR and is explicitly out of lane here, so this is a
+  pointer, not an edit. First: **the 1Password CLI app integration failed throughout the incident** on
+  macOS 26.6.2 and was never resolved, with `op whoami` returning "no account found for filter"; the
+  runbook currently assumes it works. Second: **the fallback actually used, and it worked**, is
+  `read -rs "DIRECT_URL?..."`, which captures the production URL without it reaching the screen or the
+  shell history, which is the property the 1Password step existed to provide.
+- **The Prisma CLI advertised `8.0.0-rc.12` during the run. Do not install it.** It is a release
+  candidate, it is unrelated to anything in this incident, and nothing here is evidence for or against
+  it. Noted only so that a future reader who sees the same banner is not tempted to treat a version bump
+  as part of the fix.
