@@ -24,6 +24,8 @@ The code was written with AI assistance, directed by me. Work ships in vertical 
 
 **[docs/audits/](docs/audits/)** holds the whole-codebase audit run before the first deploy, and **[docs/runbooks/](docs/runbooks/)** holds the procedures that touch production.
 
+One layer sits above all of that. **[ai-build-process](https://github.com/jacobrios/ai-build-process)** is a curated public copy of the rules I direct AI coding work under on any project: the rules themselves, the record of why each one exists, and the guardrails that mechanically block a tool call.
+
 ---
 
 ## What it does
