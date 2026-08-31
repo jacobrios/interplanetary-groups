@@ -78,7 +78,8 @@ const AA_SMALL_TEXT = 4.5
  */
 const FAINT_SURFACES = [
   // src/app/page.tsx, both sign-in screens' resend line, the inline attach row,
-  // and Save's disabled label.
+  // Save's disabled label, and the members-only wall's secondary
+  // "Start your own group" link (src/components/OrbitNoteScreen.tsx).
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
@@ -131,6 +132,7 @@ describe("the inventory this arithmetic was computed against", () => {
     "src/app/join/[inviteToken]/JoinSignIn.tsx",
     "src/app/page.tsx",
     "src/app/signin/SignInPanel.tsx",
+    "src/components/OrbitNoteScreen.tsx",
     "src/components/SendCircleButton.tsx",
   ]
 

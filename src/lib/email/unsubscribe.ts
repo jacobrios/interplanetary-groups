@@ -16,7 +16,22 @@
 import { randomUUID } from "crypto"
 import { prisma } from "@/lib/prisma"
 
-/** The token in this person's unsubscribe link, generated on first need. */
+/**
+ * The token in this person's unsubscribe link, generated on first need.
+ *
+ * Why this is not the obvious read-then-`update` shape: two digests composing
+ * for the same person at the same moment can both see no token and both
+ * decide to mint one. A plain `update` has no opinion about who else is
+ * writing, so the second call would silently clobber the first, and whichever
+ * token was already embedded in a sent email would belong to nobody, forever,
+ * with nothing anywhere reporting it. Instead the write is an `updateMany`
+ * scoped to `unsubscribeToken: null`: Postgres re-checks that condition after
+ * taking the row lock, so a loser's write matches zero rows instead of
+ * overwriting the winner's. The unique constraint on `unsubscribeToken` is
+ * what makes a two-winner outcome impossible at the database level, which is
+ * why the read-back below is the authority on what to return, never the
+ * value this call happened to generate.
+ */
 export async function ensureUnsubscribeToken(userId: string): Promise<string> {
   const existing = await prisma.user.findUnique({
     where: { id: userId },
@@ -25,8 +40,20 @@ export async function ensureUnsubscribeToken(userId: string): Promise<string> {
   if (existing?.unsubscribeToken) return existing.unsubscribeToken
 
   const token = randomUUID()
-  await prisma.user.update({ where: { id: userId }, data: { unsubscribeToken: token } })
-  return token
+  await prisma.user.updateMany({
+    where: { id: userId, unsubscribeToken: null },
+    data: { unsubscribeToken: token },
+  })
+
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { unsubscribeToken: true },
+  })
+  if (!row?.unsubscribeToken) {
+    console.error(`[unsubscribe-token] user ${userId} has no token immediately after write`)
+    throw new Error("ensureUnsubscribeToken: token missing after write")
+  }
+  return row.unsubscribeToken
 }
 
 /**

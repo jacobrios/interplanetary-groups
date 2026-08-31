@@ -4,7 +4,7 @@
 // naming isVerified: unsubscribing must never touch it, because login codes
 // are transactional and leave through a different subdomain than digests do.
 
-import { describe, it, expect, afterAll } from "vitest"
+import { describe, it, expect, afterAll, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { ensureUnsubscribeToken, unsubscribeByToken } from "../unsubscribe"
 
@@ -42,6 +42,56 @@ describe("ensureUnsubscribeToken", () => {
     const a = await makeUser("a")
     const b = await makeUser("b")
     expect(await ensureUnsubscribeToken(a.id)).not.toBe(await ensureUnsubscribeToken(b.id))
+  })
+
+  it("returns the same token to two concurrent callers, and the row agrees", async () => {
+    const user = await makeUser("racer")
+
+    // Two digests composing for the same person at once can both see no
+    // token and both try to mint one. A plain Promise.all does not reliably
+    // interleave, so this forces it: every prisma.user.findUnique call is
+    // held open until a second caller has also reached its own findUnique,
+    // which guarantees both callers observe a null token before either one
+    // writes. Without this barrier the race is possible but not certain, and
+    // an uncertain race is not evidence.
+    type FindUniqueFn = typeof prisma.user.findUnique
+    const originalFindUnique: FindUniqueFn = prisma.user.findUnique.bind(prisma.user)
+    let entered = 0
+    let releaseBoth: () => void
+    const bothEntered = new Promise<void>((resolve) => {
+      releaseBoth = resolve
+    })
+    // Prisma's findUnique returns Prisma__UserClient, a thenable that also
+    // carries relation-navigation methods (.contactMethods(), etc.) this test
+    // never calls; every caller below only ever `await`s the result, and
+    // `await` unwraps any thenable transparently at runtime. A plain async
+    // function honours that contract but cannot be typed as the literal
+    // Prisma__UserClient return type (it has no navigation methods to offer),
+    // so this cast is the genuine "the type system can't express this, the
+    // runtime contract is honoured" case rather than a way to skip checking.
+    const spy = vi.spyOn(prisma.user, "findUnique")
+    spy.mockImplementation(
+      (async (...args: Parameters<FindUniqueFn>) => {
+        entered += 1
+        if (entered >= 2) releaseBoth()
+        await bothEntered
+        return originalFindUnique(...args)
+      }) as unknown as FindUniqueFn
+    )
+
+    try {
+      const [first, second] = await Promise.all([
+        ensureUnsubscribeToken(user.id),
+        ensureUnsubscribeToken(user.id),
+      ])
+
+      expect(first).toBe(second)
+
+      const row = await prisma.user.findUnique({ where: { id: user.id } })
+      expect(row?.unsubscribeToken).toBe(first)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 

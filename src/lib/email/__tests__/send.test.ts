@@ -123,32 +123,39 @@ describe("the result mapping", () => {
     expect(sendMock).not.toHaveBeenCalled()
   })
 
-  it("sets the List-Unsubscribe header when given a URL, and none when not", async () => {
+  it("sets List-Unsubscribe and List-Unsubscribe-Post when given a URL, and neither when not", async () => {
     sendMock.mockResolvedValue({ data: { id: "msg_1" }, error: null })
     const { sendEmail } = await import("../send")
 
     await sendEmail({ to: "a@b.com", ...MESSAGE, unsubscribeUrl: "https://x.test/u/tok" })
     expect(sendMock.mock.calls[0][0].headers).toEqual({
       "List-Unsubscribe": "<https://x.test/u/tok>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     })
 
     await sendEmail({ to: "a@b.com", ...MESSAGE })
     expect(sendMock.mock.calls[1][0].headers).toBeUndefined()
   })
 
-  // Its own test rather than a line in the one above, because it pins a
-  // decision rather than a shape. One-click is a promise that the URL honours
-  // a POST and unsubscribes with no further interaction. It does not: that URL
-  // is a Next.js page route, and a POST to it returns the page's HTML and
-  // writes nothing. Advertising it would have Gmail telling a member they were
-  // unsubscribed when they were not. Whoever adds the POST endpoint in slice
-  // two should delete this test in the same change that makes it false.
-  it("does not advertise one-click, because no endpoint honours a POST yet", async () => {
+  // The decision this test replaces (pinned in slice one, now false, and
+  // deleted rather than kept as a stale skip): one-click promises that the
+  // URL honours a POST and unsubscribes with no further interaction. Slice
+  // one's measurement found nothing there to honour it, because
+  // `/unsubscribe/[token]` is a Next.js page route and a page route and a
+  // route handler cannot share a path. Slice two did not make that URL work;
+  // it pointed this header at a different URL, `/api/unsubscribe/[token]`, a
+  // route handler with its own POST (tested in
+  // src/app/api/unsubscribe/[token]/__tests__/route.test.ts). This file only
+  // proves the header is sent; it cannot prove the URL it names is real,
+  // which is what the hand-run POST check in the task brief is for.
+  it("advertises one-click now that the URL it names is a route handler", async () => {
     sendMock.mockResolvedValue({ data: { id: "msg_1" }, error: null })
     const { sendEmail } = await import("../send")
 
     await sendEmail({ to: "a@b.com", ...MESSAGE, unsubscribeUrl: "https://x.test/u/tok" })
-    expect(sendMock.mock.calls[0][0].headers["List-Unsubscribe-Post"]).toBeUndefined()
+    expect(sendMock.mock.calls[0][0].headers["List-Unsubscribe-Post"]).toBe(
+      "List-Unsubscribe=One-Click"
+    )
   })
 
   // The `updates.` subdomain is the whole point of this seam: CLAUDE.md,
