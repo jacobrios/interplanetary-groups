@@ -15,7 +15,7 @@ import { OrbitMark } from "@/components/OrbitMark"
 import { buttonStyle } from "@/components/pill-controls"
 
 interface Props {
-  // ReactNode rather than string as of 29 Aug 2026 (owner QA on PR #91): the
+  // ReactNode rather than string as of 31 Aug 2026 (owner QA on PR #91): the
   // members-only wall needs to bold one sentence inside its note (see
   // MembersOnlyWall.tsx), which a plain string cannot express. A plain
   // string is still a valid ReactNode, so the bad-invite-token screen, this

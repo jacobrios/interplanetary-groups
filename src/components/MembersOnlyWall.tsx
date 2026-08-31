@@ -24,7 +24,7 @@ import OrbitNoteScreen from "./OrbitNoteScreen"
 const WHY_INVITE_ONLY =
   "This group is invite-only. If you know someone in it, ask them for the invite link, it'll bring you right in. "
 
-// Bolded as of 29 Aug 2026 (owner QA on PR #91): as one flat paragraph this
+// Bolded as of 31 Aug 2026 (owner QA on PR #91): as one flat paragraph this
 // sentence was easy to skim past, and it is the one that actually gets a
 // returning member back in as themselves instead of duplicating them.
 // Styled to match, not a bare <strong>: JoinForm.tsx already uses this exact
