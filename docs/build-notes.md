@@ -5868,3 +5868,37 @@ was found, CLAUDE.md saying the owner happened to open the app and this file say
 read-only migrate check forced by after-launch item 10. The README avoids picking a side
 ("found by luck, on day four"), which is true either way, and the disagreement is the owner's
 to settle.
+
+**Amended 31 August 2026, same day, after the owner read it: cut roughly in half, 4,219
+words to 2,426, and resequenced.** His read was that the whole thing was too long, that
+"Where the thinking lives" was the section telling the story and was sitting at the bottom,
+and that "Three things that went wrong, and what they changed" did not belong in a README at
+all. All three were right. The thinking section moved up to sit directly after the problem
+statement, the failure post-mortem was cut whole (its reasoning survives inside the guardrails
+that came out of it, which is a more useful place for it), "Where it stands" went from a
+twenty-bullet inventory to seven themed lines plus four honest ones, and the opening "the
+group is the persistent thing, events are activations of it" was cut for needing context the
+reader does not have yet. One line went for a reason worth recording: "the code is the
+cheapest part and it is the part that gets rewritten" was true and would have read to an
+engineer as a swipe, in a file whose whole job is to be read by engineers.
+
+**The third review was of the cut, and it earned its keep.** Compression is where a true
+sentence quietly becomes false, and six did. The worst two are the general lesson. A revived
+idea was described as opening "at the time the group already agreed on"; it carries the
+original gauge's stored time (`endgame.ts:472`), on an idea that by definition stalled, so
+the group agreed on nothing. And the duplicate-member gap had been softened into "a duplicate
+member to tidy up", which reads as roster untidiness when the real consequence is that the
+group's counts stop being accurate, the one claim this entire product rests on, and when
+`remove-member.ts:40` deletes a membership row and nothing else. **Both were introduced while
+following an instruction to be less negative, and neither had to be: the fix in both cases was
+to state the fact plainly rather than either dramatise it or soften it.** Also repaired: a
+bench count that only accounted for 28 of 33 cases after a bucket was dropped from the
+sentence, a measured latency figure hidden behind "a chatty group", an absolute about what
+separate sending subdomains prevent, a calendar sentence left sitting under the one about
+plans moving with nothing saying a saved entry does not follow, and two absolutes that had
+carried qualifiers before the cut.
+
+**One reviewer point taken and deliberately not acted on**, recorded so it is not re-raised
+as an oversight: the onboarding bullet does not re-add the fail-soft caveat about the first
+event. It happens on the happy path, the hourly job is the backstop, and the detail belongs
+in this file rather than in a list the owner asked to keep scannable.
