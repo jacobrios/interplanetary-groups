@@ -2,11 +2,9 @@
 
 **An AI coordinator for casual recurring groups, so nobody has to be the organizer.**
 
-The group is the persistent thing. Events are activations of it.
-
 > ### Live at [interplanetarygroups.com](https://interplanetarygroups.com)
 >
-> Deployed 25 August 2026, on its own domain since 26 August. The front door lets you start a group and walk the whole arc; everything past that is invite-only by design, so a group's page is never reachable by anyone holding a URL. It is live and still under active construction. What is deliberately unbuilt is listed under [Where it stands](#where-it-stands).
+> Deployed 25 August 2026, on its own domain since 26 August. The front door lets you start a group and walk the whole arc. Everything past that is invite-only by design, so a group's page is never reachable by anyone holding a URL.
 
 ---
 
@@ -20,29 +18,40 @@ I'm building this with a local investor who wants the product to exist. That set
 
 ---
 
+## Where the thinking lives
+
+Most of the work on this project is not in the diffs. What this repo keeps, alongside the code, is the record of what was decided, what was rejected, and why. That is the part worth reading.
+
+The code was written with AI assistance, working from the standing brief and slice documents in this repo under my direction.
+
+- **[CLAUDE.md](CLAUDE.md)** is the standing context: product north stars, Orbit's guardrails, the load-bearing data model rules, and the UI and copy system. It states rules rather than explaining them, so it can be followed.
+- **[docs/build-notes.md](docs/build-notes.md)** is the decision record: the reasoning, the alternatives rejected, and the lineage behind each choice. Section 11 holds one entry per build slice. Corrections are dated annotations rather than edits, so the file shows what happened rather than only what it currently claims.
+- **[docs/superpowers/specs/](docs/superpowers/specs/)** holds the document written before each slice was built: what was already settled, the non-goals and where each one belongs instead, how the slice would be verified, and the debt it was expected to open. Reading one beside its build-notes entry shows intended against shipped.
+- **[docs/audits/](docs/audits/)** holds the whole-codebase audit run before the first deploy. **[docs/runbooks/](docs/runbooks/)** holds the procedures that touch production.
+
+Work ships in vertical slices, one at a time, each one usable on its own and each ending in a written record of what it decided along the way.
+
+---
+
 ## What it does
 
-**Setup is a conversation, not a form.** A founder describes their group the way they'd text a friend ("we're a climbing crew of 8, we go Monday and Wednesday mornings at 8"). Orbit extracts the rhythm, plays back what it understood, asks about anything genuinely missing, and creates the group with its first event already on the calendar. The last step hands them the invite link to share.
+**Setup is a conversation, not a form.** A founder describes their group the way they'd text a friend ("we're a climbing crew of 8, we go Monday and Wednesday mornings at 8"). Orbit extracts the rhythm, plays back what it understood, asks about anything genuinely missing, and creates the group with its first event already on the calendar.
 
-**One link joins people to the group, never to an event.** No app download, no password, no account setup. A name is the only identity needed to participate. When someone joins, the feed gains one quiet line saying so.
+**One link joins people to the group, never to an event.** No app download, no password, no account setup. A name is the only identity needed to participate.
 
 **Anyone can start something.** When a member floats an idea in chat, Orbit proposes a specific day and time with one-tap responses and a running tally. Three yeses and it creates the event in that same tap, inheriting the group's usual venue when the activity matches. The votes carry through as RSVPs, so nobody answers twice.
 
-**An idea has an ending as well as a beginning.** A stalled idea earns exactly one nudge the evening before its day, then closes. If the day was the only thing blocking it, and enough people wanted it, Orbit asks what day would work instead, hears the answer, and opens a fresh gauge on that day with the original's time carried over. If nobody answers, it guesses once, a week later, and then lets it go.
+**An idea has an ending as well as a beginning.** A stalled idea earns one nudge, then closes. If the day was the only thing blocking it, Orbit asks what day would work instead, hears the answer, and opens a fresh gauge on that day at the time the group already agreed on.
 
-**Plans can move, but not on one person's word.** A member asking to change an event's time in plain language opens a vote to the whole group. The plan moves only when the new time clears the same three-yes bar and beats the number of people still in on the old one. A vote that stalls gets closed and said so, rather than sitting there invisible.
+**Plans move by group decision, not by one person's word.** Asking to change an event's time in plain language opens a vote. The plan moves only when the new time clears the same bar and beats the number of people still in on the old one.
 
-**The plan can leave the app.** An event page hands a member's own calendar the title, time, meeting spot and address.
-
-**Coming back works.** A member can attach an email and sign in from any device with a typed code. Orbit asks for that email at most twice per person, ever, and the counter counts declines rather than appearances, so ignoring the ask is not answering it.
-
-**One email, at most once a day, and only when there is something to say.** The digest carries two blocks: what needs you (an idea you have not voted on, an event you have not RSVP'd to, a time-change vote you have not answered), and what you missed since you last opened the group. Both blocks empty sends nothing, which is what makes a daily cadence safe. One click stops it for good.
+**The plan reaches people outside the app.** An event hands a member's own calendar the plan, its meeting spot and its address. A digest carries what needs them and what they missed, at most once a day, and only when there is something to say.
 
 ---
 
 ## Designs
 
-> **These are design mockups, not screenshots of the running application.** They show intended behavior, including some the build has not reached and some it has deliberately moved past. The monthly "beers" row drawn on the screen below is an example of the first: the product stores that rhythm and plays it back, but the recurring engine only schedules weekly ones, so it never turns into a plan. For what actually works today, read [Where it stands](#where-it-stands), or open [the live site](https://interplanetarygroups.com).
+> These are design mockups, not screenshots of the running application. They show intended behavior, including some the build has not reached and some it has deliberately moved past. For what works today, open [the live site](https://interplanetarygroups.com).
 
 ![Onboarding: Orbit asks about a missing climb time, and the invite link screen](docs/design/walkthrough-screens/screens-03-04.png)
 
@@ -52,83 +61,48 @@ I'm building this with a local investor who wants the product to exist. That set
 
 ## How Orbit decides things
 
-Orbit is an agent: tools, context, and guardrails about when to act, when to ask, and when to stay quiet. The guardrails are the interesting part, and most of them exist because something went wrong first.
+Orbit is an agent: tools, context, and guardrails about when to act, when to ask, and when to stay quiet. The guardrails are the interesting part, and most of them exist because something taught us they needed to.
 
-**Model output is a claim, not a fact.** Every structured extraction passes through a normalization boundary (`src/lib/orbit/normalize.ts`) before any user-facing behavior keys off it. Nothing branches on a raw model response. This is not theoretical hygiene: extraction once reported a field as missing that the schema never required, which would have sent Orbit to ask the founder a clarifying question about something the product had no reason to know. There is now a second boundary of the same kind for the auth service (`src/lib/auth/email.ts`), and it is the stronger of the two: each screen's error map is typed so that a new failure result is a compile error at every call site rather than a member staring at a blank line.
+**Model output is a claim, not a fact.** Every structured extraction passes through a normalization boundary before any user-facing behavior keys off it, so nothing branches on a raw model response. Extraction once reported a field as missing that the schema never required, which would have sent Orbit to ask the founder about something the product had no reason to know. There is a second boundary of the same kind for the auth service, typed so that a new failure result is a compile error at every call site rather than a member staring at a blank line.
 
-**Stored state is carried, never regenerated.** When Orbit merges a new answer into an existing group profile, untouched fields are copied verbatim rather than re-derived. Without that rule, a single clarifying question caused the stored activity label to drift from `CLIMBING` to `CLIMB`, because the model re-read the original description instead of respecting what was already saved.
+**Stored state is carried, never regenerated.** When Orbit merges a new answer into an existing group profile, untouched fields are copied verbatim rather than re-derived. Without that rule, one clarifying question was enough to make the stored activity label drift from `CLIMBING` to `CLIMB`.
 
 **Propose something concrete, then absorb corrections.** Orbit names a day and a venue rather than handing the group a grid of options to sort out. A poll is the organizer's job pushed back onto everyone; a specific proposal is something people can just answer.
 
-**Ask when it matters, guess never, and let some things stay empty.** A missing meeting time blocks scheduling, so Orbit asks. A missing venue does not, so it never blocks anything, at any point in the product.
+**Ask when it matters, and let some things stay empty.** A missing meeting time blocks scheduling, so Orbit asks. A missing venue does not, so it never blocks anything, at any point in the product.
 
-**Three yeses, and a rule about who counts.** The person who floated the idea is counted automatically only when they named the day Orbit is proposing, because in that case their message already was the yes. When Orbit picked the day itself, they vote like everyone else. A threshold reached after the proposed start time creates nothing.
+**Read the ambiguity out of the sentence, then say how you read it.** "Beers at 8" is evening and "breakfast at 8" is morning, because the activity settles it. When the hour alone is a genuine toss-up, Orbit keeps the hour, picks the evening, and says so out loud ("You said 8, so I'm taking that as 8pm"), because a card quietly reading 7 would contradict the person who said 8.
 
-**When nobody said a time, say where the time came from.** A stated time always wins. Failing that, am/pm is read from the activity, so "beers at 8" is evening and "breakfast at 8" is morning. When the hour is stated but the half of the day is a genuine toss-up, Orbit keeps the hour, puts it in the evening, and says out loud how it read them ("You said 8, so I'm taking that as 8pm"), because a card silently reading 7 when somebody said 8 would contradict them. Nothing here is random: the decision is deterministic in every branch, and the person who said the ambiguous thing is told what it was taken to mean. Those fallbacks live in one module, marked as placeholders for a later slice that learns from overrides. Somebody asking to move an existing plan gets a second, deliberately different answer in its own module, because the plan's current time is a signal the new-idea path never has: 9 on an 8am plan is 9am, and no toss-up arises.
+**Three yeses, and a rule about who counts.** The person who floated the idea is counted automatically only when they named the day Orbit is proposing, because in that case their message already was the yes. When Orbit picked the day itself, they vote like everyone else.
 
-**Silence is a feature, but never in reply to a direct ask.** Tapping a response updates a tally; it never posts a message. Orbit pings the group only when doing so changes an outcome. That governs Orbit speaking up on its own initiative, and it does not govern replies: a member plainly asking Orbit for something gets a question back rather than nothing. That distinction is an amendment, made after QA found direct requests dying in silence, and the fix had to be made in two places that disagreed, the code and the prompt.
+**Silence is a feature, and never the answer to a direct ask.** Tapping a response updates a tally; it never posts a message. Orbit speaks up on its own initiative only when it changes an outcome. That governs initiative and not replies: a member plainly asking Orbit for something gets a question back rather than nothing. Every place Orbit decides to speak or stay quiet is written down in one list, and adding a new one means adding a line to it.
 
-**Orbit reads the conversation, not just the message.** Detection sees the last twenty messages including Orbit's own, each timestamped, so a bare follow-up lands on the plan the group was just discussing and a newer proposal supersedes the one before it. Join announcements are excluded from that window, so somebody joining can never be read as somebody asking for something.
+**Orbit is not a user.** It speaks through an author enum with no person record behind it, which is why it can never appear in a member list or an attendance count.
 
-**Orbit is not a user.** It speaks through an author enum with no person record behind it, which is why it can never accidentally appear in a member list or an attendance count.
+**A group is invite-only, and the link is the only door.** Someone holding a group's URL without being in the group learns nothing: not the name, not who is in it, not a word of the chat. Every write refuses a non-member on the server too, so a stale tab left open by someone who has since left cannot post, RSVP, or cast the vote that creates an event. A member's email address is shown on one screen, to the person it belongs to, and is never fetched over a roster.
 
-**Every place Orbit speaks or stays quiet is written down in one list.** Adding a new such decision means adding a line to it. The list exists because the 29 July recognition bug was two copies of the same rule, in code and in prompt prose, quietly disagreeing.
-
-**A group is invite-only, and the link is the only door.** Someone who holds a group's URL without being in the group sees a note from Orbit telling them to ask a member for the invite link, and nothing else: not the group's name, not who is in it, not a word of the chat. Every write refuses a non-member on the server too, so a stale browser tab left open by someone who has since left cannot post, RSVP, or cast the vote that creates an event.
-
-**An address belongs to its owner, not to the group.** A member's email is shown on exactly one screen, to exactly the viewer whose address it is, and is never fetched over a roster. Three server-rendered pages pull whole user rows and are safe only because that table carries no email column, so a test now reads the schema and fails the day somebody adds one.
-
-**When Orbit cannot think, it says so plainly.** A model call that fails because the prototype ran out of credits is told apart from one that fails because the service is down, and each gets its own honest wording. In onboarding the founder keeps their text and can retry; in chat the message posts as normal and only the sender sees a quiet line saying Orbit might miss ideas until it is fixed. The reason shown is never a guess.
-
----
-
-## Three things that went wrong, and what they changed
-
-**Losing a session did not lock anyone out. It duplicated the person.** The old version of this file said a member who cleared their cookies met the invite-only screen until they tapped the link again. They did not. They tapped the link, had no session, and joined as a second member: the group held two of them, their earlier answers belonged to an identity nobody could reach, and every count quietly stopped being true, in the one product whose entire claim is accurate attendance. Nothing showed an error. That is what moved email sign-in ahead of everything else, and the fix went upstream of the problem rather than into a merge routine, because a safe merge of two identities costs more than closing the door that makes them.
-
-**The site was down for four days for every signed-in member, and looked perfectly healthy.** A migration shipped without being applied to production, so any page reading a user row threw. A logged-out visitor saw a working front door the whole time, because the front door, the invite screen and the sign-in screen never read that table. It was found by luck, on day four. Two things came out of it. The rule that a deploy obligation goes on a running list the day it is created already existed and was simply not followed, so what the outage added was a price on it rather than a new rule. And site health monitoring is queued with a constraint attached: a monitor that merely pings the site would have read green for all four days, so whatever gets built has to exercise a path that requires a session.
-
-**A recorded explanation turned out to be wrong, and the work built on it was still right.** Gmail showed no unsubscribe control on the first digest, and the record blamed a missing header. The header was added; Gmail still shows nothing, and the delivered message provably carries it inside the signed header list. So the recorded cause is falsified rather than merely unproven, and the current explanation is a working guess that nobody outside Google can verify. The header stays, for three reasons that never depended on the guess: the mailbox providers' own bulk-sender rules require it, it is what makes one-click work in the clients that do honour it, and the product's own "Stop these emails" link is the exit that always works.
+**When Orbit cannot think, it says so plainly.** A model call that fails because the prototype ran out of credits is told apart from one that fails because the service is down, and each gets its own honest wording. The founder keeps their text and can retry. The reason shown is never a guess.
 
 ---
 
 ## Where it stands
 
-**Working end to end**
+**Working today**
 
-- Founder onboarding in three steps: free-text description, structured extraction, a conversational loop for a missing day or time, optional meeting spot, playback, confirmation that creates the group with its first scheduled event and its timezone, and the invite link to share. A founder always ends up with a real group, even in the case where the first event has to wait for the hourly job
-- Invite links and joining, with existing sessions routed in rather than duplicated, and a quiet join line in the feed
-- Group home: a card region of upcoming plans over a live chat feed, with unanswered ideas appearing as their own cards mingled with confirmed plans in date order, five at most
-- A card-state grammar where teal marks what needs the viewer and never leans an open question, and status is never carried by hue alone
-- RSVPs, with counts derived from rows rather than stored, and a roster grouped into In / Out / Haven't replied
-- Event detail, group info, and a front door that routes a session with a group straight in
-- The spark: interest gauges from chat, one-tap responses, a live tally, and event creation on the third yes, with the gauge answers carrying through as RSVPs
-- The gauge endgame: one bump the evening before, a close two hours before the proposed start, and a goodbye only for an idea somebody actually said yes to
-- The wrong-day retry: an idea the day alone blocked gets asked what day would work, then guessed once a week later, and the answer to that question is heard and acted on
-- Day comments on a live gauge: naming a better day while a vote is running is counted as a vote and remembered as the retry's answer
-- Change requests on time: someone asks to move a plan in chat, Orbit reads it, the group votes, and the plan moves only once the new time clears the bar and beats the time it would replace. A stalled vote is closed and said so
-- Add to calendar: an event page hands a member's own calendar the plan, its meeting spot and its street address
-- The group info page: who is in, when and where the group meets, the invite link with a share button, and the group's only self-service actions (leave, remove a member, reset the link)
-- A members-only wall on every read surface and every write path, enforced on the server
-- Email sign-in: attach an address, come back as yourself from any device with a typed eight-digit code
-- The digest: two blocks, at most one email a day per member per group, sent in the hour the group's own clock reads 8pm, with one-click unsubscribe
-- An hourly scheduled job that creates the next recurring occurrence, runs both endgame sweeps, and sends the digest
-- Brand assets and a link preview, so a texted invite arrives as a card naming the group rather than as a bare URL
+- **Onboarding**, from a plain-language description to a real group with its first event scheduled, its timezone captured, and the invite link ready to send
+- **The group**, with upcoming plans pinned over a live chat feed, event pages, a roster, and an info page carrying the invite link and the group's self-service actions
+- **The spark**, end to end: ideas gauged in chat, created on the third yes, and given a proper ending when they stall
+- **Time changes** as a group decision, with a vote that closes rather than sitting open forever
+- **Coming and going**: invite links, join announcements, a members-only wall on every read and write, and email sign-in so a member can come back as themselves from any device
+- **Reaching people outside the app**: add-to-calendar, and a daily digest that sends only when there is something to say
+- **An hourly job** that creates the next recurring plan, closes what has stalled, and sends the digest
 
-**Next**
+**Not built yet**
 
-The message-latency fix. A six-message group takes three to four seconds to send, because the app reloads the whole chat history and re-renders twice per send, so the chat gets slower the more the group talks. After that, a decision about whether notifications are worth a home-screen web push, a thin native shell, or neither.
-
-**Known gaps, deliberately**
-
-- Orbit reads a correction to an event's **time** and nothing else. A wrong venue, day, or cadence gets an honest decline in chat and has no path to being fixed there. A founder who spots a wrong detail after creation has no fix path anywhere. Those are their own slices.
-- A member who attached an email comes back as themselves. A member who never attached one still rejoins through the invite link as a second person, with every count quietly wrong, because nothing about them was ever recorded. Attaching is optional forever, so that population never empties. Duplicates that already exist are not merged, by decision, and the founder's remove button is only a partial cleanup: it deletes the membership and nothing else, so the removed person's old answers survive and start counting again if they rejoin through the same link.
-- If the first event fails to be created at the moment a group is made, the founder lands on an empty group home with nothing on screen saying why, until the hourly job catches up. Failing that way is deliberate; saying nothing about it is the gap.
-- A calendar entry a member already saved does not update itself when the group later moves the plan. Orbit's announcement in the feed is the correction channel until a subscribable feed exists.
-- The unsubscribe link in a digest never rotates, so forwarding that email to somebody else also hands them the ability to unsubscribe its original recipient.
-- There is no way into a second group from inside the app, and a session belonging to several groups is sent to the most recent one. The multi-group home is out of scope; the missing entry point is not, and is queued separately.
-- No send log lives in this project's own database, so if a member says they never got an email, the only record is the mail service's dashboard. The digest's sending subdomain is new and has no reputation yet, so early messages may be filtered.
-- Nothing in the product reports that it is broken.
+- Orbit changes an event's **time** and nothing else. A wrong venue, day, or cadence gets an honest decline in chat, and each is its own future slice.
+- A member who has attached an email comes back as themselves. One who never attached one is treated as a new person if they lose their session, which leaves the group with a duplicate member to tidy up. Closing that fully is queued.
+- There is no way into a second group from inside the app.
+- Sending a message is slower than it should be in a chatty group. That is the next thing being built.
 
 **Out of scope for the MVP**
 
@@ -144,15 +118,13 @@ Multi-group home UI, multi-venue UI, nested events, travel and logistics feature
 | Database | Postgres via Prisma 7, with a driver adapter |
 | Auth | Supabase, auth only. The Data API is off and Prisma owns the schema, so there is exactly one source of truth. |
 | AI | Claude via the Anthropic SDK, for structured extraction and Orbit's chat copy |
-| Email | Resend, on two separate sending subdomains so a digest that collects spam complaints can never drag login-code delivery down with it. Login codes leave through Supabase Auth with Resend behind it; the digest calls Resend directly. |
+| Email | Resend, on two separate sending subdomains so a digest that collects spam complaints can never affect login-code delivery |
 | Testing | Vitest, plus two graded model benches that run outside the suite |
 | Hosting | Vercel, with an hourly cron carrying the recurring-event job, both endgame sweeps, and the digest |
 
-**The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders, the calendar button, and check-ins need anyway. Orbit's modules live under `src/lib/orbit/`, `src/lib/gauges/`, `src/lib/proposals/` and `src/lib/digest/`, one module per job. Nothing in the digest calls a model at all.
+**The AI layer is deliberately boring.** Orbit extracts structured fields (days, times, cadence, activity), and deterministic code composes what you actually see on screen. The model writes free prose only for its own chat messages, and even then within constrained formats. This keeps display copy stable and testable, and it produces the structured data that reminders, the calendar button, and check-ins need anyway. Nothing in the digest calls a model at all.
 
-**Testing.** 1,374 tests across 126 files, covering the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
-
-**Model behavior gets a different kind of evidence.** A passing unit test cannot tell you whether Orbit recognizes a request, so the suite tests the deterministic seam and never calls a model. Two hand-run benches do that instead, grading realistic cases through the real production path and scoring each as a rate over repeated runs, because one clean walkthrough is not evidence. `npm run eval:detect` grades 33 cases in four buckets: what Orbit must recognize, what it must stay quiet about, deliberately ambiguous ones, and a fourth for a failure that was measured, weighed and knowingly accepted, still scored and printed but with no bar to clear. `npm run eval:onboarding` grades 14 cases on rhythm extraction and the gap-ask merge. Both are kept deliberately outside the test runner, because they cost money and hit the network, and a bench that can masquerade as the suite is worse than no bench.
+**Testing, and a second kind of evidence for the model.** 1,374 tests across 126 files cover the normalization boundary, gauge thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters. A unit test cannot tell you whether Orbit recognizes a request, so two graded benches do that instead, running realistic cases through the real production path and scoring each as a rate over repeated runs. `npm run eval:detect` grades 33 cases on what Orbit must recognize and what it must stay quiet about; `npm run eval:onboarding` grades 14 on rhythm extraction and the gap-ask merge. Both are kept outside the test runner, because they cost money and hit the network.
 
 ---
 
@@ -167,17 +139,11 @@ npx prisma migrate deploy
 npm run dev
 ```
 
-**The `.env` copy comes first, and that order is load-bearing.** `npm install`
-runs `prisma generate` as a postinstall step, `prisma.config.ts` resolves
-`DIRECT_URL` the moment it loads, and a fresh clone has no `.env` because it is
-gitignored. Installing first therefore fails with `Cannot resolve environment
-variable: DIRECT_URL` from a step you did not ask for. Copy the file first and the
-install generates the client on its own, which is also what the Vercel build
-relies on.
+**The `.env` copy comes first, and that order is load-bearing.** `npm install` runs `prisma generate` as a postinstall step, `prisma.config.ts` resolves `DIRECT_URL` the moment it loads, and a fresh clone has no `.env` because it is gitignored. Copy the file first and the install generates the client on its own, which is also what the Vercel build relies on.
 
-**Two database URLs, and they are not interchangeable.** `DATABASE_URL` is the pooled connection the app uses at runtime through the Prisma driver adapter. `DIRECT_URL` is the unpooled one the Prisma CLI uses for migrations, and it's read by `prisma.config.ts` rather than by the schema. Both can point at the same database. Leaving `DIRECT_URL` out is not a quiet degradation: every Prisma CLI command fails to start, including `prisma generate`, which otherwise never touches a database.
+**Two database URLs, and they are not interchangeable.** `DATABASE_URL` is the pooled connection the app uses at runtime through the Prisma driver adapter. `DIRECT_URL` is the unpooled one the Prisma CLI uses for migrations, read by `prisma.config.ts` rather than by the schema. Both can point at the same database, and every Prisma CLI command fails to start without `DIRECT_URL`, including `prisma generate`.
 
-**Email fails closed outside production.** A send from a non-production environment goes only to an address named in `EMAIL_DEV_ALLOWLIST`, and an unset allowlist sends nothing at all. That is the intended default rather than a bug: a development database holds QA rows carrying real addresses, so a local run of a half-built feature must not be one command away from mailing a real person.
+**Email fails closed outside production.** A send from a non-production environment goes only to an address named in `EMAIL_DEV_ALLOWLIST`, and an unset allowlist sends nothing. That is the intended default: a development database holds QA rows carrying real addresses, so a local run must never be one command away from mailing a real person.
 
 `npm test` runs against a real database rather than mocks, so it needs the same `.env` in place with migrations already applied.
 
@@ -185,19 +151,3 @@ relies on.
 npm test        # full suite
 npm run lint
 ```
-
----
-
-## Where the thinking lives
-
-Most of the work on this project is not in the diffs. The code is the cheapest part and it is the part that gets rewritten; what does not get rewritten is the record of what was decided, what was rejected, and what a mistake cost. This repo keeps all three, and they are the thing worth reading.
-
-The code was written with AI assistance, working from the standing brief and slice documents in this repo under my direction.
-
-- **[CLAUDE.md](CLAUDE.md)** is the standing context: product north stars, Orbit's guardrails, the load-bearing data model rules, and the UI and copy system. It's written to be operative, so it states rules rather than explaining them.
-- **[docs/build-notes.md](docs/build-notes.md)** is the decision record: the reasoning, the alternatives rejected, and the lineage behind each choice. Section 11 holds one entry per build slice, including what went wrong and what that changed. Corrections are dated annotations rather than edits, so the file shows what happened rather than only what it currently claims.
-- **[docs/superpowers/specs/](docs/superpowers/specs/)** holds the document written before each slice was built: the decisions already settled, the non-goals and where each one belongs instead, how the slice would be verified, and the debt it was expected to open. Reading one beside the slice's build-notes entry shows intended against shipped.
-- **[docs/audits/](docs/audits/)** holds the whole-codebase audit run before the first deploy, and its findings.
-- **[docs/runbooks/](docs/runbooks/)** holds the procedures that touch production.
-
-Slices are built one at a time, each one shippable on its own, each ending in a written record of what it decided along the way, including the decisions made in passing that would otherwise resurface later as mysteries.
