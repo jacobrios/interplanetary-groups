@@ -5783,8 +5783,11 @@ reading the database.**
 
 ### Queued out of this, and deliberately not done here
 
-*Both recorded rather than acted on, because this PR is a documentation-only change on `digest-slice-two`
-and neither belongs in its lane.*
+~~*Both recorded rather than acted on, because this PR is a documentation-only change on `digest-slice-two`
+and neither belongs in its lane.*~~ **Three recorded, not two (added 31 Aug 2026, same day, after the
+owner asked for a third item to be queued alongside these first two).** All three are recorded rather than
+acted on, because this PR is a documentation-only change on `digest-slice-two` and none of them belongs in
+its lane.
 
 - **`docs/runbooks/production-migration.md` should gain two notes, in its own change rather than this
   one.** That file is on `main` from an earlier PR and is explicitly out of lane here, so this is a
@@ -5797,3 +5800,14 @@ and neither belongs in its lane.*
   candidate, it is unrelated to anything in this incident, and nothing here is evidence for or against
   it. Noted only so that a future reader who sees the same banner is not tempted to treat a version bump
   as part of the fix.
+- **Site health monitoring is queued, unranked, the owner's to place (added 31 Aug 2026).** Nothing in
+  this product currently reports that it is broken; this outage was found only because the owner happened
+  to open the app on day four. The specific shape of this failure is what makes the obvious cheap answer
+  wrong: **a logged-out visitor saw a perfectly healthy site the entire four days**, because the front
+  door, the join screen and the sign-in screen never read a `User` row and so never touched the broken
+  column. Only a signed-in member hit the error. **A monitor that merely pings the site and checks for a
+  response would have read green for all four days** and bought nothing here. Whatever gets built has to
+  exercise a path that requires a session, or watch for runtime errors directly, rather than checking for
+  availability alone. Not designed and not estimated here, on purpose: the owner ranks his own queue, and
+  this joins it behind the three items he already ordered (the digest, done; the message-latency fix,
+  next; the web-push-versus-native-shell brainstorm, third), unranked among them and his to place.
