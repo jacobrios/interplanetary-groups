@@ -5933,27 +5933,36 @@ new idea, and the proposals sweep closes votes that are moot as well as expired.
 that names one of a job's five behaviours is not a shorter true sentence, it is a different
 and false one.
 
-**Postscript, 31 August 2026: the machine-level rules now have a public home, and it created
-three triggers.** `ai-build-process` was built the same day as a public, curated subset of the
-private `~/.claude` configuration backup: the standing rules, the record of why each exists,
-the hooks that mechanically block a tool call, the project templates and the two checklists.
-Thirty files, `settings.json` deliberately excluded because it profiles other projects (their
-deploy URLs, how their secrets are held, which branches nothing protects), which is an
-operational map rather than a credential but still not this artifact's to publish.
+**Postscript, 31 August 2026: the machine-level rules now have a public home.**
+`github.com/jacobrios/ai-build-process` went up the same day, public, as a curated subset of
+the private `~/.claude` configuration backup: the standing rules, the record of why each
+exists, the hooks that mechanically block a tool call, the project templates and the two
+checklists. The top-level `settings.json` is deliberately not mirrored, because it profiles
+other projects (their deploy URLs, how their secrets are held, which branches nothing
+protects), which is an operational map rather than a credential but still not this artifact's
+to publish. *(No file count here on purpose: the entry two paragraphs into CLAUDE.md's queue
+notes had just finished saying that a count inside a note is a fact about a day, and the
+mirrored set and the repo's tracked set are two different numbers anyway.)*
 
-**The design decision worth carrying, because it is the same failure this whole slice was
-about.** A curated public copy of a private file goes stale the moment the private one is
-edited, silently, and a stale copy of a document whose entire claim is "these are the rules I
-actually work under" is worse than no copy. So it is **generated rather than hand-maintained**:
+**The design decision worth carrying, because it is the same failure this slice was about.**
+A curated public copy of a private file goes stale the moment the private one is edited,
+silently, and a stale copy of a document whose entire claim is "these are the rules I actually
+work under" is worse than no copy. So it is **generated rather than hand-maintained**:
 `tools/sync-from-source.mjs` mirrors the tracked file set, propagates deletions so a rule
 removed upstream cannot survive in the public copy, and never rewrites file contents, which is
-what lets machine paths stay true instead of being edited into something plausible. It was
-proved by tampering rather than by reading: a modified file and an orphaned file were both
-detected and repaired, and `--check` exits nonzero when the mirror is behind. It earned itself
-within the hour, catching two edits the owner made to his own rules mid-session.
+what lets machine paths stay true instead of being edited into something plausible. **It
+earned itself immediately**, catching two edits to the working rules that were made between
+the repo's first commit and its second, which would otherwise have shipped a public copy that
+was already behind.
 
-**The three triggers this created are in CLAUDE.md** rather than here, because each is a rule
-about what must change when something happens rather than a piece of reasoning. Two of them are
-cross-repository, and one of those is recorded on this side deliberately: when this repo goes
-public, a clause in the other repo's README stops being true, and nothing in that repo can
-observe this repo's visibility.
+**What is honest about that claim, and what is not.** The script was exercised by tampering
+during the build, a modified file and an orphaned file, and both were detected and repaired.
+**That run left no artifact.** There is no test for the sync script in either repo and nothing
+recording the tamper check, so the only evidence a future reader can reach is the mechanism
+itself and this sentence. By this project's own standard that is an admitted gap rather than a
+proof, and a test for it belongs in whichever change next touches that script.
+
+**The trigger this created is in CLAUDE.md** rather than here, because it is a rule about what
+must change when something happens rather than a piece of reasoning. It is recorded on this
+side deliberately: when this repo goes public, a clause in the other repo's README stops being
+true, and nothing in that repo can observe this repo's visibility.
