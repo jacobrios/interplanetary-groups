@@ -15,9 +15,6 @@
 
 export interface FrontDoorMembership {
   groupId: string
-  // Unused by resolveFrontDoor itself now; kept on the shape because Task 2's
-  // list-ordering function needs it and callers already have it on hand.
-  joinedAt: Date
 }
 
 export type FrontDoorDestination =

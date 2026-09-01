@@ -31,7 +31,7 @@ export default async function HomePage() {
   const memberships = viewer
     ? await prisma.membership.findMany({
         where: { userId: viewer.id },
-        select: { groupId: true, joinedAt: true },
+        select: { groupId: true },
       })
     : []
 

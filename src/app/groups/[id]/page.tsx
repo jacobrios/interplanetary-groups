@@ -282,8 +282,11 @@ export default async function GroupPage({ params }: Props) {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       {/* Grammar per §7: Orbit logo top-left is the home button; the group
           title plus chevron opens group info (which carries the invite
-          link). The logo is a real link as of the navigation slice, now
-          that "/" exists to send it to.
+          link). The logo points straight at /groups rather than "/",
+          because "/" sends a one-group member right back into the group
+          they are already looking at, doing nothing; tapping the logo is
+          an explicit "show me my groups" and should show the list every
+          time, regardless of how many groups the viewer has.
 
           The content is its own component (GroupHomeHeader, visual-polish
           Task 4) rather than PageHeader arranging it: PageHeader owns the
