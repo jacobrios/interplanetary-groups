@@ -48,7 +48,15 @@ export function YourGroupsScreen({
           display: "flex",
           alignItems: "center",
           gap: 11,
-          padding: "6px 0 10px",
+          // 0.875rem top, matching PageHeader's own top padding rather than
+          // the design board's 6px. Every other screen in the product wears
+          // its header through PageHeader, so 6px here read as this one screen
+          // sitting too close to the top edge (owner's phone pass, 1 Sept
+          // 2026). This screen does not use PageHeader itself: that component
+          // is sticky and pads 1rem horizontally, which would misalign the
+          // Orbit mark against this screen's own 20px gutter and the rows
+          // beneath it. So the value is matched, not the component.
+          padding: "0.875rem 0 10px",
         }}
       >
         <OrbitMark size={28} />
