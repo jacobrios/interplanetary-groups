@@ -35,6 +35,7 @@ import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import SeenMarker from "./SeenMarker"
+import { applySettledSends } from "@/lib/messages/optimistic-display"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
 interface Props {
@@ -78,44 +79,52 @@ export default function GroupHome({
   const [inputValue, setInputValue] = useState("")
   const [, startTransition] = useTransition()
 
-  // ORBIT DOES NOT GET A TRANSITION, AND THAT IS THE LOAD-BEARING RULE HERE.
-  // (message-send-latency slice, 31 Aug 2026.)
+  // ORBIT'S READ RUNS WITH NO TRANSITION OF ITS OWN, AND THAT IS NOT WHAT FIXED
+  // THE SLOW SEND. Both halves matter. (message-send-latency slice, 31 Aug 2026.)
   //
-  // There used to be a second useTransition on this line for Orbit's read, with
-  // a comment saying its pending flag was "deliberately dropped on the floor",
-  // never reached ChatInput's `disabled`, and that this was "the whole
-  // architecture of this slice". The claim was false from the day it was
-  // written, and the mechanism is not the one anybody assumed.
+  // There used to be a second useTransition here, with a comment saying its
+  // pending flag was "deliberately dropped on the floor", never reached
+  // ChatInput's `disabled`, and that this was "the whole architecture of this
+  // slice". That claim was false, and every attempt to fix it by reasoning
+  // about transition scope was ALSO false. The record of that is kept here
+  // because the wrong explanations are more useful than the right one to
+  // whoever touches this next.
   //
-  // useOptimistic holds its optimistic entry while ANY transition in the same
-  // component is pending, not merely the transition that set it. So simply
-  // having a second transition running here was enough to keep the member's own
-  // message rendering at MessageFeed's 0.65 "not sent yet" opacity for the
-  // entire length of Orbit's model call. Where the call was dispatched from
-  // never mattered. Measured on a local production build: the message appeared
-  // in 6-19ms and only turned solid at 5034-6484ms, exactly when Orbit
-  // finished. Worse, once revalidation delivered the real row the member saw
-  // their message twice, the confirmed copy solid and the optimistic one greyed
-  // beneath it.
+  // The symptom: the member's own message rendered at MessageFeed's 0.65
+  // "not sent yet" opacity for the entire length of Orbit's model call.
+  // Measured on a local production build: on screen in 6-19ms, solid only at
+  // 5034-6484ms, tracking the end of Orbit's request rather than the send's.
   //
-  // Two fixes were tried and measured before this one. Moving the dispatch
-  // outside the transition scope (a promise chain registered in handleSubmit)
-  // changed nothing. Moving it into an effect, so it ran after commit, changed
-  // nothing either. Only removing the transition worked, which is what
-  // identified the real cause. A diagnostic test drove each attempt; the
-  // surviving form of it is GroupHome.test.tsx's "releases the optimistic entry
-  // the moment the send lands".
+  // Three things were tried, each measured in a browser rather than reasoned
+  // about, and the first two changed NOTHING:
+  //   1. Dispatching Orbit from a promise chain registered outside every
+  //      transition.
+  //   2. Dispatching it from an effect, so it ran after the send's commit.
+  //   3. Removing its useTransition entirely.
+  // A component test said (3) worked. The browser said it did not: still solid
+  // at ~6300ms. That test had been passing against MOCKED actions, which is
+  // exactly what hid the real cause, and it was deleted rather than kept.
   //
-  // So: do not wrap the detection call below in startTransition, and do not add
-  // another useTransition to this component while the optimistic feed lives
-  // here. Either one silently greys out every member's message again, with no
-  // test failing anywhere except that one.
+  // The real cause, established by switching Orbit's dispatch off at runtime
+  // and re-measuring: solid dropped to 2877-3217ms, each landing ~10ms after
+  // the send's own request ended. Next dispatches EVERY server action inside a
+  // router-level transition, and useOptimistic holds its entry until all of
+  // those settle. So merely calling detectIntentAction holds the entry, with or
+  // without a useTransition around it. It is not escapable from this side.
+  //
+  // Hence the actual fix, which stops fighting the framework: the entry is
+  // released whenever React likes, and separately stops being DRAWN as sending
+  // the moment the send's own promise resolves. See settledSends below and
+  // src/lib/messages/optimistic-display.ts.
+  //
+  // The transition is still not restored here, on its own merit: it bought
+  // nothing and its pending flag was already unused. But do not re-add it
+  // believing it fixes anything, and do not delete settledSends believing the
+  // absence of a transition is what keeps the message solid. It is not.
   //
   // The departure this represents, named rather than hidden: SeenMarker.tsx
   // follows the Next.js guidance to wrap a server action called from an effect
-  // in startTransition, and this does not. It cannot, for the reason above.
-  // SeenMarker is unaffected because it holds its own transition in its own
-  // component and fires once on mount, never while a send is in flight.
+  // in startTransition, and this does not.
   //
   // Best-effort by design: closing the tab in that beat means Orbit never
   // answers. It fails quietly rather than wrongly.
@@ -128,6 +137,22 @@ export default function GroupHome({
   // Supplies the optimistic entry's React key. See the note at its use site for
   // why a counter replaced Date.now() here.
   const nextOptimisticId = useRef(0)
+
+  // Optimistic entries whose send has already landed. See
+  // src/lib/messages/optimistic-display.ts for the whole reasoning; the short
+  // version is that useOptimistic decides when to RELEASE an entry, and that is
+  // not the same moment the server got the message, so this decides separately
+  // when it stops being drawn as "sending".
+  const [settledSends, setSettledSends] = useState<string[]>([])
+  const displayMessages = applySettledSends(optimisticMessages, settledSends)
+
+  // Nothing is in flight any more, so the ids are dead weight. Cleared rather
+  // than left to grow for the life of the tab.
+  useEffect(() => {
+    if (settledSends.length > 0 && !optimisticMessages.some((m) => m.isPending)) {
+      setSettledSends([])
+    }
+  }, [optimisticMessages, settledSends])
 
   // Messages waiting to be handed to Orbit.
   //
@@ -188,12 +213,14 @@ export default function GroupHome({
     setInputValue("")
     setErrorMsg(null)
 
-    // This transition owns the optimistic entry and nothing else. It must end
-    // when the send ends, which is why the only thing awaited inside it is the
-    // send itself. Orbit is queued for later, never started here.
+    // Started outside the transition so the same promise can be observed twice:
+    // once by the transition that owns the optimistic entry, and once by the
+    // plain callback below that decides when the entry stops LOOKING unsent.
+    const sending = sendMessageAction({}, formData)
+
     startTransition(async () => {
       addOptimisticMessage(optimistic)
-      const result = await sendMessageAction({}, formData)
+      const result = await sending
       if (result?.errors?.general) {
         setErrorMsg(result.errors.general)
         // useOptimistic auto-reverts to initialMessages once the transition
@@ -202,6 +229,21 @@ export default function GroupHome({
       }
       if (result?.messageId) enqueueDetection(result.messageId)
     })
+
+    // The send has landed: the server has this message, whatever React is still
+    // holding. Marked from OUTSIDE the transition on purpose, so this is an
+    // urgent update that lands now rather than a transition update that would
+    // wait for the very thing being worked around.
+    //
+    // A failed send is deliberately NOT marked. It keeps reading as unsent and
+    // then disappears with the error, which is the hard rule this component has
+    // always held: a silently-sent-but-failed message is never left.
+    void sending
+      .then((result) => {
+        if (result?.errors?.general) return
+        setSettledSends((ids) => [...ids, optimistic.id])
+      })
+      .catch(() => null)
   }
 
   const canPost = viewerId !== null && viewerName !== null
@@ -219,7 +261,7 @@ export default function GroupHome({
 
       {/* Scrollable feed */}
       <MessageFeed
-        messages={optimisticMessages}
+        messages={displayMessages}
         viewerId={viewerId}
         timeZone={timeZone}
         gauges={gauges}

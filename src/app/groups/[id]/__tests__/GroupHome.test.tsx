@@ -17,6 +17,25 @@
 // detectIntentAction is a DEFERRED promise the test resolves by hand, which is
 // what turns "the send is done but Orbit is not" into an observable state
 // instead of a race.
+//
+// WHAT THIS FILE CANNOT SEE, AND WHY THAT IS WRITTEN HERE RATHER THAN LEARNED
+// AGAIN THE HARD WAY. These mocks are plain async functions. A real server
+// action is not: Next dispatches it inside a router-level transition, and
+// useOptimistic holds its optimistic entry until every such transition settles.
+// That is the actual reason a member's own message stayed greyed for the length
+// of Orbit's model call, and NO test in this environment can reproduce it.
+//
+// This was not theoretical. An earlier version of this file carried a test
+// asserting the optimistic entry was released as soon as the send landed. It
+// passed, while the browser showed the message still greying for six seconds.
+// It was deleted rather than kept, because a green test that cannot see the bug
+// is worse than no test at all.
+//
+// So: the timing claims in this slice are held by browser measurement against a
+// local production build (build-notes §11), never by this file. What lives here
+// are the contracts that do survive mocking: the input is never disabled, Orbit
+// is still called with the right id, the Orbit-down note still reaches the
+// sender, a second send is accepted, and two sends never collide on a key.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent, waitFor, act } from "@testing-library/react"
@@ -188,29 +207,6 @@ describe("GroupHome: the send interaction", () => {
     // of their message, reading as sent.
     expect(detectMock).toHaveBeenCalled()
     expect(bubbleOpacities("is this sent yet")).toEqual([1])
-
-    await act(async () => {
-      orbit.resolve({ status: "quiet" })
-    })
-  })
-
-  it("releases the optimistic entry the moment the send lands, with no revalidation needed", async () => {
-    // The sharpest form of the un-entanglement, and the shape that found the
-    // real root cause. initialMessages stays empty and nothing is rerendered,
-    // so the ONLY thing that can put a bubble on screen is the optimistic
-    // entry. If the send's transition has settled, useOptimistic has reverted
-    // to that empty base and the bubble is gone.
-    //
-    // Before the fix this read 1 while Orbit was still working and dropped to
-    // 0 the instant Orbit finished, which is what proved the two were joined.
-    const orbit = deferred<DetectIntentResult>()
-    detectMock.mockImplementation(() => orbit.promise)
-
-    renderHome([])
-    await send("probe")
-
-    expect(detectMock).toHaveBeenCalled()
-    expect(screen.queryAllByText("probe")).toHaveLength(0)
 
     await act(async () => {
       orbit.resolve({ status: "quiet" })
