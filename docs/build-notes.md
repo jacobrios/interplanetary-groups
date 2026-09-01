@@ -6307,8 +6307,12 @@ A logged-out visitor saw a perfectly healthy site for all four days of the Augus
 uptime ping would have read green throughout and bought nothing. The fault line is narrower than
 signed-in versus signed-out: it is **reading a whole `User` row**. `getCurrentUser()` asks the
 database for every column on that table and its no-session guard sits before the call, so a
-visitor never touches it and a member touches it on every page. Four other places issue the same
-unselected query independently. **One probe covers all five**, and the consequence that makes this
+visitor never touches it and a member touches it on every page. ~~Four other places issue the same
+unselected query independently. **One probe covers all five**~~ (corrected 1 September 2026, whole-branch
+review: **twelve** other places do, not four, so the probe covers thirteen call sites rather than
+five, and the case for it is stronger than this entry claimed. The full re-derived list, the grep
+that produces it, and a wrong file path that travelled with the undercount are in the postscript
+at the end of this entry), and the consequence that makes this
 slice small is that catching this needs no session and no browser, only the same reads. The probe
 therefore takes no `select`, and the code says so in capitals, because adding one would silently
 disable the only thing here that would have caught the outage.
@@ -6336,8 +6340,11 @@ kept. The evidence here is `npm run qa:health` against a real database instead.
 **The proof, and its accepted limit.** `npm run qa:health` against dev-test prints verdict
 HEALTHY, having run `user_row`, `membership_row` and `group_home_data` with nothing skipped.
 `npm run qa:health -- --break` points the probes at a closed port and prints verdict BROKEN, step
-`user_row`, detail beginning `PrismaClientKnownRequestError: ... Can't reach database server at
-127.0.0.1:1`. **That is a closer proof than the design document promised**, which conceded only "a
+`user_row`, ~~detail beginning `PrismaClientKnownRequestError: ... Can't reach database server at
+127.0.0.1:1`~~ (corrected 1 September 2026, whole-branch review: **that quote was never the string
+this branch sent.** The real one was cut mid-host at `127.0.0.1:` and the ellipsis hid 459
+characters of code frame. The fix in the postscript below changed the string again, so it is
+re-quoted there from a fresh run rather than patched by hand here). **That is a closer proof than the design document promised**, which conceded only "a
 connection error, not `P2022`": it is the same error class the real outage produced. It is still
 **not the same error code**, so the honest claim is that a broken database is caught and reported
 correctly, not that a missing column specifically is. Closing that gap fully would mean damaging a
@@ -6370,3 +6377,107 @@ that never happened.** Nothing in this slice has been seen working in production
 ever reached the owner's inbox. And until `HEALTH_HEARTBEAT_URL` is set in Vercel (after-launch
 item 12), `reportHealth` returns `not_configured`, logs one line and sends nothing, so the product
 is exactly as blind as it was before this merged.
+
+---
+
+### Postscript, 1 September 2026: what the whole-branch review changed before the PR
+
+*Five tasks were already built and individually reviewed when a review of the branch as a whole
+found four things. One of them was a real defect in the product's own alarm; the rest are records
+that read more confidently than the code deserved.*
+
+**The alarm's message was nearly useless, and it looked fine.** `describeError` ended in
+`.slice(0, DETAIL_MAX)`, which keeps the FRONT of the string. A Prisma error's front is a code
+frame: the error class, an "Invalid `client.user.findFirst()` invocation in" line, an absolute
+file path, a blank line, and four quoted lines of `check.ts`'s own comments. Measured on the real
+`--break` output, **459 of the 500 characters were that preamble**, leaving 41 for the actual
+cause, and the cause was cut one character short. For the real missing-column error the surviving
+text would have read "The column `User.digestOptOutAt` does not", clearing the boundary by about
+nine characters **purely by luck**, because the comment lines above happened to be that length.
+Anyone editing those comments, a longer production file path, or a minified server chunk would
+have pushed the diagnosis off the end entirely, and the owner's 3am incident would have carried a
+file path and three lines of his own comments. Two changes fixed it. The error's `code` is now
+surfaced immediately after the class name (`PrismaClientKnownRequestError [P2022]: ...`), read
+defensively by narrowing an `unknown` rather than casting, because a code is short, is the single
+most diagnostic thing in a Prisma error, and is structurally incapable of carrying a row value,
+so it clears the privacy boundary this function exists to be. And truncation now keeps **both
+ends**, cutting the middle and marking it, so the cause survives however long the preamble grows.
+The comment above it says why, because the next person to read that line will otherwise see an
+ordinary-looking `slice` and simplify it back.
+
+**What the fix is worth, in one line each.** Before: `PrismaClientKnownRequestError: ` then 459
+characters of preamble, ending mid-host at `Can't reach database server at 127.0.0.1:`. After, and
+this is quoted from a fresh run rather than edited by hand: `PrismaClientKnownRequestError
+[P1001]: ` then the code frame, then ` [...] ` where the middle was cut, then the frame's last
+lines and `Can't reach database server at 127.0.0.1:1`. The fault code is now the second thing the
+owner reads and the cause is intact.
+
+**The existing 500-character assertion still holds exactly, and that was checked rather than
+assumed.** The scheme keeps `ceil(keep/2)` from the head and the remainder from the tail around a
+seven-character marker, so a trimmed string still lands at exactly `DETAIL_MAX`. The old test was
+therefore left alone rather than loosened.
+
+**Three tests, and the third one is the honest note.** An error carrying a Prisma-shaped `code`
+surfaces it; a long message keeps recognisable text from both ends and stays within the budget.
+Both failed first, against the real old code, for the real reason. The third pins the no-code
+format exactly as it was, and **it could not fail against the old code, because it describes the
+old code**. Rather than let a green tick stand for nothing, it was run against a deliberately
+naive implementation that always emitted brackets, where it failed with `expected 'TypeError []:
+nope' to be 'TypeError: nope'`. A guard whose failure mode lives in the future still has to be
+shown failing at something.
+
+**The checklist's list of what it does not cover reads exhaustive and is not.** The entry above,
+and CLAUDE.md, name two gaps (render bugs, one-bad-group crashes) and hand both to the planned
+Vercel log drain, which invites a future session to believe the whole gap closes the day that
+drain is configured. **Two further classes are covered by neither.** First, **a table the product
+only writes to, or only reads with a `select`, is invisible**: every probe reads a whole row, and
+nothing else column-checks a table. `ContactMethod` is the live example, all three of its reads
+taking a `select` (`src/lib/auth/email-ask.ts:27` and `:57`, `src/lib/digest/run.ts:184`), so a
+missed migration there would break email attach and sign-in while all three probes stayed green.
+Second, **Supabase auth fails soft**: `getCurrentUser()` reads only the `data` half of
+`auth.getUser()` and returns null when the call errors, so a degraded auth service or a rotated
+signing key logs every member out quietly onto the front door or the members-only wall. Nothing
+throws, so no 500 reaches the drain either, and no probe touches Supabase at all. That is a green
+light over a product broken for every member, which is the exact shape of the outage this slice
+exists for. **The uncertainty is carried rather than flattened:** the code path is confident, and
+it is not certain that supabase-js never throws on every auth failure mode, so the second class is
+very likely rather than proven. **No code was written for either.** Adding a Supabase probe widens
+what this slice does and is the owner's call, not a reviewer's, and a probe added on a reviewer's
+initiative is how a checklist grows past the thing it was scoped to.
+
+**Two wrong counted claims, each repeated in three places, which is the pattern worth noticing.**
+The `check.ts` comment, the design document, and this entry all carried the same two errors,
+because the second and third copied the first. **The path:** `rsvp.ts:43` appeared in a list of
+`src/app/actions/*` files, reading as `src/app/actions/rsvp.ts`, which holds no `user.find*` call
+at all; the real site is `src/lib/events/rsvp.ts:43`, inside a transaction. Build-notes line 535
+had this right on 26 August, so the slice document introduced an error the record had already
+avoided. **The count:** "four other call sites" is twelve, so the probe covers thirteen and the
+case for it is stronger than any of the three documents argued. Re-derived with
+`grep -rn 'user\.find' src --include='*.ts' --include='*.tsx'`, then dropping every read taking a
+`select`. **One correction to the review's own list, which is the argument for verifying rather
+than trusting:** it also named `src/lib/email/unsubscribe.ts:36` and `:48`, and both take a
+`select`, so neither is an unselected whole-`User` read and neither is covered by the probe. They
+are examples of the select-only blind spot two paragraphs up instead. `check.ts` now states the
+rule, "every unselected whole-`User` read in the codebase", and keeps the list and the grep only
+as a dated aside, because a number in a comment goes stale the day somebody adds a fourteenth and
+nothing anywhere says so.
+
+**Three limits, recorded rather than fixed, one line each.** `npm run qa:health -- --ping` sends
+to whatever `HEALTH_HEARTBEAT_URL` holds in the local checkout, and nothing checks it is not the
+production monitor: a local `--ping` would send a GREEN heartbeat that suppresses a real
+missing-ping alarm for a whole period, and `--break --ping` would raise a false incident, so the
+script now prints the destination host (never the token in the path) with a warning before it
+sends, which is the one code change in this group. The `client` injection in `realProbes` is
+**partial**: probes 1 and 2 and the direct `client.*` calls honour it, while `findUpcomingEvents`,
+`findLiveGauges`, `findLiveProposals` and `loadEmailAskInputs` reach the module singleton, so
+`--break` works today only because it stops at the first probe, and a future variant skipping
+ahead to `group_home_data` would quietly test the real database. And `runHealthCheck` is awaited
+**unbounded** in the cron route while the heartbeat it feeds has an explicit five-second timeout;
+the consequence is benign, since all four sweeps have already committed and a missing ping is the
+correct alarm for a hung check, but the asymmetry is real and is named here so nobody has to
+rediscover it.
+
+**Tests: 131 files / 1413 tests finishing, green, none skipped**, up from the 1410 this entry
+records above, the three being the `describeError` tests. `npx tsc --noEmit` clean;
+`npx eslint src/lib/health scripts/qa-health.ts` clean. `npm run qa:health` against dev-test still
+prints HEALTHY with all three probes run and nothing skipped.

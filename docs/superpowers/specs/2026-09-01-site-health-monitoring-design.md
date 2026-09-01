@@ -47,6 +47,33 @@ Four other call sites issue the identical unselected `User` query on their own
 (`gauge-vote.ts:73`, `proposal-vote.ts:62`, `proposal-answer.ts:51`, `rsvp.ts:43`), recorded at
 after-launch item 1. **One probe covers all five**, because they are the same query shape.
 
+> **Corrected 1 September 2026, whole-branch review. Both counted claims in the paragraph above
+> are wrong, and they were copied verbatim into `check.ts` and into the §11 entry, so all three
+> said the same wrong thing.**
+>
+> **The path.** `rsvp.ts:43` sits in a list of `src/app/actions/*` files, which reads as
+> `src/app/actions/rsvp.ts`. That file contains no `user.find*` call at all. The real site is
+> **`src/lib/events/rsvp.ts:43`**, inside a transaction. Build-notes line 535 had it right on
+> 26 August; this document got it wrong five days later.
+>
+> **The count.** "Four other call sites" is a large undercount. Re-derived on 1 September 2026
+> with `grep -rn 'user\.find' src --include='*.ts' --include='*.tsx'`, then dropping every read
+> that takes a `select`: there are **twelve** besides `current-user.ts:20`, not four.
+> `src/app/actions/gauge-vote.ts:73`, `proposal-vote.ts:62`, `proposal-answer.ts:51`;
+> `src/lib/auth/email.ts:258` and `:393`; `src/lib/groups/join.ts:45`, `provision.ts:49`,
+> `leave.ts:25`, `remove-member.ts:26`, `reset-invite.ts:27`; `src/lib/gauges/vote.ts:40`;
+> `src/lib/events/rsvp.ts:43`. So the probe covers thirteen call sites, not five, and the case
+> for it is stronger than the document argued, not weaker.
+>
+> One correction to the review's own list, which is why verifying beats trusting: it named
+> `src/lib/email/unsubscribe.ts:36` and `:48` as well. Both take a `select`, so neither is an
+> unselected whole-`User` read and neither is covered by this probe. They belong to the
+> select-only blind spot recorded in CLAUDE.md instead.
+>
+> `check.ts` now states the rule ("every unselected whole-`User` read in the codebase") rather
+> than a number, with the list and the grep kept only as a dated aside, because a number in a
+> comment goes stale the day somebody adds a fourteenth and nothing anywhere says so.
+
 **The consequence that makes this buildable:** detecting this needs no session and no browser.
 It needs the same *reads*.
 
