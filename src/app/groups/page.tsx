@@ -48,13 +48,25 @@ export default async function GroupsPage() {
   const ordered = orderGroupsByRecentlyOpened(memberships)
 
   return (
-    // height, not minHeight: YourGroupsScreen's internal scroll region is
-    // flex: 1 1 auto with minHeight: 0, which can only shrink to fit a
-    // BOUNDED ancestor. minHeight: 100dvh (src/app/page.tsx's pattern) is a
-    // floor, not a bound, so a flex child can't resolve against it and the
-    // list would grow past the viewport instead of scrolling inside it. This
-    // element has to both establish that bound (height) and be the flex
-    // column YourGroupsScreen's own root expects to sit inside.
+    // height, not minHeight: this is what makes YourGroupsScreen's own
+    // scroll region (flex: 1 1 auto, minHeight: 0) actually bounded rather
+    // than merely willing to shrink. minHeight: 100dvh (src/app/page.tsx's
+    // pattern, for a page that scrolls as a whole) is a floor, not a bound
+    // a flex descendant can resolve against, so with minHeight here the
+    // chain below would just grow past the viewport instead.
+    //
+    // The mechanism, confirmed with a standalone browser reproduction during
+    // review rather than assumed: it is default flex-shrink, not flex-grow,
+    // that carries this <main>'s bound down to the scroll region. Nothing
+    // between the two is flex:1-stretched to claim space; instead, once
+    // <main> has a definite height, its single flex-item child —
+    // YourGroupsScreen's own root <div>, which sets no "flex" of its own and
+    // so gets the browser's initial flex-shrink: 1 — is allowed to shrink
+    // below its content size to fit that bound. That shrink cascades one
+    // level further into YourGroupsScreen's minHeight: 0 scroll region,
+    // which is what finally lets it resolve a real pixel height instead of
+    // growing to fit every row, and only then does overflow-y: auto have
+    // anything to act on.
     <main
       style={{
         height: "100dvh",
