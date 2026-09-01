@@ -6329,7 +6329,7 @@ migration. Better Stack owns both problems, so neither lives in our code.
 
 **Why `realProbes` has no tests.** A test for it must mock Prisma, and mocking Prisma removes the
 only thing being checked: whether the real query still matches the real database. The
-message-send-latency slice paid for this lesson eight days earlier, where a component test passed
+message-send-latency slice paid for this lesson the previous day, where a component test passed
 against mocked server actions while the browser disagreed, and that test was deleted rather than
 kept. The evidence here is `npm run qa:health` against a real database instead.
 
