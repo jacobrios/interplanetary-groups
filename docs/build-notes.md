@@ -625,8 +625,17 @@ Seven High-priority items come due at the moment of the first production deploy.
     - **Expected period: 1 hour.** It matches `vercel.json`'s `0 * * * *`. If the cron's schedule ever changes, this changes with it or the monitor starts crying wolf.
     - **Grace period: 20 minutes.** One missed run plus slack for cron drift, so a single late invocation is not an incident.
     - **Email notification: on.** This is the whole point; the owner's inbox is the destination.
-    - **Repeat: every 6 hours while the incident is open.** This is the owner's stated noise budget, and it lives here rather than in code because the app has nowhere to remember what it has already said without a migration.
-    - **Auto-resolve when the heartbeat returns: on.** This is the all-clear, and it is the other half of the reason the noise budget is Better Stack's rather than ours.
+    - ~~**Repeat: every 6 hours while the incident is open.**~~ ~~**Auto-resolve when the heartbeat returns: on.**~~ This is the owner's stated noise budget, and it lives here rather than in code because the app has nowhere to remember what it has already said without a migration; the all-clear is the other half of the same reason.
+
+    > **Corrected 1 September 2026, from the owner's own screen while creating the monitor. Both settings above were written from the design conversation rather than from the dashboard, and neither exists in the form this item claimed.** The behaviour is unchanged; only the description was wrong, which is the kind of error that costs somebody twenty minutes hunting for a checkbox that was never there.
+    >
+    > **Auto-resolve is not a setting at all.** A heartbeat incident resolves when the next heartbeat arrives. That is inherent to what a heartbeat monitor is, not a toggle anyone turns on, so the all-clear was already guaranteed and this line invented a control to explain it.
+    >
+    > **The 6-hour repeat is not its own field either.** It lives in the "If the primary responder doesn't acknowledge the incident" dropdown, which defaults to "Do nothing". Left at the default, an unacknowledged incident notifies once and never again, which is quieter than the owner asked for. **So this one is a real setting to make on the production monitor, and the default is wrong for it.**
+    >
+    > What the create screen does carry, confirmed: the service name, expected period, grace period, the notification channels (Call / SMS / E-mail / Push / Critical alert), that dropdown, a location timezone, a daily maintenance window, and key-value metadata. The throwaway QA monitor was deliberately created with the dropdown left at "Do nothing", because a repeat cadence has no bearing on whether one test incident reaches an inbox.
+    >
+    > **One trap noticed on that screen and not yet settled**, recorded because it fails silently and in the safe-looking direction: the maintenance window defaults to 12:30 PM to 12:30 PM with all seven days selected, and its own label says "We'll ignore all incidents during the daily recurring maintenance window." A zero-length window is the near-certain reading, but a window that swallowed the whole day would suppress every alarm this slice exists to raise, with the dashboard looking perfectly healthy. Whoever creates the production monitor should confirm it rather than assume it.
 
     **The thing a future reader will want and cannot get from the code: the alarm fires in three distinct ways.** A failing probe pings `/fail` and raises the incident immediately with the reason attached. A broken sweep does the same, named `orbit_sweeps`. And nothing arriving at all raises it after the grace period, which is what covers a dead deploy, a stopped cron, and the free-tier database pause. Only the first two are visible in this repo; the third exists entirely in the dashboard, which is exactly why it is recorded here.
 
