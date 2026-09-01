@@ -6105,3 +6105,59 @@ the collected file count dropped 126→122. Any fix must scope to `.claude/workt
 Not fixed here: it belongs to neither piece of work, and the email guard reddening is by CLAUDE.md's
 own rule "a decision to bring to the owner, not a test to adjust". The worktree was stale (its PR
 had already merged as `0fc01f7`) and was removed with the owner's explicit yes.
+
+### Postscript: what the independent review found, and what measuring it settled
+
+Eleven findings. One was a real defect this slice introduced, two were false-green tests,
+two were stale claims in this slice's own documentation, and one turned out to be
+pre-existing on main. Each was checked by running something rather than by reading.
+
+**The defect (finding 1), and it is the reason the review was worth running.** The detect
+queue's drain reset it with a plain `setDetectQueue([])`, discarding anything appended
+between the render and the effect's flush. A second message sent inside that window was
+silently never handed to Orbit: the member sees their message post normally and Orbit
+simply never reads it. The comment directly above that queue claimed it existed to stop
+exactly that, so the code was breaking a guarantee its own comment asserted, which is the
+same failure mode this whole slice exists to correct. Fixed to drop only the drained
+prefix (`queue.slice(draining.length)`; appends only ever happen at the tail). **No test
+covers it**: the interleaving needs a real paint boundary and does not reproduce in jsdom.
+Found by reading, by somebody who was not the author.
+
+**The false greens (findings 2 and 3), measured rather than argued.** With
+`applySettledSends` neutralised entirely, **all six `GroupHome.test.tsx` tests still
+passed**. Not one of them could detect the slice's actual fix being gone, including the one
+named for it. The pure-function tests do catch it (2 of 5 fail), which is why that helper
+was extracted in the first place. The mis-named test was deleted, the second of two on this
+branch. Both had the same cause: mocking a server action strips the router-transition
+behaviour that is the entire subject.
+
+**The stale documentation (findings 2 and 10).** The test file's header and the slice
+document both still asserted the disproven transition-scope cause as fact. The header no
+longer restates it even as history, on the reasoning that a confident wrong mechanism at the
+top of a file is precisely how this component acquired the false comment that hid the bug
+for weeks. The slice document keeps its original text under a dated amendment at its head
+saying plainly that its root cause is wrong; the gap between it and this entry is the record
+worth having.
+
+**Finding 4 is real and is NOT this slice's.** If the send's promise *rejects* (a dropped
+connection, a stale action id after a deploy) rather than resolving with an errors object,
+the rejection escapes the transition: no inline error renders, and the whole group home is
+replaced by the error boundary's "Something broke on our end." The member's typed text is
+already gone, because the input is cleared before the await. Measured on both trees by
+swapping `origin/main`'s `GroupHome.tsx` in and running the same probe: **main gives
+`threw: 'Error: network drop'`, `inline: false`, identical to this branch.** So it is
+pre-existing, unchanged here, and worth its own slice. It was seen live once during this
+slice's measurement, when the local server died mid-send and the screen became the error
+page.
+
+**The other half of #95 (finding 9).** #95 excluded `.claude/worktrees/**` from vitest's
+collection, which is one of two mechanisms. `no-email-address-on-screen.test.tsx` walks the
+filesystem itself, so a vitest exclude has no bearing on it, and a live worktree reddened it
+hours after #95 landed. Fixed here with a repo-relative `NESTED_CHECKOUTS` skip, verified
+red then green with a real worktree on disk the whole time. **The obvious fix is still the
+wrong one**, and for a reason worth stating precisely because the first attempt at this
+comment got it wrong too: adding `.claude` to the basename skip list would be harmless for
+*this* walker (it matches `.ts`, and `.claude/hooks/` holds only `.mjs` and `*.test.ts`, so
+it scans nothing there either way, verified as 0 files) but is exactly what breaks *vitest's*
+collection, where the 126→122 drop was observed. Two mechanisms, one directory, different
+consequences.
