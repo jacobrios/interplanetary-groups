@@ -5507,6 +5507,18 @@ and a stricter policy could in principle bounce mail somebody needs to get back 
 Verified live by lookup after saving. The honest limit: **DMARC removes a penalty, it does not
 build reputation**, which comes only from sending consistently to people who engage.
 
+*Postscript, 1 September 2026: the record started reporting, and it narrows finding 2.* Google's
+first aggregate report arrived (covering 30 Aug, one message, the login-code sender on
+`account.`): **SPF pass, DKIM pass, both aligned, disposition none.** So authentication is not
+what filed the 29 Aug digest as spam, and there is no configuration fix to go looking for; the
+reputation explanation is now the only one standing, and the send-to-one-friend-before-any-group
+rule is still the test that answers it. Two incidental facts worth not re-deriving: **Resend sends
+through Amazon SES** (the source IP is Amazon's and a second `amazonses.com` DKIM signature rides
+alongside our `resend` one), and relaxed alignment is what lets a `account.` send count against
+the root record. These reports arrive roughly daily from each large provider, carry no action
+while `p=none`, and are safe to ignore; they are only worth opening if a sending IP that is not
+Resend's ever appears, which would mean somebody is spoofing the domain.
+
 **4. Gmail shows no unsubscribe control, and the fix is to build the endpoint we declined
 yesterday.** This reverses a decision shipped a day ago, so the reasoning matters more than the
 conclusion. Yesterday's final review measured that `send.ts` advertised `List-Unsubscribe-Post:
