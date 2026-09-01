@@ -631,7 +631,15 @@ Seven High-priority items come due at the moment of the first production deploy.
     >
     > **Auto-resolve is not a setting at all.** A heartbeat incident resolves when the next heartbeat arrives. That is inherent to what a heartbeat monitor is, not a toggle anyone turns on, so the all-clear was already guaranteed and this line invented a control to explain it.
     >
-    > **The 6-hour repeat is not its own field either.** It lives in the "If the primary responder doesn't acknowledge the incident" dropdown, which defaults to "Do nothing". Left at the default, an unacknowledged incident notifies once and never again, which is quieter than the owner asked for. **So this one is a real setting to make on the production monitor, and the default is wrong for it.**
+    > **The 6-hour repeat is not its own field either.** It lives in the "If the primary responder doesn't acknowledge the incident" dropdown, which defaults to "Do nothing". Left at the default, an unacknowledged incident notifies once and never again, which is quieter than the owner asked for. ~~**So this one is a real setting to make on the production monitor, and the default is wrong for it.**~~
+    >
+    > > **Corrected again 1 September 2026, hours later, when the owner opened that dropdown and sent its contents. The sentence struck directly above was wrong, and it was wrong the same way the two settings above it were wrong: written from what the feature ought to offer rather than from the screen.** The dropdown holds exactly five options, and **every one of them escalates to other people**: "Do nothing", "Immediately alert all other team members", and the same within 3, 5, or 10 minutes. It is an on-call escalation ladder for a team, not a re-notify cadence for one person. **On a one-person account every option except the default alerts nobody**, because there are no other team members to alert.
+    > >
+    > > **So there is no six-hour repeat to configure, at any setting, on this plan.** "Do nothing" is correct for the production monitor and for the throwaway alike, and the production monitor is therefore configured **identically** to the QA one. The three lines above about a setting to make and a wrong default should be read as struck, not as a to-do.
+    > >
+    > > **What the owner actually gets, stated plainly because the noise budget was a product decision and this changes it:** one email when an incident opens, one when it resolves, and nothing in between. That is **quieter than the budget he specified** (immediate, then six-hourly, then an all-clear). It was accepted on his call rather than worked around, on the reasoning that his stated fear was an alarm that cries wolf, and one email per outage structurally cannot; the opposite risk, missing that one email, is carried instead, with the incident staying open and visible in the Better Stack dashboard as the backstop. The paid tier and the push-notification channel are the levers if that ever proves wrong.
+    > >
+    > > **The lesson, which is now three-for-three in this one after-launch item and is therefore the item's real content:** every setting recorded here from the design conversation was wrong, and every one was corrected by the owner opening the actual screen. A dashboard's options are not derivable from what the feature does. Do not write a third-party setting into a record until somebody has looked at it.
     >
     > What the create screen does carry, confirmed: the service name, expected period, grace period, the notification channels (Call / SMS / E-mail / Push / Critical alert), that dropdown, a location timezone, a daily maintenance window, and key-value metadata. The throwaway QA monitor was deliberately created with the dropdown left at "Do nothing", because a repeat cadence has no bearing on whether one test incident reaches an inbox.
     >
@@ -6539,7 +6547,15 @@ to whatever `HEALTH_HEARTBEAT_URL` holds in the local checkout, and nothing chec
 production monitor: a local `--ping` would send a GREEN heartbeat that suppresses a real
 missing-ping alarm for a whole period, and `--break --ping` would raise a false incident, so the
 script now prints the destination host (never the token in the path) with a warning before it
-sends, which is the one code change in this group. The `client` injection in `realProbes` is
+sends, which is the one code change in this group. **The standing operational rule that follows
+from it, added 1 September 2026 after the owner asked the right question unprompted: do not leave
+any heartbeat URL sitting in the local `.env` at all.** The warning line is a last check before a
+send, not a reason to keep a live destination on the machine, and the hazard is not only
+`--ping`: hitting `/api/cron/orbit` on a local dev server sends a heartbeat too. A local checkout
+with no value gets `not_configured`, sends nothing, and says so, which is the correct default for
+a machine that is not production. When a local send genuinely needs proving, create a throwaway
+heartbeat, paste it in for the duration, and take it out again. The production URL belongs in
+Vercel's environment variables and nowhere else. The `client` injection in `realProbes` is
 **partial**: probes 1 and 2 and the direct `client.*` calls honour it, while `findUpcomingEvents`,
 `findLiveGauges`, `findLiveProposals` and `loadEmailAskInputs` reach the module singleton, so
 `--break` works today only because it stops at the first probe, and a future variant skipping
