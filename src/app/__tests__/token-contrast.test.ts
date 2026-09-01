@@ -88,9 +88,9 @@ const FAINT_SURFACES = [
   // screen (src/components/YourGroupsScreen.tsx): its "Your groups" eyebrow
   // text (covered by the 4.5:1 arithmetic below) and its create-control
   // border (not text — see the AA_SMALL_TEXT comment above). YourGroupsScreen
-  // sets no background of its own; this surface is INHERITED from Task 4's
-  // page, which doesn't exist yet, so this entry is presently an assumption
-  // to revisit once that page lands.
+  // sets no background of its own; this surface is VERIFIED, not assumed:
+  // src/app/groups/page.tsx (Task 4) is its sole render ancestor and sets
+  // backgroundColor: "var(--surface-base)" on its root <main>.
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
