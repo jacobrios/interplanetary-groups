@@ -67,9 +67,9 @@ The architecture is tools (what Orbit can do) + context/RAG (what Orbit knows) +
 
 ## 6. Notifications & reminders
 
-- **MVP: no web push.** Optional email enables quiet, event-level nudges and digests. Never per-message notifications, at any stage, on any future channel. This traces directly to the founding complaint.
+- **MVP: no web push.** Optional email enables quiet, event-level nudges and digests. ~~Never per-message notifications, at any stage, on any future channel.~~ This traces directly to the founding complaint. **(Amended 1 Sept 2026: too wide. The complaint was *coordination* noise, fifteen "yes I can" messages in five minutes, which Orbit deletes and which must never be pushed on any channel. *Social* chat is what group-first is about and a channel may carry it. Per-message push of member chat is a live post-MVP option. A push channel never loosens how often Orbit itself speaks.)**
 - **Add to calendar is the MVP reminder workaround:** a one-way ICS snapshot; deletions don't sync back and nobody expects them to. Post-MVP: a subscribable per-group calendar feed that auto-updates.
-- *(Verify at build: iOS web push requires PWA home-screen install; platform rules shift.)*
+- *(Verify at build: iOS web push requires PWA home-screen install; platform rules shift.)* **Verified 1 Sept 2026: still required.** Home Screen install only, no iOS version excepted; a Safari tab never qualifies. Safari 18.4's Declarative Web Push drops the service worker on Apple platforms (Android still needs one); iOS 26 made Home Screen sites open as web apps without a manifest. Unconfirmed: reports that iOS expires subscriptions after weeks of inactivity, which would punish low volume specifically.
 
 ## 7. UI, copy & visual language
 
@@ -180,7 +180,7 @@ Launch, not demo (real requirements for a launched product, invisible in a walkt
 - Subscribable per-group calendar feed.
 - Opt-out attendance preferences (the summer-schedule scenario).
 - Join-anomaly flags to the founder.
-- Web push notifications (PWA path), kept judicious regardless of channel.
+- Web push notifications (PWA path), kept judicious regardless of channel. **Weighed and deferred 1 Sept 2026 (§11), not declined:** per-message chat push is wanted eventually and §6 now says why that is consistent. Two to three slices against two users, with no evidence a real group chats enough to justify it. **Trigger: a real group's digest "you missed" counts going regularly non-trivial** (already computed, free to watch).
 - Photo avatars.
 - **(Process, not product) Extract a user-level `~/.claude/CLAUDE.md` at project end.** Lift the portable rules out of this project's CLAUDE.md and §9 process notes into a machine-wide config that applies to every future project: the build-agent working rules (the Karpathy-derived clauses, calibrated to "prescriptive on the what, open on the how"), the Claude Code setup checklist (hooks, Superpowers flow, subagent reviewer, commit-at-verified-states), the code-quality bar (production-readable, built for engineer review), the two verification rules from the timezone slice ("claims about behavior need artifacts, not assertions" and "a passing test is only evidence if it could have failed"), and the communication preferences (no em or en dashes, confidence tags, one terminal command per fenced block). Project-specific things (the seven-model schema, Supabase-auth-only, Orbit) stay at the project level. Test for each rule: "would this be true on my next project too?", and move the yes ones up.
   - **Done (23 July 2026), and the workflow it assumed changed with it.** The user-level `~/.claude/CLAUDE.md` now exists and owns the portable rules: the core operating principles, the ask-and-flag working rules, the slice-and-branch discipline, the setup checklist and safety nets, the two verification rules, and the communication preferences (no dashes, confidence tags). One rule changed on the way up rather than moving unchanged: the old Markdown-only self-merge exception is gone; the user-level rule is now "open a pull request and stop" for every PR, documentation-only ones included. The project CLAUDE.md was rewritten in the same slice (its own §11 entry) to stop restating any of these and to carry only what is true of this project; the "would this be true on my next project too?" test is what sorted them. Do not run this extraction again; it is complete.
@@ -6233,3 +6233,30 @@ at 15s dim, present, no error; at 31s dim, **present**, error shown.
 mechanism made by reading was wrong. Every claim made by measuring held. The audit's stated
 cause, the file's own architecture comment, three attempted fixes, two component tests, and
 now the scope of the rejection fix. Six for six.
+
+---
+
+### The push question, answered (1 Sept 2026)
+
+No rung. Rung 3 breaks the invite link, which is the whole distribution model. Rung 2 adds an
+App Store review of a wrapper plus a download between a texted link and a group. Rung 1 deferred
+on cost, not principle.
+
+**The reframe that mattered:** the owner wanted push for per-message chat, not urgency. Group-first
+means the chat must be worth being in, and a chat nobody is notified about is a dead group.
+**The budget is the argument:** Orbit pushes two or three times per event, replacing fifteen
+coordination messages.
+
+**An objection of mine is retired, recorded so nobody rebuilds it:** I argued rare push lets iOS
+rot the subscription. That holds only for rare push. Per-message push dissolves it.
+
+**The reservation that survives, as a thesis to test:** the founding complaint *was* per-message
+chat notification. The bet is that removing the coordination half leaves something worth an
+interruption. Mute is half the feature, not a checkbox.
+
+**Cost, so nobody re-estimates:** manifest 1-2h (icons exist), install education half a day and
+brand-sensitive, subscriptions a day, send seam half a day, then rules and mute as their own
+slice, plus tests, review, migration, QA.
+
+**Declined:** installability alone (~2h). Installing is the gesture that means "notify me"; an
+installed app that never notifies is worse than a website.
