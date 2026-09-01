@@ -13,16 +13,19 @@ describe("resolveFrontDoor", () => {
     expect(result).toEqual({ kind: "group", groupId: "group-a" })
   })
 
-  it("sends a member of several groups to the most recently joined one", () => {
+  it("sends a member of several groups to the list instead of guessing one", () => {
     const result = resolveFrontDoor([
       { groupId: "older", joinedAt: new Date("2026-06-01T00:00:00Z") },
       { groupId: "newest", joinedAt: new Date("2026-07-20T00:00:00Z") },
       { groupId: "middle", joinedAt: new Date("2026-07-02T00:00:00Z") },
     ])
-    expect(result).toEqual({ kind: "group", groupId: "newest" })
+    expect(result).toEqual({ kind: "groups" })
   })
 
-  it("breaks a joinedAt tie deterministically by group id", () => {
+  it("sends a tied pair to the list too, regardless of input order", () => {
+    // Ordering the list is Task 2's job now, not this function's; this only
+    // guards that resolveFrontDoor itself never lets input order change
+    // which destination kind it picks.
     const sameInstant = new Date("2026-07-20T00:00:00Z")
     const forward = resolveFrontDoor([
       { groupId: "bbb", joinedAt: sameInstant },
@@ -32,7 +35,7 @@ describe("resolveFrontDoor", () => {
       { groupId: "aaa", joinedAt: sameInstant },
       { groupId: "bbb", joinedAt: sameInstant },
     ])
-    expect(forward).toEqual({ kind: "group", groupId: "aaa" })
+    expect(forward).toEqual({ kind: "groups" })
     expect(reversed).toEqual(forward)
   })
 
