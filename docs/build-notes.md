@@ -6078,7 +6078,18 @@ and again after the rebase).
   `revalidatePath`), and every member message costs a full model call even when Orbit then says
   nothing.
 
-### The concurrent-worktree collision, recorded because it will recur
+### The concurrent-worktree collision, and the flakiness beside it
+
+*Postscript, same day, before this branch's PR opened: **both problems described below were fixed on
+main by the owner in a separate session, PR #95**, which scoped the test runner away from
+`.claude/worktrees/**` and raised `hookTimeout` to 30s to match `testTimeout`. This branch was cut
+before that merge and was reading the old config, so it hit both and reported them as open; it has
+since been rebased onto the fix. Two things worth keeping out of that: **the diagnosis below was
+reached independently and agrees with his**, including that the obvious `.claude/**` exclusion is the
+wrong fix; and the suite flakiness this slice observed (two of four full runs failing in DB-backed
+files it never touched) was **the `hookTimeout` gap, not this branch**, which his commit message
+confirms by naming `digest/run` and `orbit/endgame` as the two that failed on "Hook timed out in
+10000ms" while every assertion in them passed. The original entry follows unchanged.*
 
 While a second piece of work had a git worktree at `.claude/worktrees/`, **vitest collected and ran
 its entire suite alongside this one**: 2749 tests where there should be 1374, an exact duplicate,
