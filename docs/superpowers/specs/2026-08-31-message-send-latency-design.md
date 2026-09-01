@@ -5,6 +5,28 @@ after the measurement and before any product code.*
 
 ---
 
+> **AMENDMENT, 31 August 2026, written after the build and left at the top on
+> purpose. THE ROOT CAUSE NAMED BELOW IS WRONG.** This document says the member's
+> message stayed greyed because Orbit's read was dispatched inside the send's
+> transition, and prescribes fixing the dispatch site. Measured in a browser,
+> that was false three times over: dispatching outside every transition changed
+> nothing, dispatching from an effect changed nothing, and removing the
+> `useTransition` changed nothing. A component test said the third one worked and
+> the browser said it did not, because the test mocks the server actions and a
+> real one behaves differently.
+>
+> The actual cause: Next dispatches every server action inside a router-level
+> transition, and `useOptimistic` holds its optimistic entry until all of those
+> settle. Merely calling `detectIntentAction` held it. What shipped instead is
+> that the entry stops being *drawn* as sending when the send's own promise
+> resolves, leaving React to release it whenever it likes.
+>
+> The document is left otherwise unedited, per the append-only rule, because the
+> gap between it and `build-notes.md` §11 is the useful record: this is what
+> careful reasoning about the code produced, and it was wrong.
+
+---
+
 ## For the owner
 
 **Settled, do not relitigate.** The optimistic-update pattern stays. Orbit reads every

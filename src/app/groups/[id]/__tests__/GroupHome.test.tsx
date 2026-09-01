@@ -2,16 +2,12 @@
 //
 // The send interaction's client contract, which is the whole of slice one.
 //
-// What these tests exist to hold, and why they are worth their weight: the
-// comment block in GroupHome.tsx said Orbit's read "never reaches ChatInput's
-// disabled" and called that "the whole architecture of this slice." It was not
-// true. `startDetection` was called from inside `startTransition`'s async
-// callback, so React scoped the two together and the outer transition stayed
-// pending until Orbit's request finished. Measured on a local production build
-// (build-notes §11): the member's own message appeared in 6-19ms at 0.65
-// opacity and only turned solid at 5034-6484ms, exactly when Orbit finished.
-//
-// So the architecture claim now has a test under it rather than a comment.
+// An earlier version of this header explained the slice's latency bug as a
+// transition-scope problem, because that is what the implementer believed at the
+// time. It was wrong, and it is not restated here even as history, because a
+// wrong mechanism written confidently at the top of a test file is exactly how
+// this component acquired the false comment that hid the bug for weeks. The
+// correct mechanism lives in GroupHome.tsx's own block and in build-notes §11.
 //
 // Both server actions are mocked, in the style of RsvpControls.test.tsx.
 // detectIntentAction is a DEFERRED promise the test resolves by hand, which is
@@ -98,44 +94,6 @@ async function send(text: string) {
   })
 }
 
-/** The real message the server would hand back after revalidation. */
-function confirmed(body: string): FeedMessage {
-  return {
-    id: "m1",
-    authorType: MessageAuthor.MEMBER,
-    authorId: "u1",
-    authorName: "Alex",
-    body,
-    createdAt: new Date("2026-08-31T12:00:00Z"),
-  }
-}
-
-/**
- * The rendered opacity of EVERY bubble carrying `text`, in document order.
- * 0.65 is MessageFeed's "not sent yet"; 1 is confirmed. Reading the style the
- * feed actually applies, rather than the isPending flag, keeps this a test of
- * what a member sees.
- *
- * It returns a list rather than one number because the count is half the bug.
- * While the send's transition is still open, useOptimistic layers its
- * optimistic entry on top of the base list, so once revalidation has delivered
- * the real row the member sees their own message TWICE: the confirmed copy at
- * full strength and the optimistic one greyed out beneath it. Asserting a
- * single solid bubble catches both the greying and the duplicate.
- */
-function bubbleOpacities(text: string): number[] {
-  return screen.getAllByText(text).map((leaf) => {
-    let node: HTMLElement | null = leaf as HTMLElement
-    let lowest = 1
-    while (node) {
-      const raw = node.style?.opacity
-      if (raw) lowest = Math.min(lowest, Number(raw))
-      node = node.parentElement
-    }
-    return lowest
-  })
-}
-
 beforeEach(() => {
   // jsdom implements no layout, so it has no scrollIntoView, and MessageFeed
   // calls it on every message change to keep the feed pinned to the bottom.
@@ -172,45 +130,6 @@ describe("GroupHome: the send interaction", () => {
       orbit.resolve({ status: "quiet" })
     })
     expect(input().disabled).toBe(false)
-  })
-
-  it("lets the member's message go solid as soon as the send lands, without waiting for Orbit", async () => {
-    // The un-entanglement itself. Orbit is left thinking for the whole test;
-    // the send has already returned. A member must not be looking at their own
-    // message greyed out while that is true.
-    const orbit = deferred<DetectIntentResult>()
-    detectMock.mockImplementation(() => orbit.promise)
-
-    const view = renderHome([])
-    await send("is this sent yet")
-
-    // Revalidation delivering the real row is what the server does next; the
-    // suite cannot run that round trip, so the prop update stands in for it.
-    await act(async () => {
-      view.rerender(
-        <GroupHome
-          groupId="g1"
-          initialMessages={[confirmed("is this sent yet")]}
-          viewerId="u1"
-          viewerName="Alex"
-          timeZone="America/New_York"
-          gauges={[]}
-          proposals={[]}
-          groupProposals={[]}
-          viewerIsMember
-          emailAsk={null}
-        />
-      )
-    })
-
-    // Orbit is still working. The member must be looking at exactly one copy
-    // of their message, reading as sent.
-    expect(detectMock).toHaveBeenCalled()
-    expect(bubbleOpacities("is this sent yet")).toEqual([1])
-
-    await act(async () => {
-      orbit.resolve({ status: "quiet" })
-    })
   })
 
   it("still hands the message to Orbit, with the id the send returned", async () => {
