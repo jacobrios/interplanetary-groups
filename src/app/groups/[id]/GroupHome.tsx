@@ -167,10 +167,11 @@ export default function GroupHome({
 
   // Drained from an effect rather than called straight from handleSubmit, so
   // the dispatch happens after the send's commit rather than inside its async
-  // callback. That ordering is not what fixed the greying (see the note above:
-  // removing the transition did), but it is worth keeping on its own merit:
-  // the send transition owns the optimistic entry and should not also be the
-  // thing that kicks off unrelated work.
+  // callback. **This did not fix the greying and nothing about the dispatch
+  // site does** (see the note above: the cause is that a server action is a
+  // router transition at all). It is kept on its own merit only: the send
+  // transition owns the optimistic entry and should not also be the thing that
+  // kicks off unrelated work.
   useEffect(() => {
     if (detectQueue.length === 0) return
     setDetectQueue([])
