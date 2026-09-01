@@ -174,8 +174,20 @@ export default function GroupHome({
   // kicks off unrelated work.
   useEffect(() => {
     if (detectQueue.length === 0) return
-    setDetectQueue([])
-    for (const messageId of detectQueue) {
+    const draining = detectQueue
+    // Remove exactly what is being drained, never the whole queue.
+    //
+    // This was `setDetectQueue([])`, which reintroduced the very bug the queue
+    // above exists to prevent, and the comment on that queue was describing a
+    // guarantee its own drain was breaking. `enqueueDetection` appends
+    // functionally, so a second send resolving between this render and this
+    // effect's flush lands in the queue that the plain `[]` then discards. The
+    // member sees their message normally and Orbit never reads it, silently.
+    // Appends only ever happen at the end, so dropping the drained prefix is
+    // enough. Found in independent review, not by a test: the interleaving
+    // needs a real paint boundary and is not reproducible in jsdom.
+    setDetectQueue((queue) => queue.slice(draining.length))
+    for (const messageId of draining) {
       void (async () => {
         // The action is soft on the server; this catch covers the trip itself.
         // Going offline in the beat after sending must leave the message
