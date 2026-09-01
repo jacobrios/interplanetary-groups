@@ -1,9 +1,8 @@
 # Second-group entry point
 
-*Slice document. Written 1 September 2026, before any code and before the design
-rounds have run. The visual build tasks below are deliberately unwritten until
-the Claude Design handoff exists and has been described back; everything above
-them is settled.*
+*Slice document. The front section was written 1 September 2026 before any code
+and before the design rounds ran; the task-by-task half was added the same day,
+after the round 13 handoff was pulled and described back.*
 
 ---
 
@@ -109,10 +108,190 @@ page. A row can carry one with no new data and no new query.
 
 ---
 
-## Task-by-task detail
+# Task-by-task detail
 
-*Held until the Claude Design handoff has been pulled and described back. Writing
-visual tasks before the handoff exists is how a brief starts holding guesses, and
-this project has a standing rule against exactly that. The non-visual tasks (the
-destination logic, its tests, the seed script) are settled above and can be
-written as soon as the owner wants them; the screen itself waits.*
+*Written 1 September 2026, after the round 13 handoff was pulled and described
+back and the owner settled the create treatment. The design is settled; what
+follows is the build.*
+
+## The design, as settled
+
+**Round 12 established the screen**, round 13 settled its one unresolved element,
+and the owner made two calls across them.
+
+**Name only. The emblem is dropped.** The eight-group frame argued against its
+own emblem version honestly: "Climbing Crew" and "Cooking Club" both derive the
+initials CC, so the name does the telling regardless. Eight lime circles under a
+header that already carries a lime Orbit mark also turns a brand moment into list
+decoration. The emblem keeps group info, where it is a single identity moment.
+
+**Create takes V1's position and half of V3a's weight.** Position first: it sits
+*above* the list, in its own section, because the owner missed it entirely at the
+bottom of round 12 and his reading is that negative space between two decisions
+loses the lower one. Weight second, and this is the part that is not on any board:
+V1 as drawn is the round 12 button relocated and *not restyled*, so on its own it
+does not answer the half of the miss that was faintness. V3a's full recipe would
+have, but it fills the button and gives it a row's shadow, which at the top of the
+screen reads as a group you are in. So the build takes the half that does not
+collide: **border stepped from `--hairline` to `--text-faint`, label to weight
+700, background stays transparent.** Every real group is filled; this is not.
+
+**No teal anywhere on this screen, and that is correct rather than a gap.** Teal
+marks actions; this screen's primary interaction is navigation, which is the same
+category as back links and exits, and those are non-teal by rule. The only place
+teal could go here is create, the rarest thing on screen, which would invert the
+hierarchy. Verified rather than asserted: `/signin` already carries zero teal, so
+a teal-free screen is not a first.
+
+**The screen, top to bottom:** Orbit mark in the slot it was tapped from, beside
+the "Interplanetary Groups" wordmark (identity, not navigation, and there is
+nothing to go back to). Then the create control. Then a small tracked "Your
+groups" eyebrow, which fences the list so nothing above the label reads as a
+group. Then the rows: raised fill, hairline border, 14px radius, name at
+`--type-heading` weight 800, no chevron, nothing else. A pill-shaped create
+against rectangular rows is the second thing keeping the two apart.
+
+## Decisions the handoff does not hold, settled here
+
+- **List order: most recently opened first.** `Membership.lastSeenAt`, already
+  written by `markGroupSeen`, descending, with never-opened groups after opened
+  ones, then `joinedAt` descending, then `groupId` for a stable tie-break. The
+  design shows names in no particular order and with eight rows the order is the
+  screen. Recorded as this slice's call, not the design's.
+- **Zero groups at `/groups` redirects to `/`.** Unreachable by tapping Orbit,
+  but reachable by typing, and an empty list with a create button is a worse
+  answer than the front door's own pitch.
+- **The scroll fade appears when the list actually overflows**, never at a row
+  count. The board applies it by hand and its prose says "past roughly seven
+  rows"; seven is not a condition a computer can evaluate, and at large device
+  text three rows already fill the screen. A count would lie in both directions.
+- **`text-wrap: balance` is taken for row names only.** The round 13 README calls
+  it system-wide going forward; that is a design-system intention, not this
+  slice's mandate, and widening it is out of lane.
+
+## Tasks
+
+### 1. Teach the destination logic about the list
+
+Tests first, extending `src/lib/nav/__tests__/front-door.test.ts`, which already
+covers none / one / several / tie-break / no-mutation.
+
+`resolveFrontDoor` currently answers one question and must answer it differently:
+several memberships stop resolving to a guessed group and resolve to the list.
+Add a `{ kind: "groups" }` destination. The existing "most recently joined" sort
+does not survive as the answer for several, but the tie-break discipline it
+carries does, so read it before deleting it.
+
+Watch for, and flag in review rather than solving quietly: this function is now
+close to answering two questions (where do I land, what is in the list). If the
+ordering lands here it should be its own exported function, not a flag on this
+one.
+
+**Verification:** the extended test file passes, and the previously passing
+"several groups" case is *changed* rather than added to, so it fails first
+against the old behavior. Show it failing.
+
+### 2. The ordering function
+
+New, its own unit, tests first: takes memberships carrying `lastSeenAt`,
+`joinedAt` and `groupId`, returns them ordered per the rule above. Cases: all
+opened, none opened, a mix, a `lastSeenAt` tie, a `joinedAt` tie inside it, and
+non-mutation of the input array (the existing file establishes that habit).
+
+### 3. The list component
+
+A shared component under `src/components/`, because the repo can test components
+and cannot test server-rendered screens, and this is the part worth a test.
+
+Rows are real links to `/groups/[id]`, never divs with a click handler. Name only,
+`--type-heading` weight 800, `text-wrap: balance`, wrapping rather than clipping
+at any device text size. The create control is a link to `/create` styled as
+settled above. Keyboard focus follows whatever the app's existing links do; match
+`GroupHomeHeader` and `BackLink` rather than inventing a treatment.
+
+**Verification:** component test covering a one-group list, a several-group list,
+row hrefs, the create link's href, and that a long name is not truncated. The
+long-name case is the one the design was corrected for; it earns a test.
+
+### 4. The route
+
+`src/app/groups/page.tsx`, a server component. Current user, memberships with the
+group's name, ordered by task 2, rendered by task 3. Zero groups redirects to `/`.
+`redirect()` throws to unwind the render, so it must not sit inside a try/catch;
+`src/app/page.tsx` carries that warning already and the same rule applies here.
+
+Members-only is not a new concern: a person only ever sees groups they belong to,
+because the query is keyed to their own memberships. No wall needed, and no new
+privacy surface. Say so in the PR rather than leaving a reader to wonder.
+
+### 5. Point the Orbit mark at the list
+
+`GroupHomeHeader.tsx`: `href="/"` becomes `href="/groups"`, and the `aria-label`
+stops saying "Home". The label matters more than it looks; the comment in that
+file records that the subline deletion made the aria-label the link's only
+accessible name.
+
+This is the task that repairs the existing defect. Before this, a member of two
+groups tapping the mark either bounced back where they were or was dropped into a
+different group with nothing saying why.
+
+**Leave the dead-end screens alone.** "Take me home" on the not-found and error
+screens still points at `/`, which is correct: those are reachable by someone with
+no groups at all, and `/` is the destination that handles every case.
+
+### 6. The front door's several-groups branch
+
+`src/app/page.tsx` sends the new `groups` destination to `/groups`. One group and
+zero groups are unchanged, which is the whole point of splitting the two
+questions: arriving cold still costs a single-group member nothing.
+
+### 7. QA staging script
+
+`scripts/qa-stage-yourgroups.ts`, following the `qa-stage-*` convention already in
+`scripts/`. It must put one dev-test person into several groups with a spread of
+`lastSeenAt` values including at least one never-opened, and at least one long
+three-word name, because that is the case the design was corrected for.
+
+Additive only: it creates rows, never deletes, because the dev-test database is
+shared with a concurrent session. Run `npm run db:which` before it touches
+anything.
+
+This is not optional tooling. Build-notes records that the several-groups front
+door has **never been seen in a browser** because no dev-test user has ever
+belonged to more than one group. Nothing else in this slice can be honestly
+verified without it.
+
+### 8. Browser pass, then a real-phone pass
+
+Browser first: every state the design draws (one group, several, enough to
+overflow), the Orbit round trip from inside a group and back, the create link, and
+a long name rendering wrapped rather than clipped.
+
+Then the phone, on the machine's LAN address, because this is a new screen in a
+mobile-first project, which is one of the two triggers for that pass. The one
+thing only the phone can answer is the question this whole round was about:
+**is the create control findable.** If the answer is no, the heavier border was
+not enough and that is a finding, not a failure.
+
+Stop the dev server afterwards, whoever started it.
+
+### 9. The record
+
+Build-notes §11 entry, and CLAUDE.md's current-state section updated to say what
+is now true: the Orbit mark is a real home button, the front door no longer
+guesses, and the multi-group home is still out of scope.
+
+CLAUDE.md carries at least two lines this slice makes false, and they must be
+struck rather than left to argue against the build: the several-groups placeholder
+under "Still missing, and known", and the queued "no way into a second group" item.
+The rule is that a slice invalidating a standing line edits it, because the file
+loads every session.
+
+## What this slice does not do
+
+No migration, so no production deploy obligation and no new item on the
+after-launch list. No change to invite links, digest links, or any path that
+points at a specific group. No merging of duplicate identities. And nothing that
+turns this screen into the multi-group home: the scope line in the front section
+is the test, and a row carrying anything about what is *happening* in a group
+fails it.
