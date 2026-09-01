@@ -238,6 +238,42 @@ describe("GroupHome: the send interaction", () => {
     await waitFor(() => expect(screen.getByRole("status")).toBeTruthy())
   })
 
+  it("keeps two same-millisecond sends distinct, so neither is swallowed by a key collision", async () => {
+    // Reachable only because this slice stopped disabling the input. The
+    // optimistic entry was keyed on Date.now() alone, so two sends inside one
+    // millisecond produced two React children with the same key and one of the
+    // messages was dropped from the feed. Fast typing plus a coarse clock is
+    // not exotic; the clock is frozen here to make it deterministic rather
+    // than to make it possible.
+    // Asserted on React's own duplicate-key warning rather than on a missing
+    // bubble, because today both bubbles do still render: React warns that the
+    // behavior "is unsupported and could change in a future version" and
+    // renders them anyway. Waiting for the version where it silently omits one
+    // is not a plan, and the warning is the only signal available now.
+    const frozen = vi.spyOn(Date, "now").mockReturnValue(1_756_600_000_000)
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const first = deferred<SendMessageState>()
+    sendMock.mockImplementation(() => first.promise)
+
+    renderHome([])
+    await send("one")
+    await send("two")
+
+    expect(screen.queryAllByText("one")).toHaveLength(1)
+    expect(screen.queryAllByText("two")).toHaveLength(1)
+
+    const duplicateKeyWarnings = consoleError.mock.calls
+      .map((args) => String(args[0]))
+      .filter((line) => line.includes("same key"))
+    expect(duplicateKeyWarnings).toEqual([])
+
+    consoleError.mockRestore()
+    frozen.mockRestore()
+    await act(async () => {
+      first.resolve({ messageId: "m1" })
+    })
+  })
+
   it("accepts a second message while the first is still in flight", async () => {
     // The behavior the owner chose when he said never disable the input: a
     // member who thinks of something else does not have to wait their turn.

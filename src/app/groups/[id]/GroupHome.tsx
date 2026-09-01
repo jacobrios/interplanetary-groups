@@ -23,7 +23,7 @@
 //
 // A silently-sent-but-failed message is never left — same hard rule as RSVP.
 
-import { useOptimistic, useTransition, useState, useEffect } from "react"
+import { useOptimistic, useTransition, useState, useEffect, useRef } from "react"
 import { sendMessageAction } from "@/app/actions/send-message"
 import { detectIntentAction } from "@/app/actions/detect-intent"
 import { MessageAuthor } from "@prisma/client"
@@ -125,6 +125,10 @@ export default function GroupHome({
   // feed; a page reload drops it just like the condition it describes.
   const [orbitDown, setOrbitDown] = useState<ModelFailureReason | null>(null)
 
+  // Supplies the optimistic entry's React key. See the note at its use site for
+  // why a counter replaced Date.now() here.
+  const nextOptimisticId = useRef(0)
+
   // Messages waiting to be handed to Orbit.
   //
   // A QUEUE RATHER THAN A SINGLE ID, because this slice made two sends in
@@ -165,7 +169,14 @@ export default function GroupHome({
     if (!body || !viewerId || !viewerName) return
 
     const optimistic: FeedMessage = {
-      id: `optimistic-${Date.now()}`,
+      // A counter, not a clock. This used to be `optimistic-${Date.now()}`,
+      // which was fine while the input was disabled for the whole send: a
+      // second message could not exist inside the same millisecond. Now that
+      // the input stays live, fast typing collides, and React's response to a
+      // duplicate key is a warning that the behavior "is unsupported and could
+      // change in a future version" — i.e. it renders both today and reserves
+      // the right to omit one later. The counter removes the question.
+      id: `optimistic-${nextOptimisticId.current++}`,
       authorType: MessageAuthor.MEMBER,
       authorId: viewerId,
       authorName: viewerName,
