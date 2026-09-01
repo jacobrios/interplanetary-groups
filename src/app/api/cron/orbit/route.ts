@@ -1,8 +1,8 @@
 // src/app/api/cron/orbit/route.ts
 //
 // Vercel Cron endpoint for Orbit's scheduled event reconciliation, gauge
-// endgame sweep, group time-change proposal endgame sweep, and the daily
-// digest.
+// endgame sweep, group time-change proposal endgame sweep, the daily digest,
+// and, as a fifth step, its own health report.
 //
 // Vercel invokes this as HTTP GET once per hour (see vercel.json).
 // When CRON_SECRET is set, Vercel automatically sends it as
@@ -25,12 +25,23 @@
 // failure must never cost the results the other three sweeps already
 // produced this hour, the same reasoning reconcile.ts's own per-group
 // try/catch is built on, one level up.
+//
+// The fifth step runs last and reports to Better Stack via reportHealth: it
+// runs the same health probes a signed-in member's own page would exercise
+// (src/lib/health/check.ts), then sends the verdict as a heartbeat regardless
+// of what the sweeps did. A broken data path still answers 200 here, because
+// the cron itself did its job; the alarm is Better Stack's to raise, not an
+// HTTP status code's. When both the data path and the sweeps are broken, the
+// data path is what gets reported: the sweeps failing is downstream of a
+// broken database read and naming them would bury the actual cause.
 
 import type { NextRequest } from "next/server"
 import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 import { runGaugeEndgame } from "@/lib/orbit/endgame"
 import { runProposalEndgame } from "@/lib/proposals/endgame"
 import { runDailyDigest, type DigestRunResult } from "@/lib/digest/run"
+import { runHealthCheck, describeError, type HealthVerdict } from "@/lib/health/check"
+import { reportHealth } from "@/lib/health/heartbeat"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -58,23 +69,47 @@ export async function GET(request: NextRequest): Promise<Response> {
     )
   }
 
-  try {
-    const results = await reconcileScheduledEvents(new Date())
-    const endgame = await runGaugeEndgame(new Date())
-    const proposalEndgame = await runProposalEndgame(new Date())
+  // Declared out here so the heartbeat below can report on them whether or
+  // not the sweeps threw. The Awaited<ReturnType<>> forms mean this file
+  // never has to restate the sweeps' own result shapes.
+  let results: Awaited<ReturnType<typeof reconcileScheduledEvents>> | undefined
+  let endgame: Awaited<ReturnType<typeof runGaugeEndgame>> | undefined
+  let proposalEndgame: Awaited<ReturnType<typeof runProposalEndgame>> | undefined
+  let digest: DigestRunResult[] = []
+  let sweepFailure: string | null = null
 
-    // Own try/catch: a digest bug must never take down the response
-    // carrying the three sweeps above, which already succeeded this hour.
-    let digest: DigestRunResult[] = []
+  try {
+    results = await reconcileScheduledEvents(new Date())
+    endgame = await runGaugeEndgame(new Date())
+    proposalEndgame = await runProposalEndgame(new Date())
+
+    // Own try/catch: a digest bug must never take down the response carrying
+    // the three sweeps above, which already succeeded this hour. It also
+    // deliberately raises no health alarm. The digest is a fail-soft nicety;
+    // its absence is not the site being down.
     try {
       digest = await runDailyDigest(new Date())
     } catch (err) {
       console.error("[orbit-cron] digest step failed:", err)
     }
-
-    return Response.json({ ok: true, results, endgame, proposalEndgame, digest })
   } catch (err) {
+    sweepFailure = describeError(err)
     console.error("[orbit-cron] sweep failed:", err)
-    return new Response("Internal Server Error", { status: 500 })
   }
+
+  const health = await runHealthCheck(new Date())
+
+  // Root cause wins. When the data path is broken the sweeps fail too, so
+  // reporting orbit_sweeps here would name the symptom and bury the cause.
+  const verdict: HealthVerdict = !health.ok
+    ? health
+    : sweepFailure
+      ? { ok: false, failedStep: "orbit_sweeps", detail: sweepFailure }
+      : health
+
+  await reportHealth(verdict)
+
+  if (sweepFailure) return new Response("Internal Server Error", { status: 500 })
+
+  return Response.json({ ok: true, results, endgame, proposalEndgame, digest, health: verdict })
 }
