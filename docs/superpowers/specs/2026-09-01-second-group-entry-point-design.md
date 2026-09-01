@@ -171,7 +171,7 @@ against rectangular rows is the second thing keeping the two apart.
 
 ## Tasks
 
-### 1. Teach the destination logic about the list
+### Task 1: Teach the destination logic about the list
 
 Tests first, extending `src/lib/nav/__tests__/front-door.test.ts`, which already
 covers none / one / several / tie-break / no-mutation.
@@ -191,14 +191,14 @@ one.
 "several groups" case is *changed* rather than added to, so it fails first
 against the old behavior. Show it failing.
 
-### 2. The ordering function
+### Task 2: The ordering function
 
 New, its own unit, tests first: takes memberships carrying `lastSeenAt`,
 `joinedAt` and `groupId`, returns them ordered per the rule above. Cases: all
 opened, none opened, a mix, a `lastSeenAt` tie, a `joinedAt` tie inside it, and
 non-mutation of the input array (the existing file establishes that habit).
 
-### 3. The list component
+### Task 3: The list component
 
 A shared component under `src/components/`, because the repo can test components
 and cannot test server-rendered screens, and this is the part worth a test.
@@ -213,7 +213,7 @@ settled above. Keyboard focus follows whatever the app's existing links do; matc
 row hrefs, the create link's href, and that a long name is not truncated. The
 long-name case is the one the design was corrected for; it earns a test.
 
-### 4. The route
+### Task 4: The route
 
 `src/app/groups/page.tsx`, a server component. Current user, memberships with the
 group's name, ordered by task 2, rendered by task 3. Zero groups redirects to `/`.
@@ -224,7 +224,7 @@ Members-only is not a new concern: a person only ever sees groups they belong to
 because the query is keyed to their own memberships. No wall needed, and no new
 privacy surface. Say so in the PR rather than leaving a reader to wonder.
 
-### 5. Point the Orbit mark at the list
+### Task 5: Point the Orbit mark at the list
 
 `GroupHomeHeader.tsx`: `href="/"` becomes `href="/groups"`, and the `aria-label`
 stops saying "Home". The label matters more than it looks; the comment in that
@@ -239,13 +239,13 @@ different group with nothing saying why.
 screens still points at `/`, which is correct: those are reachable by someone with
 no groups at all, and `/` is the destination that handles every case.
 
-### 6. The front door's several-groups branch
+### Task 6: The front door's several-groups branch
 
 `src/app/page.tsx` sends the new `groups` destination to `/groups`. One group and
 zero groups are unchanged, which is the whole point of splitting the two
 questions: arriving cold still costs a single-group member nothing.
 
-### 7. QA staging script
+### Task 7: QA staging script
 
 `scripts/qa-stage-yourgroups.ts`, following the `qa-stage-*` convention already in
 `scripts/`. It must put one dev-test person into several groups with a spread of
@@ -261,7 +261,7 @@ door has **never been seen in a browser** because no dev-test user has ever
 belonged to more than one group. Nothing else in this slice can be honestly
 verified without it.
 
-### 8. Browser pass, then a real-phone pass
+### Task 8: Browser pass, then a real-phone pass
 
 Browser first: every state the design draws (one group, several, enough to
 overflow), the Orbit round trip from inside a group and back, the create link, and
@@ -275,7 +275,7 @@ not enough and that is a finding, not a failure.
 
 Stop the dev server afterwards, whoever started it.
 
-### 9. The record
+### Task 9: The record
 
 Build-notes §11 entry, and CLAUDE.md's current-state section updated to say what
 is now true: the Orbit mark is a real home button, the front door no longer
