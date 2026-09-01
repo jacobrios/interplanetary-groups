@@ -6305,6 +6305,59 @@ slice, plus tests, review, migration, QA.
 **Declined:** installability alone (~2h). Installing is the gesture that means "notify me"; an
 installed app that never notifies is worse than a website.
 
+
+---
+
+## §11 entry: message send latency, slice two, closed without building (1 September 2026)
+
+*No branch, no code. Recorded because a queued slice was closed and three things were measured that
+would otherwise be re-derived.*
+
+**Closed on the owner's own production measurement.** Three messages on his phone against the live
+site: the first about a second, the next two well under half. Slice two's target was slice one's
+residual ~1.3s, and slice one's own caveat is what killed it: that number came off a laptop ~200ms
+per round trip from the Ohio database, where Vercel sits 5-15ms away. The residual is almost
+entirely round trips (seven identity checks, ~20 database trips), so most of it was the bench, not
+the product. The slow-then-fast shape he felt matches the recorded cold/warm identity-check gap
+(1250ms against 180-330ms), which makes it a confirmation rather than an impression.
+
+**The slice one / slice two split predates any measurement.** It was drawn when the believed cause
+was the audit's "reloads the whole chat history", which slice one disproved. Slice two was then
+whatever was left over, which is a leftover rather than a problem, and nobody ever established that
+it bothered anyone.
+
+**Prompt caching is structurally unavailable here, and it fails silently.** Measured with
+`count_tokens`: Haiku 4.5's minimum cacheable prefix is **4,096 tokens**, the highest of any current
+model; Orbit's stable prefix is **2,078** (2,999 counting the output schema). Below the minimum
+there is no error and no warning, only an unchanged bill. It was recommended from memory as the one
+free lever and measuring killed it, which is slice one's pattern holding again. Both routes to it
+are declined: a pricier model with a lower threshold costs more per token than caching saves, and
+padding the prompt to clear the bar would change Orbit's behaviour and need a full re-bench for a
+rounding error.
+
+**What a message costs, so nobody re-estimates:** 3,479 input tokens for a realistic call (system
+prompt, two upcoming plans, a twenty-message window, the message), roughly 250 out. At $1/$5 per
+MTok that is **$0.0047 a message**, $4.73 per thousand, about $34 a year for one group at 20 a day.
+Input measured exactly; output estimated, and input dominates.
+
+**Left open, and it is the owner's:** 1 September spend was $0.11, roughly ten times what his three
+messages explain (about 1.4 cents). The console's usage-by-hour view separates the two candidates:
+flat across 24 hours is the hourly cron calling the model on nobody's behalf (~$40/yr of waste); a
+single spike is a bench run.
+
+**Requeued rather than closed: the unbounded message query (F-6-2).** Experience, not cost: 112KB
+shipped per render at 500 messages, paid on every refresh, and nothing ever trims it. **Trigger: any
+group crossing 200 messages.** The owner's steer, given ahead of the slice: a bigger cap does not
+help, because the pain is the rare deliberate scroll-back and a bigger cap only moves the wall. A
+small cap (50-100) plus a "load older" control is the version he wants.
+
+**Declined: the cold first message** (~1s, once per person per session). Mechanism unmeasured, and
+the likely fix is paying to keep something permanently awake to save one second once.
+
+**Declined, and worth naming because it sounds easy: gating the per-message model call.** Judging a
+message junk before the model reads it is the knowledge the model exists to produce, and a word
+filter would miss the casual phrasing the 33-case bench protects. It is a cost lever, not a latency
+lever: since slice one the member no longer waits on that call.
 ---
 
 ## §11 entry: site health monitoring, slice one, the checklist (1 September 2026)
