@@ -68,6 +68,17 @@ describe("runHealthCheck", () => {
     if (verdict.ok) throw new Error("unreachable")
     expect(verdict.detail).toContain("just a string")
   })
+
+  it("survives a probe that rejects with a value that cannot even be stringified", async () => {
+    const verdict = await runHealthCheck(new Date(), [
+      { name: "user_row", run: async () => { throw Object.create(null) } },
+    ])
+
+    expect(verdict.ok).toBe(false)
+    if (verdict.ok) throw new Error("unreachable")
+    expect(verdict.failedStep).toBe("user_row")
+    expect(verdict.detail.length).toBeGreaterThan(0)
+  })
 })
 
 describe("describeError", () => {

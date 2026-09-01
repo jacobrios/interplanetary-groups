@@ -47,7 +47,15 @@ const DETAIL_MAX = 500
  */
 export function describeError(err: unknown): string {
   const name = err instanceof Error ? err.constructor.name : typeof err
-  const message = err instanceof Error ? err.message : String(err)
+  let message: string
+  try {
+    message = err instanceof Error ? err.message : String(err)
+  } catch {
+    // A value with no prototype or toString/valueOf/Symbol.toPrimitive throws
+    // during String(). Callers treat this function as total, and a monitor
+    // that throws while describing a failure reports the outage as silence.
+    message = "(a value that could not be converted to text)"
+  }
   return `${name}: ${message}`.slice(0, DETAIL_MAX)
 }
 
