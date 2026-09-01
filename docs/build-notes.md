@@ -639,6 +639,16 @@ Seven High-priority items come due at the moment of the first production deploy.
 
     **The thing a future reader will want and cannot get from the code: the alarm fires in three distinct ways.** A failing probe pings `/fail` and raises the incident immediately with the reason attached. A broken sweep does the same, named `orbit_sweeps`. And nothing arriving at all raises it after the grace period, which is what covers a dead deploy, a stopped cron, and the free-tier database pause. Only the first two are visible in this repo; the third exists entirely in the dashboard, which is exactly why it is recorded here.
 
+    > **Amended 1 September 2026, from the owner's own inbox during QA. "With the reason attached" is true about what we send and misleading about what anyone reads, and the distinction only became visible by looking at the real email.**
+    >
+    > **The notification email carries none of our diagnostic text.** Better Stack's email says the heartbeat's name, `Cause: Reported failure`, and a timestamp. That is the whole body. No step name, no error code, no cause. Anyone who reads only the email knows that something is wrong and nothing about what.
+    >
+    > **The detail is on the incident page, one click away, and it is complete**, verified by the owner opening it: it opens `user_row: PrismaClientKnownRequestError [P1001]:` and closes `Can't reach database server at 127.0.0.1:1`, exactly as composed.
+    >
+    > **So the alarm is two-step by design rather than self-explaining, and that is fine, but it has to be recorded rather than discovered at 3am.** The email's job is to get the owner out of bed; the incident page's job is to say why. Nobody should expect to triage from the inbox alone.
+    >
+    > **One decision this settles, recorded because it was nearly made the other way.** The whole-branch review's I-1 fix made the cause survive truncation, and the next instinct was to also rewrite the detail so it would read well at a glance in the email. That would have been effort spent on a surface the string never reaches. Seen on the real incident page instead, the two things a reader needs sit at the two positions a reader actually looks, the first line and the last, with Prisma's code frame in the middle where the eye skips. **It was left alone deliberately.** The general lesson is the one this project keeps re-learning in new costumes: *judge an output on the surface it lands on, not on the surface you composed it for.*
+
 
 ### Data-foundation slice (18 to 19 June 2026)
 
