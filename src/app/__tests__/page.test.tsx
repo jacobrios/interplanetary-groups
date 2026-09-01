@@ -76,3 +76,33 @@ describe("the front door's ways in for someone who is not starting a group", () 
     expect(screen.queryAllByRole("button")).toHaveLength(0)
   })
 })
+
+// Task 6, second-group-entry-point slice: the front door's other two cases.
+// A member of one group still lands directly inside it, unchanged. A member
+// of several used to fall through to this marketing copy with no test
+// catching it, because resolveFrontDoor's "groups" variant (Task 1) was
+// never wired into this component until now; that was a live regression on
+// this branch. Both cases redirect, so the assertion is on what
+// next/navigation's redirect() was called with, not on rendered output.
+describe("the front door's session-aware redirects", () => {
+  it("sends a one-group visitor straight into that group, with no extra tap", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" })
+    findMany.mockResolvedValue([
+      { groupId: "grp-solo", joinedAt: new Date("2026-06-01T00:00:00Z") },
+    ])
+
+    await expect(HomePage()).rejects.toMatchObject({ to: "/groups/grp-solo" })
+  })
+
+  it("sends a several-group visitor to the group list, not to a guessed group", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" })
+    findMany.mockResolvedValue([
+      { groupId: "grp-alpha", joinedAt: new Date("2026-06-01T00:00:00Z") },
+      { groupId: "grp-beta", joinedAt: new Date("2026-08-20T00:00:00Z") },
+    ])
+
+    // The destination is "/groups" exactly, never "/groups/grp-beta" (the
+    // most-recently-joined guess this slice removed) or any other group id.
+    await expect(HomePage()).rejects.toMatchObject({ to: "/groups" })
+  })
+})
