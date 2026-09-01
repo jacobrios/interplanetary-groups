@@ -6145,8 +6145,13 @@ the rejection escapes the transition: no inline error renders, and the whole gro
 replaced by the error boundary's "Something broke on our end." The member's typed text is
 already gone, because the input is cleared before the await. Measured on both trees by
 swapping `origin/main`'s `GroupHome.tsx` in and running the same probe: **main gives
-`threw: 'Error: network drop'`, `inline: false`, identical to this branch.** So it is
-pre-existing, unchanged here, and worth its own slice. It was seen live once during this
+`threw: 'Error: network drop'`, `inline: false`, identical to this branch.** So it is pre-existing and
+unchanged by the latency work. **Fixed here anyway, by the owner's call**, because this
+slice rewrote that very line and had already put the same `.catch` on the *harmless* branch
+of the same promise while leaving the dangerous one bare. Both consumers now catch and treat
+a null result as a failure. **Verified in the real app rather than only in a test**: on a local
+production build, with `window.fetch` made to reject once, the member gets the inline "Couldn't
+send that, try again.", the feed and the composer survive, and the error screen never appears. It was seen live once during this
 slice's measurement, when the local server died mid-send and the screen became the error
 page.
 
@@ -6161,3 +6166,31 @@ comment got it wrong too: adding `.claude` to the basename skip list would be ha
 it scans nothing there either way, verified as 0 files) but is exactly what breaks *vitest's*
 collection, where the 126→122 drop was observed. Two mechanisms, one directory, different
 consequences.
+
+
+### Two more review outcomes, after the first postscript was written
+
+**Finding 5, the duplicate bubble, was closed rather than accepted.** The first record here
+filed it as debt: identical content, never observed rendering twice across nine sends. The
+reviewer's push-back was not that the risk was underrated but that **the evidence and the
+change pulled in opposite directions**: un-greying the leaked copy made it indistinguishable
+from a real double-post, so the failure mode became rarer *and* silent, and "never observed"
+is thin when paired with "and we removed the way to observe it". A greyed duplicate reads as
+a transient rendering state; two identical solid copies read as a data error, and a member's
+plausible response is to worry or to re-send. The settled record now carries the SERVER id
+the send returned alongside the optimistic one, so the optimistic entry is dropped once its
+confirmed row is present rather than merely un-greyed. Matched on id and never on body text,
+so a member legitimately sending "ok" twice keeps both, which is its own test.
+
+**And the reviewer withdrew its own suggestion, which is worth recording as a rule.** It had
+proposed extracting the queue drain into a pure function so the fix could be tested. On
+challenge it withdrew: the extracted test would be `expect(remainingAfterDrain(["a","b"],
+["a"])).toEqual(["b"])`, which asserts that `slice` slices. **The distinction it drew is the
+useful part.** `applySettledSends` is a genuine derivation, so a pure test has something to
+bite on. The queue bug was not a computation error at all: `slice` was never wrong, the bug
+was the choice of React state-update *form*, a replacement value where a functional updater
+was required. **No pure function can encode that choice, because extracting it is what makes
+the choice disappear.** The honest alternative it named is a source-scanning guard in the
+style of `no-email-address-on-screen.test.tsx` ("every `setDetectQueue` call passes a
+function, never a literal"), and it judged that not worth its weight over two call sites.
+Shipped untested with the comment instead.
