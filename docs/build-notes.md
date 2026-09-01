@@ -617,6 +617,19 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 11. **Nothing else needs setting anywhere, and that is checked rather than assumed.** Recorded so nobody goes hunting on merge day. The digest reads no new environment variable: `RESEND_API_KEY` and `EMAIL_DEV_ALLOWLIST` are items 8 and 9, already done and unchanged; the absolute links in the email body come from `src/lib/site-url.ts`, which reads the host Vercel already sets; the job rides the existing hourly cron behind the existing `CRON_SECRET`, so `vercel.json` is untouched and no second scheduled task exists. **The one thing to know rather than to do:** the hourly cron now carries three sweeps plus one Resend call per emailed member in a single invocation during a group's 8pm hour, so its function duration grows with the number of members holding an address. At today's size this is a note, not a risk.
 
+*Items 12 and 13 added 1 Sept 2026 (site health monitoring, slice one). They are one obligation in two halves, and **neither gates the merge**: no migration is involved, and until both are done the product is exactly as blind as it was before the slice landed. Nothing breaks and nothing is gained. Do 13 first, because it produces the value 12 needs.*
+
+12. **Set `HEALTH_HEARTBEAT_URL` in Vercel's production environment.** The value is the heartbeat URL Better Stack hands over in item 13, set on the Production environment and stored as Secret, matching how `RESEND_API_KEY` is held (item 8). Until it is set, `reportHealth` returns `not_configured`, logs one line saying so, and sends nothing. **This does not gate the merge**, because there is no migration and no code path that fails without it; the only cost of leaving it unset is that the monitoring built in this slice does nothing at all.
+
+13. **Create the heartbeat monitor in Better Stack** (free tier, the owner's existing account). Also does not gate the merge, for the same reason. Settings, and the reasoning for each is why they are written down rather than left to the dashboard:
+    - **Expected period: 1 hour.** It matches `vercel.json`'s `0 * * * *`. If the cron's schedule ever changes, this changes with it or the monitor starts crying wolf.
+    - **Grace period: 20 minutes.** One missed run plus slack for cron drift, so a single late invocation is not an incident.
+    - **Email notification: on.** This is the whole point; the owner's inbox is the destination.
+    - **Repeat: every 6 hours while the incident is open.** This is the owner's stated noise budget, and it lives here rather than in code because the app has nowhere to remember what it has already said without a migration.
+    - **Auto-resolve when the heartbeat returns: on.** This is the all-clear, and it is the other half of the reason the noise budget is Better Stack's rather than ours.
+
+    **The thing a future reader will want and cannot get from the code: the alarm fires in three distinct ways.** A failing probe pings `/fail` and raises the incident immediately with the reason attached. A broken sweep does the same, named `orbit_sweeps`. And nothing arriving at all raises it after the grace period, which is what covers a dead deploy, a stopped cron, and the free-tier database pause. Only the first two are visible in this repo; the third exists entirely in the dashboard, which is exactly why it is recorded here.
+
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -6272,3 +6285,88 @@ slice, plus tests, review, migration, QA.
 
 **Declined:** installability alone (~2h). Installing is the gesture that means "notify me"; an
 installed app that never notifies is worse than a website.
+
+---
+
+## §11 entry: site health monitoring, slice one, the checklist (1 September 2026)
+
+*Branch `claude/site-health-monitoring-cf4b08`. The slice document is
+`docs/superpowers/specs/2026-09-01-site-health-monitoring-design.md`. It comes straight out of
+"the four-day outage nobody could see" above, which is where the incident itself is recorded.*
+
+**What it is, in product terms.** The hourly job Orbit already runs now finishes by checking
+whether the product actually works for a signed-in member, and telling an outside service what it
+found. Healthy pings a Better Stack heartbeat URL. Broken pings the same URL with `/fail` on the
+end and the reason attached, which raises an incident in the owner's dashboard immediately.
+Nothing arriving at all raises one too, after a grace period. Nothing the check does writes
+anything; every probe is a read, which is what makes it safe to run against a database somebody
+else is testing on.
+
+**Why the obvious cheap answer was wrong, which is the reasoning most likely to be re-derived.**
+A logged-out visitor saw a perfectly healthy site for all four days of the August outage, so an
+uptime ping would have read green throughout and bought nothing. The fault line is narrower than
+signed-in versus signed-out: it is **reading a whole `User` row**. `getCurrentUser()` asks the
+database for every column on that table and its no-session guard sits before the call, so a
+visitor never touches it and a member touches it on every page. Four other places issue the same
+unselected query independently. **One probe covers all five**, and the consequence that makes this
+slice small is that catching this needs no session and no browser, only the same reads. The probe
+therefore takes no `select`, and the code says so in capitals, because adding one would silently
+disable the only thing here that would have caught the outage.
+
+**The checklist and the witness, stated once so neither half grows into the other.** The checklist
+covers everything that talks to the database. The Vercel log drain into Better Stack, which is
+dashboard configuration rather than code and comes next, covers everything else: render bugs, a
+crash on one bad group, anything nobody thought of. Pure functions the group home also uses are
+deliberately outside the checklist for exactly that reason; they cannot break from schema drift,
+and the witness sees them when a real member walks into one.
+
+**Why the alarm is Better Stack rather than an email from Orbit.** Two reasons, both load-bearing.
+An alarm that lives inside the thing it is watching goes quiet exactly when that thing dies, and
+quiet is indistinguishable from healthy, which is the four-day outage repeated one level up. And
+the owner's noise budget (tell me immediately, then every six hours, then an automatic all-clear)
+needs somewhere to remember what it has already said, which this app has nowhere to keep without a
+migration. Better Stack owns both problems, so neither lives in our code.
+
+**Why `realProbes` has no tests.** A test for it must mock Prisma, and mocking Prisma removes the
+only thing being checked: whether the real query still matches the real database. The
+message-send-latency slice paid for this lesson eight days earlier, where a component test passed
+against mocked server actions while the browser disagreed, and that test was deleted rather than
+kept. The evidence here is `npm run qa:health` against a real database instead.
+
+**The proof, and its accepted limit.** `npm run qa:health` against dev-test prints verdict
+HEALTHY, having run `user_row`, `membership_row` and `group_home_data` with nothing skipped.
+`npm run qa:health -- --break` points the probes at a closed port and prints verdict BROKEN, step
+`user_row`, detail beginning `PrismaClientKnownRequestError: ... Can't reach database server at
+127.0.0.1:1`. **That is a closer proof than the design document promised**, which conceded only "a
+connection error, not `P2022`": it is the same error class the real outage produced. It is still
+**not the same error code**, so the honest claim is that a broken database is caught and reported
+correctly, not that a missing column specifically is. Closing that gap fully would mean damaging a
+database another worktree is testing against, and reproducing it with raw SQL would redden the
+repo-wide raw-SQL guard, which is by its own rule a decision for the owner rather than a test to
+adjust.
+
+**The free-tier pause, raised and half-answered.** The Supabase project pauses after about a week
+idle, and the hourly cron is what prevents that by accident. This slice **detects** that failure,
+because a paused database stops the heartbeat and the missing ping is itself the alarm. It does
+not **prevent** it; that is a hosting decision and was deliberately not bundled in here.
+
+**The plan's own code carried a bug, and the independent review is what caught it.** `describeError`
+called `String(err)`, which throws on a value with no prototype, so the runner could throw despite
+documenting that it never does, and a monitor that crashes while describing a failure reports the
+outage as silence. Fixed with a guarded coercion and a test proven to fail first. Worth recording
+because the defect was specified in the plan rather than introduced by an implementer, so nothing
+short of a fresh pair of eyes on the finished code would have found it.
+
+**One minor, deferred rather than dropped:** a heartbeat URL carrying a query string would build
+`.../tok?x=1/fail`. Better Stack's documented heartbeat URL never carries one, so this is an
+untested edge rather than a live bug.
+
+**Tests: 128 files / 1388 tests at slice start, green, none skipped; 131 files / 1410 tests
+finishing, green, none skipped.** The plan predicted 1409; the real figure is 1410, because the
+review-caught defect above brought a ninth test with it.
+
+**What is not true yet, stated because this project has been burned by records claiming proofs
+that never happened.** Nothing in this slice has been seen working in production. No incident has
+ever reached the owner's inbox. And until `HEALTH_HEARTBEAT_URL` is set in Vercel (after-launch
+item 12), `reportHealth` returns `not_configured`, logs one line and sends nothing, so the product
+is exactly as blind as it was before this merged.
