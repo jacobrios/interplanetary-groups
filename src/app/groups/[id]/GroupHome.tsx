@@ -23,7 +23,7 @@
 //
 // A silently-sent-but-failed message is never left — same hard rule as RSVP.
 
-import { useOptimistic, useTransition, useState } from "react"
+import { useOptimistic, useTransition, useState, useEffect } from "react"
 import { sendMessageAction } from "@/app/actions/send-message"
 import { detectIntentAction } from "@/app/actions/detect-intent"
 import { MessageAuthor } from "@prisma/client"
@@ -76,24 +76,89 @@ export default function GroupHome({
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
-  // A SECOND transition, for Orbit reading what was just said.
+  // ORBIT DOES NOT GET A TRANSITION, AND THAT IS THE LOAD-BEARING RULE HERE.
+  // (message-send-latency slice, 31 Aug 2026.)
   //
-  // Its pending flag is deliberately dropped on the floor and never reaches
-  // ChatInput's `disabled`. That is the whole architecture of this slice: the
-  // message posts, the input stays live, and Orbit's reply arrives a beat
-  // later on its own. Wiring this flag to the input would lock the keyboard
-  // for two to three seconds on the most-used interaction in the product.
+  // There used to be a second useTransition on this line for Orbit's read, with
+  // a comment saying its pending flag was "deliberately dropped on the floor",
+  // never reached ChatInput's `disabled`, and that this was "the whole
+  // architecture of this slice". The claim was false from the day it was
+  // written, and the mechanism is not the one anybody assumed.
+  //
+  // useOptimistic holds its optimistic entry while ANY transition in the same
+  // component is pending, not merely the transition that set it. So simply
+  // having a second transition running here was enough to keep the member's own
+  // message rendering at MessageFeed's 0.65 "not sent yet" opacity for the
+  // entire length of Orbit's model call. Where the call was dispatched from
+  // never mattered. Measured on a local production build: the message appeared
+  // in 6-19ms and only turned solid at 5034-6484ms, exactly when Orbit
+  // finished. Worse, once revalidation delivered the real row the member saw
+  // their message twice, the confirmed copy solid and the optimistic one greyed
+  // beneath it.
+  //
+  // Two fixes were tried and measured before this one. Moving the dispatch
+  // outside the transition scope (a promise chain registered in handleSubmit)
+  // changed nothing. Moving it into an effect, so it ran after commit, changed
+  // nothing either. Only removing the transition worked, which is what
+  // identified the real cause. A diagnostic test drove each attempt; the
+  // surviving form of it is GroupHome.test.tsx's "releases the optimistic entry
+  // the moment the send lands".
+  //
+  // So: do not wrap the detection call below in startTransition, and do not add
+  // another useTransition to this component while the optimistic feed lives
+  // here. Either one silently greys out every member's message again, with no
+  // test failing anywhere except that one.
+  //
+  // The departure this represents, named rather than hidden: SeenMarker.tsx
+  // follows the Next.js guidance to wrap a server action called from an effect
+  // in startTransition, and this does not. It cannot, for the reason above.
+  // SeenMarker is unaffected because it holds its own transition in its own
+  // component and fires once on mount, never while a send is in flight.
   //
   // Best-effort by design: closing the tab in that beat means Orbit never
   // answers. It fails quietly rather than wrongly.
-  const [, startDetection] = useTransition()
 
   // The one thing the sender is told besides their own message: Orbit could
   // not read it (credits or trouble). Nothing is stored, nothing enters the
   // feed; a page reload drops it just like the condition it describes.
   const [orbitDown, setOrbitDown] = useState<ModelFailureReason | null>(null)
+
+  // Messages waiting to be handed to Orbit.
+  //
+  // A QUEUE RATHER THAN A SINGLE ID, because this slice made two sends in
+  // flight at once a real thing: with the input never disabled, a member can
+  // send again before the first send returns, and a lone id would let the
+  // second overwrite the first inside one commit, dropping a message from
+  // Orbit's view silently.
+  const [detectQueue, setDetectQueue] = useState<string[]>([])
+  const enqueueDetection = (messageId: string) =>
+    setDetectQueue((queue) => [...queue, messageId])
+
+  // Drained from an effect rather than called straight from handleSubmit, so
+  // the dispatch happens after the send's commit rather than inside its async
+  // callback. That ordering is not what fixed the greying (see the note above:
+  // removing the transition did), but it is worth keeping on its own merit:
+  // the send transition owns the optimistic entry and should not also be the
+  // thing that kicks off unrelated work.
+  useEffect(() => {
+    if (detectQueue.length === 0) return
+    setDetectQueue([])
+    for (const messageId of detectQueue) {
+      void (async () => {
+        // The action is soft on the server; this catch covers the trip itself.
+        // Going offline in the beat after sending must leave the message
+        // standing, not surface an error boundary.
+        const detected = await detectIntentAction(messageId).catch(() => null)
+        // The one thing the sender is told: Orbit could not read the message
+        // (credits or trouble). Any successful detection clears a stale note;
+        // a repeat failure keeps it current.
+        if (detected?.status === "unavailable") setOrbitDown(detected.reason)
+        else if (detected) setOrbitDown(null)
+      })()
+    }
+  }, [detectQueue])
 
   function handleSubmit(formData: FormData) {
     const body = (formData.get("body") as string | null)?.trim() ?? ""
@@ -110,8 +175,12 @@ export default function GroupHome({
     }
 
     setInputValue("")
+    setErrorMsg(null)
+
+    // This transition owns the optimistic entry and nothing else. It must end
+    // when the send ends, which is why the only thing awaited inside it is the
+    // send itself. Orbit is queued for later, never started here.
     startTransition(async () => {
-      setErrorMsg(null)
       addOptimisticMessage(optimistic)
       const result = await sendMessageAction({}, formData)
       if (result?.errors?.general) {
@@ -120,23 +189,7 @@ export default function GroupHome({
         // settles with no matching revalidatePath — removing the failed entry.
         return
       }
-
-      // The send has settled. Hand the message to Orbit in its own transition
-      // so this one can finish and release the input.
-      if (result?.messageId) {
-        const messageId = result.messageId
-        startDetection(async () => {
-          // The action is soft on the server; this catch covers the trip
-          // itself. Going offline in the beat after sending must leave the
-          // message standing, not surface an error boundary.
-          const result = await detectIntentAction(messageId).catch(() => null)
-          // The one thing the sender is told: Orbit could not read the
-          // message (credits or trouble). Any successful detection clears a
-          // stale note; a repeat failure keeps it current.
-          if (result?.status === "unavailable") setOrbitDown(result.reason)
-          else if (result) setOrbitDown(null)
-        })
-      }
+      if (result?.messageId) enqueueDetection(result.messageId)
     })
   }
 
@@ -186,7 +239,6 @@ export default function GroupHome({
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            isPending={isPending}
             errorMsg={errorMsg}
           />
         </>
