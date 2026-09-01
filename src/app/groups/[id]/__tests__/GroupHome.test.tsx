@@ -166,6 +166,64 @@ describe("GroupHome: the send interaction", () => {
     process.off("unhandledRejection", onUnhandled)
   })
 
+  it("tells the sender when a send never comes back at all, not only when it fails", async () => {
+    // Found by the owner's phone QA, and it is a DIFFERENT failure from the one
+    // above. Turning WiFi off does not reject the request, it leaves it hanging,
+    // so nothing rejects and nothing resolves. Measured in a production build
+    // with a never-settling fetch: after 25 seconds the member's message was
+    // still at 0.65 opacity with no error anywhere. The earlier rejection test
+    // passed the whole time, because a rejection and a hang are not the same
+    // event.
+    //
+    // 20s is deliberately generous. The cost of the timeout, stated where
+    // somebody might otherwise tune it down: a slow-but-working send on bad
+    // signal can be called failed while it actually lands. That is why the entry
+    // is left in the feed rather than removed (owner's call): dim already means
+    // "not sent", and deleting a message that did reach the server is the worse
+    // of the two mistakes in a product whose claim is accurate attendance.
+    vi.useFakeTimers()
+    try {
+      sendMock.mockImplementation(() => new Promise(() => {}))
+
+      renderHome()
+      const field = input()
+      fireEvent.change(field, { target: { value: "no signal here" } })
+      await act(async () => {
+        fireEvent.submit(field.closest("form")!)
+      })
+
+      // Still quiet a beat before the deadline: a slow send is not a failed one.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(19_000)
+      })
+      expect(screen.queryByText("Couldn't send that, try again.")).toBeNull()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_000)
+      })
+      expect(screen.getByText("Couldn't send that, try again.")).toBeTruthy()
+
+      // WHAT IS DELIBERATELY NOT ASSERTED HERE, and it is the owner's stated
+      // requirement, so its absence is a decision rather than an oversight: that
+      // the message STAYS in the feed, dim, because it may still have landed.
+      //
+      // This file cannot hold that. The optimistic entry's lifetime belongs to
+      // router-level transitions, and these mocks have none: when the deadline
+      // resolves, the only transition in play settles and useOptimistic reverts
+      // to initialMessages, so the bubble disappears here. In the real app the
+      // hung server action's own router transition is still pending, so the
+      // entry is still held and the message stays on screen.
+      //
+      // Asserting either way from here would be asserting the mock. Verified in
+      // a production build instead (build-notes §11): after the deadline the
+      // error is shown AND the message is still present at 0.65 opacity. Third
+      // time this file has had to say "the browser is the instrument"; that is
+      // the pattern, not a coincidence.
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("still hands the message to Orbit, with the id the send returned", async () => {
     // Guards against "fixed it by deleting the feature". Un-entangling Orbit
     // must not become not-calling Orbit.

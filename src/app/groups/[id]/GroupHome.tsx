@@ -57,6 +57,52 @@ import { applySettledSends, type SettledSend } from "@/lib/messages/optimistic-d
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
 /**
+ * How long a send may go unanswered before the member is told it failed.
+ *
+ * A send can fail in two different ways and only one of them rejects. A dropped
+ * connection, a 500, or a stale action id REJECT, and the catches below handle
+ * those. Turning WiFi off does neither: the request simply hangs, nothing
+ * settles, and without this the member's message sits at MessageFeed's 0.65
+ * "not sent yet" opacity forever with nothing on screen saying so. Measured in a
+ * production build with a never-settling fetch: still dim and still silent after
+ * 25 seconds. Found by the owner on a real phone, after a test that only covered
+ * the rejecting case passed.
+ *
+ * Deliberately generous, and the cost is real and belongs next to the number: a
+ * slow-but-working send on bad signal can pass this deadline and be reported as
+ * failed when it actually landed. That is why a timed-out entry is LEFT in the
+ * feed rather than removed (owner's call, 31 Aug 2026): dim already reads as
+ * "not sent", so the two agree, and deleting a message that did reach the server
+ * is the worse of the two mistakes in a product whose whole claim is accurate
+ * attendance.
+ */
+const SEND_DEADLINE_MS = 20_000
+
+/**
+ * The send promise, or null if it has not answered within the deadline.
+ *
+ * Never rejects, so both consumers can await it without their own guard against
+ * a hang. It resolves to null rather than throwing because "no answer" and "an
+ * answer that says it failed" mean the same thing to a member.
+ */
+function withDeadline(
+  sending: Promise<SendMessageState>
+): Promise<SendMessageState | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), SEND_DEADLINE_MS)
+    sending
+      .then((result) => {
+        clearTimeout(timer)
+        resolve(result)
+      })
+      .catch(() => {
+        clearTimeout(timer)
+        resolve(null)
+      })
+  })
+}
+
+/**
  * Whether a send result carries ANY error, rather than specifically
  * `errors.general`.
  *
@@ -263,7 +309,10 @@ export default function GroupHome({
     // Started outside the transition so the same promise can be observed twice:
     // once by the transition that owns the optimistic entry, and once by the
     // plain callback below that decides when the entry stops LOOKING unsent.
-    const sending = sendMessageAction({}, formData)
+    // Guarded once, consumed twice: the transition below decides what the
+    // member is told, and the .then decides whether the bubble stops looking
+    // unsent. Both must agree, so both read the same guarded promise.
+    const sending = withDeadline(sendMessageAction({}, formData))
 
     startTransition(async () => {
       addOptimisticMessage(optimistic)
@@ -281,7 +330,7 @@ export default function GroupHome({
       // main and measured identically there; fixed here because this slice
       // rewrote this line and had already put the same guard on the harmless
       // branch of the very same promise.
-      const result = await sending.catch(() => null)
+      const result = await sending
       if (!result || hasError(result)) {
         setErrorMsg(result?.errors?.general ?? "Couldn't send that, try again.")
         // useOptimistic auto-reverts to initialMessages once the transition

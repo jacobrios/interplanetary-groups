@@ -6194,3 +6194,42 @@ the choice disappear.** The honest alternative it named is a source-scanning gua
 style of `no-email-address-on-screen.test.tsx` ("every `setDetectQueue` call passes a
 function, never a literal"), and it judged that not worth its weight over two call sites.
 Shipped untested with the comment instead.
+
+### Postscript: the owner's phone QA found the half the fix did not cover (31 Aug 2026)
+
+Everything on the QA script passed except the offline step, and it failed in a way that
+matters more than the step did: **turning WiFi off did not produce the inline error this
+slice had just added. The member's message stayed dim and stayed silent.**
+
+**Why the earlier verification missed it, and this is the lesson rather than the bug.** The
+rejection fix was verified in a real production build, by forcing `window.fetch` to reject.
+That was a genuine end-to-end check and it passed honestly. But **a dropped connection and a
+rejected request are not the same event.** Turning WiFi off does not reject anything: the
+request hangs, nothing settles, no catch anywhere fires. Reproduced with a never-settling
+fetch: after 25 seconds the message was still at 0.65 opacity with nothing on screen saying
+anything. So the verification was real, and it tested the wrong failure. **Simulating a
+failure is not the same as causing one**, and the difference only showed up on a real device
+with a real radio.
+
+**The fix, and the cost that belongs beside it.** `SEND_DEADLINE_MS`, 20 seconds, guarding
+the send promise once and consumed by both readers so they cannot disagree. Past the
+deadline the member gets the inline error. The cost is real and is written at the constant:
+a slow-but-working send on bad signal can pass the deadline and be reported as failed when
+it actually landed. **The owner's call on what happens to the message: it stays, and stays
+dim.** Dim already reads as "not sent", so the two agree, and deleting a message that did
+reach the server is the worse of the two mistakes in a product whose whole claim is accurate
+attendance.
+
+**A third false green, caught before it shipped this time.** The natural assertion, "the
+message is still in the feed after the deadline", FAILS in the component test: with mocked
+actions there is no router transition, so when the deadline resolves the only transition in
+play settles, useOptimistic reverts, and the bubble vanishes. In the real app the hung
+action's own router transition is still pending, so the entry is held and the message stays.
+Asserting either way from jsdom would have been asserting the mock. The assertion was left
+out with a comment saying so, and the behaviour was verified in a production build instead:
+at 15s dim, present, no error; at 31s dim, **present**, error shown.
+
+**Running total for this slice, because the pattern is now the finding:** every claim about
+mechanism made by reading was wrong. Every claim made by measuring held. The audit's stated
+cause, the file's own architecture comment, three attempted fixes, two component tests, and
+now the scope of the rejection fix. Six for six.
