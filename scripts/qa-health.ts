@@ -12,6 +12,10 @@
 //   npm run qa:health -- --break failure path, against an unreachable database
 //   npm run qa:health -- --ping  sends a real heartbeat to HEALTH_HEARTBEAT_URL
 //
+// --ping is the one flag here with a blast radius outside this checkout: it
+// sends to whatever HEALTH_HEARTBEAT_URL holds locally, and nothing checks
+// that this is not the production monitor. See warnHeartbeatDestination().
+//
 // --break points the probes at a valid-shaped URL on a closed port. Two
 // alternatives were rejected and should not be swapped back in:
 //
@@ -53,6 +57,32 @@ function requireDevTest(): void {
   process.exit(1)
 }
 
+/**
+ * Say out loud where a --ping is about to go, BEFORE it goes.
+ *
+ * requireDevTest() above guards the database and nothing guards this: the
+ * heartbeat destination is whatever HEALTH_HEARTBEAT_URL happens to hold in
+ * this checkout's .env. Point that at the production monitor and a local
+ * `--ping` sends a GREEN heartbeat that suppresses a real missing-ping alarm
+ * for a whole period, while `--break --ping` raises a false incident. Only
+ * the host is printed; the token in the path is the credential.
+ */
+function warnHeartbeatDestination() {
+  const raw = process.env.HEALTH_HEARTBEAT_URL?.trim()
+  if (!raw) {
+    console.log("\n  heartbeat destination: (HEALTH_HEARTBEAT_URL unset, nothing will be sent)")
+    return
+  }
+  let host: string
+  try {
+    host = new URL(raw).host
+  } catch {
+    host = "(unparseable URL)"
+  }
+  console.log(`\n  heartbeat destination: ${host}`)
+  console.log("  If that is the PRODUCTION monitor, stop: this ping will move a real alarm.")
+}
+
 function print(label: string, verdict: HealthVerdict) {
   console.log(`\n─── ${label} ─────────────────────────────`)
   if (verdict.ok) {
@@ -86,6 +116,7 @@ async function main() {
       process.exit(1)
     }
     if (args.includes("--ping")) {
+      warnHeartbeatDestination()
       console.log(`  heartbeat: ${await reportHealth(verdict)}`)
     }
     return
@@ -95,6 +126,7 @@ async function main() {
   print("real dev-test database", verdict)
 
   if (args.includes("--ping")) {
+    warnHeartbeatDestination()
     console.log(`  heartbeat: ${await reportHealth(verdict)}`)
   }
 

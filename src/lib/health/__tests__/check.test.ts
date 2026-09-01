@@ -93,4 +93,45 @@ describe("describeError", () => {
   it("handles a thrown non-Error without throwing itself", () => {
     expect(describeError(undefined)).toContain("undefined")
   })
+
+  it("surfaces a Prisma error code, which names the fault and cannot carry a row value", () => {
+    class PrismaClientKnownRequestError extends Error {
+      code: string
+      constructor(message: string, code: string) {
+        super(message)
+        this.code = code
+      }
+    }
+    const err = new PrismaClientKnownRequestError(
+      "The column `User.digestOptOutAt` does not exist",
+      "P2022"
+    )
+
+    expect(describeError(err)).toBe(
+      "PrismaClientKnownRequestError [P2022]: The column `User.digestOptOutAt` does not exist"
+    )
+  })
+
+  it("formats an error carrying no code exactly as it did before codes existed", () => {
+    expect(describeError(new TypeError("nope"))).toBe("TypeError: nope")
+    expect(describeError(new Error("plain"))).toBe("Error: plain")
+    // A non-string code is not a code. Narrowing, not casting.
+    const weird = Object.assign(new Error("plain"), { code: 42 })
+    expect(describeError(weird)).toBe("Error: plain")
+  })
+
+  it("keeps BOTH ends of a long message, because a Prisma error hides its diagnosis at the back", () => {
+    // Shaped like the real thing: a code frame and an absolute path at the
+    // front, the actual cause at the very end. Head-only truncation keeps the
+    // path and throws the cause away.
+    const preamble =
+      "Invalid `client.user.findFirst()` invocation in\n" +
+      "/Users/someone/code/interplanetary-groups/src/lib/health/check.ts:136:26\n".repeat(8)
+    const cause = "The column `User.digestOptOutAt` does not exist in the current database."
+    const detail = describeError(new Error(`${preamble}\n${cause}`))
+
+    expect(detail.length).toBeLessThanOrEqual(500)
+    expect(detail).toContain("Invalid `client.user.findFirst()` invocation")
+    expect(detail).toContain("does not exist in the current database.")
+  })
 })
