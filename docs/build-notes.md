@@ -617,6 +617,38 @@ Seven High-priority items come due at the moment of the first production deploy.
 
 11. **Nothing else needs setting anywhere, and that is checked rather than assumed.** Recorded so nobody goes hunting on merge day. The digest reads no new environment variable: `RESEND_API_KEY` and `EMAIL_DEV_ALLOWLIST` are items 8 and 9, already done and unchanged; the absolute links in the email body come from `src/lib/site-url.ts`, which reads the host Vercel already sets; the job rides the existing hourly cron behind the existing `CRON_SECRET`, so `vercel.json` is untouched and no second scheduled task exists. **The one thing to know rather than to do:** the hourly cron now carries three sweeps plus one Resend call per emailed member in a single invocation during a group's 8pm hour, so its function duration grows with the number of members holding an address. At today's size this is a note, not a risk.
 
+*Items 12 and 13 added 1 Sept 2026 (site health monitoring, slice one). They are one obligation in two halves, and **neither gates the merge**: no migration is involved, and until both are done the product is exactly as blind as it was before the slice landed. Nothing breaks and nothing is gained. Do 13 first, because it produces the value 12 needs.*
+
+12. **Set `HEALTH_HEARTBEAT_URL` in Vercel's production environment.** The value is the heartbeat URL Better Stack hands over in item 13, set on the Production environment and stored as Secret, matching how `RESEND_API_KEY` is held (item 8). Until it is set, `reportHealth` returns `not_configured`, logs one line saying so, and sends nothing. **This does not gate the merge**, because there is no migration and no code path that fails without it; the only cost of leaving it unset is that the monitoring built in this slice does nothing at all.
+
+13. **Create the heartbeat monitor in Better Stack** (free tier, the owner's existing account). Also does not gate the merge, for the same reason. Settings, and the reasoning for each is why they are written down rather than left to the dashboard:
+    - **Expected period: 1 hour.** It matches `vercel.json`'s `0 * * * *`. If the cron's schedule ever changes, this changes with it or the monitor starts crying wolf.
+    - **Grace period: 20 minutes.** One missed run plus slack for cron drift, so a single late invocation is not an incident.
+    - **Email notification: on.** This is the whole point; the owner's inbox is the destination.
+    - ~~**Repeat: every 6 hours while the incident is open.**~~ ~~**Auto-resolve when the heartbeat returns: on.**~~ This is the owner's stated noise budget, and it lives here rather than in code because the app has nowhere to remember what it has already said without a migration; the all-clear is the other half of the same reason.
+
+    > **Corrected 1 September 2026, from the owner's own screen while creating the monitor. Both settings above were written from the design conversation rather than from the dashboard, and neither exists in the form this item claimed.** The behaviour is unchanged; only the description was wrong, which is the kind of error that costs somebody twenty minutes hunting for a checkbox that was never there.
+    >
+    > **Auto-resolve is not a setting at all.** A heartbeat incident resolves when the next heartbeat arrives. That is inherent to what a heartbeat monitor is, not a toggle anyone turns on, so the all-clear was already guaranteed and this line invented a control to explain it.
+    >
+    > **The 6-hour repeat is not its own field either.** It lives in the "If the primary responder doesn't acknowledge the incident" dropdown, which defaults to "Do nothing". Left at the default, an unacknowledged incident notifies once and never again, which is quieter than the owner asked for. **So this one is a real setting to make on the production monitor, and the default is wrong for it.**
+    >
+    > What the create screen does carry, confirmed: the service name, expected period, grace period, the notification channels (Call / SMS / E-mail / Push / Critical alert), that dropdown, a location timezone, a daily maintenance window, and key-value metadata. The throwaway QA monitor was deliberately created with the dropdown left at "Do nothing", because a repeat cadence has no bearing on whether one test incident reaches an inbox.
+    >
+    > **One trap noticed on that screen and not yet settled**, recorded because it fails silently and in the safe-looking direction: the maintenance window defaults to 12:30 PM to 12:30 PM with all seven days selected, and its own label says "We'll ignore all incidents during the daily recurring maintenance window." A zero-length window is the near-certain reading, but a window that swallowed the whole day would suppress every alarm this slice exists to raise, with the dashboard looking perfectly healthy. Whoever creates the production monitor should confirm it rather than assume it.
+
+    **The thing a future reader will want and cannot get from the code: the alarm fires in three distinct ways.** A failing probe pings `/fail` and raises the incident immediately with the reason attached. A broken sweep does the same, named `orbit_sweeps`. And nothing arriving at all raises it after the grace period, which is what covers a dead deploy, a stopped cron, and the free-tier database pause. Only the first two are visible in this repo; the third exists entirely in the dashboard, which is exactly why it is recorded here.
+
+    > **Amended 1 September 2026, from the owner's own inbox during QA. "With the reason attached" is true about what we send and misleading about what anyone reads, and the distinction only became visible by looking at the real email.**
+    >
+    > **The notification email carries none of our diagnostic text.** Better Stack's email says the heartbeat's name, `Cause: Reported failure`, and a timestamp. That is the whole body. No step name, no error code, no cause. Anyone who reads only the email knows that something is wrong and nothing about what.
+    >
+    > **The detail is on the incident page, one click away, and it is complete**, verified by the owner opening it: it opens `user_row: PrismaClientKnownRequestError [P1001]:` and closes `Can't reach database server at 127.0.0.1:1`, exactly as composed.
+    >
+    > **So the alarm is two-step by design rather than self-explaining, and that is fine, but it has to be recorded rather than discovered at 3am.** The email's job is to get the owner out of bed; the incident page's job is to say why. Nobody should expect to triage from the inbox alone.
+    >
+    > **One decision this settles, recorded because it was nearly made the other way.** The whole-branch review's I-1 fix made the cause survive truncation, and the next instinct was to also rewrite the detail so it would read well at a glance in the email. That would have been effort spent on a surface the string never reaches. Seen on the real incident page instead, the two things a reader needs sit at the two positions a reader actually looks, the first line and the last, with Prisma's code frame in the middle where the eye skips. **It was left alone deliberately.** The general lesson is the one this project keeps re-learning in new costumes: *judge an output on the surface it lands on, not on the surface you composed it for.*
+
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -6326,3 +6358,198 @@ the likely fix is paying to keep something permanently awake to save one second 
 message junk before the model reads it is the knowledge the model exists to produce, and a word
 filter would miss the casual phrasing the 33-case bench protects. It is a cost lever, not a latency
 lever: since slice one the member no longer waits on that call.
+---
+
+## §11 entry: site health monitoring, slice one, the checklist (1 September 2026)
+
+*Branch `claude/site-health-monitoring-cf4b08`. The slice document is
+`docs/superpowers/specs/2026-09-01-site-health-monitoring-design.md`. It comes straight out of
+"the four-day outage nobody could see" above, which is where the incident itself is recorded.*
+
+**What it is, in product terms.** The hourly job Orbit already runs now finishes by checking
+whether the product actually works for a signed-in member, and telling an outside service what it
+found. Healthy pings a Better Stack heartbeat URL. Broken pings the same URL with `/fail` on the
+end and the reason attached, which raises an incident in the owner's dashboard immediately.
+Nothing arriving at all raises one too, after a grace period. Nothing the check does writes
+anything; every probe is a read, which is what makes it safe to run against a database somebody
+else is testing on.
+
+**Why the obvious cheap answer was wrong, which is the reasoning most likely to be re-derived.**
+A logged-out visitor saw a perfectly healthy site for all four days of the August outage, so an
+uptime ping would have read green throughout and bought nothing. The fault line is narrower than
+signed-in versus signed-out: it is **reading a whole `User` row**. `getCurrentUser()` asks the
+database for every column on that table and its no-session guard sits before the call, so a
+visitor never touches it and a member touches it on every page. ~~Four other places issue the same
+unselected query independently. **One probe covers all five**~~ (corrected 1 September 2026, whole-branch
+review: **twelve** other places do, not four, so the probe covers thirteen call sites rather than
+five, and the case for it is stronger than this entry claimed. The full re-derived list, the grep
+that produces it, and a wrong file path that travelled with the undercount are in the postscript
+at the end of this entry), and the consequence that makes this
+slice small is that catching this needs no session and no browser, only the same reads. The probe
+therefore takes no `select`, and the code says so in capitals, because adding one would silently
+disable the only thing here that would have caught the outage.
+
+**The checklist and the witness, stated once so neither half grows into the other.** The checklist
+covers everything that talks to the database. The Vercel log drain into Better Stack, which is
+dashboard configuration rather than code and comes next, covers everything else: render bugs, a
+crash on one bad group, anything nobody thought of. Pure functions the group home also uses are
+deliberately outside the checklist for exactly that reason; they cannot break from schema drift,
+and the witness sees them when a real member walks into one.
+
+**Why the alarm is Better Stack rather than an email from Orbit.** Two reasons, both load-bearing.
+An alarm that lives inside the thing it is watching goes quiet exactly when that thing dies, and
+quiet is indistinguishable from healthy, which is the four-day outage repeated one level up. And
+the owner's noise budget (tell me immediately, then every six hours, then an automatic all-clear)
+needs somewhere to remember what it has already said, which this app has nowhere to keep without a
+migration. Better Stack owns both problems, so neither lives in our code.
+
+**Why `realProbes` has no tests.** A test for it must mock Prisma, and mocking Prisma removes the
+only thing being checked: whether the real query still matches the real database. The
+message-send-latency slice paid for this lesson the previous day, where a component test passed
+against mocked server actions while the browser disagreed, and that test was deleted rather than
+kept. The evidence here is `npm run qa:health` against a real database instead.
+
+**The proof, and its accepted limit.** `npm run qa:health` against dev-test prints verdict
+HEALTHY, having run `user_row`, `membership_row` and `group_home_data` with nothing skipped.
+`npm run qa:health -- --break` points the probes at a closed port and prints verdict BROKEN, step
+`user_row`, ~~detail beginning `PrismaClientKnownRequestError: ... Can't reach database server at
+127.0.0.1:1`~~ (corrected 1 September 2026, whole-branch review: **that quote was never the string
+this branch sent.** The real one was cut mid-host at `127.0.0.1:` and the ellipsis hid 459
+characters of code frame. The fix in the postscript below changed the string again, so it is
+re-quoted there from a fresh run rather than patched by hand here). **That is a closer proof than the design document promised**, which conceded only "a
+connection error, not `P2022`": it is the same error class the real outage produced. It is still
+**not the same error code**, so the honest claim is that a broken database is caught and reported
+correctly, not that a missing column specifically is. Closing that gap fully would mean damaging a
+database another worktree is testing against, and reproducing it with raw SQL would redden the
+repo-wide raw-SQL guard, which is by its own rule a decision for the owner rather than a test to
+adjust.
+
+**The free-tier pause, raised and half-answered.** The Supabase project pauses after about a week
+idle, and the hourly cron is what prevents that by accident. This slice **detects** that failure,
+because a paused database stops the heartbeat and the missing ping is itself the alarm. It does
+not **prevent** it; that is a hosting decision and was deliberately not bundled in here.
+
+**The plan's own code carried a bug, and the independent review is what caught it.** `describeError`
+called `String(err)`, which throws on a value with no prototype, so the runner could throw despite
+documenting that it never does, and a monitor that crashes while describing a failure reports the
+outage as silence. Fixed with a guarded coercion and a test proven to fail first. Worth recording
+because the defect was specified in the plan rather than introduced by an implementer, so nothing
+short of a fresh pair of eyes on the finished code would have found it.
+
+**One minor, deferred rather than dropped:** a heartbeat URL carrying a query string would build
+`.../tok?x=1/fail`. Better Stack's documented heartbeat URL never carries one, so this is an
+untested edge rather than a live bug.
+
+**Tests: 128 files / 1388 tests at slice start, green, none skipped; 131 files / 1410 tests
+finishing, green, none skipped.** The plan predicted 1409; the real figure is 1410, because the
+review-caught defect above brought a ninth test with it.
+
+**What is not true yet, stated because this project has been burned by records claiming proofs
+that never happened.** Nothing in this slice has been seen working in production. No incident has
+ever reached the owner's inbox. And until `HEALTH_HEARTBEAT_URL` is set in Vercel (after-launch
+item 12), `reportHealth` returns `not_configured`, logs one line and sends nothing, so the product
+is exactly as blind as it was before this merged.
+
+---
+
+### Postscript, 1 September 2026: what the whole-branch review changed before the PR
+
+*Five tasks were already built and individually reviewed when a review of the branch as a whole
+found four things. One of them was a real defect in the product's own alarm; the rest are records
+that read more confidently than the code deserved.*
+
+**The alarm's message was nearly useless, and it looked fine.** `describeError` ended in
+`.slice(0, DETAIL_MAX)`, which keeps the FRONT of the string. A Prisma error's front is a code
+frame: the error class, an "Invalid `client.user.findFirst()` invocation in" line, an absolute
+file path, a blank line, and four quoted lines of `check.ts`'s own comments. Measured on the real
+`--break` output, **459 of the 500 characters were that preamble**, leaving 41 for the actual
+cause, and the cause was cut one character short. For the real missing-column error the surviving
+text would have read "The column `User.digestOptOutAt` does not", clearing the boundary by about
+nine characters **purely by luck**, because the comment lines above happened to be that length.
+Anyone editing those comments, a longer production file path, or a minified server chunk would
+have pushed the diagnosis off the end entirely, and the owner's 3am incident would have carried a
+file path and three lines of his own comments. Two changes fixed it. The error's `code` is now
+surfaced immediately after the class name (`PrismaClientKnownRequestError [P2022]: ...`), read
+defensively by narrowing an `unknown` rather than casting, because a code is short, is the single
+most diagnostic thing in a Prisma error, and is structurally incapable of carrying a row value,
+so it clears the privacy boundary this function exists to be. And truncation now keeps **both
+ends**, cutting the middle and marking it, so the cause survives however long the preamble grows.
+The comment above it says why, because the next person to read that line will otherwise see an
+ordinary-looking `slice` and simplify it back.
+
+**What the fix is worth, in one line each.** Before: `PrismaClientKnownRequestError: ` then 459
+characters of preamble, ending mid-host at `Can't reach database server at 127.0.0.1:`. After, and
+this is quoted from a fresh run rather than edited by hand: `PrismaClientKnownRequestError
+[P1001]: ` then the code frame, then ` [...] ` where the middle was cut, then the frame's last
+lines and `Can't reach database server at 127.0.0.1:1`. The fault code is now the second thing the
+owner reads and the cause is intact.
+
+**The existing 500-character assertion still holds exactly, and that was checked rather than
+assumed.** The scheme keeps `ceil(keep/2)` from the head and the remainder from the tail around a
+seven-character marker, so a trimmed string still lands at exactly `DETAIL_MAX`. The old test was
+therefore left alone rather than loosened.
+
+**Three tests, and the third one is the honest note.** An error carrying a Prisma-shaped `code`
+surfaces it; a long message keeps recognisable text from both ends and stays within the budget.
+Both failed first, against the real old code, for the real reason. The third pins the no-code
+format exactly as it was, and **it could not fail against the old code, because it describes the
+old code**. Rather than let a green tick stand for nothing, it was run against a deliberately
+naive implementation that always emitted brackets, where it failed with `expected 'TypeError []:
+nope' to be 'TypeError: nope'`. A guard whose failure mode lives in the future still has to be
+shown failing at something.
+
+**The checklist's list of what it does not cover reads exhaustive and is not.** The entry above,
+and CLAUDE.md, name two gaps (render bugs, one-bad-group crashes) and hand both to the planned
+Vercel log drain, which invites a future session to believe the whole gap closes the day that
+drain is configured. **Two further classes are covered by neither.** First, **a table the product
+only writes to, or only reads with a `select`, is invisible**: every probe reads a whole row, and
+nothing else column-checks a table. `ContactMethod` is the live example, all three of its reads
+taking a `select` (`src/lib/auth/email-ask.ts:27` and `:57`, `src/lib/digest/run.ts:184`), so a
+missed migration there would break email attach and sign-in while all three probes stayed green.
+Second, **Supabase auth fails soft**: `getCurrentUser()` reads only the `data` half of
+`auth.getUser()` and returns null when the call errors, so a degraded auth service or a rotated
+signing key logs every member out quietly onto the front door or the members-only wall. Nothing
+throws, so no 500 reaches the drain either, and no probe touches Supabase at all. That is a green
+light over a product broken for every member, which is the exact shape of the outage this slice
+exists for. **The uncertainty is carried rather than flattened:** the code path is confident, and
+it is not certain that supabase-js never throws on every auth failure mode, so the second class is
+very likely rather than proven. **No code was written for either.** Adding a Supabase probe widens
+what this slice does and is the owner's call, not a reviewer's, and a probe added on a reviewer's
+initiative is how a checklist grows past the thing it was scoped to.
+
+**Two wrong counted claims, each repeated in three places, which is the pattern worth noticing.**
+The `check.ts` comment, the design document, and this entry all carried the same two errors,
+because the second and third copied the first. **The path:** `rsvp.ts:43` appeared in a list of
+`src/app/actions/*` files, reading as `src/app/actions/rsvp.ts`, which holds no `user.find*` call
+at all; the real site is `src/lib/events/rsvp.ts:43`, inside a transaction. Build-notes line 535
+had this right on 26 August, so the slice document introduced an error the record had already
+avoided. **The count:** "four other call sites" is twelve, so the probe covers thirteen and the
+case for it is stronger than any of the three documents argued. Re-derived with
+`grep -rn 'user\.find' src --include='*.ts' --include='*.tsx'`, then dropping every read taking a
+`select`. **One correction to the review's own list, which is the argument for verifying rather
+than trusting:** it also named `src/lib/email/unsubscribe.ts:36` and `:48`, and both take a
+`select`, so neither is an unselected whole-`User` read and neither is covered by the probe. They
+are examples of the select-only blind spot two paragraphs up instead. `check.ts` now states the
+rule, "every unselected whole-`User` read in the codebase", and keeps the list and the grep only
+as a dated aside, because a number in a comment goes stale the day somebody adds a fourteenth and
+nothing anywhere says so.
+
+**Three limits, recorded rather than fixed, one line each.** `npm run qa:health -- --ping` sends
+to whatever `HEALTH_HEARTBEAT_URL` holds in the local checkout, and nothing checks it is not the
+production monitor: a local `--ping` would send a GREEN heartbeat that suppresses a real
+missing-ping alarm for a whole period, and `--break --ping` would raise a false incident, so the
+script now prints the destination host (never the token in the path) with a warning before it
+sends, which is the one code change in this group. The `client` injection in `realProbes` is
+**partial**: probes 1 and 2 and the direct `client.*` calls honour it, while `findUpcomingEvents`,
+`findLiveGauges`, `findLiveProposals` and `loadEmailAskInputs` reach the module singleton, so
+`--break` works today only because it stops at the first probe, and a future variant skipping
+ahead to `group_home_data` would quietly test the real database. And `runHealthCheck` is awaited
+**unbounded** in the cron route while the heartbeat it feeds has an explicit five-second timeout;
+the consequence is benign, since all four sweeps have already committed and a missing ping is the
+correct alarm for a hung check, but the asymmetry is real and is named here so nobody has to
+rediscover it.
+
+**Tests: 131 files / 1413 tests finishing, green, none skipped**, up from the 1410 this entry
+records above, the three being the `describeError` tests. `npx tsc --noEmit` clean;
+`npx eslint src/lib/health scripts/qa-health.ts` clean. `npm run qa:health` against dev-test still
+prints HEALTHY with all three probes run and nothing skipped.
