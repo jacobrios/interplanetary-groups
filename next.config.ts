@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
     "b.localhost",
     "c.localhost",
     "192.168.1.144",
+    // Added 31 Aug 2026 (message-send-latency slice), following this block's own
+    // instruction to add the new lease when it changes. The 172.20.10.x range is
+    // an iPhone Personal Hotspot subnet, so this is the address the Mac has while
+    // tethered, which is exactly the setup a phone QA pass runs in. The older
+    // entry above is kept rather than replaced: both are valid depending on which
+    // network the Mac is on, and deleting one would silently break QA on that one.
+    "172.20.10.2",
   ],
 }
 

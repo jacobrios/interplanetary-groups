@@ -26,12 +26,30 @@
 import { useId } from "react"
 import SendCircleButton from "@/components/SendCircleButton"
 
+// The input is never disabled, and there is deliberately no `isPending` prop to
+// disable it with (message-send-latency slice, 31 Aug 2026). It used to take
+// one, and wiring it to `disabled` cost the member their keyboard for five to
+// six seconds a send: on iOS, disabling the field you are typing in dismisses
+// the keyboard, and re-enabling does not bring it back. Nothing was gained for
+// it. The optimistic entry already puts the message on screen and the field is
+// already cleared on submit, so the only thing the disable achieved was
+// stopping the member typing the next one.
+//
+// The prop is absent rather than accepted-and-ignored on purpose, and THE
+// ABSENCE IS WHAT ENFORCES THIS, not a test. A boolean sitting unused on this
+// interface is an invitation to wire it back to `disabled`; with no prop, doing
+// so is a deliberate act that has to add the prop back first. GroupHome.test.tsx
+// does assert the input is never disabled, but that test can only fail once
+// somebody has already re-added the prop AND wired it, so it is a backstop
+// rather than the guarantee. Stated precisely because an earlier version of this
+// comment credited the test with holding the behaviour, and this component's
+// history is specifically a history of comments claiming more than was true.
+
 interface Props {
   groupId: string
   value: string
   onChange: (value: string) => void
   onSubmit: (formData: FormData) => void
-  isPending: boolean
   errorMsg: string | null
 }
 
@@ -40,7 +58,6 @@ export default function ChatInput({
   value,
   onChange,
   onSubmit,
-  isPending,
   errorMsg,
 }: Props) {
   const inputId = useId()
@@ -96,7 +113,6 @@ export default function ChatInput({
           placeholder="Send a message…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          disabled={isPending}
           style={{
             flex: 1,
             padding: 0,
@@ -115,7 +131,7 @@ export default function ChatInput({
             here. */}
         <SendCircleButton
           active={hasText}
-          disabled={!hasText || isPending}
+          disabled={!hasText}
           label="Send message"
         />
       </form>

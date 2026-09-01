@@ -975,13 +975,53 @@ const NOT_COMMITTED_SOURCE = new Set([
   ".vercel",
 ])
 
+/**
+ * Repo-relative directories that hold a SECOND CHECKOUT of this repository.
+ *
+ * A git worktree is another full copy of the repo, and Claude Code places them
+ * inside the project at `.claude/worktrees/` by default. This walker would
+ * otherwise descend into that copy and report its `scripts/qa-stage-email.ts`
+ * as an unsanctioned raw-SQL site, because the allowlist above names the path
+ * `scripts/qa-stage-email.ts` and the copy's path is different. The finding is
+ * a false positive every time: it is the same allowlisted file, at a second
+ * path, in a checkout that is not this one.
+ *
+ * MATCHED ON THE REPO-RELATIVE PATH, NOT THE BASENAME, which is why it is a
+ * separate set rather than another entry in NOT_COMMITTED_SOURCE. The reason is
+ * precision about WHY the directory is skipped, and it is not the reason you
+ * might expect, so it is worth stating exactly:
+ *
+ * Skipping all of `.claude` would make no practical difference to THIS walker
+ * today. `.claude/hooks/` holds only `.mjs` implementations and `*.test.ts`
+ * files, and this walker matches `.ts`/`.tsx` while excluding tests, so it
+ * scans nothing under `.claude` either way (verified: 0 files). The
+ * "excluding `.claude` silently disables the hook tests" trap is real but it
+ * belongs to VITEST COLLECTION, which does collect `.claude/hooks/*.test.ts`;
+ * it cost a 126→122 drop in collected files when hit during this diagnosis.
+ * Two different mechanisms, and conflating them is how the wrong fix gets
+ * written down as the right one.
+ *
+ * So this entry is scoped narrowly for correctness-by-construction rather than
+ * for present effect: it says "this is a second checkout", which stays true and
+ * stays right the day somebody adds a real `.ts` file under `.claude/`.
+ *
+ * Companion to `vitest.config.ts`'s own `.claude/worktrees/**` exclusion (#95),
+ * which stops the RUNNER collecting a worktree's suite. This is the other half:
+ * that exclusion governs which test files run, and has no effect on a test that
+ * walks the filesystem itself, as this one does. Both are needed; #95 shipped
+ * the first and a live worktree reddened this one hours later.
+ */
+const NESTED_CHECKOUTS = new Set([path.join(".claude", "worktrees")])
+
 function readAllRepoFiles(): Array<[string, string]> {
   const out: Array<[string, string]> = []
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const full = path.join(dir, entry)
       if (statSync(full).isDirectory()) {
-        if (!NOT_COMMITTED_SOURCE.has(entry)) walk(full)
+        if (NOT_COMMITTED_SOURCE.has(entry)) continue
+        if (NESTED_CHECKOUTS.has(path.relative(REPO, full))) continue
+        walk(full)
       } else if (IS_TYPESCRIPT_FILE.test(entry) && !IS_TEST_FILE.test(entry)) {
         out.push([path.relative(REPO, full), readFileSync(full, "utf8")])
       }

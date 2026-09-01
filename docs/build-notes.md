@@ -5958,3 +5958,278 @@ a test belongs in whatever next touches that script.
 count there says "fired as written twice" rather than three times: the carousel-placement
 trigger also fired, earlier than its own written condition, which is what the qualifier is
 doing and why it is not decoration.
+
+## §11 entry: message send latency, slice one (31 August 2026)
+
+*Branch `message-send-latency`, cut from `main` at `f698f6b`, rebased onto `0fc01f7`. The slice
+document is `docs/superpowers/specs/2026-08-31-message-send-latency-design.md`. Read that for what
+was planned; this is what happened, and the two differ in the part that matters.*
+
+### The recorded diagnosis was wrong, and it had been marked certain
+
+Audit finding F-6-2 said a six-message group takes three to four seconds to send "because the app
+reloads the entire chat history and re-renders twice per send". It was marked *confidence: certain*
+and it was **confirmed on the owner's real phone** on 25 August, which is the strongest evidence
+this project normally has. It was still wrong about the cause.
+
+`scripts/measure-group-home.ts` (new, committed) replays the group home's exact query sequence at
+growing message counts. Median of five passes against dev-test, warm-up discarded:
+
+| messages | one render | the "whole history" query | history shipped |
+|---:|---:|---:|---:|
+| 6 | 1177 ms | 146 ms | 1.4 KB |
+| 50 | 1223 ms | 158 ms | 11.2 KB |
+| 200 | 1335 ms | 230 ms | 44.9 KB |
+| 500 | 1378 ms | 350 ms | 112.4 KB |
+
+At six messages the unbounded query is **12% of the render**, and 6→500 messages costs **17%** more
+render time, not several times more. The named mechanism cannot produce the named symptom, because
+at six messages there is no history to reload. The query is real debt and it is slice two's.
+
+**How the mechanism got attached to the symptom:** it was derived by reading the code, and the
+phone confirmed the *symptom* rather than the mechanism. Nobody measured which half of the send the
+seconds were in. That is the generalisable lesson, and it is the same one the four-day outage
+taught eight days earlier in a different costume: reading the code is not a substitute for
+measuring the thing.
+
+### What it actually was
+
+The member's own message reached the screen in 6-19ms and then sat at `MessageFeed.tsx:207`'s
+`opacity: 0.65`, which reads as *not sent yet*, until **5034-6484ms**. The chat input was
+`disabled` for the same window. Both released the moment Orbit's request finished, within about
+6ms of it. So "sending takes three to four seconds" was never the send; it was the member watching
+their own message look unsent while a model call ran.
+
+### Three wrong explanations, each measured, kept because they are the useful part
+
+`GroupHome.tsx` carried a comment saying the detection transition's pending flag was "deliberately
+dropped on the floor", never reached `ChatInput`'s `disabled`, and that this was "the whole
+architecture of this slice". Three fixes followed from believing the problem was transition scope.
+Each was measured in a browser against a local production build:
+
+1. **Dispatch Orbit from a promise chain registered outside every transition.** No change.
+2. **Dispatch it from an effect, after the send's commit.** No change.
+3. **Remove its `useTransition` entirely.** A component test said this worked. **The browser said
+   it did not**: still solid at ~6300ms.
+
+(3) is the one worth dwelling on. The test passed because it mocks the server actions as plain
+async functions, which strips exactly the behaviour at issue. **A green test that could not see the
+bug nearly shipped as the fix.** It was deleted rather than kept, at the owner's instruction, and
+`GroupHome.test.tsx` now opens with a note saying what this kind of test cannot see and why.
+
+**The real cause**, established by switching Orbit's dispatch off at runtime in one build and
+re-measuring both arms back to back: solid dropped to **2877/3046/3217ms**, each landing ~10ms
+after the send's own request ended. **Next dispatches every server action inside a router-level
+transition, and `useOptimistic` holds its optimistic entry until all of those settle.** Merely
+calling `detectIntentAction` holds it, with or without a `useTransition`. It is not escapable from
+the component's side.
+
+### What shipped, and why this shape rather than the two bigger ones
+
+The owner was given three options, all producing an identical member experience, and chose the
+smallest after asking the right question: *how does this affect the user?* The honest answer was
+that it does not differ between them, so the decision was about risk and blast radius alone. That
+question is what stopped a bigger change being made for no user-visible gain.
+
+- **Declined: route Orbit's read through an API route** so it is not a router transition. Removes
+  the coupling properly, but changes how Orbit's replies reach the screen, and its failure mode
+  (Orbit's reply not appearing until the member taps something) is worse than the bug being fixed.
+- **Declined: replace `useOptimistic` with hand-managed state.** Also correct, also bigger, and it
+  would fork the pattern from `RsvpControls`, plus hand-roll the failed-send revert that the
+  hard rule "a silently-sent-but-failed message is never left" depends on.
+- **Shipped:** stop conflating *the framework is still holding this entry* with *the server does
+  not have this message yet*. The entry is released on React's schedule; it stops being **drawn**
+  as sending on the send's own promise. `src/lib/messages/optimistic-display.ts`, a pure function
+  with its own tests, because `GroupHome` cannot be honestly tested for this and that function can.
+
+Also shipped: the chat input is **never disabled** (the owner's call), and `ChatInput` no longer
+accepts an `isPending` prop at all, so nobody can wire it back to `disabled` without noticing. And
+the optimistic entry is keyed on a counter rather than `Date.now()`, because two sends in one
+millisecond became reachable the moment the input stayed live, and React answers a duplicate key by
+warning that the behaviour "is unsupported and could change in a future version".
+
+### Numbers, with the method attached
+
+Local production build (`next build` + `next start`), driven in a real browser against dev-test,
+measuring the rendered opacity of the member's own bubble. **This laptop is ~200ms per round trip
+from the Ohio database; Vercel is nearer 5-15ms, so the server half is inflated here and the model
+call is not.**
+
+| | looked unsent for | input disabled | copies on screen |
+|---|---|---|---|
+| before | 6178 / 6478 / 5015 ms | yes, ~6s | 1, and 2 in a synthetic case |
+| after | 1932 / 830 / 1316 / 1766 / 1360 / 1167 ms | **never** | 1 throughout |
+
+Median **6178ms → 1338ms**. Tests: **1374 baseline** (taken twice, before any code, at `f698f6b`
+and again after the rebase).
+
+### Debt this slice opens, stated rather than buried
+
+- **The remaining ~1.3s is the send itself** and is slice two's: seven Supabase identity checks per
+  send (measured as real network calls, 180-330ms warm, 1250ms cold), ~20 database round trips, and
+  eight page queries run one after another when almost none depend on each other.
+- **The framework still holds an invisible optimistic copy** for a few seconds after the message is
+  drawn as sent. Identical in content, never observed rendering twice across nine measured sends,
+  and the reason the two bigger fixes exist. Not removed.
+- **No test in this repo can hold the timing claim.** The suite cannot reproduce router-transition
+  behaviour, so the browser measurement is the only evidence, and it has to be re-run by hand.
+- **Two corrections to F-6-2 for whoever picks up slice two:** "re-renders twice per send" is true
+  only when Orbit actually speaks (`detect-intent.ts` returns early on every quiet path before its
+  `revalidatePath`), and every member message costs a full model call even when Orbit then says
+  nothing.
+
+### The concurrent-worktree collision, and the flakiness beside it
+
+*Postscript, same day, before this branch's PR opened: **both problems described below were fixed on
+main by the owner in a separate session, PR #95**, which scoped the test runner away from
+`.claude/worktrees/**` and raised `hookTimeout` to 30s to match `testTimeout`. This branch was cut
+before that merge and was reading the old config, so it hit both and reported them as open; it has
+since been rebased onto the fix. Two things worth keeping out of that: **the diagnosis below was
+reached independently and agrees with his**, including that the obvious `.claude/**` exclusion is the
+wrong fix; and the suite flakiness this slice observed (two of four full runs failing in DB-backed
+files it never touched) was **the `hookTimeout` gap, not this branch**, which his commit message
+confirms by naming `digest/run` and `orbit/endgame` as the two that failed on "Hook timed out in
+10000ms" while every assertion in them passed. The original entry follows unchanged.*
+
+While a second piece of work had a git worktree at `.claude/worktrees/`, **vitest collected and ran
+its entire suite alongside this one**: 2749 tests where there should be 1374, an exact duplicate,
+both hammering the same dev-test database. It surfaced as four failures that look like real defects
+and are not: the email guard's repo-wide walker finding a second `qa-stage-email.ts`, the
+`run-tests-unless-docs` hook's own selection test, a `supabaseAuthId` unique-constraint collision
+between the two copies' fixtures, and transaction timeouts from pool contention.
+
+**The obvious fix is wrong.** Excluding `.claude/**` also silently disables the four tracked test
+files in `.claude/hooks/` that guard the safety-net hooks themselves; it was caught only because
+the collected file count dropped 126→122. Any fix must scope to `.claude/worktrees/**`.
+
+Not fixed here: it belongs to neither piece of work, and the email guard reddening is by CLAUDE.md's
+own rule "a decision to bring to the owner, not a test to adjust". The worktree was stale (its PR
+had already merged as `0fc01f7`) and was removed with the owner's explicit yes.
+
+### Postscript: what the independent review found, and what measuring it settled
+
+Eleven findings. One was a real defect this slice introduced, two were false-green tests,
+two were stale claims in this slice's own documentation, and one turned out to be
+pre-existing on main. Each was checked by running something rather than by reading.
+
+**The defect (finding 1), and it is the reason the review was worth running.** The detect
+queue's drain reset it with a plain `setDetectQueue([])`, discarding anything appended
+between the render and the effect's flush. A second message sent inside that window was
+silently never handed to Orbit: the member sees their message post normally and Orbit
+simply never reads it. The comment directly above that queue claimed it existed to stop
+exactly that, so the code was breaking a guarantee its own comment asserted, which is the
+same failure mode this whole slice exists to correct. Fixed to drop only the drained
+prefix (`queue.slice(draining.length)`; appends only ever happen at the tail). **No test
+covers it**: the interleaving needs a real paint boundary and does not reproduce in jsdom.
+Found by reading, by somebody who was not the author.
+
+**The false greens (findings 2 and 3), measured rather than argued.** With
+`applySettledSends` neutralised entirely, **all six `GroupHome.test.tsx` tests still
+passed**. Not one of them could detect the slice's actual fix being gone, including the one
+named for it. The pure-function tests do catch it (2 of 5 fail), which is why that helper
+was extracted in the first place. The mis-named test was deleted, the second of two on this
+branch. Both had the same cause: mocking a server action strips the router-transition
+behaviour that is the entire subject.
+
+**The stale documentation (findings 2 and 10).** The test file's header and the slice
+document both still asserted the disproven transition-scope cause as fact. The header no
+longer restates it even as history, on the reasoning that a confident wrong mechanism at the
+top of a file is precisely how this component acquired the false comment that hid the bug
+for weeks. The slice document keeps its original text under a dated amendment at its head
+saying plainly that its root cause is wrong; the gap between it and this entry is the record
+worth having.
+
+**Finding 4 is real and is NOT this slice's.** If the send's promise *rejects* (a dropped
+connection, a stale action id after a deploy) rather than resolving with an errors object,
+the rejection escapes the transition: no inline error renders, and the whole group home is
+replaced by the error boundary's "Something broke on our end." The member's typed text is
+already gone, because the input is cleared before the await. Measured on both trees by
+swapping `origin/main`'s `GroupHome.tsx` in and running the same probe: **main gives
+`threw: 'Error: network drop'`, `inline: false`, identical to this branch.** So it is pre-existing and
+unchanged by the latency work. **Fixed here anyway, by the owner's call**, because this
+slice rewrote that very line and had already put the same `.catch` on the *harmless* branch
+of the same promise while leaving the dangerous one bare. Both consumers now catch and treat
+a null result as a failure. **Verified in the real app rather than only in a test**: on a local
+production build, with `window.fetch` made to reject once, the member gets the inline "Couldn't
+send that, try again.", the feed and the composer survive, and the error screen never appears. It was seen live once during this
+slice's measurement, when the local server died mid-send and the screen became the error
+page.
+
+**The other half of #95 (finding 9).** #95 excluded `.claude/worktrees/**` from vitest's
+collection, which is one of two mechanisms. `no-email-address-on-screen.test.tsx` walks the
+filesystem itself, so a vitest exclude has no bearing on it, and a live worktree reddened it
+hours after #95 landed. Fixed here with a repo-relative `NESTED_CHECKOUTS` skip, verified
+red then green with a real worktree on disk the whole time. **The obvious fix is still the
+wrong one**, and for a reason worth stating precisely because the first attempt at this
+comment got it wrong too: adding `.claude` to the basename skip list would be harmless for
+*this* walker (it matches `.ts`, and `.claude/hooks/` holds only `.mjs` and `*.test.ts`, so
+it scans nothing there either way, verified as 0 files) but is exactly what breaks *vitest's*
+collection, where the 126→122 drop was observed. Two mechanisms, one directory, different
+consequences.
+
+
+### Two more review outcomes, after the first postscript was written
+
+**Finding 5, the duplicate bubble, was closed rather than accepted.** The first record here
+filed it as debt: identical content, never observed rendering twice across nine sends. The
+reviewer's push-back was not that the risk was underrated but that **the evidence and the
+change pulled in opposite directions**: un-greying the leaked copy made it indistinguishable
+from a real double-post, so the failure mode became rarer *and* silent, and "never observed"
+is thin when paired with "and we removed the way to observe it". A greyed duplicate reads as
+a transient rendering state; two identical solid copies read as a data error, and a member's
+plausible response is to worry or to re-send. The settled record now carries the SERVER id
+the send returned alongside the optimistic one, so the optimistic entry is dropped once its
+confirmed row is present rather than merely un-greyed. Matched on id and never on body text,
+so a member legitimately sending "ok" twice keeps both, which is its own test.
+
+**And the reviewer withdrew its own suggestion, which is worth recording as a rule.** It had
+proposed extracting the queue drain into a pure function so the fix could be tested. On
+challenge it withdrew: the extracted test would be `expect(remainingAfterDrain(["a","b"],
+["a"])).toEqual(["b"])`, which asserts that `slice` slices. **The distinction it drew is the
+useful part.** `applySettledSends` is a genuine derivation, so a pure test has something to
+bite on. The queue bug was not a computation error at all: `slice` was never wrong, the bug
+was the choice of React state-update *form*, a replacement value where a functional updater
+was required. **No pure function can encode that choice, because extracting it is what makes
+the choice disappear.** The honest alternative it named is a source-scanning guard in the
+style of `no-email-address-on-screen.test.tsx` ("every `setDetectQueue` call passes a
+function, never a literal"), and it judged that not worth its weight over two call sites.
+Shipped untested with the comment instead.
+
+### Postscript: the owner's phone QA found the half the fix did not cover (31 Aug 2026)
+
+Everything on the QA script passed except the offline step, and it failed in a way that
+matters more than the step did: **turning WiFi off did not produce the inline error this
+slice had just added. The member's message stayed dim and stayed silent.**
+
+**Why the earlier verification missed it, and this is the lesson rather than the bug.** The
+rejection fix was verified in a real production build, by forcing `window.fetch` to reject.
+That was a genuine end-to-end check and it passed honestly. But **a dropped connection and a
+rejected request are not the same event.** Turning WiFi off does not reject anything: the
+request hangs, nothing settles, no catch anywhere fires. Reproduced with a never-settling
+fetch: after 25 seconds the message was still at 0.65 opacity with nothing on screen saying
+anything. So the verification was real, and it tested the wrong failure. **Simulating a
+failure is not the same as causing one**, and the difference only showed up on a real device
+with a real radio.
+
+**The fix, and the cost that belongs beside it.** `SEND_DEADLINE_MS`, 20 seconds, guarding
+the send promise once and consumed by both readers so they cannot disagree. Past the
+deadline the member gets the inline error. The cost is real and is written at the constant:
+a slow-but-working send on bad signal can pass the deadline and be reported as failed when
+it actually landed. **The owner's call on what happens to the message: it stays, and stays
+dim.** Dim already reads as "not sent", so the two agree, and deleting a message that did
+reach the server is the worse of the two mistakes in a product whose whole claim is accurate
+attendance.
+
+**A third false green, caught before it shipped this time.** The natural assertion, "the
+message is still in the feed after the deadline", FAILS in the component test: with mocked
+actions there is no router transition, so when the deadline resolves the only transition in
+play settles, useOptimistic reverts, and the bubble vanishes. In the real app the hung
+action's own router transition is still pending, so the entry is held and the message stays.
+Asserting either way from jsdom would have been asserting the mock. The assertion was left
+out with a comment saying so, and the behaviour was verified in a production build instead:
+at 15s dim, present, no error; at 31s dim, **present**, error shown.
+
+**Running total for this slice, because the pattern is now the finding:** every claim about
+mechanism made by reading was wrong. Every claim made by measuring held. The audit's stated
+cause, the file's own architecture comment, three attempted fixes, two component tests, and
+now the scope of the rejection fix. Six for six.
