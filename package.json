@@ -19,6 +19,7 @@
     "qa:stage-cardstate": "tsx --env-file=.env scripts/qa-stage-cardstate.ts",
     "qa:stage-digest": "tsx --env-file=.env scripts/qa-stage-digest.ts",
     "qa:stage-email": "tsx --env-file=.env scripts/qa-stage-email.ts",
+    "qa:stage-yourgroups": "tsx --env-file=.env scripts/qa-stage-yourgroups.ts",
     "qa:sweep": "tsx --env-file=.env scripts/qa-sweep.ts"
   },
   "dependencies": {

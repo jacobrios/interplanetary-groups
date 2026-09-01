@@ -9,8 +9,10 @@
 // point here, and it has to be correct whether or not the visitor has ever
 // used the product before.
 //
-// The several-groups case lives in resolveFrontDoor and is a placeholder for
-// the multi-group home (build-notes §8), not a designed behavior.
+// The several-groups case lives in resolveFrontDoor and is a designed
+// behavior (owner's call, 1 Sept 2026, second-group-entry-point slice): it
+// no longer guesses at a group, it sends a several-group visitor to the
+// group list instead.
 //
 // No header: nothing to navigate back to, and the join screen is headerless
 // for the same reason (walkthrough screen 05).
@@ -29,7 +31,7 @@ export default async function HomePage() {
   const memberships = viewer
     ? await prisma.membership.findMany({
         where: { userId: viewer.id },
-        select: { groupId: true, joinedAt: true },
+        select: { groupId: true },
       })
     : []
 
@@ -39,6 +41,9 @@ export default async function HomePage() {
   // try/catch. It does not here; keep it that way.
   if (destination.kind === "group") {
     redirect(`/groups/${destination.groupId}`)
+  }
+  if (destination.kind === "groups") {
+    redirect("/groups")
   }
 
   return (

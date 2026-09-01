@@ -37,10 +37,17 @@ describe("GroupHomeHeader", () => {
     expect(link.getAttribute("href")).toBe("/groups/g1/info")
   })
 
-  it("keeps the home button labeled Home", () => {
+  // Task 5, second-group-entry-point slice: the mark now always opens the
+  // group list, whatever number of groups the viewer is in, repairing the
+  // defect where it either bounced a multi-group member back where they
+  // were or silently dropped them into a different group. "Home" stopped
+  // being true the moment the destination stopped being "/", so the label
+  // has to name where the tap actually goes.
+  it("points the Orbit mark at the group list, labeled for where it goes", () => {
     render(<GroupHomeHeader groupId="g1" groupName="Climbing Crew" />)
-    const home = screen.getByLabelText("Home")
-    expect(home.getAttribute("href")).toBe("/")
+    const mark = screen.getByLabelText("Your groups")
+    expect(mark.getAttribute("href")).toBe("/groups")
+    expect(screen.queryByLabelText("Home")).toBeNull()
   })
 
   it("lets a long name wrap instead of clipping (fix round 1)", () => {

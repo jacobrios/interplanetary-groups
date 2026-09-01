@@ -62,8 +62,13 @@ describe("the contrast formula itself", () => {
   })
 })
 
-// AA for text under 18.66px bold / 24px regular. Every use of --text-faint is
-// small text: 13px eyebrows and a 15px status line.
+// AA for text under 18.66px bold / 24px regular. Most uses of --text-faint
+// are small text this bar covers: 13px eyebrows and a 15px status line. As of
+// the your-groups screen, one use is NOT text at all: a 1.5px control
+// border, which WCAG judges by its own 3:1 non-text-contrast bar rather than
+// this 4.5:1 one. That border is named in the inventory below for
+// visibility, but this file's arithmetic does not check it — the same
+// scoping choice already made for --placeholder above.
 const AA_SMALL_TEXT = 4.5
 
 /**
@@ -78,8 +83,14 @@ const AA_SMALL_TEXT = 4.5
  */
 const FAINT_SURFACES = [
   // src/app/page.tsx, both sign-in screens' resend line, the inline attach row,
-  // Save's disabled label, and the members-only wall's secondary
-  // "Start your own group" link (src/components/OrbitNoteScreen.tsx).
+  // Save's disabled label, the members-only wall's secondary "Start your own
+  // group" link (src/components/OrbitNoteScreen.tsx), and the your-groups
+  // screen (src/components/YourGroupsScreen.tsx): its "Your groups" eyebrow
+  // text (covered by the 4.5:1 arithmetic below) and its create-control
+  // border (not text — see the AA_SMALL_TEXT comment above). YourGroupsScreen
+  // sets no background of its own; this surface is VERIFIED, not assumed:
+  // src/app/groups/page.tsx (Task 4) is its sole render ancestor and sets
+  // backgroundColor: "var(--surface-base)" on its root <main>.
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
@@ -134,6 +145,7 @@ describe("the inventory this arithmetic was computed against", () => {
     "src/app/signin/SignInPanel.tsx",
     "src/components/OrbitNoteScreen.tsx",
     "src/components/SendCircleButton.tsx",
+    "src/components/YourGroupsScreen.tsx",
   ]
 
   it("is still exactly the files the surface list above was read from", () => {

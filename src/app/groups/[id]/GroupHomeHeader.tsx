@@ -41,10 +41,16 @@ export function GroupHomeHeader({
         width: "100%",
       }}
     >
-      {/* Orbit logo — the home button (multi-group home is a fast-follow) */}
+      {/* Orbit logo — always opens the group list, whatever number of groups
+          the viewer is in (second-group-entry-point slice, Task 5). Before
+          this it pointed at "/", which guesses for a multi-group member: it
+          either bounced them back where they already were or silently
+          dropped them into a different group. A tap here is a spent choice
+          to see the list, so a list of one is not a tax on a single-group
+          member the way it would be on cold arrival at "/". */}
       <Link
-        href="/"
-        aria-label="Home"
+        href="/groups"
+        aria-label="Your groups"
         style={{
           display: "flex",
           alignItems: "center",

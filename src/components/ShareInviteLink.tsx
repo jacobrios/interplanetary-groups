@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface Props {
   inviteToken: string
@@ -17,6 +17,22 @@ interface Props {
  */
 export default function ShareInviteLink({ inviteToken, groupName }: Props) {
   const [copied, setCopied] = useState(false)
+  // The "Copied!" reset used to be a bare setTimeout with no cleanup, which
+  // is fine while the browser tab stays open but not inside a test: the
+  // component can unmount (or the whole jsdom window can be torn down at the
+  // end of a test file) before the 2s elapses, and the callback firing after
+  // that crashes with "window is not defined" from inside React's scheduler
+  // — surfaced by the full-suite run, attributed to whichever file happened
+  // to be executing when the stray timer fired minutes later, nothing to do
+  // with that file. Tracking the id and clearing it on unmount (and before
+  // starting a new one) removes the dangling callback entirely.
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current)
+    }
+  }, [])
 
   async function handleShare() {
     const url = `${window.location.origin}/join/${inviteToken}`
@@ -31,7 +47,8 @@ export default function ShareInviteLink({ inviteToken, groupName }: Props) {
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (resetTimer.current) clearTimeout(resetTimer.current)
+      resetTimer.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       // Clipboard blocked (permissions or non-secure context). The link text
       // is visible on the page to copy manually; same accepted fallback as

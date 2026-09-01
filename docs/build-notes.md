@@ -6553,3 +6553,85 @@ rediscover it.
 records above, the three being the `describeError` tests. `npx tsc --noEmit` clean;
 `npx eslint src/lib/health scripts/qa-health.ts` clean. `npm run qa:health` against dev-test still
 prints HEALTHY with all three probes run and nothing skipped.
+
+---
+
+## §11 entry: the second-group entry point (1 September 2026)
+
+*Branch `claude/second-group-entry-point-501fe8`, worktree. Slice document:
+`docs/superpowers/specs/2026-09-01-second-group-entry-point-design.md`. One half of the day's
+concurrent pair; site health monitoring was the other.*
+
+**What it is.** `/groups` lists the groups you are in, most recently opened first, never-opened
+last, and carries "Start a new group". Tapping the Orbit mark in a group's header always goes
+there.
+
+**The reasoning most likely to be re-derived.** Two destinations were welded together and the
+owner pulled them apart, overruling the recommendation put to him, which had fused them and so
+made a list-of-one look like a tax charged to every member on every arrival. It is not. Arriving
+at `/` cold still guesses, because guessing is free there (no groups sees the pitch, exactly one
+goes straight in, several sees the list), while the only person who meets a list-of-one is the
+person who chose to tap Orbit. A tap is a spent choice, not a tax.
+
+**The control was wrong, not missing, which is the sharper half of the slice.** The Orbit mark
+pointed at `/`, which redirected to your most recently joined group: from your newest group it
+bounced you back where you already were, and from an older one it silently dropped you into a
+different group. The seat was held for the multi-group home and something wrong was sitting in
+it, while CLAUDE.md's header grammar named this control as the home button the whole time.
+
+**Two elements were built and then dropped, both the owner's.** The lime initials emblem: the
+eight-group board showed "Climbing Crew" and "Cooking Club" both deriving CC, so the name does
+the telling anyway, and eight lime circles under a header already carrying a lime Orbit mark
+turns a brand moment into decoration. The scroll fade: the next row peeking up already carries
+its cue, and making it work had required a client boundary plus a layout constraint that would
+have rendered the whole list invisible, not merely unscrollable, if a future page forgot a
+definite height. Dropping it restored a server component and took that risk with it.
+
+**Hierarchy, measured rather than eyeballed, because two design rounds went on it.** A row is
+335x90, filled, 20px at weight 800; the create control is 335x52, transparent, 17px at weight
+700. Rows dominate by height, fill and type scale, and create's only edge is a brighter border.
+Every real group is filled; this is not.
+
+**Verification. 1434 tests across 134 files, green.** Main's baseline is 1419 across 132 and is
+**derived, not measured** (the branch adds sixteen tests and deletes one). The controller failed
+to record a baseline at slice start, which the standing rule requires; that is a process miss,
+recorded rather than hidden.
+
+**The browser pass is the first time the several-groups path has ever been seen rendered**,
+covered by unit tests alone since July because no dev-test person had ever belonged to more than
+one group; `scripts/qa-stage-yourgroups.ts` closed that. At 375x812 the order matched the
+production function's prediction exactly, the order proved **live** rather than static (opening a
+group moved it to the top on return), a long three-word name wrapped to two lines without
+clipping, and the Orbit round trip worked, confirming the defect repair. **Not verified:** the
+zero-groups arrival (the session had groups) and the scroll region (six groups fit 812px with
+room to spare; it needs about eight). The real-phone pass is the owner's and has not happened.
+
+**A pattern, not three incidents: the accidentally pre-ordered fixture.** Three times here a test
+was caught asserting something true of any implementation, the trap identical each time: a fixture
+already in the order being asserted, so the sort under test could have been deleted and the test
+still passed. One deleted, one rewritten, one deferred. Worth naming because the failure mode is
+not carelessness; a realistic fixture is often already sorted.
+
+**Out of lane, declared, and the second is a finding in its own right.** A pre-existing dangling
+`setTimeout` in `src/components/ShareInviteLink.tsx` was fixed, because a Jacob-built full-suite
+hook blocked on it when the timer fired after jsdom teardown; in a real browser it is a
+state-update-after-unmount leak rather than a crash. And `.claude/launch.json` gained a
+`dev-webpack` entry: **Turbopack refuses a `node_modules` symlink pointing outside the project
+root, so no worktree in this project could start the dev server at all.** Two standing rules in
+conflict, and the cost is exact: it silently removes the browser and phone passes from the one
+setup concurrent work is meant to use. Recommendation: the worktree rule in CLAUDE.md should name
+the webpack flag.
+
+**No migration**, so no deploy obligation and nothing for the after-launch list.
+
+**Deferred minors, carried out of the ledger so they stay visible.** `GroupHomeHeader.tsx`'s
+top-of-file comment still calls the Orbit logo "the home button" without saying where home now
+is, flagged rather than silently fixed; `group-order` has no test for two never-opened groups
+tied on `joinedAt` and none for an empty array; `src/app/page.tsx:34` selects `joinedAt` and
+nothing reads it (pre-existing, harmless); `qa-stage-yourgroups.ts` leaves orphaned batches on a
+rerun in default mode, matching the `qa-stage-daycomment.ts` precedent.
+
+**Debt, still true.** The scope guard (which groups you are in, never what is happening in them)
+is prose rather than a mechanism, so nothing stops a later slice adding a next-event line to a row
+except somebody reading it, and the list is unbounded, which is fine at a handful of groups and
+named so it is not a surprise.
