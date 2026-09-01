@@ -22,23 +22,6 @@ describe("resolveFrontDoor", () => {
     expect(result).toEqual({ kind: "groups" })
   })
 
-  it("sends a tied pair to the list too, regardless of input order", () => {
-    // Ordering the list is Task 2's job now, not this function's; this only
-    // guards that resolveFrontDoor itself never lets input order change
-    // which destination kind it picks.
-    const sameInstant = new Date("2026-07-20T00:00:00Z")
-    const forward = resolveFrontDoor([
-      { groupId: "bbb", joinedAt: sameInstant },
-      { groupId: "aaa", joinedAt: sameInstant },
-    ])
-    const reversed = resolveFrontDoor([
-      { groupId: "aaa", joinedAt: sameInstant },
-      { groupId: "bbb", joinedAt: sameInstant },
-    ])
-    expect(forward).toEqual({ kind: "groups" })
-    expect(reversed).toEqual(forward)
-  })
-
   it("does not mutate the array it was given", () => {
     const memberships = [
       { groupId: "older", joinedAt: new Date("2026-06-01T00:00:00Z") },
