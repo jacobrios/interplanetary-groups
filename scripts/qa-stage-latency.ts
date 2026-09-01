@@ -27,10 +27,10 @@
 import { MessageAuthor, RsvpStatus } from "@prisma/client"
 
 import { prisma } from "../src/lib/prisma"
-import { judge } from "./db-which"
+import { judge, EXPECTED_DEV_TEST_REF } from "./db-which"
 
 /** The same ref db:which checks against (CLAUDE.md, "Two databases, never crossed"). */
-const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
+
 
 function requireDevTest(): void {
   const verdict = judge(process.env, EXPECTED_DEV_TEST_REF)
@@ -128,4 +128,12 @@ async function main() {
   await prisma.$disconnect()
 }
 
-main()
+// Exit loudly rather than as an unhandled rejection.
+// This script deliberately leaves its group behind for QA, so there is nothing to
+// clean up; the catch is here so a failure exits non-zero and visibly rather
+// than as an unhandled rejection that reads like success in a pipeline.
+main().catch(async (err) => {
+  console.error(err)
+  await prisma.$disconnect().catch(() => {})
+  process.exit(1)
+})

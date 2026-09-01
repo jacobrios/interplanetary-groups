@@ -132,6 +132,40 @@ describe("GroupHome: the send interaction", () => {
     expect(input().disabled).toBe(false)
   })
 
+  it("shows the sender an inline error when the send REJECTS, rather than taking the screen down", async () => {
+    // The hard rule at the top of GroupHome.tsx: a silently-sent-but-failed
+    // message is never left. It held only for errors the action RETURNS. A
+    // rejection (dropped connection, a 500, a stale action id after a deploy
+    // while the tab was open) escaped the transition, reached src/app/error.tsx,
+    // and replaced the entire group home with "Something broke on our end." The
+    // member's typed text was already cleared, so it was gone too.
+    //
+    // Pre-existing on main, measured identically there before fixing it here.
+    // The technique is SeenMarker.test.tsx's: watch for anything escaping.
+    const escaped: unknown[] = []
+    const onUnhandled = (e: unknown) => escaped.push(e)
+    process.on("unhandledRejection", onUnhandled)
+
+    sendMock.mockImplementation(async () => {
+      throw new Error("network drop")
+    })
+
+    renderHome()
+    let threw: unknown = null
+    try {
+      await send("see you at 7")
+    } catch (err) {
+      threw = err
+    }
+
+    // Nothing escapes to the error boundary, and the sender is told.
+    expect(threw).toBeNull()
+    expect(escaped).toEqual([])
+    expect(screen.getByText("Couldn't send that, try again.")).toBeTruthy()
+
+    process.off("unhandledRejection", onUnhandled)
+  })
+
   it("still hands the message to Orbit, with the id the send returned", async () => {
     // Guards against "fixed it by deleting the feature". Un-entangling Orbit
     // must not become not-calling Orbit.

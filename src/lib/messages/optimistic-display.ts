@@ -19,6 +19,18 @@
 // entry stays exactly as long as React wants it to, and merely stops LOOKING
 // unsent once the send has landed.
 //
+// AND THE DUPLICATE IS CLOSED HERE TOO, rather than accepted as debt, which is
+// where this landed after independent review. While the entry is still held and
+// revalidation has already delivered the real row, the member can see their own
+// message twice. That was survivable while the leaked copy was greyed, because
+// it read as a transient rendering state. Un-greying it made the two copies
+// identical, so a leak would read as a data error instead: "did I send that
+// twice, can everyone see it twice?" (They cannot; it is local-only.) Rather
+// than accept a rarer but now-silent failure, the settled record carries the
+// SERVER id the send returned, so the optimistic entry can simply be dropped
+// once its confirmed row is present. Matched on that id and never on body text,
+// so a member legitimately sending "ok" twice keeps both.
+//
 // Deliberately not the alternative fixes, both of which were weighed and both
 // of which the owner declined on 31 Aug 2026 as bigger changes for an identical
 // member experience: routing Orbit's read through an API route so it is not a
@@ -31,28 +43,53 @@
 
 import type { FeedMessage } from "@/app/groups/[id]/MessageFeed"
 
+/** An optimistic entry whose send has landed, and the row the server gave it. */
+export interface SettledSend {
+  /** The client-side id the optimistic entry was created with. */
+  optimisticId: string
+  /** The Message.id the send returned, used to spot its confirmed row. */
+  serverId: string
+}
+
 /**
- * Clears the sending state on optimistic entries whose send has already landed.
+ * Reconciles optimistic entries against what the server has confirmed.
+ *
+ * Two things, both keyed on ids rather than content:
+ *  - an entry whose send has landed stops being drawn as sending;
+ *  - an entry whose confirmed row is already in the list is dropped, so the
+ *    member never sees their own message twice.
  *
  * Returns the SAME array when nothing changes, so the feed is not handed a
  * fresh list on every render.
  *
  * @param messages the feed as useOptimistic currently reports it
- * @param settledIds ids of optimistic entries whose server action has resolved
+ * @param settled optimistic entries whose server action has resolved
  */
 export function applySettledSends(
   messages: FeedMessage[],
-  settledIds: readonly string[]
+  settled: readonly SettledSend[]
 ): FeedMessage[] {
-  if (settledIds.length === 0) return messages
+  if (settled.length === 0) return messages
 
-  const settled = new Set(settledIds)
+  const landed = new Map(settled.map((s) => [s.optimisticId, s.serverId]))
+  const present = new Set(messages.map((m) => m.id))
+
   let changed = false
-  const next = messages.map((message) => {
-    if (!message.isPending || !settled.has(message.id)) return message
+  const next: FeedMessage[] = []
+  for (const message of messages) {
+    const serverId = landed.get(message.id)
+    if (serverId === undefined || !message.isPending) {
+      next.push(message)
+      continue
+    }
+    // Its real row is already here; this entry is a duplicate of it.
+    if (present.has(serverId)) {
+      changed = true
+      continue
+    }
     changed = true
-    return { ...message, isPending: false }
-  })
+    next.push({ ...message, isPending: false })
+  }
 
   return changed ? next : messages
 }

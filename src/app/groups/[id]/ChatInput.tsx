@@ -35,10 +35,15 @@ import SendCircleButton from "@/components/SendCircleButton"
 // already cleared on submit, so the only thing the disable achieved was
 // stopping the member typing the next one.
 //
-// The prop is absent rather than accepted-and-ignored on purpose: a boolean
-// sitting unused on this interface is an invitation to wire it back to
-// `disabled`, which is the exact bug that slice removed. GroupHome.test.tsx
-// holds the behavior; this comment explains why there is nothing to hold.
+// The prop is absent rather than accepted-and-ignored on purpose, and THE
+// ABSENCE IS WHAT ENFORCES THIS, not a test. A boolean sitting unused on this
+// interface is an invitation to wire it back to `disabled`; with no prop, doing
+// so is a deliberate act that has to add the prop back first. GroupHome.test.tsx
+// does assert the input is never disabled, but that test can only fail once
+// somebody has already re-added the prop AND wired it, so it is a backstop
+// rather than the guarantee. Stated precisely because an earlier version of this
+// comment credited the test with holding the behaviour, and this component's
+// history is specifically a history of comments claiming more than was true.
 
 interface Props {
   groupId: string

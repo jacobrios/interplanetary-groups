@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { MessageAuthor } from "@prisma/client"
 
-import { applySettledSends } from "../optimistic-display"
+import { applySettledSends, type SettledSend } from "../optimistic-display"
 import type { FeedMessage } from "@/app/groups/[id]/MessageFeed"
 
 function optimistic(id: string, body: string): FeedMessage {
@@ -20,13 +20,41 @@ function confirmed(id: string, body: string): FeedMessage {
   return { ...optimistic(id, body), isPending: false }
 }
 
+const settled = (optimisticId: string, serverId: string): SettledSend => ({
+  optimisticId,
+  serverId,
+})
+
 describe("applySettledSends", () => {
   it("clears the sending state on an entry whose send has landed", () => {
-    // The whole point. MessageFeed draws isPending at 0.65 opacity, which reads
-    // as "not sent yet". Once the server has the message, that is a lie, and it
-    // used to persist for as long as Orbit's model call took.
-    const out = applySettledSends([optimistic("o1", "hello")], ["o1"])
+    // MessageFeed draws isPending at 0.65 opacity, which reads as "not sent
+    // yet". Once the server has the message that is a lie, and it used to
+    // persist for as long as Orbit's model call took.
+    const out = applySettledSends([optimistic("o1", "hello")], [settled("o1", "m1")])
     expect(out.map((m) => m.isPending)).toEqual([false])
+  })
+
+  it("drops the optimistic entry once the confirmed row for it has arrived", () => {
+    // The duplicate, closed rather than accepted. While the send's transition is
+    // still open, useOptimistic layers its entry on top of the base list, so
+    // after revalidation delivers the real row the member can see their own
+    // message TWICE. Keyed on the server id the send returned, never on body
+    // text: a member legitimately sending "ok" twice must keep both.
+    const out = applySettledSends(
+      [confirmed("m1", "hello"), optimistic("o1", "hello")],
+      [settled("o1", "m1")]
+    )
+    expect(out.map((m) => m.id)).toEqual(["m1"])
+  })
+
+  it("keeps a genuine repeat of the same words", () => {
+    // The reason this matches on id rather than on body.
+    const out = applySettledSends(
+      [confirmed("m1", "ok"), optimistic("o2", "ok")],
+      [settled("o2", "m2")]
+    )
+    expect(out.map((m) => m.id)).toEqual(["m1", "o2"])
+    expect(out.map((m) => m.isPending)).toEqual([false, false])
   })
 
   it("leaves an entry still in flight alone", () => {
@@ -40,7 +68,7 @@ describe("applySettledSends", () => {
     // sent.
     const out = applySettledSends(
       [optimistic("o1", "first"), optimistic("o2", "second")],
-      ["o1"]
+      [settled("o1", "m1")]
     )
     expect(out.map((m) => [m.body, m.isPending])).toEqual([
       ["first", false],
@@ -49,7 +77,7 @@ describe("applySettledSends", () => {
   })
 
   it("returns the same array when nothing has settled, so React sees no change", () => {
-    // Identity matters here: this runs on every render of the feed, and handing
+    // Identity matters: this runs on every render of the feed, and handing
     // MessageFeed a fresh array each time would defeat any future memoisation
     // and churn the list for no reason.
     const messages = [optimistic("o1", "hello")]
@@ -58,6 +86,6 @@ describe("applySettledSends", () => {
 
   it("leaves confirmed server messages untouched", () => {
     const messages = [confirmed("m1", "already real")]
-    expect(applySettledSends(messages, ["m1"])).toBe(messages)
+    expect(applySettledSends(messages, [settled("o9", "m9")])).toBe(messages)
   })
 })

@@ -18,7 +18,16 @@ import "dotenv/config"
 
 // interplanetary-groups-dev-test. First printed by this script, to be confirmed
 // against the Supabase dashboard during PR review (see the PR description).
-const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
+/**
+ * The dev-test project ref, and the single source of truth for it.
+ *
+ * Exported because every script that writes to a database re-checks it, and
+ * three hand-maintained copies of the string that decides WHICH DATABASE gets
+ * written to is three chances for one to be missed. A stale copy fails closed
+ * (the script refuses to run) rather than dangerously, so this is friction
+ * rather than risk, but it is friction on the one check that must never rot.
+ */
+export const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
 
 // https://<ref>.supabase.co → ref
 export function extractSupabaseRef(url: string | undefined): string | null {

@@ -39,10 +39,10 @@ import { findLiveProposals } from "../src/lib/proposals/read"
 import { loadEmailAskInputs } from "../src/lib/auth/email-ask"
 import { CARD_REGION_CAP } from "../src/lib/cards/region"
 
-import { judge } from "./db-which"
+import { judge, EXPECTED_DEV_TEST_REF } from "./db-which"
 
 /** The same ref db:which checks against (CLAUDE.md, "Two databases, never crossed"). */
-const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
+
 
 function requireDevTest(): void {
   const verdict = judge(process.env, EXPECTED_DEV_TEST_REF)
@@ -293,4 +293,13 @@ async function main() {
   await prisma.$disconnect()
 }
 
-main()
+// Exit loudly rather than as an unhandled rejection.
+// The measurement group and its users are deleted in main()'s happy path; this
+// catch is what stops a mid-run failure (a flaky remote, or the script's own
+// "measurement group vanished") leaving a [PERF] group and up to 500 messages
+// behind in dev-test on every run, which the header above promises it does not.
+main().catch(async (err) => {
+  console.error(err)
+  await prisma.$disconnect().catch(() => {})
+  process.exit(1)
+})

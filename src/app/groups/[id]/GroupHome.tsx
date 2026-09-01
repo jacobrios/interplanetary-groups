@@ -21,10 +21,28 @@
 //   useOptimistic auto-reverts to initialMessages (removing the failed
 //   optimistic entry) and errorMsg is shown.
 //
-// A silently-sent-but-failed message is never left — same hard rule as RSVP.
+// TWO THINGS THAT SUMMARY NO LONGER TELLS YOU ON ITS OWN, both from the
+// message-send-latency slice (31 Aug 2026). Read them before trusting the
+// four bullets above, because each qualifies one of them:
+//
+// 1. HOLDING AN OPTIMISTIC ENTRY AND DRAWING IT AS UNSENT ARE NOW SEPARATE.
+//    useOptimistic decides when to release the entry, and that is NOT when the
+//    server got the message: it waits for every router-level transition,
+//    including the one Next wraps around Orbit's read. So a second piece of
+//    state, settledSends, decides when the bubble stops looking unsent. See the
+//    long note on it below and src/lib/messages/optimistic-display.ts.
+//
+// 2. THE HARD RULE BELOW WAS TRUE ONLY OF ERRORS THE ACTION RETURNS. A
+//    rejection escaped the transition to src/app/error.tsx and replaced the
+//    whole screen with "Something broke on our end.", with the member's typed
+//    text already cleared. Both consumers of the send promise now catch, and
+//    both treat a null result as a failure. Do not remove either catch.
+//
+// A silently-sent-but-failed message is never left — same hard rule as RSVP,
+// and as of the above it holds for a failed TRIP as well as a failed action.
 
 import { useOptimistic, useTransition, useState, useEffect, useRef } from "react"
-import { sendMessageAction } from "@/app/actions/send-message"
+import { sendMessageAction, type SendMessageState } from "@/app/actions/send-message"
 import { detectIntentAction } from "@/app/actions/detect-intent"
 import { MessageAuthor } from "@prisma/client"
 import MessageFeed, { type FeedMessage } from "./MessageFeed"
@@ -35,8 +53,24 @@ import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import SeenMarker from "./SeenMarker"
-import { applySettledSends } from "@/lib/messages/optimistic-display"
+import { applySettledSends, type SettledSend } from "@/lib/messages/optimistic-display"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
+
+/**
+ * Whether a send result carries ANY error, rather than specifically
+ * `errors.general`.
+ *
+ * `SendMessageState` has one error field today, so the two are equivalent and
+ * this looks like ceremony. It is not: the moment somebody adds `errors.body`
+ * or `errors.rateLimit`, a check pinned to `general` stops matching, and this
+ * component's success path would mark the entry settled and draw a failed send
+ * as sent at full opacity with no error anywhere. That is a direct violation of
+ * this file's hard rule, produced by adding a field to an interface in another
+ * file. Keyed on "any error present" so it cannot happen.
+ */
+function hasError(result: SendMessageState): boolean {
+  return Boolean(result.errors && Object.values(result.errors).some(Boolean))
+}
 
 interface Props {
   groupId: string
@@ -143,7 +177,7 @@ export default function GroupHome({
   // version is that useOptimistic decides when to RELEASE an entry, and that is
   // not the same moment the server got the message, so this decides separately
   // when it stops being drawn as "sending".
-  const [settledSends, setSettledSends] = useState<string[]>([])
+  const [settledSends, setSettledSends] = useState<SettledSend[]>([])
   const displayMessages = applySettledSends(optimisticMessages, settledSends)
 
   // Nothing is in flight any more, so the ids are dead weight. Cleared rather
@@ -233,9 +267,23 @@ export default function GroupHome({
 
     startTransition(async () => {
       addOptimisticMessage(optimistic)
-      const result = await sending
-      if (result?.errors?.general) {
-        setErrorMsg(result.errors.general)
+      // `.catch` is load-bearing and is the same guard SeenMarker.tsx and the
+      // detection call below already carry. The action is soft on the server;
+      // this covers THE TRIP. A dropped connection, a 500, or a stale action id
+      // after a deploy while the tab was open all reject the promise this client
+      // is holding, and React surfaces a rejected async transition to the
+      // nearest error boundary: src/app/error.tsx, "Something broke on our end."
+      // That replaced the entire group home, with the member's typed text
+      // already cleared, and the inline error below never rendered.
+      //
+      // A null result therefore means the trip failed, and is deliberately
+      // treated as an error rather than as an empty success. Pre-existing on
+      // main and measured identically there; fixed here because this slice
+      // rewrote this line and had already put the same guard on the harmless
+      // branch of the very same promise.
+      const result = await sending.catch(() => null)
+      if (!result || hasError(result)) {
+        setErrorMsg(result?.errors?.general ?? "Couldn't send that, try again.")
         // useOptimistic auto-reverts to initialMessages once the transition
         // settles with no matching revalidatePath — removing the failed entry.
         return
@@ -253,8 +301,18 @@ export default function GroupHome({
     // always held: a silently-sent-but-failed message is never left.
     void sending
       .then((result) => {
-        if (result?.errors?.general) return
-        setSettledSends((ids) => [...ids, optimistic.id])
+        // The SAME test the transition branch uses, deliberately. These two
+        // decide the same question about the same promise, and if they ever
+        // disagree the losing combination is "no error shown, drawn as sent".
+        if (!result || hasError(result)) return
+        // Both ids, because the server one is what lets the entry be dropped
+        // when its confirmed row arrives rather than merely un-greyed.
+        if (!result.messageId) return
+        const landed: SettledSend = {
+          optimisticId: optimistic.id,
+          serverId: result.messageId,
+        }
+        setSettledSends((ids) => [...ids, landed])
       })
       .catch(() => null)
   }
