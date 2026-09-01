@@ -7,7 +7,7 @@
 
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import { YourGroupsScreen } from "@/components/YourGroupsScreen"
 
 vi.mock("next/link", () => ({
@@ -151,44 +151,5 @@ describe("YourGroupsScreen", () => {
     // svg-only check below could still pass with text content added.
     expect(link.textContent).toBe("Climbing Crew")
     expect(link.querySelector("svg")).toBeNull()
-  })
-
-  describe("the bottom scroll fade", () => {
-    // jsdom lays out nothing, so scrollHeight/clientHeight/scrollTop are all
-    // 0 by default; these tests drive the component's own overflow
-    // arithmetic directly by overriding those three properties (a standard
-    // jsdom testing technique) and firing the "scroll" event the component
-    // listens for, rather than trying to make jsdom actually scroll.
-
-    function setScrollGeometry(
-      el: HTMLElement,
-      { scrollHeight, clientHeight, scrollTop }: { scrollHeight: number; clientHeight: number; scrollTop: number }
-    ) {
-      Object.defineProperty(el, "scrollHeight", { value: scrollHeight, configurable: true })
-      Object.defineProperty(el, "clientHeight", { value: clientHeight, configurable: true })
-      Object.defineProperty(el, "scrollTop", { value: scrollTop, configurable: true })
-    }
-
-    it("stays hidden on mount when the list doesn't overflow at all", () => {
-      render(<YourGroupsScreen groups={TWO_GROUPS} />)
-      expect(screen.getByTestId("your-groups-scroll-fade").style.opacity).toBe("0")
-    })
-
-    it("appears once scrolled away from the true end of an overflowing list", () => {
-      render(<YourGroupsScreen groups={TWO_GROUPS} />)
-      const region = screen.getByTestId("your-groups-scroll-region")
-      setScrollGeometry(region, { scrollHeight: 500, clientHeight: 300, scrollTop: 50 })
-      fireEvent.scroll(region)
-      expect(screen.getByTestId("your-groups-scroll-fade").style.opacity).toBe("1")
-    })
-
-    it("hides again once scrolled to the true end, not off a row count", () => {
-      render(<YourGroupsScreen groups={TWO_GROUPS} />)
-      const region = screen.getByTestId("your-groups-scroll-region")
-      // Scrolled all the way: scrollTop + clientHeight === scrollHeight.
-      setScrollGeometry(region, { scrollHeight: 500, clientHeight: 300, scrollTop: 200 })
-      fireEvent.scroll(region)
-      expect(screen.getByTestId("your-groups-scroll-fade").style.opacity).toBe("0")
-    })
   })
 })

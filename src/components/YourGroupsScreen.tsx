@@ -1,5 +1,3 @@
-"use client"
-
 // src/components/YourGroupsScreen.tsx
 //
 // The "your groups" screen (second-group-entry-point slice, Task 3). Lives
@@ -17,10 +15,12 @@
 // above the list (never above the create control) fences the list so only
 // what's under "Your groups" reads as a group.
 //
-// This file is a client component solely for the scroll-fade cue below; the
-// rest of it would happily be server-rendered.
+// A plain server component, deliberately: an earlier fix round gave it a
+// client boundary (a ref, a scroll listener, state) solely to drive a
+// bottom-edge fade. That fade is gone (see the note above the scroll
+// region), and with it the only reason this file needed to run in the
+// browser at all.
 
-import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { OrbitMark } from "@/components/OrbitMark"
 
@@ -34,32 +34,6 @@ export function YourGroupsScreen({
 }: {
   groups: ReadonlyArray<YourGroupsScreenGroup>
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [overflowing, setOverflowing] = useState(false)
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-
-    // The one honest test for "is there more to see": how much scrollable
-    // distance remains below the visible viewport. A row-count guess (the
-    // design's own "past roughly seven rows" prose) can't be honest, because
-    // row height moves with device text size — three rows already fill a
-    // screen at large text — so a fixed count would show the cue with
-    // nothing below it, or hide it when there's more. The 1px tolerance
-    // absorbs sub-pixel rounding right at the true end of a scroll.
-    function checkOverflow() {
-      if (!el) return
-      setOverflowing(el.scrollHeight - el.scrollTop - el.clientHeight > 1)
-    }
-
-    checkOverflow()
-    el.addEventListener("scroll", checkOverflow)
-    return () => el.removeEventListener("scroll", checkOverflow)
-    // Re-checks whenever the list Task 4 hands us changes shape, not only at
-    // mount: a shorter or taller list can flip whether it overflows at all.
-  }, [groups])
-
   return (
     <div
       style={{
@@ -157,102 +131,76 @@ export function YourGroupsScreen({
         Your groups
       </div>
 
+      {/* No bottom scroll-fade here, though the design boards drew one.
+          Owner-ruled deviation, 1 Sept 2026, dropped in fix round 2: the
+          design's own next-card-peeking-up treatment already carries the
+          "there's more below" cue, so the fade was the redundant half of a
+          cue delivered twice; making it actually work (paint in front of
+          opaque rows, react to real scroll position) required a client
+          boundary that shipped JS, and OrbitMark with it, for a screen
+          that is otherwise a handful of static links; and the
+          absolutely-positioned implementation it required had a latent
+          bug no test here could catch — inside an unbounded flex column
+          (true until Task 4 exists) it collapsed the region to 0px and
+          made the whole list invisible, not merely unscrollable. */}
       <div
         style={{
-          // Task 4 owns whether this region can ever actually overflow: flex
-          // 1 1 auto with minHeight 0 only lets it shrink to fill LEFTOVER
-          // space inside a bounded flex column. Without Task 4 giving the
-          // screen's own root a real height (e.g. 100dvh), there is no
-          // bottom edge for this region to overflow against, and nothing in
-          // this file can manufacture one.
+          // Task 4 owns whether this region actually scrolls: overflow-y
+          // auto only takes effect once something gives this element a
+          // bounded height (flex 1 1 auto with minHeight 0 lets it SHRINK
+          // to fit inside a bounded flex column, but manufactures no bound
+          // of its own). Give the screen's root a real height (e.g. 100dvh)
+          // and this region scrolls; leave it unbounded and it simply grows
+          // to fit every row instead, which is a safe degrade, not a
+          // failure.
           flex: "1 1 auto",
           minHeight: 0,
-          position: "relative",
+          overflowY: "auto",
         }}
       >
-        <div
-          ref={scrollRef}
-          data-testid="your-groups-scroll-region"
+        <ul
           style={{
-            position: "absolute",
-            inset: 0,
-            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
           }}
         >
-          <ul
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-            }}
-          >
-            {groups.map((group) => (
-              <li key={group.id}>
-                <Link
-                  href={`/groups/${group.id}`}
+          {groups.map((group) => (
+            <li key={group.id}>
+              <Link
+                href={`/groups/${group.id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: ".65em",
+                  background: "var(--surface-raised)",
+                  border: "1px solid var(--hairline)",
+                  borderRadius: 14,
+                  padding: "1.05em 1.1em",
+                  boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+                  fontSize: "var(--type-heading)",
+                  lineHeight: "var(--leading-tight)",
+                  textDecoration: "none",
+                }}
+              >
+                <span
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: ".65em",
-                    background: "var(--surface-raised)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: 14,
-                    padding: "1.05em 1.1em",
-                    boxShadow: "0 1px 3px rgba(0,0,0,.35)",
-                    fontSize: "var(--type-heading)",
-                    lineHeight: "var(--leading-tight)",
-                    textDecoration: "none",
+                    fontWeight: 800,
+                    letterSpacing: "-.01em",
+                    color: "var(--text-primary)",
+                    minWidth: 0,
+                    textWrap: "balance",
                   }}
                 >
-                  <span
-                    style={{
-                      fontWeight: 800,
-                      letterSpacing: "-.01em",
-                      color: "var(--text-primary)",
-                      minWidth: 0,
-                      textWrap: "balance",
-                    }}
-                  >
-                    {group.name}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* The scroll cue itself, painted as a real overlay IN FRONT of the
-            rows (a later sibling of the scroll region, both absolutely
-            positioned within the same relative wrapper), never as a
-            background layer sitting behind them — a background layer can
-            never fade an opaque row (--surface-raised) painted on top of it.
-            Pinned to the wrapper's own bottom edge rather than living inside
-            the scrolling element, so it stays glued to the visible viewport
-            edge regardless of scroll position, the same way the design's own
-            ::after overlay did. `transparent` rather than a literal
-            rgba-of-surface-base: alpha 0 has no visible colour to hardcode,
-            so this never has to track --surface-base's hex if that token
-            changes. `overflowing` (real scrollHeight/scrollTop/clientHeight
-            arithmetic above) is the only thing that toggles it — never a row
-            count. */}
-        <div
-          aria-hidden="true"
-          data-testid="your-groups-scroll-fade"
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 58,
-            pointerEvents: "none",
-            background: "linear-gradient(180deg, transparent, var(--surface-base))",
-            opacity: overflowing ? 1 : 0,
-            transition: "opacity 120ms ease",
-          }}
-        />
+                  {group.name}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )
