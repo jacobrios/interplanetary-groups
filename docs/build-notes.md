@@ -6547,7 +6547,15 @@ to whatever `HEALTH_HEARTBEAT_URL` holds in the local checkout, and nothing chec
 production monitor: a local `--ping` would send a GREEN heartbeat that suppresses a real
 missing-ping alarm for a whole period, and `--break --ping` would raise a false incident, so the
 script now prints the destination host (never the token in the path) with a warning before it
-sends, which is the one code change in this group. The `client` injection in `realProbes` is
+sends, which is the one code change in this group. **The standing operational rule that follows
+from it, added 1 September 2026 after the owner asked the right question unprompted: do not leave
+any heartbeat URL sitting in the local `.env` at all.** The warning line is a last check before a
+send, not a reason to keep a live destination on the machine, and the hazard is not only
+`--ping`: hitting `/api/cron/orbit` on a local dev server sends a heartbeat too. A local checkout
+with no value gets `not_configured`, sends nothing, and says so, which is the correct default for
+a machine that is not production. When a local send genuinely needs proving, create a throwaway
+heartbeat, paste it in for the duration, and take it out again. The production URL belongs in
+Vercel's environment variables and nowhere else. The `client` injection in `realProbes` is
 **partial**: probes 1 and 2 and the direct `client.*` calls honour it, while `findUpcomingEvents`,
 `findLiveGauges`, `findLiveProposals` and `loadEmailAskInputs` reach the module singleton, so
 `--break` works today only because it stops at the first probe, and a future variant skipping
