@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen } from "@testing-library/react"
 import EventCard from "../EventCard"
+import { EventStatus } from "@prisma/client"
 
 vi.mock("@/app/actions/rsvp", () => ({ rsvpAction: vi.fn(async () => ({})) }))
 
@@ -12,6 +13,7 @@ const EVENT = {
   title: "Friday beers",
   startsAt: new Date("2026-08-14T19:00:00-06:00"),
   endsAt: null,
+  status: EventStatus.SCHEDULED,
   venues: [{ displayLabel: "Barcade", name: "Barcade Denver" }],
 }
 
@@ -104,5 +106,65 @@ describe("EventCard need label", () => {
   it("skips the label entirely for a viewer with no session", () => {
     renderCard({ viewerHasSession: false })
     expect(screen.queryByText(/Needs/)).toBeNull()
+  })
+})
+
+// Cancel-one-occurrence slice (task 8): a called-off plan on the group home
+// reads as off, with nothing left to answer and nothing to tally.
+describe("EventCard, a called-off plan", () => {
+  it("reads as called off, with no answer row and no counts", () => {
+    render(
+      <EventCard
+        event={{
+          id: "e1",
+          title: "Tennis",
+          startsAt: new Date("2099-06-14T18:00:00Z"),
+          endsAt: null,
+          status: EventStatus.CANCELLED,
+          venues: [],
+        }}
+        groupId="g1"
+        timeZone="UTC"
+        inCount={4}
+        outCount={1}
+        pendingCount={3}
+        viewerStatus={null}
+        viewerHasSession
+      />
+    )
+
+    expect(screen.getByText("Called off")).toBeDefined()
+    // The answer row goes: there is nothing to be in or out for.
+    expect(screen.queryByRole("button", { name: /I'm in/i })).toBeNull()
+    // The counts go: a tally under a called-off game reads as attendance for
+    // something that is not happening.
+    expect(screen.queryByText(/4 In/)).toBeNull()
+    expect(screen.queryByText(/Needs your RSVP/)).toBeNull()
+  })
+
+  it("is unchanged for a live plan", () => {
+    render(
+      <EventCard
+        event={{
+          id: "e1",
+          title: "Tennis",
+          startsAt: new Date("2099-06-14T18:00:00Z"),
+          endsAt: null,
+          status: EventStatus.SCHEDULED,
+          venues: [],
+        }}
+        groupId="g1"
+        timeZone="UTC"
+        inCount={4}
+        outCount={1}
+        pendingCount={3}
+        viewerStatus={null}
+        viewerHasSession
+      />
+    )
+
+    expect(screen.getByText(/4 In/)).toBeDefined()
+    expect(screen.getByText("Needs your RSVP")).toBeDefined()
+    expect(screen.queryByText("Called off")).toBeNull()
   })
 })

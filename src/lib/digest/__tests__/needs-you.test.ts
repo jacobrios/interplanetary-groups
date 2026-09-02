@@ -11,6 +11,7 @@ import { deriveNeedsYouItems } from "@/lib/digest/needs-you"
 import type { EventCardData } from "@/app/groups/[id]/EventCarousel"
 import type { LiveGauge } from "@/lib/gauges/read"
 import type { LiveProposal } from "@/lib/proposals/read"
+import { EventStatus } from "@prisma/client"
 
 const TZ = "America/Chicago"
 const VIEWER = "user-viewer"
@@ -22,6 +23,7 @@ function eventCard(over: Partial<EventCardData> = {}): EventCardData {
       title: "Climbing",
       startsAt: new Date("2026-08-30T22:00:00.000Z"), // Sun 5pm America/Chicago
       endsAt: null,
+      status: EventStatus.SCHEDULED,
       venues: [],
     },
     inCount: 0,

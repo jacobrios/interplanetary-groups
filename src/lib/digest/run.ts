@@ -25,7 +25,7 @@
 // either sweep that already ran this hour.
 
 import { prisma } from "@/lib/prisma"
-import { ContactMethodType, MessageAuthor, ProposalKind, RsvpStatus } from "@prisma/client"
+import { ContactMethodType, MessageAuthor, ProposalKind, RsvpStatus, EventStatus } from "@prisma/client"
 import type { EventCardData } from "@/app/groups/[id]/EventCarousel"
 import { getLocalParts } from "@/lib/orbit/occurrence"
 import { findLiveGauges, type LiveGauge } from "@/lib/gauges/read"
@@ -100,6 +100,7 @@ interface EventRow {
   endsAt: Date | null
   createdAt: Date
   gaugeId: string | null
+  status: EventStatus
   venues: { displayLabel: string | null; name: string }[]
 }
 
@@ -359,6 +360,7 @@ async function processOneMember(input: {
         title: event.title,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
+        status: event.status,
         venues: event.venues,
       },
       inCount,

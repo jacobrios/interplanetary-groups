@@ -271,6 +271,7 @@ async function main() {
         title: event.title,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
+        status: event.status,
         venues: event.venues,
       },
       inCount,

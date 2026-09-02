@@ -28,14 +28,20 @@
 // (ProposalSection) — this card just no longer points at it. A confirmed
 // card's need label can now only ever ask for the viewer's own RSVP, or say
 // nothing.
+//
+// Cancel-one-occurrence slice: a called-off card drops its counts while the
+// detail screen KEEPS its roster. That is on purpose, not an inconsistency
+// to fix later: the preview card shows the gist and the gist is that it is
+// off, while the detail screen carries completeness and those answers still
+// exist, because a cancel touches no RSVP row.
 
 import Link from "next/link"
 import RsvpControls from "@/components/RsvpControls"
 import { NeedLabel } from "@/components/NeedLabel"
 import { formatEventDate } from "@/lib/events/format"
 import { formatCounts } from "@/lib/events/roster"
-import { eventNeedLabel } from "@/lib/cards/region"
-import { RsvpStatus } from "@prisma/client"
+import { eventCardLabel } from "@/lib/cards/region"
+import { RsvpStatus, EventStatus } from "@prisma/client"
 
 interface Props {
   event: {
@@ -43,6 +49,7 @@ interface Props {
     title: string
     startsAt: Date
     endsAt: Date | null
+    status: EventStatus
     venues: { displayLabel: string | null; name: string }[]
   }
   groupId: string
@@ -69,7 +76,10 @@ export default function EventCard({
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, timeZone)
   const countsLabel = formatCounts({ inCount, outCount, pendingCount })
-  const needLabel = viewerHasSession ? eventNeedLabel(viewerStatus) : null
+  const isCancelled = event.status === EventStatus.CANCELLED
+  // The status rung sits above the need ladder: a called-off plan needs
+  // nothing from anybody, so no need label can outrank it.
+  const needLabel = viewerHasSession || isCancelled ? eventCardLabel(isCancelled, viewerStatus) : null
 
   return (
     <div
@@ -99,21 +109,26 @@ export default function EventCard({
             color: "inherit",
           }}
         >
-          {/* Event title */}
+          {/* Event title. Steps down to --text-secondary when called off:
+              status is carried by brightness, never by hue (the owner is
+              red/green colourblind), and the label above already names the
+              word. */}
           <p
             style={{
               fontSize: "var(--type-heading)",
               lineHeight: "var(--leading-tight)",
               fontWeight: 800,
               letterSpacing: "-.01em",
-              color: "var(--text-primary)",
+              color: isCancelled ? "var(--text-secondary)" : "var(--text-primary)",
               textWrap: "balance",
             }}
           >
             {event.title}
           </p>
 
-          {/* Metadata row: date · venue */}
+          {/* Metadata row: date · venue. Already renders at --text-secondary
+              on a live card too, so a called-off plan needs no separate
+              step-down here; the title above is the one that changes. */}
           <p
             style={{
               fontSize: "var(--type-meta)",
@@ -152,18 +167,20 @@ export default function EventCard({
               marginTop: "0.55em",
             }}
           >
-            <p
-              style={{
-                fontSize: "var(--type-label)",
-                lineHeight: "var(--leading-normal)",
-                fontWeight: 700,
-                color: "var(--text-secondary)",
-                fontVariantNumeric: "tabular-nums",
-                flex: "1 1 auto",
-              }}
-            >
-              {countsLabel}
-            </p>
+            {!isCancelled && (
+              <p
+                style={{
+                  fontSize: "var(--type-label)",
+                  lineHeight: "var(--leading-normal)",
+                  fontWeight: 700,
+                  color: "var(--text-secondary)",
+                  fontVariantNumeric: "tabular-nums",
+                  flex: "1 1 auto",
+                }}
+              >
+                {countsLabel}
+              </p>
+            )}
             {needLabel && (
               <div style={{ flexShrink: 0, marginLeft: "auto" }}>
                 <NeedLabel value={needLabel} />
@@ -174,8 +191,12 @@ export default function EventCard({
 
         {/* RSVP controls — only for authenticated viewers. Bottom-anchored
             (board 06 stretch): a short card's leftover space collects here
-            as mid-card air instead of dead space below the card. */}
-        {viewerHasSession && (
+            as mid-card air instead of dead space below the card.
+            No answer row on a called-off plan, and no cancel control here
+            either (decision 5): the card region's height budget was won by a
+            whole slice, 47.7% of the screen down to 34%, and a control here
+            spends it. Calling a plan off lives on its own page. */}
+        {viewerHasSession && !isCancelled && (
           <div data-ask style={{ marginTop: "auto", paddingTop: "0.95em" }}>
             <RsvpControls
               eventId={event.id}
