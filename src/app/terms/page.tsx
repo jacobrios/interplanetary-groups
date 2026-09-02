@@ -40,8 +40,9 @@ export default function TermsPage() {
       <LegalSection heading="What this is">
         <LegalText>
           I built Interplanetary Groups on my own. It is not a company. There
-          is no support desk, no service agreement, and no team behind it. By
-          using it you are agreeing to everything on this page.
+          is no support desk, nothing I have promised to keep running, and no
+          team behind it. By using it you are agreeing to everything on this
+          page.
         </LegalText>
       </LegalSection>
 
@@ -94,22 +95,32 @@ export default function TermsPage() {
         <LegalText>
           <LegalStrong>You own what you write.</LegalStrong> By posting it here
           you give permission to store it and to show it to the people in your
-          group, which is the only thing the app does with it. Nothing you
-          write is sold, published, or shown to anybody outside your group.
-        </LegalText>
-      </LegalSection>
-
-      <LegalSection heading="Your information">
-        <LegalText>
-          What the app keeps, who can see it, and how to have it deleted is on
-          the{" "}
+          group. Nothing you write is ever sold or published. It does leave
+          your group in two ways, and I would rather you heard it here: a few
+          outside services handle it so the app can work at all, and I can read
+          it myself. The{" "}
           <Link
             href="/privacy"
             style={{ color: "var(--text-secondary)", textDecoration: "underline" }}
           >
             privacy notice
-          </Link>
-          . It is worth the two minutes.
+          </Link>{" "}
+          says exactly who, and why.
+        </LegalText>
+      </LegalSection>
+
+      {/* Deliberately does NOT repeat the privacy-notice link from the
+          section directly above it. That link was added in fix round 1, and
+          two underlined "privacy notice" links two paragraphs apart read as
+          a stutter on a phone (seen rendered at 375x812, which is how it was
+          caught). The signpost keeps its heading, because it is the thing a
+          reader scanning the headings should find; the link lives once, at
+          the sentence that actually needs it. */}
+      <LegalSection heading="Your information">
+        <LegalText>
+          What else the app keeps, who can see it, and how to have it deleted
+          is all on the privacy notice, linked just above. It is worth the two
+          minutes.
         </LegalText>
       </LegalSection>
     </LegalPage>

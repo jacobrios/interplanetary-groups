@@ -31,6 +31,22 @@ const linkStyle: React.CSSProperties = {
 }
 
 /**
+ * The line both shapes are set in, shared rather than written twice.
+ *
+ * The whole reason these two live in one file is that they cannot be allowed
+ * to drift; two byte-identical style objects with nothing joining them was
+ * exactly the drift this module exists to prevent, one level down from the
+ * routes (review, fix round 1). Eyebrow floor, --text-faint, centred.
+ */
+const lineStyle: React.CSSProperties = {
+  margin: 0,
+  textAlign: "center",
+  fontSize: "var(--type-eyebrow)",
+  lineHeight: "var(--leading-normal)",
+  color: "var(--text-faint)",
+}
+
+/**
  * The quiet footer: two links, centred, at the eyebrow floor.
  *
  * The separator dot binds to the end of the first link rather than sitting
@@ -40,15 +56,7 @@ const linkStyle: React.CSSProperties = {
  */
 export default function LegalFooter() {
   return (
-    <p
-      style={{
-        margin: 0,
-        textAlign: "center",
-        fontSize: "var(--type-eyebrow)",
-        lineHeight: "var(--leading-normal)",
-        color: "var(--text-faint)",
-      }}
-    >
+    <p style={lineStyle}>
       <span style={{ whiteSpace: "nowrap" }}>
         <Link href="/privacy" style={linkStyle}>
           Privacy
@@ -73,15 +81,7 @@ export default function LegalFooter() {
  */
 export function LegalConsentLine({ action }: { action: string }) {
   return (
-    <p
-      style={{
-        margin: 0,
-        textAlign: "center",
-        fontSize: "var(--type-eyebrow)",
-        lineHeight: "var(--leading-normal)",
-        color: "var(--text-faint)",
-      }}
-    >
+    <p style={lineStyle}>
       By {action} you agree to the{" "}
       <Link href="/terms" style={linkStyle}>
         Terms

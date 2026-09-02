@@ -344,12 +344,20 @@ export default async function GroupInfoPage({ params }: Props) {
           Want to change something? Just tell Orbit in the chat.
         </p>
 
-        {/* The page's bottom block. The `marginTop: auto` that used to sit
-            on the Leave button alone now sits on this wrapper, so the leave
-            control keeps its bottom-pinned position exactly as before and
-            the policy links sit under it instead of pushing it back up the
-            page. A founder, who never sees Leave, gets the links pinned to
-            the bottom on their own. */}
+        {/* The page's bottom block. The `marginTop: auto` that used to sit on
+            the Leave button alone now sits on this wrapper, so the leave
+            control and the policy links move to the bottom of the page as one
+            group rather than the links pushing Leave back up it.
+
+            Corrected in review (fix round 1), because the first version of
+            this comment claimed Leave kept its position "exactly as before"
+            and it cannot: it is now the first child of a bottom-anchored
+            block rather than the block itself, so it sits higher than before
+            by the footer's own height plus the 18px below. Harmless on
+            screen, and this project treats a wrong record as a real defect.
+
+            A founder, who never sees Leave, gets the links pinned to the
+            bottom on their own. */}
         <div style={{ marginTop: "auto", paddingTop: "24px" }}>
           {/* ── Leave: members only, never the founder (spec decision 3) ── */}
           {isMember && !isFounder && (

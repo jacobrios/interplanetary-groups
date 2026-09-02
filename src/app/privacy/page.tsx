@@ -9,7 +9,36 @@
 //
 // EVERY FACTUAL CLAIM BELOW WAS CHECKED AGAINST THE CODE, not against a
 // summary of it, and the ones that were tempting to round off are the ones
-// that matter:
+// that matter.
+//
+// FOUR OF THEM WERE STILL WRONG IN THE FIRST ROUND, and recording that is
+// worth more here than a clean-looking header, because all four failed the
+// same way: the sentence was KINDER than the software. The privacy notice's
+// characteristic bug is not a lie, it is a rounded-off reassurance, so the
+// check to run on any edit here is "is this sentence more generous than the
+// code?" rather than "is this sentence false?".
+//
+//   - "The only person who can see your address is you" was contradicted
+//     twice by this same page, two sections down. It is the only MEMBER.
+//   - "If you have already seen everything, nothing is sent" is not true of
+//     the digest: lastSeenAt gates the you-missed block ONLY
+//     (src/lib/digest/run.ts, and schedule.ts's own header says so), so a
+//     member who has read every message still gets mail about an idea they
+//     have not voted on.
+//   - The Anthropic bullet named the message window and stopped. Every
+//     member message also sends up to three upcoming plans with their
+//     times, every live gauge, the open day-ask, and any open time-change
+//     proposal INCLUDING THE ASKER'S NAME (src/app/actions/detect-intent.ts,
+//     lines assembled through src/lib/orbit/spark-copy.ts). On the page's
+//     own "most people would not guess" item, an understatement was the
+//     worst-placed error on the page.
+//   - The join-line deletion promise was unconditional. The mechanism is a
+//     body-text name match over SYSTEM rows with a null authorId, sorted
+//     into three evidence classes, and only the operator-confirmed subset
+//     is deleted (deletion-plan.ts, delete-person.ts). It can miss somebody
+//     who joined, never posted, and left, and the page now says so.
+//
+// The rest, checked and unchanged:
 //
 //   - Cookies. Supabase chunks its auth session across more than one cookie
 //     (src/lib/supabase/server.ts, proxy-session.ts), so "one cookie" would
@@ -123,8 +152,10 @@ export default function PrivacyPage() {
             sends you reminders about your own group.
           </li>
           <li>
-            When you last opened the group is how the app keeps those reminders
-            quiet. If you have already seen everything, nothing is sent.
+            When you last opened the group is what stops a reminder telling you
+            about chat you have already read. It does not stop every email: if
+            something is still waiting on your answer, like an idea you have
+            not voted on, a reminder can still arrive.
           </li>
         </LegalList>
         <LegalText>
@@ -144,8 +175,11 @@ export default function PrivacyPage() {
             <LegalStrong>
               Your email address is never shown to your group.
             </LegalStrong>{" "}
-            The only person who can see the address the app holds for you is
-            you, on your group&apos;s info page.
+            You are the only member who can see the address the app holds for
+            you, and you see it on your group&apos;s info page. Nobody else in
+            your group sees it anywhere. The two exceptions are not members:
+            I can read it, like everything else in the next point, and the
+            service that sends the email has to be handed it.
           </li>
           <li>
             <LegalStrong>I can read the database.</LegalStrong> That is true of
@@ -166,12 +200,17 @@ export default function PrivacyPage() {
         <LegalList>
           <li>
             <LegalStrong>Anthropic</LegalStrong> runs the model behind Orbit,
-            the assistant in your group. When somebody sends a message, the
-            last twenty messages in that group, and the names attached to them,
-            are sent to Anthropic so Orbit can work out what was meant. The
-            founder&apos;s description of the group is sent when the group is
-            first created. This is the one on this list most people would not
-            guess, which is why it is first.
+            the assistant in your group. Every time somebody sends a message, a
+            picture of your group goes to Anthropic so Orbit can work out what
+            was meant. That picture is the last twenty messages with the names
+            attached to them, the next few plans with their days and times, any
+            idea the group is voting on right now, any open question about
+            moving a plan, including the name of whoever asked, and any day
+            Orbit is still waiting to hear back about. Your group&apos;s
+            description goes as well, the first time you describe your group
+            while starting one, which is before the group itself exists. This
+            is the one on this list most people would not guess, which is why
+            it is first.
           </li>
           <li>
             <LegalStrong>Resend</LegalStrong> sends the email. It handles your
@@ -189,10 +228,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <LegalStrong>Better Stack</LegalStrong> watches whether the site is
-            broken. It receives error messages rather than your information. I
-            will not claim it can never see a scrap of data: an error message
-            written by the database itself can quote the value that caused it.
-            Nothing in my own code puts your information into one.
+            broken. What it gets is the error, not your information. I will not
+            promise it never sees a scrap of one: when something breaks, the
+            error sometimes repeats back the thing that broke it, and that
+            thing could be yours. Nothing I wrote puts your information in
+            there.
           </li>
         </LegalList>
       </LegalSection>
@@ -227,7 +267,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             the line the group saw when you joined, in every group, including
-            ones you have already left;
+            ones you have already left. This one takes a judgement call rather
+            than a lookup, and you should know that: the app never recorded who
+            those lines were about, so they are found by matching your name and
+            I confirm each one by hand. One in a group you joined, never posted
+            in, and then left can be missed;
           </li>
           <li>
             any group you started that nobody else is left in. It goes with
