@@ -268,7 +268,7 @@ export default function MessageFeed({
                         margin: "0 0 4px 8px",
                       }}
                     >
-                      {msg.authorName ?? "Member"}
+                      {msg.authorName ?? "Former member"}
                     </p>
                     <div
                       style={{

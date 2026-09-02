@@ -192,7 +192,7 @@ function buildText(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
 }
 
 function lineLabel(line: YouMissedLine): string {
-  return line.authorName ?? "Someone"
+  return line.authorName ?? "Former member"
 }
 
 // ── HTML body ────────────────────────────────────────────────────────────

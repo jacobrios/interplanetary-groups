@@ -88,3 +88,34 @@ describe("MessageFeed day dividers render in the group's own timezone", () => {
     expect(screen.queryByText("Wed, Jan 1")).toBeNull()
   })
 })
+
+describe("MessageFeed former-member label", () => {
+  it("labels a deleted member's surviving message 'Former member', not 'Member'", () => {
+    // A message whose author row is gone reads exactly this way once
+    // page.tsx joins it: authorType MEMBER (deletion never changes the
+    // type), authorId null (the FK was SetNull), authorName null (there is
+    // no user row left to read a name from). This is the real shape a
+    // deleted person's surviving chat message takes, not a shortcut.
+    Element.prototype.scrollIntoView = vi.fn()
+
+    render(
+      <MessageFeed
+        viewerId={null}
+        timeZone="America/Chicago"
+        messages={[
+          {
+            id: "m-deleted-author-1",
+            authorType: MessageAuthor.MEMBER,
+            authorId: null,
+            authorName: null,
+            body: "climbing this weekend?",
+            createdAt: new Date(),
+          },
+        ]}
+      />
+    )
+
+    expect(screen.getByText("Former member")).toBeTruthy()
+    expect(screen.queryByText("Member")).toBeNull()
+  })
+})

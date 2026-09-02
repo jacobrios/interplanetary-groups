@@ -219,6 +219,22 @@ describe("composeDigestEmail — body content", () => {
     }
   })
 
+  it("labels a missed line from a deleted member's message 'Former member', not 'Someone'", () => {
+    // authorName null here is the real shape of a MEMBER message whose
+    // author row is gone (deriveYouMissed only ever includes MEMBER
+    // messages), not a stand-in for an unrelated missing-name case.
+    const out = composeDigestEmail(
+      baseInput({
+        youMissed: missed(1, [{ authorName: null, body: "climbing this weekend?" }]),
+      })
+    )
+    expect(out).not.toBeNull()
+    for (const body of [out!.text, out!.html]) {
+      expect(body).toContain("Former member")
+      expect(body).not.toContain("Someone")
+    }
+  })
+
   it("truncates a long quoted line to one line's worth with an ellipsis, not mid-word", () => {
     const longBody =
       "This is a genuinely long message about Saturday plans that goes on for quite a while so it needs truncating somewhere sensible"

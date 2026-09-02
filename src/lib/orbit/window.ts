@@ -37,7 +37,7 @@ export function buildConversationWindow(
   now: Date
 ): string {
   const lines = messages.map((m, i) => {
-    const author = m.isOrbit ? "Orbit" : (m.authorName ?? "A former member")
+    const author = m.isOrbit ? "Orbit" : (m.authorName ?? "Former member")
     const prefix = i === messages.length - 1 ? ">>> " : ""
     return `${prefix}[${stamp(m.createdAt, timeZone)}] ${author}: ${m.body}`
   })
