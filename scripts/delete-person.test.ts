@@ -22,6 +22,7 @@ import type { Verdict } from "./db-which"
 import type { DeletionPlan } from "../src/lib/people/deletion-plan"
 import type { DeletionReceipt } from "../src/lib/people/delete-person"
 import {
+  RUNBOOK_PATH,
   parseArgs,
   evaluateDatabaseGuard,
   formatDatabaseIdentityLines,
@@ -324,8 +325,19 @@ describe("formatPlanLines, blocked", () => {
   // none of the wording itself is the decision under test. What actually
   // matters here: every other member is named (not summarized as a count),
   // the group is named, the plan tells the operator SOMETHING actionable
-  // rather than nothing, and it points at the runbook specifically (the
-  // brief's own required next step, not a stylistic choice of words).
+  // rather than nothing, and it points at the founder-handover runbook.
+  //
+  // CORRECTION (fix round 1): this comment used to claim the runbook was
+  // "named in the brief" as justification for pinning the word. That claim
+  // was false; a grep of task-3-brief.md finds no mention of a runbook at
+  // all. It survived review by sounding checked without being checked. The
+  // real reason to point at it is cross-task context from the coordinator:
+  // task 8 of this slice creates docs/runbooks/person-deletion.md, and the
+  // founder-handover case is explicitly one of the things it carries. So
+  // pointing at IT is right; what was wrong was the pin (the word
+  // "runbook", free to be reworded) and the justification for it (untrue).
+  // Fixed below by pinning RUNBOOK_PATH, the actual destination, imported
+  // from the script rather than typed a second time.
   it("names the group and every other member individually, and gives the operator something actionable to do next", () => {
     const plan: DeletionPlan = {
       kind: "blocked",
@@ -349,10 +361,11 @@ describe("formatPlanLines, blocked", () => {
     // A blocked plan is not just the group/member facts: there is real
     // guidance beyond them. Not pinning what it says, just that it exists.
     expect(lines.length).toBeGreaterThan(4)
-    // The runbook is a real artifact named in the brief ("hand the group
-    // over by hand, following the runbook"), not a stylistic word choice,
-    // so pointing at it is a decision worth pinning.
-    expect(text).toMatch(/runbook/i)
+    // Pinned as the PATH, not the word "runbook": the path is a real
+    // destination (the same class as the Supabase dashboard string kept
+    // pinned elsewhere in this file), free of any wording choice the owner
+    // might make about how to refer to it in prose.
+    expect(text).toContain(RUNBOOK_PATH)
   })
 
   it("names every other member when there is more than one, not a summarized count", () => {
@@ -380,7 +393,7 @@ describe("formatPlanLines, blocked", () => {
 
 // ── formatPlanLines: ready ───────────────────────────────────────────────
 
-function readyPlan(overrides: Partial<Extract<DeletionPlan, { kind: "ready" }>> = {}): DeletionPlan {
+function readyPlan(overrides: Partial<Extract<DeletionPlan, { kind: "ready" }>> = {}): Extract<DeletionPlan, { kind: "ready" }> {
   return {
     kind: "ready",
     person: { userId: "u1", name: "Jesse Rivera" },
@@ -517,6 +530,18 @@ describe("formatPlanLines, ready, join-announcement candidates", () => {
     expect(text).toContain("3")
   })
 
+  // Finding 3, fix round 1: the summary line used to read the literal
+  // string "<name> joined", angle brackets and all, which reads as a
+  // broken, unsubstituted template placeholder to a non-technical reader,
+  // exactly the kind of thing that makes someone wonder if the tool itself
+  // is broken. The person's real name was already available to the caller
+  // (plan.person.name); it just wasn't threaded through to this function.
+  it("interpolates the real person's name into the join-announcement summary, never the literal placeholder", () => {
+    const text = formatPlanLines(plan).join("\n")
+    expect(text).toContain(`"${plan.person.name} joined"`)
+    expect(text).not.toContain("<name>")
+  })
+
   it("orders current-member before left-with-trace before name-match-only, proven by each group's own name rather than by heading text", () => {
     const text = formatPlanLines(plan).join("\n")
     const iCurrent = text.indexOf("Climbing Crew")
@@ -533,7 +558,7 @@ describe("formatPlanLines, ready, join-announcement candidates", () => {
     // Extracts the text immediately surrounding each candidate's own group
     // name (its "section") and asserts the three sections are pairwise
     // distinct. This is the structural form of "each class reads
-    // differently to the operator" — it doesn't care what any of them say.
+    // differently to the operator"; it doesn't care what any of them say.
     const text = formatPlanLines(plan).join("\n")
     const around = (marker: string) => {
       const i = text.indexOf(marker)
@@ -598,6 +623,95 @@ describe("formatJoinAnnouncementPromptLines", () => {
   })
 })
 
+// ── Finding 1, fix round 1: no em dash or en dash in printed output ────────
+//
+// A one-time grep is only evidence about the moment it ran; a standing test
+// is evidence about every future change. This exercises every exported
+// formatter in the file, across the fixtures most likely to carry one (both
+// blocked and ready plans, every join-announcement evidence class, both
+// success and failure receipts, an ambiguous-match listing, both branches of
+// the Supabase hand-off, and the raw env-identity lines), and asserts none of
+// their output contains either character. The project rule is unconditional
+// ("No em dashes or en dashes anywhere") and applies to comments as much as
+// to printed copy, but this test is scoped to what actually reaches the
+// operator's terminal, which is the concrete harm the reviewer's finding
+// named.
+describe("no em dash or en dash anywhere in printed output", () => {
+  const EM_OR_EN_DASH = /[–—]/
+
+  it("across every formatter's output, for every representative fixture", () => {
+    const blockedPlan: DeletionPlan = {
+      kind: "blocked",
+      reason: "founder-with-members",
+      groups: [
+        {
+          groupId: "g1",
+          groupName: "Climbing Crew",
+          otherMembers: [
+            { userId: "u2", name: "Sam" },
+            { userId: "u3", name: "Taylor" },
+          ],
+        },
+      ],
+    }
+    const readyPlanWithEverything: DeletionPlan = {
+      kind: "ready",
+      person: { userId: "u1", name: "Jesse Rivera" },
+      groupsToDelete: [{ groupId: "g1", groupName: "Just Me Climbing" }],
+      removals: { memberships: 2, rsvps: 3, gaugeVotes: 1, proposalVotes: 1, changeProposalsAsked: 1 },
+      survivals: { messages: 2, gaugesSuggested: 1 },
+      warnings: [
+        { proposalId: "p1", groupId: "g1", groupName: "Climbing Crew", otherVoterCount: 2 },
+        { proposalId: "p2", groupId: "g1", groupName: "Climbing Crew", otherVoterCount: 0 },
+      ],
+      joinAnnouncementCandidates: [
+        { messageId: "m1", groupId: "g1", groupName: "Climbing Crew", createdAt: new Date("2026-08-01T00:00:00Z"), evidence: "current-member" },
+        { messageId: "m2", groupId: "g2", groupName: "Beer League", createdAt: new Date("2026-07-01T00:00:00Z"), evidence: "left-with-trace" },
+        { messageId: "m3", groupId: "g3", groupName: "Trivia Night", createdAt: new Date("2026-06-01T00:00:00Z"), evidence: "name-match-only" },
+      ],
+      contactMethodNote: "any email address on file",
+      supabaseAuthId: "11111111-1111-1111-1111-111111111111",
+    }
+
+    const allOutput: string[] = [
+      ...formatPlanLines(blockedPlan),
+      ...formatPlanLines(readyPlanWithEverything),
+      ...formatReceiptLines({
+        person: { userId: "u1", name: "Jesse Rivera" },
+        groupsDeleted: [{ groupId: "g1", groupName: "Just Me Climbing" }],
+        joinAnnouncementMessagesDeleted: 1,
+        removals: { memberships: 2, rsvps: 3, gaugeVotes: 1, proposalVotes: 1, changeProposalsAsked: 1 },
+        userDeleted: true,
+      }),
+      ...formatReceiptLines({
+        person: { userId: "u1", name: "Jesse Rivera" },
+        groupsDeleted: [],
+        joinAnnouncementMessagesDeleted: 0,
+        removals: { memberships: 0, rsvps: 0, gaugeVotes: 0, proposalVotes: 0, changeProposalsAsked: 0 },
+        userDeleted: false,
+      }),
+      ...formatCandidateLines([
+        { userId: "u1", name: "Jesse Rivera", createdAt: new Date("2026-01-01T00:00:00Z"), memberships: [{ groupId: "g1", groupName: "Climbing Crew", isFounder: true }] },
+        { userId: "u2", name: "Jesse Rivera", createdAt: new Date("2026-02-01T00:00:00Z"), memberships: [] },
+      ]),
+      ...(["current-member", "left-with-trace", "name-match-only"] as const).flatMap((evidence) =>
+        formatJoinAnnouncementPromptLines({ messageId: "m1", groupId: "g1", groupName: "Trivia Night", createdAt: new Date("2026-06-12T00:00:00Z"), evidence })
+      ),
+      ...formatSupabaseInstructionLines("11111111-1111-1111-1111-111111111111", "Jesse Rivera"),
+      ...formatSupabaseInstructionLines(null, "Jesse Rivera"),
+      ...formatDatabaseIdentityLines({
+        NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
+        DATABASE_URL: "postgresql://postgres.abcdefghijklmnopqrst:pw@aws-1-us-east-1.pooler.supabase.com:6543/postgres",
+        DIRECT_URL: undefined,
+      }),
+      ...evaluateDatabaseGuard({ ok: false, ref: "someprodref00000000", problems: ["project ref is someprodref00000000, expected pxbewardwvoyqqcvogel (dev-test)"] }, true).lines,
+    ]
+
+    const offenders = allOutput.filter((line) => EM_OR_EN_DASH.test(line))
+    expect(offenders).toEqual([])
+  })
+})
+
 // ── formatReceiptLines / formatSupabaseInstructionLines ────────────────────
 
 describe("formatReceiptLines", () => {
@@ -615,7 +729,7 @@ describe("formatReceiptLines", () => {
   // Loosened after review: "has been deleted" / "does NOT show as deleted"
   // were exact phrases. The real decision is that success and failure read
   // differently to the operator, tested comparatively so a reword of either
-  // sentence doesn't break the test — only actually collapsing the two
+  // sentence doesn't break the test; only actually collapsing the two
   // cases into identical text would.
   it("names the person either way, and flags the failure case as genuinely different rather than reusing success language", () => {
     const success = formatReceiptLines(receipt()).join("\n")
@@ -860,5 +974,25 @@ describe("lookupPerson", () => {
     expect(outcome.kind).toBe("not-found")
     if (outcome.kind !== "not-found") throw new Error("expected not-found")
     expect(outcome.message).toMatch(/No one in the product has that email address/)
+  })
+
+  // Closes a gap found during the fix-round review: resolveGroup's own
+  // ambiguous-groups detection was tested directly, but lookupPerson's
+  // PROPAGATION of that result (turning it into a "not-found" that lists
+  // every candidate group, rather than the ordinary "no group matches"
+  // message) had no test at all. Checked structurally: both group names
+  // appear in the message (real data), not by pinning the surrounding
+  // sentence.
+  it("propagates an ambiguous group name as not-found, listing every candidate group by name", async () => {
+    const founder = await makeUser(`[TEST] DS Lookup GroupAmbig Founder ${stamp()}`)
+    const dupName = `[TEST] DS Lookup GroupAmbig ${stamp()}`
+    const g1 = await makeGroup(dupName, founder.id)
+    const g2 = await makeGroup(dupName, founder.id)
+
+    const outcome = await lookupPerson({ email: null, name: "Whoever", group: dupName, userId: null, productionOverride: false })
+    expect(outcome.kind).toBe("not-found")
+    if (outcome.kind !== "not-found") throw new Error("expected not-found")
+    expect(outcome.message).toContain(g1.id)
+    expect(outcome.message).toContain(g2.id)
   })
 })

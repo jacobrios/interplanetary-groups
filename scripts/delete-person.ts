@@ -75,6 +75,15 @@ import { deletePerson, type DeletionReceipt } from "../src/lib/people/delete-per
 
 // ── Small text helpers, shared by every formatter below ─────────────────────
 
+/**
+ * Task 8 of this slice adds this file. Named explicitly rather than as "the
+ * runbook": the owner does not read code, and a path he can find (or hand to
+ * someone who can) beats a noun he has to guess at. Exported so the test can
+ * assert against this constant instead of a second hardcoded copy of the
+ * path, which is the actual destination under test, not a wording choice.
+ */
+export const RUNBOOK_PATH = "docs/runbooks/person-deletion.md"
+
 /** "1 group" / "3 groups", with an irregular plural when the noun needs one. */
 export function countPhrase(n: number, singular: string, plural: string = `${singular}s`): string {
   return `${n} ${n === 1 ? singular : plural}`
@@ -432,11 +441,11 @@ function formatJoinCandidateLine(c: JoinAnnouncementCandidate): string {
   return `  - "${c.groupName}", joined ${c.createdAt.toDateString()}`
 }
 
-function formatJoinAnnouncementSummaryLines(candidates: JoinAnnouncementCandidate[]): string[] {
+function formatJoinAnnouncementSummaryLines(candidates: JoinAnnouncementCandidate[], personName: string): string[] {
   if (candidates.length === 0) return []
 
   const lines: string[] = [
-    `"<name> joined" messages found around the product: ${candidates.length} total.`,
+    `"${personName} joined" messages found around the product: ${candidates.length} total.`,
     "These are the lines a group's chat shows when someone joins. The product can't always be certain which ones are this person's own, so you'll be asked about each one before anything is deleted.",
     "",
   ]
@@ -453,7 +462,7 @@ function formatJoinAnnouncementSummaryLines(candidates: JoinAnnouncementCandidat
 }
 
 export function formatJoinAnnouncementPromptLines(c: JoinAnnouncementCandidate): string[] {
-  return [`"${c.groupName}", joined ${c.createdAt.toDateString()} — ${EVIDENCE_SHORT_LABEL[c.evidence]}`]
+  return [`"${c.groupName}", joined ${c.createdAt.toDateString()} (${EVIDENCE_SHORT_LABEL[c.evidence]})`]
 }
 
 function formatBlockedPlanLines(plan: Extract<DeletionPlan, { kind: "blocked" }>): string[] {
@@ -469,7 +478,9 @@ function formatBlockedPlanLines(plan: Extract<DeletionPlan, { kind: "blocked" }>
   lines.push("")
   lines.push("What to do next:")
   lines.push("  1. Ask the group who should take over as the founder of that group.")
-  lines.push("  2. Hand the group over by hand, following the runbook. There is no in-app way to do this yet.")
+  lines.push(
+    `  2. Hand the group over by hand, following ${RUNBOOK_PATH}. There is no in-app way to do this yet.`
+  )
   lines.push("  3. Run this script again. Once they are no longer the sole founder of a group with other people in it, it will be ready to delete them.")
 
   return lines
@@ -526,7 +537,7 @@ function formatReadyPlanLines(plan: Extract<DeletionPlan, { kind: "ready" }>): s
     }
   }
 
-  const joinLines = formatJoinAnnouncementSummaryLines(plan.joinAnnouncementCandidates)
+  const joinLines = formatJoinAnnouncementSummaryLines(plan.joinAnnouncementCandidates, plan.person.name)
   if (joinLines.length > 0) {
     lines.push("")
     lines.push(...joinLines)
