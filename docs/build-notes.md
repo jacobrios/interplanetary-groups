@@ -6861,3 +6861,76 @@ here, because a queued item that lives only in a chat message is not queued, it 
 it settles. And the `token-contrast.test.ts` guardrail change was independently re-verified by the
 reviewer, which checked all five render sites itself and confirmed the two added entries are not a
 weakening of the guard.
+
+**Postscript: the owner's phone QA (2 September 2026), commits `7f211fe` and `fbb8c0a`.** He read
+both legal pages and ran the create and join screens on his phone before merging, and found real
+things the whole-branch review had not: the record above describes a version of this slice that no
+longer fully exists, which is why this is a dated addition rather than a rewrite of what is above.
+
+**The notice was blurring two different things and now says them separately.** It already said the
+operator can read the database; it did not separately say that deleting somebody is mechanical, a
+script then a dashboard, and not an occasion on which anyone's messages get read. A reader could
+land on "he can read the database" and reasonably conclude the two were connected. The same
+sentence now also names investigating a reported problem, which the terms had promised
+(`privacy@interplanetarygroups.com`, "tell me and I will look at it") and the notice had not, so a
+page nobody had edited had quietly become the less honest of the two. **The general lesson, worth
+carrying forward because it will recur:** these two pages make overlapping promises about the same
+person, and a sentence added to one can make the other wrong from a distance, with nothing that
+checks for it automatically.
+
+**The notice also took a real brevity pass**, about 127 words cut and about 35 added back, net 92
+fewer, 299px shorter on the page. What did not move is the caveats: most of the page is required
+disclosure, and the four claims earlier review rounds fought for (§11 above, "where the copy was
+kinder than the software") are among its longest passages and were re-checked against the code
+after the trim, not assumed safe because they survived it.
+
+**The terms lost the line asking people to be kind to each other**, the owner's call, and gained the
+liability section he noticed was actually missing: not responsible for what members do to each
+other, a breach is possible however much reasonable care is taken, everything provided as is.
+Written as an honest statement of what one person can stand behind rather than as a legal shield,
+because that is the only version of it that is true. It also names
+`privacy@interplanetarygroups.com` as a real mailto for the first time, so **after-launch item 14's
+mail forwarding now blocks two pages' promises rather than one**; update that item's wording to say
+so.
+
+**Layout.** Create step 1's consent line sat 35px below his 661px phone viewport; it now ends 8px
+above it. The 25.5px came out of five surrounding gaps that carried no content, not out of the
+description field, which stayed at `rows={5}` matching `main`, after a first attempt shortened the
+field and clipped the last line and a half of the example teaching a founder what to write, at the
+text size someone uses because they need it. Both were achieved in the end: the consent line is on
+screen and the example is intact, and at 200% device text the field overflows exactly as `main`
+does, so nothing regressed at any size. The join screen's reassurance line is now one row instead
+of two, "No app to download. You'll land right in the group.", with "no password" dropped because
+it is only true for now; it now shares a colour token and a measure with the consent line under the
+same button, which had differed in both.
+
+**The two consent links, on the join screen and create step 1, now open in a new tab**, so reading
+the terms before agreeing to them can no longer cost somebody the group description they already
+typed. The footer links stay in-tab, since nothing is lost leaving a page you were only reading.
+This deliberately does not use browser history, matching the standing rule that back links in this
+product are fixed parent links, for the benefit of someone arriving from a shared link who has no
+history to go back through.
+
+**`/groups` now carries the legal footer, and it had none.** It is the screen a signed-in person
+with a group actually lands on, since `/` redirects them there, and **the owner could not run the
+front-door step of his own QA script for exactly this reason.** That is how the gap was found, not
+by inspection, and it is worth recording as the mechanism: a script written against the intended
+flow will surface a gap the flow itself hides.
+
+**Two things that outlive this slice, found while running it rather than while building it.**
+
+**A shell scan reported clean for a false reason.** A dash-character scan over the changed files
+found nothing, not because there was nothing, but because zsh glob-expanded this repo's bracketed
+Next.js route paths (`join/[inviteToken]/`, `groups/[id]/`, `unsubscribe/[token]/`) before grep ever
+saw them, so those files were never opened. A false-clean scan is indistinguishable from a real
+pass. Recorded in CLAUDE.md's stack-realities section as well as here, because a future session
+needs to meet this before running one, not after trusting one.
+
+**A pre-existing test failed on its own with nobody changing code.** `src/lib/digest/__tests__/
+run.test.ts`'s "missed chat" case pinned a message to a hardcoded instant but left the recipient's
+join time unset, so Postgres stamped it with the real clock; the two only stayed in order by luck,
+and the test began failing at noon UTC on 2 September 2026 and would have failed forever after. Not
+a flake: deterministic, and confirmed to fail on `main` too. Found by the safety-net hook, fixed in
+its own micro-PR on branch `fix-digest-test-wall-clock`, **which the owner has not merged yet**, so
+this branch's own suite still carries it red until he does. Same class as the standing rule that the
+suite runs green from an empty database: a test leaning on ambient state it does not control.
