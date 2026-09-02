@@ -4,7 +4,7 @@
 //
 // SYSTEM rows are excluded on purpose (joining-arc spec): a join
 // announcement has a null author and is not Orbit, so window.ts's
-// "A former member" fallback would mislabel it in the model's prompt.
+// FORMER_MEMBER_LABEL fallback would mislabel it in the model's prompt.
 // Orbit deliberately does not know who joined; whether it should is a
 // recorded open question, not an accident of this query.
 

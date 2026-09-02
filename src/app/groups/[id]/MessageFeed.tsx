@@ -23,6 +23,7 @@ import ProposalChips, { type FeedProposal } from "./ProposalChips"
 import GroupProposalChips, { type FeedGroupProposal } from "./GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { groupMessagesByDay } from "@/lib/messages/day-groups"
+import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
 
 export interface FeedMessage {
   id: string
@@ -268,7 +269,7 @@ export default function MessageFeed({
                         margin: "0 0 4px 8px",
                       }}
                     >
-                      {msg.authorName ?? "Former member"}
+                      {msg.authorName ?? FORMER_MEMBER_LABEL}
                     </p>
                     <div
                       style={{

@@ -12,6 +12,7 @@ import {
   formatTime,
   formatWeekdayShort,
 } from "@/lib/events/format"
+import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
 
 export const WINDOW_MESSAGES = 20
 
@@ -37,7 +38,7 @@ export function buildConversationWindow(
   now: Date
 ): string {
   const lines = messages.map((m, i) => {
-    const author = m.isOrbit ? "Orbit" : (m.authorName ?? "Former member")
+    const author = m.isOrbit ? "Orbit" : (m.authorName ?? FORMER_MEMBER_LABEL)
     const prefix = i === messages.length - 1 ? ">>> " : ""
     return `${prefix}[${stamp(m.createdAt, timeZone)}] ${author}: ${m.body}`
   })
