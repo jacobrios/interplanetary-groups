@@ -291,4 +291,37 @@ describe("deletePerson", () => {
     const strayStillThere = await prisma.message.findUnique({ where: { id: strayMessage.id } })
     expect(strayStillThere).not.toBeNull()
   })
+
+  it("refuses to delete a solo-founded group that gained a member after the plan was built, and rolls back cleanly", async () => {
+    const founder = await makeUser("[TEST] DEL Founder StaleSolo")
+    const group = await makeGroup("[TEST] DEL StaleSolo Group", founder.id)
+
+    // Solo at plan time: the plan legitimately lists this group for deletion.
+    const plan = await buildDeletionPlan(founder.id)
+    expect(plan.kind).toBe("ready")
+    if (plan.kind !== "ready") throw new Error("expected ready")
+    expect(plan.groupsToDelete).toEqual([{ groupId: group.id, groupName: group.name }])
+
+    // The window the finding describes: somebody joins through the still-live
+    // invite link between the plan being built and the operator confirming.
+    const latecomer = await makeUser("[TEST] DEL StaleSolo Latecomer")
+    await prisma.membership.create({ data: { userId: latecomer.id, groupId: group.id } })
+    const latecomerMessage = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: latecomer.id, body: "hey, just joined!" },
+    })
+
+    await expect(deletePerson(plan, [])).rejects.toThrow(/joined since|StaleSolo Group/i)
+
+    // The whole transaction rolled back: nothing was destroyed.
+    const groupStillThere = await prisma.group.findUnique({ where: { id: group.id } })
+    expect(groupStillThere).not.toBeNull()
+    const founderStillThere = await prisma.user.findUnique({ where: { id: founder.id } })
+    expect(founderStillThere).not.toBeNull()
+    const latecomerMembershipStillThere = await prisma.membership.findUnique({
+      where: { userId_groupId: { userId: latecomer.id, groupId: group.id } },
+    })
+    expect(latecomerMembershipStillThere).not.toBeNull()
+    const latecomerMessageStillThere = await prisma.message.findUnique({ where: { id: latecomerMessage.id } })
+    expect(latecomerMessageStillThere).not.toBeNull()
+  })
 })

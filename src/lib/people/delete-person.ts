@@ -116,8 +116,29 @@ export async function deletePerson(
     // ordering across groups doesn't matter but ordering relative to the
     // user delete below does, and interactive-transaction queries share one
     // connection anyway.
-    for (const groupId of groupIds) {
-      await tx.group.delete({ where: { id: groupId } })
+    //
+    // plan.groupsToDelete was true at plan-build time, not necessarily now.
+    // Nothing stops a second person joining a still-live invite link in the
+    // seconds between buildDeletionPlan and the operator confirming, and
+    // unlike the user delete below, tx.group.delete carries no database
+    // constraint that would catch that: Group's cascades reach Membership,
+    // Event/Rsvp, Message, Gauge/GaugeVote, and ChangeProposal/ProposalVote
+    // for EVERY row in the group, whoever authored them, not just the
+    // target's. So this re-checks, inside the same transaction, that the
+    // group is still solo before deleting it, and throws rather than
+    // cascading a stranger's data. The whole transaction then rolls back,
+    // which is why this has to run before any destructive statement rather
+    // than after.
+    for (const group of plan.groupsToDelete) {
+      const otherMembers = await tx.membership.count({
+        where: { groupId: group.groupId, userId: { not: userId } },
+      })
+      if (otherMembers > 0) {
+        throw new Error(
+          `deletePerson refuses to delete group "${group.groupName}" (${group.groupId}): somebody joined since the plan was built. This is a safety stop, not a failure: re-run buildDeletionPlan to get a fresh plan and confirm again.`
+        )
+      }
+      await tx.group.delete({ where: { id: group.groupId } })
     }
 
     await tx.user.delete({ where: { id: userId } })
