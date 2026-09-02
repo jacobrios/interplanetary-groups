@@ -52,9 +52,15 @@ script plain, quietly touches real people's data instead of the test database.
 Two of the three come from the Supabase dashboard for the production project,
 and one from the same 1Password item the migration runbook already uses.
 
-- **`NEXT_PUBLIC_SUPABASE_URL`** isn't actually secret; it's shipped to every
-  visitor's browser already. Copy it from the production project's Settings >
-  API page in the Supabase dashboard. It looks like `https://xxxxxxxx.supabase.co`.
+- **`NEXT_PUBLIC_SUPABASE_URL`** isn't actually secret: it's just the
+  project's own address, with no password or key riding along inside it, the
+  same thing you'd see in the Supabase dashboard's own address bar. (Despite
+  the name, this app never actually sends it to a visitor's browser: only two
+  server-side files ever read it, so the `NEXT_PUBLIC_` prefix doesn't do
+  here what it usually means. That's a fact about this codebase, not the
+  reason it's safe to type; it's safe because of what the value itself is.)
+  Copy it from the production project's Settings > API page in the Supabase
+  dashboard. It looks like `https://xxxxxxxx.supabase.co`.
 - **`DATABASE_URL`** and **`DIRECT_URL`** both use the one connection string
   already saved in 1Password for migrations, the session pooler on port 5432:
 
@@ -112,10 +118,13 @@ you'll need their name and which group they're in instead:
 npm run person:delete -- --name "Jesse Rivera" --group "Climbing Crew"
 ```
 
-If two different people share that exact name, the script won't guess. It prints
-both of them, each with an id, when they joined, and which groups they're in, and
-stops. Re-run the same command with `--user-id` set to the one you mean, copied
-from that list:
+If more than one person matches, either because two people share that exact
+name, or because two different accounts have the same email address on file
+(the product doesn't currently stop that from happening, and a few duplicate
+accounts already exist for other reasons), the script won't guess. It prints
+all of them, each with an id, when they joined, and which groups they're in,
+and stops. Re-run the same command with `--user-id` set to the one you mean,
+copied from that list:
 
 ```bash
 npm run person:delete -- --email jesse@example.com --user-id cabc123xyz
@@ -196,6 +205,18 @@ deleted along with them, a summary of everything else removed, and how many
 If instead of a receipt you see a message about somebody having joined one of
 their groups "since this plan was built," that's not an error. Read section 7.
 
+**Once you're done running production commands for this person** (a receipt,
+or a trip through section 6 and back), run `npm run db:which` one more time,
+plain, with nothing set on the line. It must print `DEV-TEST` again. The
+migration runbook treats this same check as its own closing step, because a
+production pointer left sitting in `.env` quietly corrupts the next ordinary
+`npm test`. The risk is smaller here, since nothing above ever set a
+production value anywhere but on the single command line that used it, so
+there's nothing sitting in this terminal to revert. It's the same cheap
+insurance anyway, in case something got typed differently than shown (an
+`export` instead of the inline prefix, say) and left this terminal quietly
+pointed at production without you noticing.
+
 ---
 
 ## 5. The Supabase dashboard step
@@ -240,44 +261,55 @@ earns its keep, so read this slowly the first time you actually hit it.
 ### How you'll know
 
 The script's own printout says it plainly: **"This person cannot be deleted
-yet,"** followed by the name of each group they founded that still has other
-people in it, and who those other people are. It then tells you, in its own
-words, to follow this exact document. Nothing was deleted. Nothing needs undoing.
+yet,"** followed by each group they founded that still has other people in it.
+For each one, it also prints the group's own id and every other member's user
+id, one per line, right under the sentence naming them, each line ending in
+the id itself so you can select straight from the end of the line and paste.
+It looks like this:
+
+```
+This person cannot be deleted yet.
+
+They started the group "Climbing Crew", and 2 other people are still in it: Sam Rivera, Alex Kim.
+  Group id: cgrp7k2n1abcxyz
+  Sam Rivera's user id: cusr4m9p2xyzabc
+  Alex Kim's user id: cusr8q1w3defghi
+
+What to do next:
+  1. Ask the group who should take over as the founder of that group.
+  2. Hand the group over by hand, following docs/runbooks/person-deletion.md. There is no in-app way to do this yet.
+  3. Run this script again. Once they are no longer the sole founder of a group with other people in it, it will be ready to delete them.
+```
+
+It then tells you, in its own words, to follow this exact document. Nothing
+was deleted. Nothing needs undoing.
+
+**If it lists more than one group,** the person founded more than one group
+that still has other people in it. Everything below has to be done once for
+each group listed, since each is a separate decision (the group might not
+want the same person taking over each time), before the script will let this
+person be deleted at all.
 
 ### What to do
 
-**Email the founder.** Tell them their account can't be removed while they're
-still the only one who can run the group they started, and ask who among the
-group's current members should take over as founder. Wait for a real answer;
-don't guess.
+**Email the founder** (that's the person you're trying to delete, since
+they're still the founder). Tell them their account can't be removed while
+they're still the only one who can run the group they started, and ask who
+among the group's current members should take over. Wait for a real answer;
+don't guess. If more than one group is listed, ask about all of them in the
+same email.
 
-**Find the two ids you need.** Neither the group nor the new founder's internal
-id shows up anywhere in the app itself, so you'll need to look them up directly
-in the database using Prisma Studio, a browser-based table view that ships with
-Prisma. Point it at production the same careful way the migration runbook
-does, using the one production connection detail already saved in 1Password:
-
-```bash
-DIRECT_URL="$(op read 'op://Personal/Supabase IPG production/session pooler 5432')" npx prisma studio
-```
-
-This opens a browser tab. In the left sidebar, open the **Group** table, and use
-its search or filter to find the row by the group's name (the one the script
-just printed for you). Copy the value in its `id` column, that's the group id.
-Then open the **User** table, search by the new founder's name, confirm they
-show up as a member of the right group, and copy their `id` too, that's the new
-founder's user id. **Do not use anyone's email address to find them here; use
-their name.** (This document describes Prisma Studio's ordinary look and feel;
-nobody has actually opened it against this project's production database yet
-to confirm the exact wording of its search box. If what you see doesn't quite
-match, look for the same idea rather than the exact words.)
-
-When you have both ids, close that browser tab and stop Prisma Studio in the
-terminal with Ctrl-C. It's a second live connection to production sitting open
-the whole time it runs; don't leave it running longer than you need it.
+**Copy the two ids you need.** They're already on your screen: the group's own
+id, printed right under the sentence naming that group, and every other
+member's user id, printed right below that. Once you know from the founder's
+reply which person is taking over, use that person's line. You don't need to
+open a database tool or look anything up anywhere else; both ids the next
+step needs were already sitting in the script's own output the moment it
+refused.
 
 **Run the reassignment.** This is the one and only line that actually changes
-anything. Paste your two ids into the placeholders before running it:
+anything. Paste the group id and the chosen person's user id into the
+placeholders before running it:
 
 ```bash
 DIRECT_URL="$(op read 'op://Personal/Supabase IPG production/session pooler 5432')" npx prisma db execute --stdin <<'SQL'
@@ -296,10 +328,16 @@ There is no dry run for this one line; the SQL migration runbook's caution about
 running things carefully in a terminal, outside the Claude Code app, applies
 here too.
 
+**If more than one group was listed, repeat the last two steps for each one**
+(its own ids are already printed further up, right under that group's own
+name) before moving on. The script checks every group this person founded,
+not just the first, so it will keep refusing until all of them are resolved.
+
 **Re-run the deletion script**, with the exact same command you used to find
-the person the first time (section 4). With the founder role moved off them, the
-group they started should no longer block anything, and you should now see the
-ordinary "here's what deleting them will do" plan instead of the refusal.
+the person the first time (section 4). With the founder role moved off every
+group that needed it, none of them should block anything anymore, and you
+should now see the ordinary "here's what deleting them will do" plan instead
+of the refusal.
 
 *A note on how sure this document is about that last line: reading the code that
 checks "who is the founder" everywhere it appears in the product confirms this
