@@ -79,7 +79,7 @@ export function changeStartInstant(
 }
 
 /** "this Sun" inside a week, "on Sun, Jun 21" beyond it, mirroring the gauge copy. */
-function whenPhrase(startsAt: Date, timeZone: string, now: Date): string {
+export function whenPhrase(startsAt: Date, timeZone: string, now: Date): string {
   const daysAway = Math.round(
     (startsAt.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
   )
@@ -90,7 +90,7 @@ function whenPhrase(startsAt: Date, timeZone: string, now: Date): string {
 }
 
 /** Capitalize the first letter of a label. */
-function cap(label: string): string {
+export function cap(label: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
