@@ -6750,11 +6750,14 @@ and every founder-power call site but **has never been run against real producti
 whether the session-pooler connection can be reused for a production run is a judgement made while
 writing the runbook, flagged inline there.
 
-**Deferred minors, carried out of the ledger so they stay visible.** `src/lib/orbit/merge.ts:87`
+**Deferred minors, carried out of the ledger so they stay visible.** ~~`src/lib/orbit/merge.ts:87`
 re-sends the founder's description to Anthropic on every gap-ask round, so the notice's "the first
 time you describe your group" is about when sending starts and is not false, though a careful reader
 could infer a single transmission; corrected twice already, and a third round was not worth it for
-the same session, recipient and purpose. The unsubscribe token now works in **both** directions by
+the same session, recipient and purpose.~~ (Corrected 2 September 2026, whole-branch review's final
+fix wave: a third round turned out to be worth it after all. The bullet now says the description is
+sent again, along with the founder's own free-text answer, on every gap-ask round, rather than
+leaving a careful reader to infer a single send. Not deferred any further.) The unsubscribe token now works in **both** directions by
 design, so a forwarded digest hands its reader the power to unsubscribe and to resubscribe the
 original recipient; rotation stays queued. Two deletion-plan test gaps, verified by inspection only:
 a founder with one blocked and one solo group at once, and one person with a trace in one candidate
@@ -6776,3 +6779,48 @@ re-prove it if the schema changes. Deletion leaves a null author with `authorTyp
 pair the write path forbids and the read paths tolerate, noted so nobody reads it as corruption. And
 deleting a person cascades away any change proposal they asked, taking everyone else's votes; the
 script warns, and making that field nullable is its own work.
+
+**Final fix wave, whole-branch review (2 September 2026), before the PR opened.** Four required
+corrections plus three one-line record fixes, all of it prose and comments; no product behaviour
+changed except the transaction timeout below. The runbook's Supabase-skip paragraph told the owner
+skipping that step was harmless; it was not; `src/lib/auth/email.ts:172` and `:237` are exactly where
+a member's email address lands on the orphaned Supabase login, which is what the privacy notice
+promises is deleted, so the runbook now says so plainly rather than calling it merely untidy. The
+deletion transaction ran on Prisma's default 5s timeout against roughly 18 sequential round trips and
+this project's own ~200ms-from-Ohio measurement, close enough to fail on a slow connection with no
+way for the owner to tell a rollback from a half-finished delete; it now runs on an explicit 30s
+timeout, and `maxWait` was raised to 10s alongside it on the reasoning that the same slow-network
+conditions threaten both clocks, not just the one that got a bug report. Test evidence is inline at
+`delete-person.test.ts`'s new "runs on an explicit 30s timeout" case, shown failing on the actual
+pre-fix code (no second argument to `prisma.$transaction` at all) before being fixed. The privacy
+notice's Anthropic bullet correction is described above, replacing the deferred-minor entry it used
+to be. And the "one cookie" phrasing in this file's own "Where the build is" paragraph was walked back
+to match the notice it was summarising, which says "cookies," plural, on purpose (Supabase chunks its
+session across more than one).
+
+**The three one-line record fixes**, because this project treats an untrue record as a real defect
+alongside a code bug. `scripts/qa-stage-deletion.ts` re-declared `EXPECTED_DEV_TEST_REF` locally
+while already importing `judge` from the same module; it now imports the constant too, closing a
+fourth hand-maintained copy of the string that decides which database gets written to.
+`delete-person.ts`'s comment claiming the group re-check "has to run before any destructive statement
+rather than after" was false about its own code: `tx.message.deleteMany` runs first and is itself
+destructive. The comment now says what is actually true, that the whole block's rollback covers every
+statement in it including that one, and that the re-check's real job is to run before the one write a
+rollback cannot undo in spirit even though it can in fact: cascading a stranger's membership away.
+
+**The `window.ts` prompt-string decision, on the record because an absent decision is itself the
+defect Finding 7 exists to close.** Task 4 unified three disagreeing fallback labels ("Member," "A
+former member," "Someone") into one, "Former member," and `src/lib/orbit/window.ts:40` is one of the
+three: it is what Orbit's own conversation-window prompt reads for a message whose author has been
+deleted, not something a person reads. That is a change to a string that reaches the model, and the
+standing rule is that model behaviour gets bench evidence, `npm run eval:detect`, with a baseline and
+an after number recorded here. **`eval:detect` was deliberately not re-run for this change.** Two
+reasons, not one: it costs money and hits the network for a one-word label change touching a
+fallback that fires only when the author pointer is already null, which nothing in the current bench
+suite can even construct, since no deletion has ever actually happened against any bench fixture; and
+the change brings a stray fallback into line with a label two other surfaces already carry, rather
+than introducing a new behaviour for the model to learn. The risk this leaves open, stated rather than
+hidden: the three fallbacks disagreeing is exactly how the 29 July recognition bug happened, so if a
+deleted person's message is ever the trigger message in a real conversation window, the bench has no
+case that would have caught a regression here either way. Revisit if a bench case naming a former
+member ever gets written; until then this paragraph is the decision in place of a bench run.

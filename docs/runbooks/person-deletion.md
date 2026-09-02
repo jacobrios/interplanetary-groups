@@ -205,6 +205,21 @@ deleted along with them, a summary of everything else removed, and how many
 If instead of a receipt you see a message about somebody having joined one of
 their groups "since this plan was built," that's not an error. Read section 7.
 
+**If you see any other error, one this document doesn't name** (a dropped
+connection, a slow network, a Prisma error you don't recognize, anything
+that isn't the two things named above): nothing was deleted. The whole
+deletion, from the join lines to the account itself, runs as one database
+transaction, and a transaction is all-or-nothing by construction: if any part
+of it fails, the database rolls back everything in it, not just the part that
+failed. This is the same guarantee the "somebody joined since the plan was
+built" case above relies on, just triggered by something else instead. It's
+always safe to just run the same command again from the top. (Confident about
+this: it's how a database transaction works, and this repo's own tests
+confirm a failed run leaves every row exactly where it started. What hasn't
+been tested is a transaction failing on a *slow connection* specifically,
+since that would mean actually waiting out the transaction's own 30-second
+clock in a test.)
+
 **Once you're done running production commands for this person** (a receipt,
 or a trip through section 6 and back), run `npm run db:which` one more time,
 plain, with nothing set on the line. It must print `DEV-TEST` again. The
@@ -243,11 +258,16 @@ Open the Supabase dashboard (Authentication > Users), find that id, and delete i
 Do exactly that: open the production project in the Supabase dashboard, go to
 Authentication, then Users, search for that id, and delete the row.
 
-**If you skip this step:** nothing breaks and nobody is harmed. Their group data
-is genuinely gone. What's left behind is an orphaned login with no account
-behind it in our own database, sitting in Supabase forever. It's untidy rather
-than dangerous. But the deletion isn't complete until this step is done, so
-don't treat the script's receipt as the finish line by itself.
+**If you skip this step:** nobody else is harmed, and their group data is
+genuinely gone from our own database. But their email address, if they ever
+gave one, is not gone: it's still sitting on that orphaned Supabase login,
+because that's the row `requestEmailAttach` and `confirmEmailAttach` wrote it
+to in the first place (`src/lib/auth/email.ts:172` and `:237`). The privacy
+notice promises their email address is deleted. Skipping this step leaves
+that promise unkept, not just untidy, for as long as the login sits there. It
+can be done later and nothing about our own data depends on the timing, but
+don't reply "done" to the person who asked, and don't treat the script's
+receipt as the finish line, until this step is actually done.
 
 ---
 

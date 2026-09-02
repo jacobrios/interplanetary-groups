@@ -207,10 +207,12 @@ export default function PrivacyPage() {
             idea the group is voting on right now, any open question about
             moving a plan, including the name of whoever asked, and any day
             Orbit is still waiting to hear back about. Your group&apos;s
-            description goes as well, the first time you describe your group
-            while starting one, which is before the group itself exists. This
-            is the one on this list most people would not guess, which is why
-            it is first.
+            description goes too: the first time you describe your group
+            while starting one, which is before the group itself exists, and
+            again every time Orbit asks a follow-up question about it and you
+            answer, since each answer is sent back alongside the description
+            it is clarifying. This is the one on this list most people would
+            not guess, which is why it is first.
           </li>
           <li>
             <LegalStrong>Resend</LegalStrong> sends the email. It handles your

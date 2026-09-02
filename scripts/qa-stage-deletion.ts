@@ -77,13 +77,10 @@ import { createGauge } from "../src/lib/gauges/create"
 import { buildGaugeMessage } from "../src/lib/orbit/spark-copy"
 import { zonedWallTimeToUtc, getLocalParts } from "../src/lib/orbit/occurrence"
 import { formatMonthDay, formatWeekdayShort } from "../src/lib/events/format"
-import { judge } from "./db-which"
+import { judge, EXPECTED_DEV_TEST_REF } from "./db-which"
 import { MessageAuthor, GaugeAnswer, RsvpStatus } from "@prisma/client"
 
 const TZ = "America/Denver"
-
-/** The same ref db:which checks against (CLAUDE.md, "Two databases, never crossed"). */
-const EXPECTED_DEV_TEST_REF = "pxbewardwvoyqqcvogel"
 
 const DEMO_GROUP_NAME = "[QA] Deletion Demo"
 const FORMER_GROUP_NAME = "[QA] Deletion Former Group"

@@ -103,65 +103,98 @@ export async function deletePerson(
   const { userId } = plan.person
   const groupIds = plan.groupsToDelete.map((g) => g.groupId)
 
-  return prisma.$transaction(async (tx) => {
-    const before = await countCascadeRows(tx, userId)
+  // Explicit options rather than Prisma's defaults (2s maxWait, 5s timeout).
+  // This block issues roughly 18 sequential round trips, and this project's
+  // own measurements put the owner's laptop about 200ms from the Ohio
+  // database, so an ordinary run already lands near 3.5s against a 5s
+  // ceiling; a tether or hotel wifi would exceed it outright and leave the
+  // owner facing a raw Prisma error mid-deletion with no way to tell "rolled
+  // back, nothing happened" from "half done" (it is always the former, a
+  // transaction is all-or-nothing, but the error alone does not say so).
+  // timeout: 30000 gives six times the headroom a normal run needs. maxWait
+  // is raised alongside it rather than left at the 2s default: the same
+  // slow-network conditions that risk the 5s interactive-transaction clock
+  // also risk the shorter wait for a connection to open in the first place,
+  // and there is no reason to fix one clock while leaving the other tight.
+  // This is the one deliberate write in the whole feature, run by hand, a
+  // handful of times ever; there is no cost to being generous here.
+  return prisma.$transaction(
+    async (tx) => {
+      const before = await countCascadeRows(tx, userId)
 
-    const deletedMessages = await tx.message.deleteMany({
-      where: { id: { in: joinAnnouncementMessageIds } },
-    })
-
-    // Groups before the user: Group.founderId is RESTRICT, so deleting the
-    // user first would be rejected outright by the database while any group
-    // they founded still exists. Sequential rather than Promise.all because
-    // ordering across groups doesn't matter but ordering relative to the
-    // user delete below does, and interactive-transaction queries share one
-    // connection anyway.
-    //
-    // plan.groupsToDelete was true at plan-build time, not necessarily now.
-    // Nothing stops a second person joining a still-live invite link in the
-    // seconds between buildDeletionPlan and the operator confirming, and
-    // unlike the user delete below, tx.group.delete carries no database
-    // constraint that would catch that: Group's cascades reach Membership,
-    // Event/Rsvp, Message, Gauge/GaugeVote, and ChangeProposal/ProposalVote
-    // for EVERY row in the group, whoever authored them, not just the
-    // target's. So this re-checks, inside the same transaction, that the
-    // group is still solo before deleting it, and throws rather than
-    // cascading a stranger's data. The whole transaction then rolls back,
-    // which is why this has to run before any destructive statement rather
-    // than after.
-    for (const group of plan.groupsToDelete) {
-      const otherMembers = await tx.membership.count({
-        where: { groupId: group.groupId, userId: { not: userId } },
+      const deletedMessages = await tx.message.deleteMany({
+        where: { id: { in: joinAnnouncementMessageIds } },
       })
-      if (otherMembers > 0) {
-        throw new Error(
-          `deletePerson refuses to delete group "${group.groupName}" (${group.groupId}): somebody joined since the plan was built. This is a safety stop, not a failure: re-run buildDeletionPlan to get a fresh plan and confirm again.`
-        )
+
+      // Groups before the user: Group.founderId is RESTRICT, so deleting the
+      // user first would be rejected outright by the database while any group
+      // they founded still exists. Sequential rather than Promise.all because
+      // ordering across groups doesn't matter but ordering relative to the
+      // user delete below does, and interactive-transaction queries share one
+      // connection anyway.
+      //
+      // plan.groupsToDelete was true at plan-build time, not necessarily now.
+      // Nothing stops a second person joining a still-live invite link in the
+      // seconds between buildDeletionPlan and the operator confirming, and
+      // unlike the user delete below, tx.group.delete carries no database
+      // constraint that would catch that: Group's cascades reach Membership,
+      // Event/Rsvp, Message, Gauge/GaugeVote, and ChangeProposal/ProposalVote
+      // for EVERY row in the group, whoever authored them, not just the
+      // target's. So this re-checks, inside the same transaction, that the
+      // group is still solo before deleting it, and throws rather than
+      // cascading a stranger's data.
+      //
+      // This re-check runs after tx.message.deleteMany above, which is
+      // itself a destructive statement, so it does NOT run "before any
+      // destructive statement in this function," a claim this comment used
+      // to make and which was false about its own code. What actually has
+      // to hold is narrower and it is about tx.group.delete specifically,
+      // three lines below, not about ordering in general: every statement in
+      // this block runs inside one transaction, so a throw anywhere rolls
+      // the whole thing back and the join-line deletes above are undone right
+      // along with it. Rollback is what makes throwing here safe; it is not
+      // what makes the CHECK necessary. The check is necessary because
+      // without it, a group that gained a member would still get cascaded
+      // away by tx.group.delete, and if nothing else in this function then
+      // throws, the transaction commits normally with a stranger's data
+      // gone for good. So the one thing this re-check must run before is
+      // tx.group.delete itself, the actual cascade, not any statement that
+      // merely precedes it.
+      for (const group of plan.groupsToDelete) {
+        const otherMembers = await tx.membership.count({
+          where: { groupId: group.groupId, userId: { not: userId } },
+        })
+        if (otherMembers > 0) {
+          throw new Error(
+            `deletePerson refuses to delete group "${group.groupName}" (${group.groupId}): somebody joined since the plan was built. This is a safety stop, not a failure: re-run buildDeletionPlan to get a fresh plan and confirm again.`
+          )
+        }
+        await tx.group.delete({ where: { id: group.groupId } })
       }
-      await tx.group.delete({ where: { id: group.groupId } })
-    }
 
-    await tx.user.delete({ where: { id: userId } })
+      await tx.user.delete({ where: { id: userId } })
 
-    // Everything below is a re-read: what the database says happened, not
-    // what was asked for.
-    const after = await countCascadeRows(tx, userId)
+      // Everything below is a re-read: what the database says happened, not
+      // what was asked for.
+      const after = await countCascadeRows(tx, userId)
 
-    const remainingGroups =
-      groupIds.length === 0
-        ? []
-        : await tx.group.findMany({ where: { id: { in: groupIds } }, select: { id: true } })
-    const remainingGroupIds = new Set(remainingGroups.map((g) => g.id))
-    const groupsDeleted = plan.groupsToDelete.filter((g) => !remainingGroupIds.has(g.groupId))
+      const remainingGroups =
+        groupIds.length === 0
+          ? []
+          : await tx.group.findMany({ where: { id: { in: groupIds } }, select: { id: true } })
+      const remainingGroupIds = new Set(remainingGroups.map((g) => g.id))
+      const groupsDeleted = plan.groupsToDelete.filter((g) => !remainingGroupIds.has(g.groupId))
 
-    const userStillThere = await tx.user.findUnique({ where: { id: userId }, select: { id: true } })
+      const userStillThere = await tx.user.findUnique({ where: { id: userId }, select: { id: true } })
 
-    return {
-      person: plan.person,
-      groupsDeleted,
-      joinAnnouncementMessagesDeleted: deletedMessages.count,
-      removals: subtractRemovals(before, after),
-      userDeleted: userStillThere === null,
-    }
-  })
+      return {
+        person: plan.person,
+        groupsDeleted,
+        joinAnnouncementMessagesDeleted: deletedMessages.count,
+        removals: subtractRemovals(before, after),
+        userDeleted: userStillThere === null,
+      }
+    },
+    { timeout: 30000, maxWait: 10000 }
+  )
 }

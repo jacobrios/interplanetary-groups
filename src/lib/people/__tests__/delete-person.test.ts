@@ -8,7 +8,7 @@
 // brief: "Re-reading counts after the fact rather than trusting the plan is
 // the point").
 
-import { describe, it, expect, afterEach } from "vitest"
+import { describe, it, expect, afterEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor } from "@prisma/client"
 import { buildDeletionPlan } from "../deletion-plan"
@@ -323,5 +323,27 @@ describe("deletePerson", () => {
     expect(latecomerMembershipStillThere).not.toBeNull()
     const latecomerMessageStillThere = await prisma.message.findUnique({ where: { id: latecomerMessage.id } })
     expect(latecomerMessageStillThere).not.toBeNull()
+  })
+
+  it("runs on an explicit 30s timeout and 10s maxWait rather than Prisma's tighter defaults, so a slow connection does not fail the transaction on Prisma's own 5s clock", async () => {
+    const founder = await makeUser("[TEST] DEL Founder Timeout")
+    const group = await makeGroup("[TEST] DEL Timeout Group", founder.id)
+
+    const plan = await buildDeletionPlan(founder.id)
+    expect(plan.kind).toBe("ready")
+    if (plan.kind !== "ready") throw new Error("expected ready")
+
+    // Spies without replacing the implementation, so the delete still
+    // actually runs (and is still cleaned up by afterEach); this only
+    // inspects what options deletePerson passed alongside its callback.
+    // Before the fix this call carried no second argument at all, so this
+    // assertion is what would have failed: prisma.$transaction(fn) with no
+    // options object, which is Prisma's tighter 2s/5s defaults.
+    const spy = vi.spyOn(prisma, "$transaction")
+
+    await deletePerson(plan, [])
+
+    expect(spy).toHaveBeenCalledWith(expect.any(Function), { timeout: 30000, maxWait: 10000 })
+    spy.mockRestore()
   })
 })
