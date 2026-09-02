@@ -658,6 +658,8 @@ Seven High-priority items come due at the moment of the first production deploy.
     > **One decision this settles, recorded because it was nearly made the other way.** The whole-branch review's I-1 fix made the cause survive truncation, and the next instinct was to also rewrite the detail so it would read well at a glance in the email. That would have been effort spent on a surface the string never reaches. Seen on the real incident page instead, the two things a reader needs sit at the two positions a reader actually looks, the first line and the last, with Prisma's code frame in the middle where the eye skips. **It was left alone deliberately.** The general lesson is the one this project keeps re-learning in new costumes: *judge an output on the surface it lands on, not on the surface you composed it for.*
 
 
+14. **Set up real mail forwarding for `privacy@interplanetarygroups.com`.** The privacy notice shipped on 1 September 2026 names that address as the only way to ask to be deleted, and nothing receives mail there until the owner creates the forward to his own inbox. **This does not gate the merge**, because there is no migration and no code anywhere reads the address; it gates the tennis group. A deletion request sent to a dead address is the single failure that turns the whole notice into a lie, and it fails silently on the sender's side, which is the worst shape a failure can take here. The domain is bought through Vercel and its DNS already carries Resend's sending records for `account.` and `updates.`; a forwarding rule is a separate thing from both and does not touch either. **Nobody has opened the screen yet**, so nothing here names a provider or a setting, on the lesson item 13 learned three times over: do not write a third-party setting into this record until somebody has looked at it.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -6651,3 +6653,117 @@ rerun in default mode, matching the `qa-stage-daycomment.ts` precedent.
 is prose rather than a mechanism, so nothing stops a later slice adding a next-event line to a row
 except somebody reading it, and the list is unbounded, which is fine at a handful of groups and
 named so it is not a surprise.
+
+## §11 entry: ready for other people's data (1 September 2026)
+
+*Branch `ready-for-other-peoples-data`, worked in place rather than in a worktree at the owner's
+instruction, since the slice needs a phone pass and Turbopack refuses a worktree's `node_modules`
+symlink. Slice document:
+`docs/superpowers/specs/2026-09-01-ready-for-other-peoples-data-design.md`. The first of the two
+slices the owner is holding his friend's tennis group behind.*
+
+**Why it exists.** The product was about to meet its first users who are not the owner, holding
+names, email addresses, chat messages and venue street addresses with no privacy notice, no terms
+and no way for anybody to be deleted. The words were the smaller half: a notice promising deletion
+with nothing behind it is worse than no notice, and that gap between what a page says and what the
+software does turned out to be the theme of the whole slice.
+
+**The six questions the owner settled before any code, and the reasoning, which outlasts the
+answers.**
+
+**A deleted person's messages stay and stop carrying their name.** The chat belongs to the group;
+pulling one person's half out leaves everyone else's replies answering nobody. The label is **"Former
+member"**, not "Deleted Member" and not a blank: a label at all, so nobody reads a nameless bubble as
+a quiet active member, and *former* says what happened to the group, which is what a reader needs,
+where *deleted* says what happened to a database row. Their "Jesse joined" line goes with them,
+because it exists solely to name them and would otherwise sit just above a bubble reading "Former
+member".
+
+**Their answers go with them**, every RSVP, gauge vote and time-change vote, on past plans as much as
+future ones. The cost was named and accepted rather than discovered: a past event that read "4 in"
+afterwards reads "3 in". Presence at a plan is a fact about a person, and an anonymous headcount
+would leave a number nobody can account for, in the one product whose whole claim is accurate
+attendance.
+
+**Deletion is by request rather than self-service, and the deciding fact is not effort.** The app
+holds no key able to delete a Supabase login. A button would wipe somebody from our database and
+leave their login alive, so the next tap on an invite link recreates them as a brand-new person: the
+duplicate-identity failure the email slice exists to close, reached from the opposite direction, and
+looking to the member exactly like a deletion that silently did not happen. The owner finishes the
+login in the Supabase dashboard, which no code here can reach.
+
+**A founder is asked who takes the group over**, and a founder alone in a group takes it with them.
+**The mechanism is a script**, `npm run person:delete`, not dashboard surgery, because deleting one
+person correctly touches nine places across two systems and the deletion the notice promises has to
+be the one that happens. **The address is `privacy@interplanetarygroups.com`**, which still needs
+mail forwarding (after-launch item 14).
+
+**The shape carrying the safety argument.** The dangerous decision is *what* to delete, so it is made
+in a function that writes nothing and is tested against seeded rows; printing, confirming and
+applying are separate. The script refuses production without an explicit flag and makes the operator
+type the person's name, not `y`. Review caught the one hole: solo-ness was read from the plan and
+never re-checked inside the transaction, so somebody joining between plan and confirmation would
+have been cascaded away silently.
+
+**Verification.** Baseline **1433 across 134 files**, no pre-existing failures; final **1568 across
+139**. **No migration**, confirmed by reading the diff rather than assumed, so no deploy obligation;
+item 14 is an owner obligation, not a deploy one. Browser pass on both pages and all four link
+placements; the real-phone pass is the owner's.
+
+**The sign-in result is a setting we rely on, not a defence we wrote.** A hand-run probe against
+dev-test hit a wall at the 31st attempt (30 wrong codes processed), then the 10th on a retry seventy
+seconds later, both 429s from Supabase's own rate limit. The risk is closed. Our code contributes
+zero attempts-based resistance and there are still two doors into the same seam (`signin.ts` and
+`join-signin.ts`). No limiter was built, per the plan. Stated this plainly so a future session cannot
+read "sign-in guessing: verified safe" and believe we built something. Dependency advisories went
+**14 (9 high, 5 moderate) to 4**; the four left are reachable only through the Prisma CLI (a MySQL
+driver in a Postgres product, and a config parser), neither loadable by the deployed app, and the
+forced fix was declined for downgrading Prisma 7 to 6.
+
+**Two things that are the owner's, not ours.** `robots.ts` leaves `/privacy` and `/terms` indexable
+and was left untouched deliberately: the standing decision is that search engines get the front door
+and nothing else, and these pages sit on the other side of that line rather than inside it. And a
+Jacob-built guard changed, declared: `token-contrast.test.ts` gained two entries after verifying both
+new components render only on `--surface-base`; review judged it sound and not weakened.
+
+**Where the copy was kinder than the software, which is the lesson.** Two review rounds went entirely
+on factual accuracy in the notice, no code involved. Terms claimed nothing you write is shown outside
+your group while the notice said twenty messages go to Anthropic; the notice said only you can see
+your address and contradicted itself three bullets later; it said nothing is sent once you have seen
+everything, untrue of the digest's needs-you block; and its Anthropic list read exhaustive while
+omitting calendar context, gauge lines and the name on an open proposal. **A sentence about our own
+behaviour is a claim about code and gets checked like one.**
+
+**Honest limits of the deletion path.** The join-line lookup is a hand-judged name match, and its
+weakest evidence class can miss a genuine silent leaver: somebody who joined, never posted, never
+voted and left leaves nothing to match on. The founder-handover query was verified against the schema
+and every founder-power call site but **has never been run against real production data**. And
+whether the session-pooler connection can be reused for a production run is a judgement made while
+writing the runbook, flagged inline there.
+
+**Deferred minors, carried out of the ledger so they stay visible.** `src/lib/orbit/merge.ts:87`
+re-sends the founder's description to Anthropic on every gap-ask round, so the notice's "the first
+time you describe your group" is about when sending starts and is not false, though a careful reader
+could infer a single transmission; corrected twice already, and a third round was not worth it for
+the same session, recipient and purpose. The unsubscribe token now works in **both** directions by
+design, so a forwarded digest hands its reader the power to unsubscribe and to resubscribe the
+original recipient; rotation stays queued. Two deletion-plan test gaps, verified by inspection only:
+a founder with one blocked and one solo group at once, and one person with a trace in one candidate
+group and none in a second. `ProposalKind.VERIFY` data is excluded from the proposal lines sent to
+Anthropic by a kind filter; other paths were not checked. The script exits 0 on a blocked plan and 1
+on not-found, defensible and inconsistent.
+
+**Two pre-existing flakes, left alone, and they deserve their own micro-PR.**
+`OrbitNoteScreen.test.tsx` ("window is not defined") and `UnsubscribeForm.test.tsx` each failed once
+under the full suite here and passed in isolation and on rerun. Both weeks old, neither touched. Its
+own item rather than a footnote: an intermittently red suite erodes the baseline number this
+project's verification rests on, and the record-the-baseline rule exists so a mid-slice failure has
+an owner, which a flake by construction does not.
+
+**Debt.** The privacy notice will go stale silently, and the CLAUDE.md pointer is the strongest guard
+available and not a strong one. The script's real `delete` is proven once by hand against dev-test
+and never again automatically, deliberately, since the alternative is a test that deletes real rows;
+re-prove it if the schema changes. Deletion leaves a null author with `authorType` still `MEMBER`, a
+pair the write path forbids and the read paths tolerate, noted so nobody reads it as corruption. And
+deleting a person cascades away any change proposal they asked, taking everyone else's votes; the
+script warns, and making that field nullable is its own work.
