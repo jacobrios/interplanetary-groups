@@ -1,7 +1,7 @@
 // src/lib/events/rsvp.ts
 import { prisma } from "@/lib/prisma"
 import type { Rsvp } from "@prisma/client"
-import { RsvpStatus } from "@prisma/client"
+import { EventStatus, RsvpStatus } from "@prisma/client"
 
 interface SetRsvpInput {
   supabaseAuthId: string
@@ -29,6 +29,7 @@ interface SetRsvpResult {
  * 4. Throws "NO_EVENT" when no Event row exists for the given event id.
  * 5. Throws "NOT_A_MEMBER" when the resolved user is not a member of the
  *    event's group.
+ * 6. Throws "EVENT_CANCELLED" when the event has been called off.
  *
  * This function is intentionally reusable: the event-detail page and the
  * future home-screen quick-RSVP card both call it.
@@ -49,9 +50,13 @@ export async function setRsvp({
     // count, the silent-drop failure the slice exists to close.
     const event = await tx.event.findUnique({
       where: { id: eventId },
-      select: { groupId: true },
+      select: { groupId: true, status: true },
     })
     if (!event) throw new Error("NO_EVENT")
+    // A called-off plan takes no answers: there is nothing to be in or out
+    // for. A stale tab still holds live RSVP buttons, which is the same
+    // reason the membership gate below is here rather than on the screen.
+    if (event.status === EventStatus.CANCELLED) throw new Error("EVENT_CANCELLED")
     const membership = await tx.membership.findUnique({
       where: { userId_groupId: { userId: user.id, groupId: event.groupId } },
       select: { id: true },

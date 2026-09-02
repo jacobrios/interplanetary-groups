@@ -58,6 +58,9 @@ export async function rsvpAction(
     if (err instanceof Error && err.message === "NOT_A_MEMBER") {
       return { errors: { general: "Only members can RSVP to this one." } }
     }
+    if (err instanceof Error && err.message === "EVENT_CANCELLED") {
+      return { errors: { general: "This one's been called off." } }
+    }
     return { errors: { general: "Couldn't save that, try again." } }
   }
 

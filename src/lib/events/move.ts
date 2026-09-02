@@ -21,11 +21,11 @@
 // reconcile test pinning the cron's side of this).
 
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer, RsvpStatus, type Prisma } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalAnswer, RsvpStatus, type Prisma } from "@prisma/client"
 
 export type MoveEventResult =
   | { status: "moved" }
-  | { status: "skipped"; reason: "no_event" | "stale" | "noop" }
+  | { status: "skipped"; reason: "no_event" | "stale" | "noop" | "cancelled" }
 
 /**
  * Thrown, never returned, when the resolveProposalId stamp's conditional
@@ -83,6 +83,11 @@ export async function moveEventCoreInTx(
 ): Promise<MoveEventResult> {
   const event = await tx.event.findUnique({ where: { id: eventId } })
   if (!event) return { status: "skipped", reason: "no_event" } as const
+  // A called-off plan is not a plan to move. Reachable from a stale tab
+  // holding a live time-change chip.
+  if (event.status === EventStatus.CANCELLED) {
+    return { status: "skipped", reason: "cancelled" } as const
+  }
   if (event.startsAt.getTime() !== expectedStartsAt.getTime()) {
     return { status: "skipped", reason: "stale" } as const
   }

@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest"
 import { prisma } from "@/lib/prisma"
 import {
+  EventStatus,
   MessageAuthor,
   ProposalAnswer,
   ProposalVoteAnswer,
@@ -255,6 +256,23 @@ describe("createGroupProposal", () => {
       where: { id: askersOtherLive.proposal.id },
     })
     expect(otherLiveAfter?.answer).toBeNull() // supersede rolled back
+  })
+
+  it("refuses to open a time-change vote on a plan that has been called off", async () => {
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    // A called-off plan hits the same in-tx guard as a stale priorStartsAt:
+    // the internal StaleEventInTx throw is caught by this function's own
+    // catch block and surfaces as the same "skipped"/"stale" shape the
+    // mismatched-timestamp case above already asserts, not as a rejection.
+    const result = await createGroupProposal(await baseInput())
+    expect(result).toEqual({ status: "skipped", reason: "stale" })
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(0)
   })
 })
 

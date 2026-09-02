@@ -4,7 +4,7 @@
 
 import { describe, it, expect, afterEach, beforeEach } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer, RsvpStatus } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalAnswer, RsvpStatus } from "@prisma/client"
 import { moveEventTime } from "../move"
 
 let userId: string | null = null
@@ -181,5 +181,26 @@ describe("moveEventTime", () => {
     const resolved = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
     expect(resolved?.answer).toBe(ProposalAnswer.CONFIRMED)
     expect(resolved?.answeredAt).not.toBe(null)
+  })
+
+  it("refuses to move a plan that has been called off", async () => {
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    const result = await moveEventTime({
+      eventId: eventId!,
+      expectedStartsAt: OLD_START,
+      newStartsAt: NEW_START,
+      requesterUserId: userId!,
+      announcementBody: "Done. Test announcement.",
+    })
+    expect(result).toEqual({ status: "skipped", reason: "cancelled" })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.startsAt).toEqual(OLD_START)
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
   })
 })

@@ -6,7 +6,7 @@
 // question the product cannot answer must never be asked).
 
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer, ProposalKind, ProposalVoteAnswer } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalAnswer, ProposalKind, ProposalVoteAnswer } from "@prisma/client"
 import type { ChangeProposal } from "@prisma/client"
 
 export interface CreateChangeProposalInput {
@@ -104,9 +104,15 @@ export async function createGroupProposal({
       // own snapshot: re-read the event inside the transaction and refuse to
       // open a proposal (or run the supersede sweep below) against a plan
       // that already moved. This is what stops a stale verify-confirm from
-      // posting a group question stating a wrong fact into the feed.
+      // posting a group question stating a wrong fact into the feed. A
+      // called-off plan counts as stale for this purpose too: there is no
+      // time left on it to change.
       const event = await tx.event.findUnique({ where: { id: eventId } })
-      if (!event || event.startsAt.getTime() !== priorStartsAt.getTime()) {
+      if (
+        !event ||
+        event.startsAt.getTime() !== priorStartsAt.getTime() ||
+        event.status === EventStatus.CANCELLED
+      ) {
         throw new StaleEventInTx()
       }
 
