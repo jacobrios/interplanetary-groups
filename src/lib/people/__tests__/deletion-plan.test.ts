@@ -103,10 +103,6 @@ describe("buildDeletionPlan", () => {
     const other = await makeUser("[TEST] DP Removals Other")
     const group = await makeGroup("[TEST] DP Removals Group", founder.id, [target.id, other.id])
 
-    await prisma.contactMethod.create({
-      data: { userId: target.id, type: "EMAIL", value: "target@example.com" },
-    })
-
     const event1 = await prisma.event.create({
       data: { groupId: group.id, title: "Climbing", startsAt: new Date("2099-01-01T18:00:00Z") },
     })
@@ -179,12 +175,35 @@ describe("buildDeletionPlan", () => {
     if (plan.kind !== "ready") throw new Error("expected ready")
     expect(plan.removals).toEqual({
       memberships: 1,
-      contactMethods: 1,
       rsvps: 2,
       gaugeVotes: 1,
       proposalVotes: 1,
       changeProposalsAsked: 1,
     })
+    // No count: the owner's ruling is that this module never reads
+    // ContactMethod at all (a fourth read site is not worth adding just to
+    // turn "they have one" into a number). The fact still gets said, as a
+    // fixed phrase rather than something derived from a query.
+    expect(plan.contactMethodNote).toBe("any email address on file")
+  })
+
+  it("actually removes a contact method when the person is deleted, proven directly since the plan never reads ContactMethod", async () => {
+    // This does not call buildDeletionPlan at all: the plan carries no count
+    // and performs no read of ContactMethod, so the only way left to pin
+    // "their email address goes with them" is to prove the schema's own
+    // cascade (ContactMethod.userId, onDelete: Cascade, schema:49) directly.
+    // The contactMethod queries below are test-only code, outside
+    // no-email-address-on-screen.test.tsx's scan of src/ (it excludes test
+    // files by design), so this pins the behavior without adding a read site.
+    const target = await makeUser("[TEST] DP ContactMethod Cascade Target")
+    const contactMethod = await prisma.contactMethod.create({
+      data: { userId: target.id, type: "EMAIL", value: "target-cascade@example.com" },
+    })
+
+    await prisma.user.delete({ where: { id: target.id } })
+
+    const stillThere = await prisma.contactMethod.findUnique({ where: { id: contactMethod.id } })
+    expect(stillThere).toBeNull()
   })
 
   it("names messages and suggested gauges as survivals, and touches nothing", async () => {

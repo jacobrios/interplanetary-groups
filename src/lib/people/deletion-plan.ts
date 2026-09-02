@@ -42,10 +42,16 @@ export interface GroupToDelete {
  * Counts of rows that cascade away with the person: Group.founderId aside
  * (that is the blocked/ready split above them), every field here is a
  * `onDelete: Cascade` relation to User in prisma/schema.prisma.
+ *
+ * ContactMethod is deliberately absent. It also cascades away (schema:49),
+ * but this module never reads it: the owner's ruling is that a fourth
+ * ContactMethod read site anywhere in src/ is not worth adding just to turn
+ * that fact into a number (src/app/__tests__/no-email-address-on-screen.test.tsx
+ * pins the count of read sites at three). `contactMethodNote` below carries
+ * the same fact as a stated constant instead of a count.
  */
 export interface DeletionRemovals {
   memberships: number
-  contactMethods: number
   rsvps: number
   gaugeVotes: number
   proposalVotes: number
@@ -94,6 +100,14 @@ export type DeletionPlan =
       survivals: DeletionSurvivals
       warnings: OpenProposalWarning[]
       joinAnnouncementCandidates: JoinAnnouncementCandidate[]
+      /**
+       * A stated fact, not a count: whether this person has a ContactMethod
+       * row is never checked here, on purpose (see DeletionRemovals above),
+       * so this is always the same fixed phrase rather than something
+       * derived from a read. It cascades away with them regardless; the
+       * operator is told that much and no more.
+       */
+      contactMethodNote: string
       /**
        * The person's Supabase login pointer, reported so the operator's
        * script can print it. Never acted on here: the app holds no key that
@@ -146,7 +160,6 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
 
   const [
     membershipCount,
-    contactMethodCount,
     rsvpCount,
     gaugeVoteCount,
     proposalVoteCount,
@@ -157,7 +170,6 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     membershipGroups,
   ] = await Promise.all([
     prisma.membership.count({ where: { userId } }),
-    prisma.contactMethod.count({ where: { userId } }),
     prisma.rsvp.count({ where: { userId } }),
     prisma.gaugeVote.count({ where: { userId } }),
     prisma.proposalVote.count({ where: { userId } }),
@@ -214,7 +226,6 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     groupsToDelete: soloFoundedGroups,
     removals: {
       memberships: membershipCount,
-      contactMethods: contactMethodCount,
       rsvps: rsvpCount,
       gaugeVotes: gaugeVoteCount,
       proposalVotes: proposalVoteCount,
@@ -223,6 +234,7 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     survivals: { messages: messageCount, gaugesSuggested: gaugesSuggestedCount },
     warnings,
     joinAnnouncementCandidates,
+    contactMethodNote: "any email address on file",
     supabaseAuthId: person.supabaseAuthId,
   }
 }
