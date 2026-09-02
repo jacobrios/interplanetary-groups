@@ -114,6 +114,25 @@ model Event {
   /// history, so a textual revert is unresolvable without it. Last move only,
   /// overwritten each time; the feed itself is the full history.
   previousStartsAt DateTime?
+  /// Whether this occurrence is still happening. CANCELLED is set by a
+  /// member calling it off from the event's own page, and cleared by anyone
+  /// putting it back.
+  ///
+  /// The row is NEVER deleted, and that is load-bearing rather than
+  /// stylistic. hasUpcomingScheduledEvent (lib/events/upcoming-list.ts) asks
+  /// only whether a scheduled event starts in the future, with no status
+  /// filter. A delete would free that guard AND the unique scheduledKey, so
+  /// the hourly cron would recreate the cancelled plan within the hour with
+  /// a fresh announcement. With the row retained the guard still sees it and
+  /// the cancelled row is its own tombstone, so reconcile needs no change.
+  /// Do not "tidy" this into a delete, and do not add a status filter to
+  /// that guard.
+  status           EventStatus @default(SCHEDULED)
+  /// When this occurrence was called off; null whenever status is SCHEDULED.
+  /// Not decoration: it is what lets the digest ask "cancelled since this
+  /// member last looked" (lib/digest/cancellations.ts). Cleared on restore so
+  /// the field can never claim a cancellation that was undone.
+  cancelledAt      DateTime?
   /// The gauge that created this event, when it was sparked rather than
   /// scheduled. Unique, so one gauge can only ever produce one event however
   /// many times the third yes is double-tapped. Null means the schedule created
@@ -143,6 +162,11 @@ model Event {
 
   @@index([groupId])
   @@index([groupId, startsAt]) // backs the "soonest upcoming event for a group" query
+}
+
+enum EventStatus {
+  SCHEDULED
+  CANCELLED
 }
 
 model Venue {
