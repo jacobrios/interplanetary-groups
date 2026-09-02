@@ -10,10 +10,13 @@
 // result because the screen's entire job is to report the outcome.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { unsubscribeByToken } = vi.hoisted(() => ({ unsubscribeByToken: vi.fn() }))
-vi.mock("@/lib/email/unsubscribe", () => ({ unsubscribeByToken }))
+const { unsubscribeByToken, resubscribeByToken } = vi.hoisted(() => ({
+  unsubscribeByToken: vi.fn(),
+  resubscribeByToken: vi.fn(),
+}))
+vi.mock("@/lib/email/unsubscribe", () => ({ unsubscribeByToken, resubscribeByToken }))
 
-import { unsubscribeAction } from "../unsubscribe"
+import { unsubscribeAction, resubscribeAction } from "../unsubscribe"
 
 let errorLog: ReturnType<typeof vi.spyOn>
 
@@ -21,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   errorLog = vi.spyOn(console, "error").mockImplementation(() => {})
   unsubscribeByToken.mockResolvedValue(undefined)
+  resubscribeByToken.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -82,6 +86,47 @@ describe("unsubscribeAction", () => {
     unsubscribeByToken.mockResolvedValue(undefined)
 
     expect(await unsubscribeAction("tok_nobody_has")).toBe("ok")
+    expect(errorLog).not.toHaveBeenCalled()
+  })
+})
+
+describe("resubscribeAction", () => {
+  it("clears the opt-out for the token it was handed, and says it landed", async () => {
+    expect(await resubscribeAction("tok_1")).toBe("ok")
+    expect(resubscribeByToken).toHaveBeenCalledTimes(1)
+    expect(resubscribeByToken.mock.calls[0][0]).toBe("tok_1")
+  })
+
+  it("reports a failed write instead of letting the screen claim it's back on", async () => {
+    resubscribeByToken.mockRejectedValue(new Error("pool exhausted"))
+
+    expect(await resubscribeAction("tok_1")).toBe("service_error")
+  })
+
+  it("logs the underlying error rather than throwing it away", async () => {
+    resubscribeByToken.mockRejectedValue(new Error("pool exhausted"))
+
+    await resubscribeAction("tok_1")
+
+    const logged = errorLog.mock.calls.flat().join(" ")
+    expect(logged).toContain("[unsubscribe]")
+    expect(errorLog.mock.calls.flat()).toContainEqual(
+      expect.objectContaining({ message: "pool exhausted" })
+    )
+  })
+
+  it("never throws, whatever the database does", async () => {
+    resubscribeByToken.mockRejectedValue(new Error("boom"))
+    await expect(resubscribeAction("tok_1")).resolves.toBe("service_error")
+  })
+
+  // Same oracle-proofing as unsubscribeAction: a stranger holding a guessed
+  // or forwarded token, or someone who never left, must see the identical
+  // "ok" a genuine flip produces.
+  it("says ok for a token that matched nobody, so a guess learns nothing", async () => {
+    resubscribeByToken.mockResolvedValue(undefined)
+
+    expect(await resubscribeAction("tok_nobody_has")).toBe("ok")
     expect(errorLog).not.toHaveBeenCalled()
   })
 })

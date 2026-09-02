@@ -6,7 +6,7 @@
 
 import { describe, it, expect, afterAll, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { ensureUnsubscribeToken, unsubscribeByToken } from "../unsubscribe"
+import { ensureUnsubscribeToken, unsubscribeByToken, resubscribeByToken } from "../unsubscribe"
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 const userIds: string[] = []
@@ -134,5 +134,68 @@ describe("unsubscribeByToken", () => {
 
   it("does nothing and throws nothing for an unknown token", async () => {
     await expect(unsubscribeByToken("not-a-real-token", new Date())).resolves.toBeUndefined()
+  })
+})
+
+describe("resubscribeByToken", () => {
+  it("clears the opt-out, the way back in", async () => {
+    const user = await makeUser("returning")
+    const token = await ensureUnsubscribeToken(user.id)
+    await unsubscribeByToken(token, new Date())
+
+    await resubscribeByToken(token)
+
+    const after = await prisma.user.findUnique({ where: { id: user.id } })
+    expect(after?.digestOptOutAt).toBeNull()
+  })
+
+  it("LEAVES THE ADDRESS VERIFIED, so login codes still work", async () => {
+    const user = await makeUser("resub-still-signs-in")
+    await prisma.contactMethod.create({
+      data: { userId: user.id, type: "EMAIL", value: `t-${stamp}@example.com`, isVerified: true },
+    })
+    const token = await ensureUnsubscribeToken(user.id)
+    await unsubscribeByToken(token, new Date())
+
+    await resubscribeByToken(token)
+
+    const method = await prisma.contactMethod.findFirst({ where: { userId: user.id } })
+    expect(method?.isVerified).toBe(true)
+  })
+
+  it("does nothing and throws nothing for an unknown token", async () => {
+    await expect(resubscribeByToken("not-a-real-token")).resolves.toBeUndefined()
+  })
+
+  it("does nothing and throws nothing for someone already subscribed", async () => {
+    const user = await makeUser("never-left")
+    const token = await ensureUnsubscribeToken(user.id)
+
+    await expect(resubscribeByToken(token)).resolves.toBeUndefined()
+
+    const after = await prisma.user.findUnique({ where: { id: user.id } })
+    expect(after?.digestOptOutAt).toBeNull()
+  })
+
+  // The round trip the task exists to prove: opting out, opting back in, and
+  // opting out again must record a genuinely new timestamp rather than the
+  // second unsubscribeByToken silently no-opping because digestOptOutAt was
+  // never actually cleared back to null.
+  it("lets a second opt-out land its own timestamp after a resubscribe", async () => {
+    const user = await makeUser("round-tripper")
+    const token = await ensureUnsubscribeToken(user.id)
+
+    const first = new Date("2026-09-01T19:00:00Z")
+    await unsubscribeByToken(token, first)
+
+    await resubscribeByToken(token)
+    const middle = await prisma.user.findUnique({ where: { id: user.id } })
+    expect(middle?.digestOptOutAt).toBeNull()
+
+    const second = new Date("2026-09-02T19:00:00Z")
+    await unsubscribeByToken(token, second)
+
+    const after = await prisma.user.findUnique({ where: { id: user.id } })
+    expect(after?.digestOptOutAt?.toISOString()).toBe(second.toISOString())
   })
 })
