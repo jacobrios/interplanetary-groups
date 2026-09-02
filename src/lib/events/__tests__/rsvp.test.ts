@@ -97,14 +97,25 @@ describe("setRsvp", () => {
       data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
     })
 
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user?.supabaseAuthId) throw new Error("Preceding test did not create user")
+    // try/finally rather than a trailing statement: this file chains
+    // fixtures across tests via afterAll cleanup, not per-test isolation,
+    // so leaving eventId CANCELLED would poison whatever test runs after
+    // this one, even if an assertion below throws first.
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (!user?.supabaseAuthId) throw new Error("Preceding test did not create user")
 
-    await expect(
-      setRsvp({ supabaseAuthId: user.supabaseAuthId, eventId, status: RsvpStatus.IN })
-    ).rejects.toThrow("EVENT_CANCELLED")
+      await expect(
+        setRsvp({ supabaseAuthId: user.supabaseAuthId, eventId, status: RsvpStatus.IN })
+      ).rejects.toThrow("EVENT_CANCELLED")
 
-    const rows = await prisma.rsvp.findMany({ where: { eventId } })
-    expect(rows).toHaveLength(0)
+      const rows = await prisma.rsvp.findMany({ where: { eventId } })
+      expect(rows).toHaveLength(0)
+    } finally {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { status: EventStatus.SCHEDULED, cancelledAt: null },
+      })
+    }
   })
 })

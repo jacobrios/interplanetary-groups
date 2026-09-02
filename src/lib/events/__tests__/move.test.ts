@@ -2,9 +2,10 @@
 // Cleanup order (FK constraints): Message → ChangeProposal → Event (Rsvps
 // cascade) → Membership → Group → User.
 
-import { describe, it, expect, afterEach, beforeEach } from "vitest"
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, ProposalAnswer, RsvpStatus } from "@prisma/client"
+import type { Prisma } from "@prisma/client"
 import { moveEventTime } from "../move"
 
 let userId: string | null = null
@@ -202,5 +203,53 @@ describe("moveEventTime", () => {
     expect(event?.startsAt).toEqual(OLD_START)
     const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
     expect(messages).toHaveLength(0)
+  })
+
+  it("closes a race the pre-read alone cannot: a cancel that commits between the read and the write still blocks the move", async () => {
+    // A real concurrent commit, not a mock of the guard's own decision: the
+    // pre-read below sees SCHEDULED and passes it, exactly like an ordinary
+    // call. Immediately after that read returns (still inside the open
+    // transaction), a genuinely separate write, through the pooled
+    // top-level client rather than tx, flips the event to CANCELLED and
+    // commits on its own connection. Under READ COMMITTED, the still-open
+    // transaction's own conditional write (move.ts's `status:
+    // EventStatus.SCHEDULED` clause) then sees that committed change and
+    // matches zero rows. If that clause were missing, this test would show
+    // the plan moving anyway despite the concurrent cancel; this is what
+    // proves the conditional write is the actual guard, not the pre-read.
+    const transactionHost = prisma as unknown as {
+      $transaction: <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) => Promise<T>
+    }
+    const realTransaction = transactionHost.$transaction.bind(prisma)
+    const txSpy = vi.spyOn(transactionHost, "$transaction").mockImplementation(async (fn) => {
+      txSpy.mockRestore()
+      return realTransaction(async (tx) => {
+        const originalFindUnique = tx.event.findUnique.bind(tx.event)
+        tx.event.findUnique = (async (...args: Parameters<typeof originalFindUnique>) => {
+          const result = await originalFindUnique(...args)
+          await prisma.event.updateMany({
+            where: { id: eventId!, status: EventStatus.SCHEDULED },
+            data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+          })
+          return result
+        }) as unknown as typeof tx.event.findUnique
+        return fn(tx)
+      })
+    })
+
+    const result = await moveEventTime({
+      eventId: eventId!,
+      expectedStartsAt: OLD_START,
+      newStartsAt: NEW_START,
+      requesterUserId: userId!,
+      announcementBody: "Done. Test announcement.",
+    })
+    expect(result).toEqual({ status: "skipped", reason: "stale" })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.status).toBe(EventStatus.CANCELLED)
+    expect(event?.startsAt).toEqual(OLD_START) // never moved
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0) // no move announcement for a cancelled plan
   })
 })
