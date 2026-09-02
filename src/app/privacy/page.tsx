@@ -101,6 +101,31 @@
 // THE RULE THAT FALLS OUT OF IT: these two pages make overlapping promises
 // about the same person, so a claim added to one can falsify the other at a
 // distance. Read both when you touch either.
+//
+// SECOND PHONE QA, 2 September 2026: the "Why" section was deleted at the
+// owner's ask, on the reading that most of its bullets restated the list
+// above rather than disclosing anything. Two of its three bullets were
+// folded into "What the app keeps" at his instruction (what the email
+// address does, onto the email bullet; the never-sold line, onto the end of
+// that list).
+//
+// THE THIRD ONE MOVED WITHOUT BEING ASKED FOR, AND THAT IS DELIBERATE. Its
+// last bullet carried the reminders caveat, which is one of the four
+// protected claims at the top of this file: an earlier round ADDED it
+// because "if you have already seen everything, nothing is sent" was false
+// of the code. Deleting the section would have silently deleted a
+// correction, so the caveat now lives on the "when you last opened the
+// group" bullet, which is the fact it is about. Re-verified against the code
+// at the time of the move rather than carried across on trust:
+// isNeedsYouGateOpen (src/lib/digest/schedule.ts:113) takes only now,
+// timeZone, ideas, timeChangeAsks and events, with no read position of any
+// kind, and run.ts:376 applies gateOpen to the needs-you block alone while
+// deriveYouMissed (run.ts:388) is the only consumer of lastSeenAt. So a
+// member who has read every message can still be mailed about something
+// waiting on their answer, exactly as the sentence says.
+//
+// DO NOT "TIDY" THAT CAVEAT BACK OUT as a long tail on a short bullet. Its
+// length is the disclosure.
 
 import type { Metadata } from "next"
 import LegalPage, {
@@ -135,7 +160,7 @@ export default function PrivacyPage() {
       <LegalText>
         I built Interplanetary Groups on my own, and I run it on my own. This
         page says what the app keeps about you, who can see it, and how to
-        have it deleted. No legal padding.
+        have it deleted.
       </LegalText>
 
       <LegalSection heading="What the app keeps">
@@ -146,7 +171,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <LegalStrong>Your email address, if you give one.</LegalStrong> It
-            is always optional.
+            is always optional, and it does two things and nothing else. It
+            signs you back in on a new phone or a cleared browser, so you come
+            back as yourself instead of as a second copy of yourself, and it
+            sends you reminders about your own group.
           </li>
           <li>
             <LegalStrong>What you write in the group chat,</LegalStrong> kept
@@ -164,28 +192,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <LegalStrong>When you last opened the group,</LegalStrong> and when
-            you joined it.
-          </li>
-        </LegalList>
-      </LegalSection>
-
-      <LegalSection heading="Why">
-        <LegalList>
-          <li>
-            Your name, your messages and your answers are what running a group
-            means.
-          </li>
-          <li>
-            Your email address does two things and nothing else. It signs you
-            back in on a new phone or a cleared browser, so you come back as
-            yourself instead of as a second copy of yourself, and it sends you
-            reminders about your own group.
-          </li>
-          <li>
-            When you last opened the group is what stops a reminder telling you
-            about chat you have already read. It does not stop every email: if
-            something is still waiting on your answer, like an idea you have
-            not voted on, a reminder can still arrive.
+            you joined it. Where you got to is what stops a reminder telling
+            you about chat you have already read. It does not stop every
+            email: if something is still waiting on your answer, like an idea
+            you have not voted on, a reminder can still arrive.
           </li>
         </LegalList>
         <LegalText>
