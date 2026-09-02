@@ -6705,6 +6705,15 @@ type the person's name, not `y`. Review caught the one hole: solo-ness was read 
 never re-checked inside the transaction, so somebody joining between plan and confirmation would
 have been cascaded away silently.
 
+**A fourth read site was proposed and declined, recorded because the guard sends people looking for
+exactly this.** The deletion plan's first attempt counted a person's contact methods, which would
+have been the fourth place in the product able to read an email address, and
+`src/app/__tests__/no-email-address-on-screen.test.tsx` reddened by design. The owner ruled the count
+out rather than spending the slot: it changed no decision the operator makes, and every slot in that
+guard has to be necessary rather than merely harmless. The guard's own comment says a fourth read
+site is the next one to redden here and needs its own decision, so whoever proposes one should find
+this answer rather than re-derive it.
+
 **Verification.** Baseline **1433 across 134 files**, no pre-existing failures; final **1568 across
 139**. **No migration**, confirmed by reading the diff rather than assumed, so no deploy obligation;
 item 14 is an owner obligation, not a deploy one. Browser pass on both pages and all four link
