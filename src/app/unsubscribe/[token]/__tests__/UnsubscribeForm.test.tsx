@@ -165,11 +165,22 @@ describe("UnsubscribeForm", () => {
     })
 
     it("uses no dashes in the way-back copy or its confirmation", async () => {
-      await unsubscribeFirst()
+      // A single render, captured once: the earlier version of this test
+      // called the unsubscribeFirst() helper (which renders its own,
+      // never-unmounted instance) and then rendered a second instance,
+      // asserting against the second instance's container while clicking
+      // the first instance's button (Testing Library resolves
+      // getAllByRole across the whole, unswept document.body). The
+      // container under test never actually reached the way-back or
+      // confirmation copy, so an em dash in either string would have
+      // passed silently. This version clicks and asserts against the same
+      // container the whole way through.
       const { container } = render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+      await screen.findByText(/unsubscribed\. Orbit/)
       expect(container.textContent).not.toMatch(/[—–]/)
 
-      fireEvent.click(screen.getAllByRole("button", { name: /Turn them back on/ })[0])
+      fireEvent.click(screen.getByRole("button", { name: /Turn them back on/ }))
       await screen.findByText(/You.re back on\. Orbit/)
       expect(container.textContent).not.toMatch(/[—–]/)
     })
