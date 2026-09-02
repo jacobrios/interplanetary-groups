@@ -10,7 +10,7 @@
 // when the runner has put `afterEach` on the global object
 // (node_modules/@testing-library/react/dist/index.js: `if (typeof afterEach ===
 // 'function')`). This repo runs vitest with `globals` off, deliberately: all
-// 139 test files import describe/it/expect from "vitest" by name. So that check
+// 140 test files import describe/it/expect from "vitest" by name. So that check
 // has always been false, auto-cleanup has never once run, and every render()
 // left its tree mounted for the rest of its file. Most component files here
 // call cleanup() by hand, which is how the gap stayed invisible; five did not.
@@ -48,9 +48,9 @@
 // is idempotent, so a file already calling it keeps working.
 //
 // The dynamic import is what lets this run in front of the whole suite rather
-// than the jsdom part of it. Most files here use the node environment and talk
-// to Prisma; a top-level import would make every one of them load react-dom for
-// nothing. `document` is the honest test for "this file got a DOM", since the
+// than the jsdom part of it. Ninety-three of the 140 files here use the node
+// environment and talk to Prisma; a top-level import would make every one of
+// them load react-dom for nothing. `document` is the honest test for "this file got a DOM", since the
 // environment is chosen per file by a `@vitest-environment jsdom` docblock
 // rather than by config.
 import { afterEach } from "vitest"

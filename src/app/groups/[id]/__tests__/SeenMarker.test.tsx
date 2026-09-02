@@ -38,8 +38,11 @@ import SeenMarker from "../SeenMarker"
 //
 // That setup file exists as of 2 Sept 2026: vitest.setup.ts does the unmount
 // and the drain for every jsdom file, which is what fixed the two
-// intermittent failures CLAUDE.md had registered as unowned. This local copy
-// is now redundant rather than wrong, and was left in place.
+// intermittent failures CLAUDE.md had registered as unowned. The cleanup()
+// and the flush below are therefore redundant now, and were left in place.
+// The hook itself is NOT redundant and must not be deleted on the strength of
+// that word: its mockClear() is this file's only mock isolation, and nothing
+// global replaces it.
 afterEach(async () => {
   cleanup()
   await act(async () => {

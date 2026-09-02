@@ -6998,13 +6998,27 @@ before any hook a test file declares, so it runs after them, since vitest unwind
 in reverse registration order.
 
 **Evidence, and its honest limit.** Baseline on main before any change: 139 files, 1576 tests,
-all passing. After: 140 files, 1578 tests, all passing, the difference being the guard test's
-own two. The guard test was shown red before the fix existed and green after, which is the
-claim this PR actually stands on: cleanup was not registered, and now it is. **A green suite is
-not the evidence here and is not offered as it.** The failure was intermittent and went green
-three runs in a row immediately after the failure that started this, so run counts prove
-nothing either way. What can be shown directly is the mechanism and its removal; what cannot be
-shown is a negative over an intermittent event.
+all passing. After: 140 files, 1581 tests, all passing, the difference being the guard file's
+own five. Each guard was shown red with the thing it guards removed and green with it restored:
+delete the drain lines and the drain guard fails; unwire `setupFiles` and both the behavioural
+cleanup guard and the wiring guard fail. **A green suite is not the evidence here and is not
+offered as it.** The failure was intermittent and went green three runs in a row immediately
+after the failure that started this, so run counts prove nothing either way.
+
+**What each guard actually holds, because the first draft of this entry overstated it and an
+independent review caught that.** The behavioural pair (render, then assert the next test cannot
+see the tree) holds the unmount and only the unmount. It cannot hold the drain: with the
+`act()`/`setImmediate` lines deleted the whole repo stays green, including that pair, because an
+empty document says `cleanup()` ran and says nothing about what React still had queued. So the
+half that addresses the actual reported failure is the half with no behavioural test, and it has
+none for a stated reason rather than an omission: the assertion is a negative over an
+intermittent event, and a probe that queued its own `setImmediate` would go green whenever the
+runner happened to turn the event loop between tests, which is most of the time. A guard passing
+for the wrong reason is worse than none. The drain is covered by a structural guard instead,
+labelled as one in the file: it reads `vitest.setup.ts` and `vitest.config.ts` and asserts the
+wiring is still present, which catches somebody tidying away lines whose purpose is invisible,
+and does not catch a drain that is present and broken. Precedent for a test that reads repo files:
+`no-email-address-on-screen.test.tsx`.
 
 **What this does not cover, stated because the next reader will assume otherwise.** The drain
 runs at the end of each *test*, so a tree still mounted when a *file* ends is now unmounted

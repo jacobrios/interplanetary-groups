@@ -15,9 +15,12 @@ export default defineConfig({
   test: {
     environment: "node",
     // Testing Library's automatic cleanup does not register itself here,
-    // because it looks for a global `afterEach` and `globals` is off above by
-    // choice. vitest.setup.ts registers it by hand; the reasoning, and the
-    // failure it was leaving behind, are in that file's header.
+    // because it looks for a global `afterEach`, and `globals` is off: it is
+    // vitest's default and this repo deliberately leaves it that way, since
+    // every test file imports describe/it/expect by name. Do not go looking
+    // for a `globals` key above; there has never been one. vitest.setup.ts
+    // registers cleanup by hand, and the reasoning, along with the failure it
+    // was leaving behind, is in that file's header.
     setupFiles: ["./vitest.setup.ts"],
     // Most of this suite drives sequential Prisma round-trips against the
     // remote dev-test Supabase, and vitest's 5000ms default is sized for tests
