@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:which": "tsx scripts/db-which.ts",
+    "person:delete": "tsx --env-file=.env scripts/delete-person.ts",
     "eval:detect": "tsx scripts/eval-detect.ts",
     "eval:onboarding": "tsx scripts/eval-onboarding.ts",
     "email:test": "tsx --env-file=.env scripts/send-test-email.ts",
