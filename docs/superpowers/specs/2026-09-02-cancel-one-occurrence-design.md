@@ -149,8 +149,11 @@ red/green colourblind, and the status ladder is hue-free by rule).
 
 ### Event detail, cancelled
 
-- A `CANCELLED` eyebrow in the need-label slot above the title, rendered grey. It is not a need, so
+- A "Called off" eyebrow in the need-label slot above the title, rendered grey. It is not a need, so
   it must not be teal; teal in that slot means "this needs you".
+  Wording settled during planning: the eyebrow reads "Called off" rather than "Cancelled", matching
+  Orbit's own words in the feed ("Sam called off tennis this Tue"). NeedLabel uppercases it in CSS,
+  so it renders as CALLED OFF while the DOM text stays sentence case.
 - The details card's content steps down to `--text-secondary`. Brightness carrying state is the same
   device the roster already uses for IN / HAVEN'T REPLIED / OUT, so this is an existing grammar
   rather than a new one.
@@ -180,7 +183,7 @@ on the safe control. The same two-step wraps "Put this back on".
 
 ### Group home card, cancelled
 
-- The `CANCELLED` eyebrow in the need-label slot.
+- The "Called off" eyebrow in the need-label slot.
 - The same brightness step-down.
 - **The RSVP pair and the counts line are both removed.** A counts line under a cancelled game reads
   as attendance for something that is not happening.
@@ -352,9 +355,9 @@ Every test below is written failing first, and shown failing, before the code th
 - `setRsvp`, `moveEventTime` and `createGroupProposal` each refuse a cancelled event.
 
 **Rendering**
-- `EventCard` on a cancelled event: renders the CANCELLED label, renders no RSVP controls, renders no
+- `EventCard` on a cancelled event: renders the "Called off" label, renders no RSVP controls, renders no
   counts line.
-- The detail treatment: CANCELLED label present, "Add to calendar" absent, restore control present,
+- The detail treatment: "Called off" label present, "Add to calendar" absent, restore control present,
   roster still present.
 - The two-tap confirm: the first tap does not cancel anything; the second does; "Never mind" returns
   to the resting state.
