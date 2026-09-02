@@ -91,6 +91,17 @@ const FAINT_SURFACES = [
   // sets no background of its own; this surface is VERIFIED, not assumed:
   // src/app/groups/page.tsx (Task 4) is its sole render ancestor and sets
   // backgroundColor: "var(--surface-base)" on its root <main>.
+  //
+  // Also, as of the ready-for-other-peoples-data slice: the policy links
+  // (src/components/LegalFooter.tsx, both the footer and the consent line)
+  // and the "Last updated" eyebrow on the two policy pages
+  // (src/components/LegalPage.tsx). Neither component sets a background of
+  // its own, so this surface is VERIFIED rather than assumed, at all five
+  // render sites: src/app/page.tsx, src/app/groups/[id]/info/page.tsx,
+  // src/app/join/[inviteToken]/JoinForm.tsx and src/app/create/page.tsx all
+  // set backgroundColor: "var(--surface-base)" on their root <main>, and
+  // LegalPage sets it on its own. This is the token's best case, not a new
+  // worst case, so the arithmetic below is unchanged by it.
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
@@ -143,6 +154,13 @@ describe("the inventory this arithmetic was computed against", () => {
     "src/app/join/[inviteToken]/JoinSignIn.tsx",
     "src/app/page.tsx",
     "src/app/signin/SignInPanel.tsx",
+    // Added by the ready-for-other-peoples-data slice, after checking which
+    // surface each lands on rather than just widening the list: both render
+    // only on --surface-base, which is this token's best case at 5.75:1 and
+    // is already in FAINT_SURFACES above. The five render sites are named
+    // there. No new surface, so no new arithmetic.
+    "src/components/LegalFooter.tsx",
+    "src/components/LegalPage.tsx",
     "src/components/OrbitNoteScreen.tsx",
     "src/components/SendCircleButton.tsx",
     "src/components/YourGroupsScreen.tsx",

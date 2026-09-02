@@ -24,6 +24,7 @@ import { getCurrentUser } from "@/lib/auth/current-user"
 import { resolveFrontDoor } from "@/lib/nav/front-door"
 import { OrbitMark } from "@/components/OrbitMark"
 import { ArrowRight } from "@/components/glyphs"
+import LegalFooter from "@/components/LegalFooter"
 
 export default async function HomePage() {
   const viewer = await getCurrentUser()
@@ -204,6 +205,16 @@ export default async function HomePage() {
               Sign in with your email
             </Link>
           </p>
+
+          {/* The two policy pages, and deliberately the quietest thing on
+              the screen: --text-faint at the eyebrow floor, below both
+              notes rather than beside the teal action. A stranger deciding
+              whether to trust this product needs to be able to find them;
+              nobody arriving to start a group needs them competing with
+              the one thing this screen is for. */}
+          <div style={{ marginTop: "14px" }}>
+            <LegalFooter />
+          </div>
         </div>
       </div>
     </main>

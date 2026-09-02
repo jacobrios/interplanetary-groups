@@ -27,6 +27,7 @@ import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
 import ShareInviteLink from "@/components/ShareInviteLink"
+import LegalFooter from "@/components/LegalFooter"
 import LeaveGroupButton from "./LeaveGroupButton"
 import ManageMembers from "./ManageMembers"
 import ResetInviteLink from "./ResetInviteLink"
@@ -343,12 +344,26 @@ export default async function GroupInfoPage({ params }: Props) {
           Want to change something? Just tell Orbit in the chat.
         </p>
 
-        {/* ── Leave: members only, never the founder (spec decision 3) ──── */}
-        {isMember && !isFounder && (
-          <div style={{ marginTop: "auto" }}>
+        {/* The page's bottom block. The `marginTop: auto` that used to sit
+            on the Leave button alone now sits on this wrapper, so the leave
+            control keeps its bottom-pinned position exactly as before and
+            the policy links sit under it instead of pushing it back up the
+            page. A founder, who never sees Leave, gets the links pinned to
+            the bottom on their own. */}
+        <div style={{ marginTop: "auto", paddingTop: "24px" }}>
+          {/* ── Leave: members only, never the founder (spec decision 3) ── */}
+          {isMember && !isFounder && (
             <LeaveGroupButton groupId={group.id} groupName={group.name} />
+          )}
+
+          {/* The same quiet footer the front door carries. This is the one
+              reference page a member already comes to for "what is this
+              group and how do I get out of it", so it is where somebody
+              already inside the product goes looking for the policies. */}
+          <div style={{ marginTop: "18px" }}>
+            <LegalFooter />
           </div>
-        )}
+        </div>
       </div>
     </main>
   )

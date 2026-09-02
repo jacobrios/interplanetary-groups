@@ -13,6 +13,7 @@ import type { ExtractGroupState } from "@/app/actions/extract-group"
 import { REASK_COPY } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
+import { LegalConsentLine } from "@/components/LegalFooter"
 import OrbitPause from "./OrbitPause"
 
 const INTRO_COPY =
@@ -232,6 +233,16 @@ export default function Step1Describe({
           Orbit reads this to set your days, send reminders, and build a shared group page.
           Mention your usual spot too, if you have one.
         </p>
+
+        {/* The same consent line the join screen carries, beside the same
+            kind of moment. The founder is creating an account too, and the
+            join screen is not their path, so without this the one person
+            who never sees those two links is the person who starts the
+            group. Step 1 only: it belongs with the first commitment, not
+            repeated on every step of the wizard. */}
+        <div style={{ marginTop: "14px" }}>
+          <LegalConsentLine action="starting a group" />
+        </div>
       </form>
 
       {/* The only exit from onboarding, and it is on step 1 only.

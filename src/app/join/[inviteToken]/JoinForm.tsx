@@ -29,6 +29,7 @@ import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { inputStyle, buttonStyle } from "@/components/pill-controls"
+import { LegalConsentLine } from "@/components/LegalFooter"
 import JoinSignIn from "./JoinSignIn"
 
 interface RhythmRow {
@@ -330,6 +331,18 @@ export default function JoinForm({
             <p style={reassureStyle}>
               No app to download, no password. You&apos;ll land right in the group.
             </p>
+
+            {/* Consent, beside the action rather than in a page footer.
+                This is one of the two moments in the product where somebody
+                actually hands something over (the other is starting a
+                group), so the sentence sits with the button that does it.
+                Placed under the reassurance line rather than between it and
+                the button, so the drawn button-plus-reassurance pairing
+                stays intact. Quiet by design: it is a statement, not a
+                second thing to decide. */}
+            <div style={{ marginTop: "12px" }}>
+              <LegalConsentLine action="joining" />
+            </div>
 
             {currentName === null && (
               <button
