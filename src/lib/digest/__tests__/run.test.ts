@@ -439,20 +439,25 @@ describe("runDailyDigest", () => {
 
     const results = await runDailyDigest(NOW, { groupIds: [group.id] })
 
-    // With the cancelled row excluded from upcomingEvents, nothing opens
-    // the gate and the member has nothing outstanding, so this reads
-    // identically to "a member with nothing to report gets no email":
-    // processed, nobody sent. Before the filter existed this failed with
-    // sent: 1, because the cancelled event's missing RSVP opened rule two
-    // and produced a "Needs your RSVP" line for a game that is off.
+    // With the cancelled row excluded from upcomingEvents, nothing opens the
+    // needs-you gate: eventNeedLabel never sees a row to ask an RSVP for, so
+    // this is not "Needs your RSVP" for a game that is off (the bug this
+    // test used to guard, before task 9's filter existed). But task 10 adds
+    // a second, independent reason to mail this member: the cancellation
+    // itself, which the member has not seen (cancelledAt is long after their
+    // joinedAt read position). One email, naming only the cancellation.
     expect(results).toEqual([
-      { groupId: group.id, status: "processed", considered: 2, sent: 0, skipped: 2 },
+      { groupId: group.id, status: "processed", considered: 2, sent: 1, skipped: 1 },
     ])
-    expect(sendEmailMock).not.toHaveBeenCalled()
+    expect(sendEmailMock).toHaveBeenCalledTimes(1)
+    const call = sendEmailMock.mock.calls[0][0]
+    expect(call.to).toBe(`cancelled-${stamp}@example.test`)
+    expect(call.text).not.toContain("Needs you:")
+    expect(call.text).toContain("Called off: Tennis this Sun")
 
     const membership = await prisma.membership.findFirstOrThrow({
       where: { groupId: group.id, userId: member.id },
     })
-    expect(membership.lastDigestSentAt).toBeNull()
+    expect(membership.lastDigestSentAt).not.toBeNull()
   })
 })

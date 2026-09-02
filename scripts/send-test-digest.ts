@@ -12,12 +12,13 @@
 // Example:
 //   npm run digest:test -- you@example.com "Midweek Climbers" Maya
 //
-// WHAT "REAL" MEANS HERE. This does not fabricate a NeedsYouItem or a
-// YouMissedResult that merely resembles the product's own output. It runs
-// the exact same pieces src/lib/digest/run.ts's processOneGroup /
-// processOneMember assemble for the daily job -- findLiveGauges,
-// findLiveProposals, deriveNeedsYouItems, deriveYouMissed,
-// composeDigestEmail -- against whatever the named member's real group
+// WHAT "REAL" MEANS HERE. This does not fabricate a NeedsYouItem, a
+// YouMissedResult, or a CancellationLine that merely resembles the
+// product's own output. It runs the exact same pieces
+// src/lib/digest/run.ts's processOneGroup / processOneMember assemble for
+// the daily job -- findLiveGauges, findLiveProposals, deriveNeedsYouItems,
+// deriveYouMissed, deriveCancellations, composeDigestEmail -- against
+// whatever the named member's real group
 // actually holds right now, and sends whatever that produces. The one
 // difference from run.ts, and it is deliberate: <to> is who the message is
 // delivered to, which does not have to be the named member's own stored
@@ -63,6 +64,7 @@ import { findLiveGauges } from "../src/lib/gauges/read"
 import { findLiveProposals } from "../src/lib/proposals/read"
 import { deriveNeedsYouItems } from "../src/lib/digest/needs-you"
 import { deriveYouMissed, type YouMissedMessage } from "../src/lib/digest/you-missed"
+import { deriveCancellations, type CancellationRow } from "../src/lib/digest/cancellations"
 import { isNeedsYouGateOpen } from "../src/lib/digest/schedule"
 import { composeDigestEmail } from "../src/lib/digest/compose"
 import { sendEmail } from "../src/lib/email/send"
@@ -235,6 +237,30 @@ async function main() {
     else rsvpsByEvent.set(r.eventId, [r])
   }
 
+  // Mirrors src/lib/digest/run.ts's earliestWatermark: bounded by this one
+  // member's own read position, since this script only ever composes for
+  // one member at a time (unlike run.ts, which bounds by the whole group).
+  const readPosition =
+    membership.lastSeenAt && membership.lastDigestSentAt
+      ? membership.lastSeenAt > membership.lastDigestSentAt
+        ? membership.lastSeenAt
+        : membership.lastDigestSentAt
+      : (membership.lastSeenAt ?? membership.lastDigestSentAt ?? membership.joinedAt)
+  const cancelledEvents: CancellationRow[] = await prisma.event.findMany({
+    where: {
+      groupId: group.id,
+      status: EventStatus.CANCELLED,
+      cancelledAt: { gte: readPosition },
+    },
+    select: {
+      id: true,
+      title: true,
+      activityLabel: true,
+      startsAt: true,
+      cancelledAt: true,
+    },
+  })
+
   const liveGauges = await findLiveGauges(group.id, now)
   const liveProposalsAll = await findLiveProposals(group.id, now)
   const liveProposals = liveProposalsAll.filter((p) => p.kind === ProposalKind.GROUP)
@@ -306,11 +332,21 @@ async function main() {
     viewerId: member.id,
   })
 
+  const cancellations = deriveCancellations({
+    events: cancelledEvents,
+    lastSeenAt: membership.lastSeenAt,
+    lastDigestSentAt: membership.lastDigestSentAt,
+    joinedAt: membership.joinedAt,
+    timeZone: group.timeZone,
+    now,
+  })
+
   console.log(`Needs-you items: ${needsYou.length}`)
   console.log(`You-missed: ${youMissed ? `${youMissed.count} message(s)` : "nothing"}`)
+  console.log(`Cancellations: ${cancellations.length}`)
   console.log("")
 
-  if (needsYou.length === 0 && youMissed === null) {
+  if (needsYou.length === 0 && youMissed === null && cancellations.length === 0) {
     console.log("NOTHING TO REPORT. The composer would return null; no email will be sent.")
     console.log("")
     console.log("To make this member's digest non-empty, stage one of:")
@@ -322,6 +358,8 @@ async function main() {
       `    after this member's read position (the later of lastSeenAt and lastDigestSentAt, or ` +
         `joinedAt if both are null -- currently ${(membership.lastSeenAt ?? membership.lastDigestSentAt ?? membership.joinedAt).toISOString()}).`
     )
+    console.log("  - Cancellations: cancel a scheduled event in this group after that same read")
+    console.log("    position.")
     await prisma.$disconnect()
     process.exit(0)
   }
@@ -332,16 +370,17 @@ async function main() {
     groupName: group.name,
     needsYou,
     youMissed,
+    cancellations,
     siteOrigin: SITE_ORIGIN,
     unsubscribeToken,
   })
 
   if (!composed) {
-    // Would mean this script's own "both empty" check above disagreed with
+    // Would mean this script's own "all empty" check above disagreed with
     // composeDigestEmail's identical check -- a bug in this script, not a
     // legitimate second "nothing to send" case (compose.ts's own header
     // comment makes the identical point about run.ts).
-    console.error("Internal error: needsYou/youMissed were non-empty but composeDigestEmail returned null.")
+    console.error("Internal error: needsYou/youMissed/cancellations were non-empty but composeDigestEmail returned null.")
     process.exit(1)
   }
 

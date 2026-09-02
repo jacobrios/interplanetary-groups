@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest"
 import { composeDigestEmail } from "@/lib/digest/compose"
 import type { NeedsYouItem } from "@/lib/digest/needs-you"
 import type { YouMissedResult } from "@/lib/digest/you-missed"
+import type { CancellationLine } from "@/lib/digest/cancellations"
 
 const GROUP_ID = "grp1"
 const GROUP_NAME = "Climbing Crew"
@@ -71,6 +72,7 @@ function baseInput(over: Partial<Parameters<typeof composeDigestEmail>[0]> = {})
     groupName: GROUP_NAME,
     needsYou: [] as NeedsYouItem[],
     youMissed: null as YouMissedResult | null,
+    cancellations: [] as CancellationLine[],
     siteOrigin: ORIGIN,
     unsubscribeToken: TOKEN,
     ...over,
@@ -294,5 +296,73 @@ describe("composeDigestEmail — body content", () => {
     const missedIdx = out!.text.indexOf("hey")
     expect(needsIdx).toBeGreaterThanOrEqual(0)
     expect(missedIdx).toBeGreaterThan(needsIdx)
+  })
+})
+
+describe("composeDigestEmail, cancellations", () => {
+  it("names what got called off, above the chat the member missed", () => {
+    const email = composeDigestEmail(
+      baseInput({
+        needsYou: [],
+        youMissed: null,
+        cancellations: [{ title: "Tennis", whenLine: "this Tue" }],
+      })
+    )
+
+    expect(email).not.toBeNull()
+    expect(email!.text).toContain("Called off: Tennis this Tue")
+    expect(email!.html).toContain("Tennis this Tue")
+  })
+
+  it("sends on a cancellation alone", () => {
+    const email = composeDigestEmail(
+      baseInput({
+        needsYou: [],
+        youMissed: null,
+        cancellations: [{ title: "Tennis", whenLine: "this Tue" }],
+      })
+    )
+    expect(email).not.toBeNull()
+  })
+
+  it("still sends nothing when all three blocks are empty", () => {
+    const email = composeDigestEmail(
+      baseInput({
+        needsYou: [],
+        youMissed: null,
+        cancellations: [],
+      })
+    )
+    expect(email).toBeNull()
+  })
+
+  // B-1 (review, fix round 1): the honest-subject requirement the brief
+  // called out by name had no assertion at all. A cancellation-only digest
+  // must not fall through to a needs-you-shaped subject, since nothing
+  // needs the reader when the only block that filled the email is
+  // cancellations.
+  it("gets its own honest subject on a cancellation alone, singular", () => {
+    const email = composeDigestEmail(
+      baseInput({
+        needsYou: [],
+        youMissed: null,
+        cancellations: [{ title: "Tennis", whenLine: "this Tue" }],
+      })
+    )
+    expect(email?.subject).toBe("Climbing Crew: 1 plan called off")
+  })
+
+  it("gets its own honest subject on a cancellation alone, plural", () => {
+    const email = composeDigestEmail(
+      baseInput({
+        needsYou: [],
+        youMissed: null,
+        cancellations: [
+          { title: "Tennis", whenLine: "this Tue" },
+          { title: "Climbing", whenLine: "this Sat" },
+        ],
+      })
+    )
+    expect(email?.subject).toBe("Climbing Crew: 2 plans called off")
   })
 })
