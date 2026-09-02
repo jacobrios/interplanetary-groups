@@ -1,6 +1,7 @@
 // src/app/events/[id]/page.tsx
 import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
+import { EventStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { deriveRoster } from "@/lib/events/roster"
@@ -9,13 +10,16 @@ import RsvpControls from "@/components/RsvpControls"
 import RosterAvatar from "./RosterAvatar"
 import AddToCalendarButton from "./AddToCalendarButton"
 import ProposalSection from "./ProposalSection"
+import CancelControls from "./CancelControls"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { NeedLabel } from "@/components/NeedLabel"
 import { Clock, MapPin, Check } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
+import { eventCardLabel } from "@/lib/cards/region"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -68,6 +72,12 @@ export default async function EventPage({ params }: Props) {
   // Multi-venue UI is a fast-follow (build-notes §8).
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
+
+  const isCancelled = event.status === EventStatus.CANCELLED
+  // Brightness carries the state, never hue: the same device the roster
+  // below already uses for IN / HAVEN'T REPLIED / OUT. The owner is
+  // red/green colourblind and the status ladder is hue-free by rule.
+  const detailInk = isCancelled ? "var(--text-secondary)" : "var(--text-primary)"
 
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, event.group.timeZone)
 
@@ -163,6 +173,16 @@ export default async function EventPage({ params }: Props) {
           }}
         >
           <div style={{ padding: "15px 16px" }}>
+            {/* Called-off status label, above the title. Grey, never teal:
+                teal in this slot means "this needs you", and a called-off
+                plan needs nothing from anybody (eventCardLabel, shared with
+                the home card so the two words can never disagree). */}
+            {isCancelled && (
+              <p style={{ marginBottom: "8px" }}>
+                <NeedLabel value={eventCardLabel(true, null)} />
+              </p>
+            )}
+
             {/* Event title — moved inside the card this task. --type-title
                 (24px), down from the previous --type-display (28px): the
                 role map puts event-detail title at title. */}
@@ -171,7 +191,7 @@ export default async function EventPage({ params }: Props) {
                 fontSize: "var(--type-title)",
                 fontWeight: 800,
                 letterSpacing: "-.01em",
-                color: "var(--text-primary)",
+                color: detailInk,
                 lineHeight: "var(--leading-tight)",
                 // No ported value exists for the title-to-meta gap — the
                 // source gives .ed-title's own type rules and .ed-meta's
@@ -200,6 +220,7 @@ export default async function EventPage({ params }: Props) {
               <DetailRow
                 icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
                 label="When"
+                color={detailInk}
               >
                 {dateLabel}
               </DetailRow>
@@ -212,6 +233,7 @@ export default async function EventPage({ params }: Props) {
                 <DetailRow
                   icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
                   label="Where"
+                  color={detailInk}
                 >
                   {venueLabel}
                 </DetailRow>
@@ -223,7 +245,7 @@ export default async function EventPage({ params }: Props) {
                   aligned (controller resolution E, a judgment call, not a
                   ported value). */}
               {event.activityLabel && (
-                <DetailRow icon={null} label="Activity">
+                <DetailRow icon={null} label="Activity" color={detailInk}>
                   {event.activityLabel}
                 </DetailRow>
               )}
@@ -249,7 +271,29 @@ export default async function EventPage({ params }: Props) {
                 backgroundColor: "transparent",
               }}
             >
-              <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
+              {isCancelled ? (
+                <CancelControls eventId={event.id} groupId={event.group.id} isCancelled />
+              ) : (
+                <>
+                  <RsvpControls
+                    eventId={event.id}
+                    currentStatus={viewerStatus}
+                    groupId={event.group.id}
+                  />
+                  {/* Below the RSVP pair on purpose: the screen's primary ask
+                      is still the RSVP, and calling the plan off is the rarer
+                      move. No such control on the home card (decision 5): the
+                      card region's height budget was won by a whole slice and
+                      a control there spends it. */}
+                  <div style={{ marginTop: "13px" }}>
+                    <CancelControls
+                      eventId={event.id}
+                      groupId={event.group.id}
+                      isCancelled={false}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -271,9 +315,16 @@ export default async function EventPage({ params }: Props) {
             (Putting the button inside the details card was the stronger
             semantic answer and was deliberately not taken; the owner's
             call, 14 Aug QA.) */}
-        <div style={{ marginBottom: "16px" }}>
-          <AddToCalendarButton eventId={event.id} />
-        </div>
+        {/* Hidden on a called-off plan: there is nothing to save. The honest
+            gap this leaves is registered as debt in the spec, and it is real:
+            a member who already saved the plan still gets buzzed, and there
+            is no path here to re-fetch an .ics carrying STATUS:CANCELLED.
+            The subscribable feed (build-notes §6) is the actual fix. */}
+        {!isCancelled && (
+          <div style={{ marginBottom: "16px" }}>
+            <AddToCalendarButton eventId={event.id} />
+          </div>
+        )}
 
         {/* ── Open time-change vote ─────────────────────────────────────── */}
         {/* The vote on this plan's time; the chips live here (the group
@@ -284,6 +335,12 @@ export default async function EventPage({ params }: Props) {
         {proposalBand && <ProposalSection band={proposalBand} />}
 
         {/* ── Roster card ────────────────────────────────────────────── */}
+        {/* Unchanged on a called-off plan, on purpose: cancelling touches no
+            Rsvp row, so every answer here still exists and is still true.
+            The detail screen carries completeness (build-notes), and that
+            does not stop being the job just because the plan is off. If
+            this card looks untouched next to the rest of this task's diff,
+            that is the point, not an oversight. */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
             IN / OUT / HAVEN'T REPLIED. Distinction is by grouping, the
             heading labels, and (task 4) name brightness — never by color
@@ -362,13 +419,19 @@ export default async function EventPage({ params }: Props) {
 // screen reader still hears what kind of row this is. The trailing space in
 // the rendered text is a separator, not new copy: without it, "When" and
 // the date would run together into one word for a speech synthesizer.
+//
+// `color` (task 7, cancel-one-occurrence) is optional and defaults to the
+// live-plan ink: a called-off plan passes the dimmer `detailInk` so every
+// row steps down together, brightness carrying the state, never hue.
 function DetailRow({
   icon,
   label,
+  color = "var(--text-primary)",
   children,
 }: {
   icon: ReactNode | null
   label: string
+  color?: string
   children: ReactNode
 }) {
   return (
@@ -379,7 +442,7 @@ function DetailRow({
         gap: "9px",
         fontSize: "var(--type-meta)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--text-primary)",
+        color,
         fontWeight: 600,
         paddingLeft: icon ? undefined : "25px",
       }}

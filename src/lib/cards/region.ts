@@ -21,6 +21,22 @@ export function eventNeedLabel(viewerRsvp: "IN" | "OUT" | null): NeedLabelValue 
   return null
 }
 
+/** What the event surfaces show for a plan that has been called off. The
+ *  label is not a need, so it never renders teal: teal in that slot means
+ *  "this needs you". Shared by the detail screen and the home card so the
+ *  two can never disagree about the word. */
+export const CANCELLED_LABEL: NeedLabelValue = { text: "Called off", needsViewer: false }
+
+/** The card's label ladder, now with a status rung above it. A called-off
+ *  plan needs nothing from anybody, so no need label can outrank it. */
+export function eventCardLabel(
+  isCancelled: boolean,
+  viewerRsvp: "IN" | "OUT" | null
+): NeedLabelValue | null {
+  if (isCancelled) return CANCELLED_LABEL
+  return eventNeedLabel(viewerRsvp)
+}
+
 export function ideaNeedLabel(
   viewerAnswer: "IN" | "OUT" | "NOT_THAT_DAY" | null
 ): NeedLabelValue | null {
