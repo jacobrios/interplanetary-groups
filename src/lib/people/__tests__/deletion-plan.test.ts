@@ -74,6 +74,30 @@ describe("buildDeletionPlan", () => {
     ])
   })
 
+  it("blocks even when the same founder also has an unrelated solo group, and nothing about that solo group leaks into the blocked result", async () => {
+    const founder = await makeUser("[TEST] DP Founder Mixed")
+    const other = await makeUser("[TEST] DP Mixed Other")
+    const blockedGroup = await makeGroup("[TEST] DP Mixed Blocked Group", founder.id, [other.id])
+    const soloGroup = await makeGroup("[TEST] DP Mixed Solo Group", founder.id)
+
+    const plan = await buildDeletionPlan(founder.id)
+
+    expect(plan.kind).toBe("blocked")
+    if (plan.kind !== "blocked") throw new Error("expected blocked")
+    expect(plan.groups).toEqual([
+      {
+        groupId: blockedGroup.id,
+        groupName: blockedGroup.name,
+        otherMembers: [{ userId: other.id, name: other.name }],
+      },
+    ])
+    // The solo group never appears among the blocked groups...
+    expect(plan.groups.some((g) => g.groupId === soloGroup.id)).toBe(false)
+    // ...and the blocked shape carries no groupsToDelete field at all, so
+    // there is no field for a solo-group deletion to leak into.
+    expect(Object.keys(plan)).not.toContain("groupsToDelete")
+  })
+
   it("is ready when a founder is the only member, listing that group for deletion", async () => {
     const founder = await makeUser("[TEST] DP Founder Solo")
     const group = await makeGroup("[TEST] DP Solo Group", founder.id)
@@ -317,25 +341,67 @@ describe("buildDeletionPlan", () => {
   })
 
   it("lists every join-announcement candidate, including both when two members share a name", async () => {
+    // The search is product-wide as of the owner's 1 Sept ruling, against a
+    // shared, non-empty dev-test database, so the shared name must be
+    // stamped unique to this run. A literal "Jesse" collided with leftover
+    // "Jesse joined" rows from earlier runs and broke this exact-list
+    // assertion, which is the standing "build your own fixtures, never
+    // lean on rows that happen to exist" rule biting for real.
+    const sharedName = `[TEST] DP Shared Name ${stamp()}`
     const founder = await makeUser("[TEST] DP Founder JoinCandidates")
-    const jesse1 = await makeUser("Jesse")
-    const jesse2 = await makeUser("Jesse")
+    const jesse1 = await makeUser(sharedName)
+    const jesse2 = await makeUser(sharedName)
     const group = await makeGroup("[TEST] DP JoinCandidates Group", founder.id, [jesse1.id, jesse2.id])
 
     const joinMessage1 = await prisma.message.create({
-      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: "Jesse joined" },
+      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: `${sharedName} joined` },
     })
     const joinMessage2 = await prisma.message.create({
-      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: "Jesse joined" },
+      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: `${sharedName} joined` },
     })
 
     const plan = await buildDeletionPlan(jesse1.id)
 
     expect(plan.kind).toBe("ready")
     if (plan.kind !== "ready") throw new Error("expected ready")
-    const candidateIds = plan.joinAnnouncementCandidates.map((c) => c.messageId).sort()
-    expect(candidateIds).toEqual([joinMessage1.id, joinMessage2.id].sort())
-    expect(plan.joinAnnouncementCandidates.every((c) => c.groupId === group.id)).toBe(true)
+    const candidates = [...plan.joinAnnouncementCandidates].sort((a, b) => a.messageId.localeCompare(b.messageId))
+    const expected = [joinMessage1.id, joinMessage2.id].sort()
+    expect(candidates.map((c) => c.messageId)).toEqual(expected)
+    expect(candidates.every((c) => c.groupId === group.id)).toBe(true)
+    // Both are current: Jesse1 (the person being planned for) never left.
+    expect(candidates.every((c) => c.currentlyMember === true)).toBe(true)
+  })
+
+  it("still finds a join-announcement line in a group the person has since left, marked as no longer a member (owner's ruling, 1 Sept 2026)", async () => {
+    const founder = await makeUser("[TEST] DP Founder LeftGroup")
+    const leaver = await makeUser("[TEST] DP Leaver")
+    const group = await makeGroup("[TEST] DP LeftGroup Group", founder.id, [leaver.id])
+
+    const joinMessage = await prisma.message.create({
+      data: {
+        groupId: group.id,
+        authorType: MessageAuthor.SYSTEM,
+        authorId: null,
+        body: `${leaver.name} joined`,
+      },
+    })
+
+    // Simulate having left: the membership row is gone, the announcement
+    // (and the group) remain, exactly like leaveGroup (src/lib/groups/leave.ts).
+    await prisma.membership.delete({
+      where: { userId_groupId: { userId: leaver.id, groupId: group.id } },
+    })
+
+    const plan = await buildDeletionPlan(leaver.id)
+
+    expect(plan.kind).toBe("ready")
+    if (plan.kind !== "ready") throw new Error("expected ready")
+    const match = plan.joinAnnouncementCandidates.find((c) => c.messageId === joinMessage.id)
+    expect(match).toBeDefined()
+    expect(match?.currentlyMember).toBe(false)
+    // Leaving a group is not founding one, so it must not show up as a
+    // deletion target: the search is wider, not the scope of what gets deleted.
+    expect(plan.groupsToDelete).toEqual([])
   })
 
   it("reports supabaseAuthId for the operator, never acting on it", async () => {

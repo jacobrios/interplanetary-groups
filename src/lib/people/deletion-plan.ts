@@ -80,14 +80,26 @@ export interface OpenProposalWarning {
  * A candidate SYSTEM "<name> joined" message that may belong to this person.
  * authorId is always null on these rows (src/lib/groups/join.ts:69), so there
  * is no reliable way to match one to a specific person; every same-body
- * candidate in a group they belong to is listed for the operator to judge,
+ * candidate anywhere in the product is listed for the operator to judge,
  * rather than the code guessing.
+ *
+ * Owner's ruling, 1 September 2026, which overrides the brief's "their
+ * groups" wording: the search is NOT scoped to groups the person currently
+ * belongs to. A group they already left still has people reading its feed,
+ * and the announcement line exists for no purpose except to name them, so
+ * scoping to current membership would quietly narrow what the privacy
+ * notice promises. The search is product-wide by body text match, which
+ * necessarily also turns up a same-named stranger's join line in a group
+ * this person was never in; `currentlyMember` is how the operator tells the
+ * two apart before confirming either one.
  */
 export interface JoinAnnouncementCandidate {
   messageId: string
   groupId: string
   groupName: string
   createdAt: Date
+  /** True when this person currently has a Membership row in that group. */
+  currentlyMember: boolean
 }
 
 export type DeletionPlan =
@@ -159,7 +171,7 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
   }
 
   const [
-    membershipCount,
+    membershipRows,
     rsvpCount,
     gaugeVoteCount,
     proposalVoteCount,
@@ -167,9 +179,13 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     messageCount,
     gaugesSuggestedCount,
     openProposals,
-    membershipGroups,
+    joinMessages,
   ] = await Promise.all([
-    prisma.membership.count({ where: { userId } }),
+    // Fetched as rows, not a count: the group ids double as the
+    // "currently a member here" set that joinAnnouncementCandidates below
+    // needs, so membershipCount is derived from this list's length instead
+    // of a second query.
+    prisma.membership.findMany({ where: { userId }, select: { groupId: true } }),
     prisma.rsvp.count({ where: { userId } }),
     prisma.gaugeVote.count({ where: { userId } }),
     prisma.proposalVote.count({ where: { userId } }),
@@ -187,22 +203,17 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
         votes: { select: { userId: true } },
       },
     }),
-    prisma.membership.findMany({
-      where: { userId },
-      select: {
-        groupId: true,
-        group: {
-          select: {
-            name: true,
-            messages: {
-              where: { authorType: MessageAuthor.SYSTEM, body: `${person.name} joined` },
-              select: { id: true, createdAt: true },
-            },
-          },
-        },
-      },
+    // Product-wide, NOT scoped to this person's current memberships (owner's
+    // ruling, 1 September 2026: see the JoinAnnouncementCandidate doc comment
+    // above). A group they left still turns up here.
+    prisma.message.findMany({
+      where: { authorType: MessageAuthor.SYSTEM, body: `${person.name} joined` },
+      select: { id: true, groupId: true, createdAt: true, group: { select: { name: true } } },
     }),
   ])
+
+  const membershipCount = membershipRows.length
+  const currentGroupIds = new Set(membershipRows.map((m) => m.groupId))
 
   const warnings: OpenProposalWarning[] = openProposals.map((p) => ({
     proposalId: p.id,
@@ -211,14 +222,13 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     otherVoterCount: p.votes.filter((v) => v.userId !== userId).length,
   }))
 
-  const joinAnnouncementCandidates: JoinAnnouncementCandidate[] = membershipGroups.flatMap((m) =>
-    m.group.messages.map((msg) => ({
-      messageId: msg.id,
-      groupId: m.groupId,
-      groupName: m.group.name,
-      createdAt: msg.createdAt,
-    }))
-  )
+  const joinAnnouncementCandidates: JoinAnnouncementCandidate[] = joinMessages.map((msg) => ({
+    messageId: msg.id,
+    groupId: msg.groupId,
+    groupName: msg.group.name,
+    createdAt: msg.createdAt,
+    currentlyMember: currentGroupIds.has(msg.groupId),
+  }))
 
   return {
     kind: "ready",
