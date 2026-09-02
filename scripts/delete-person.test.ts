@@ -14,7 +14,7 @@
 // collide with something already there.
 
 import { describe, it, expect, afterEach } from "vitest"
-import { readFileSync } from "node:fs"
+import { readFileSync, existsSync } from "node:fs"
 import path from "node:path"
 import { prisma } from "../src/lib/prisma"
 import { ContactMethodType } from "@prisma/client"
@@ -623,92 +623,131 @@ describe("formatJoinAnnouncementPromptLines", () => {
   })
 })
 
-// ── Finding 1, fix round 1: no em dash or en dash in printed output ────────
+// ── Finding 1, fix round 2: no em dash or en dash ANYWHERE in the source ───
 //
-// A one-time grep is only evidence about the moment it ran; a standing test
-// is evidence about every future change. This exercises every exported
-// formatter in the file, across the fixtures most likely to carry one (both
-// blocked and ready plans, every join-announcement evidence class, both
-// success and failure receipts, an ambiguous-match listing, both branches of
-// the Supabase hand-off, and the raw env-identity lines), and asserts none of
-// their output contains either character. The project rule is unconditional
-// ("No em dashes or en dashes anywhere") and applies to comments as much as
-// to printed copy, but this test is scoped to what actually reaches the
-// operator's terminal, which is the concrete harm the reviewer's finding
-// named.
-describe("no em dash or en dash anywhere in printed output", () => {
-  const EM_OR_EN_DASH = /[–—]/
+// Round 1's version exercised every exported formatter against
+// representative fixtures and asserted their OUTPUT was dash-free. That
+// caught real regressions, but it was an enumeration: `parseArgs`'s error
+// strings, `lookupPerson`'s returned `.message` strings, and every inline
+// literal inside `main()`'s interactive shell ("Found: ...", "This cannot
+// be undone.", the safety-stop message, and the rest) were never on the
+// list, so those paths were still protected only by a one-time grep, not by
+// this test, no matter how the round-1 test's own name read. The reviewer
+// caught exactly this gap and named the fix explicitly: do not patch it by
+// adding more functions to the enumeration, because an enumerated list of
+// call sites always lags the code and the next person to add a printed
+// string has no reason to know this list exists. Fix it structurally
+// instead: read the SOURCE FILES themselves off disk and scan every byte
+// for the two characters, the same shape as this repo's own precedent,
+// `src/app/__tests__/no-email-address-on-screen.test.tsx`'s raw-SQL scan
+// (`RAW_SQL`, `AUTH_SCHEMA_SQL`, `RAW_SQL_EXCEPTIONS`, `rawSqlOffenders`).
+// A source-level scan cannot lag: any new string literal anywhere in either
+// file is covered the moment it is typed, whether or not its author has
+// ever heard of this test.
+//
+// TWO DECISIONS, both asked for explicitly and both answered here rather
+// than left implicit:
+//
+// (1) DOES THIS COVER COMMENTS, OR ONLY STRING LITERALS? Comments too,
+// deliberately, on the same reasoning the raw-SQL scan states for itself:
+// "Comments are not stripped before matching, so prose quoting a query
+// reddens too. That is the safe direction to be wrong in: a false red costs
+// one sentence reworded, a false green costs the boundary." Precisely
+// parsing TypeScript string-literal boundaries (template literals with
+// interpolation, escaped quotes, nested backticks) is real parser work for
+// a property that a dumb whole-file scan gets for free and cannot get
+// wrong in the dangerous direction. The cost of covering comments too is
+// that an innocent dash in a comment (like this very sentence would be, if
+// it used one) fails the build; the cost of NOT covering them is a real
+// printed dash slipping through because a fragile string-literal parser had
+// a bug or missed a syntax shape. Round 1 already promised "no em dashes
+// anywhere in written output, comments included" as a matter of the user's
+// own standing rule, so scanning comments is also just this test actually
+// holding that promise rather than a narrower one.
+//
+// (2) WHICH FILES, AND HOW DOES THE SCAN AVOID TRIPPING ON ITS OWN
+// DETECTOR? Both `delete-person.ts` and this file, `delete-person.test.ts`,
+// because round 1 also swept THIS file's comments by hand and that sweep
+// deserves the same standing protection the script's own output got.
+// Scanning this file means scanning the very regex literal below that
+// names the two characters it searches for, `EM_OR_EN_DASH`, which legitimately
+// contains one of each. That line is not prose anyone is reading; it is
+// code that has to spell out the two glyphs to find them anywhere else.
+// `DASH_EXCEPTIONS` names it as a single, narrow, line-content exception
+// (not a blanket "skip this whole file", which is the shape the reviewer
+// explicitly ruled out), and `keeps the one dash exception load-bearing`
+// below re-reads the file and asserts the excepted line still exists in
+// it, the same discipline `no-email-address-on-screen.test.tsx` uses for
+// its own RAW_SQL_EXCEPTIONS: an exception that stops matching anything is
+// a hole rather than a documented decision, and this fails loudly the day
+// that line is deleted or reworded, rather than quietly becoming decoration.
+//
+// SCOPE, stated rather than left to guesswork: this deliberately covers
+// only the two files task 3 owns, not the whole `scripts/` directory or the
+// whole repository. Widening it to match the raw-SQL scan's eventual
+// repo-wide reach (its own history: it started scoped to `src/`, per its
+// own comments, and was widened later, deliberately, in its own slice) is a
+// reasonable future step but is out of this task's lane; noted rather than
+// done here.
+describe("no em dash or en dash anywhere in the source, structurally", () => {
+  const DASH_CHAR_CLASS = /[–—]/
+  const SCANNED_FILES = ["delete-person.ts", "delete-person.test.ts"]
 
-  it("across every formatter's output, for every representative fixture", () => {
-    const blockedPlan: DeletionPlan = {
-      kind: "blocked",
-      reason: "founder-with-members",
-      groups: [
-        {
-          groupId: "g1",
-          groupName: "Climbing Crew",
-          otherMembers: [
-            { userId: "u2", name: "Sam" },
-            { userId: "u3", name: "Taylor" },
-          ],
-        },
-      ],
+  // Matched by a DASH-FREE PREFIX rather than the exact line text, and this
+  // is not a stylistic choice: writing the exact target line as a string
+  // here would mean typing the two characters under test into ANOTHER
+  // string literal in this same file, which the scanner would then flag as
+  // a second, undocumented offense (the first attempt at this test did
+  // exactly that and failed on its own exception table). A prefix that
+  // identifies the line without reproducing the characters it exists to
+  // find sidesteps the problem rather than working around it.
+  const DASH_EXCEPTIONS: ReadonlyArray<{ file: string; linePrefix: string; why: string }> = [
+    {
+      file: "delete-person.test.ts",
+      linePrefix: "const DASH_CHAR_CLASS =",
+      why:
+        "This is the detector's own pattern, not a sentence anyone wrote to communicate: " +
+        "it has to name the two characters it searches for, inside a regex character " +
+        "class, or it could not find either one anywhere else in either file. Nothing " +
+        "else on this line is prose; it is code that happens to contain the two glyphs " +
+        "under test, the same shape as no-email-address-on-screen.test.tsx's own " +
+        "RAW_SQL_EXCEPTIONS entries.",
+    },
+  ]
+
+  function dashOffenders(): string[] {
+    const offenders: string[] = []
+    for (const relativeName of SCANNED_FILES) {
+      const source = readFileSync(path.join(__dirname, relativeName), "utf8")
+      source.split("\n").forEach((line, idx) => {
+        if (!DASH_CHAR_CLASS.test(line)) return
+        const exempt = DASH_EXCEPTIONS.some(
+          (e) => e.file === relativeName && line.trim().startsWith(e.linePrefix)
+        )
+        if (!exempt) offenders.push(`${relativeName}:${idx + 1}: ${line.trim()}`)
+      })
     }
-    const readyPlanWithEverything: DeletionPlan = {
-      kind: "ready",
-      person: { userId: "u1", name: "Jesse Rivera" },
-      groupsToDelete: [{ groupId: "g1", groupName: "Just Me Climbing" }],
-      removals: { memberships: 2, rsvps: 3, gaugeVotes: 1, proposalVotes: 1, changeProposalsAsked: 1 },
-      survivals: { messages: 2, gaugesSuggested: 1 },
-      warnings: [
-        { proposalId: "p1", groupId: "g1", groupName: "Climbing Crew", otherVoterCount: 2 },
-        { proposalId: "p2", groupId: "g1", groupName: "Climbing Crew", otherVoterCount: 0 },
-      ],
-      joinAnnouncementCandidates: [
-        { messageId: "m1", groupId: "g1", groupName: "Climbing Crew", createdAt: new Date("2026-08-01T00:00:00Z"), evidence: "current-member" },
-        { messageId: "m2", groupId: "g2", groupName: "Beer League", createdAt: new Date("2026-07-01T00:00:00Z"), evidence: "left-with-trace" },
-        { messageId: "m3", groupId: "g3", groupName: "Trivia Night", createdAt: new Date("2026-06-01T00:00:00Z"), evidence: "name-match-only" },
-      ],
-      contactMethodNote: "any email address on file",
-      supabaseAuthId: "11111111-1111-1111-1111-111111111111",
+    return offenders
+  }
+
+  it("contains no em dash or en dash character anywhere in either file, comments included, except the one named exception", () => {
+    expect(dashOffenders()).toEqual([])
+  })
+
+  it("keeps the one dash exception load-bearing, so it cannot rot into a blanket loophole", () => {
+    for (const { file, linePrefix, why } of DASH_EXCEPTIONS) {
+      const filePath = path.join(__dirname, file)
+      expect(existsSync(filePath)).toBe(true)
+      const source = readFileSync(filePath, "utf8")
+      const matchingLines = source.split("\n").filter((line) => line.trim().startsWith(linePrefix))
+      // The prefix has to match at least one real line, and at least one of
+      // those matches has to actually carry a dash character; otherwise the
+      // exception is excusing nothing and has become decoration rather than
+      // a documented decision.
+      expect(matchingLines.length).toBeGreaterThan(0)
+      expect(matchingLines.some((line) => DASH_CHAR_CLASS.test(line))).toBe(true)
+      expect(why.trim().length).toBeGreaterThan(80)
     }
-
-    const allOutput: string[] = [
-      ...formatPlanLines(blockedPlan),
-      ...formatPlanLines(readyPlanWithEverything),
-      ...formatReceiptLines({
-        person: { userId: "u1", name: "Jesse Rivera" },
-        groupsDeleted: [{ groupId: "g1", groupName: "Just Me Climbing" }],
-        joinAnnouncementMessagesDeleted: 1,
-        removals: { memberships: 2, rsvps: 3, gaugeVotes: 1, proposalVotes: 1, changeProposalsAsked: 1 },
-        userDeleted: true,
-      }),
-      ...formatReceiptLines({
-        person: { userId: "u1", name: "Jesse Rivera" },
-        groupsDeleted: [],
-        joinAnnouncementMessagesDeleted: 0,
-        removals: { memberships: 0, rsvps: 0, gaugeVotes: 0, proposalVotes: 0, changeProposalsAsked: 0 },
-        userDeleted: false,
-      }),
-      ...formatCandidateLines([
-        { userId: "u1", name: "Jesse Rivera", createdAt: new Date("2026-01-01T00:00:00Z"), memberships: [{ groupId: "g1", groupName: "Climbing Crew", isFounder: true }] },
-        { userId: "u2", name: "Jesse Rivera", createdAt: new Date("2026-02-01T00:00:00Z"), memberships: [] },
-      ]),
-      ...(["current-member", "left-with-trace", "name-match-only"] as const).flatMap((evidence) =>
-        formatJoinAnnouncementPromptLines({ messageId: "m1", groupId: "g1", groupName: "Trivia Night", createdAt: new Date("2026-06-12T00:00:00Z"), evidence })
-      ),
-      ...formatSupabaseInstructionLines("11111111-1111-1111-1111-111111111111", "Jesse Rivera"),
-      ...formatSupabaseInstructionLines(null, "Jesse Rivera"),
-      ...formatDatabaseIdentityLines({
-        NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
-        DATABASE_URL: "postgresql://postgres.abcdefghijklmnopqrst:pw@aws-1-us-east-1.pooler.supabase.com:6543/postgres",
-        DIRECT_URL: undefined,
-      }),
-      ...evaluateDatabaseGuard({ ok: false, ref: "someprodref00000000", problems: ["project ref is someprodref00000000, expected pxbewardwvoyqqcvogel (dev-test)"] }, true).lines,
-    ]
-
-    const offenders = allOutput.filter((line) => EM_OR_EN_DASH.test(line))
-    expect(offenders).toEqual([])
   })
 })
 
