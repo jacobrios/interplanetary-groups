@@ -90,16 +90,38 @@ export interface OpenProposalWarning {
  * scoping to current membership would quietly narrow what the privacy
  * notice promises. The search is product-wide by body text match, which
  * necessarily also turns up a same-named stranger's join line in a group
- * this person was never in; `currentlyMember` is how the operator tells the
- * two apart before confirming either one.
+ * this person was never in.
+ *
+ * `evidence` is how the operator tells those apart, in the owner's own
+ * words: "which are in groups they genuinely belonged to versus a possible
+ * same-name match somewhere else." Three classes, not two, because leaving
+ * a group hard-deletes the Membership row but not everything else a real
+ * member leaves behind:
+ * - "current-member": they still have a Membership row in that group.
+ * - "left-with-trace": no Membership row now, but some other row they
+ *   authored still lives in that group (a message, an RSVP on one of its
+ *   events, a gauge vote, a proposal vote). That is real evidence they were
+ *   genuinely there, not a name coincidence.
+ * - "name-match-only": no membership and no other trace found anywhere in
+ *   that group. Probably a different person who happens to share the name.
+ *   This is the only class where confirming the match would delete an
+ *   innocent person's join line, so it is the one to treat as doubtful.
+ *
+ * The honest limit, stated rather than hidden: someone who joined a group,
+ * never posted, never RSVP'd, never voted, and then left, leaves no trace
+ * at all once their Membership row is gone. They land in "name-match-only"
+ * despite being a genuine match. This narrows the guesswork; it does not
+ * eliminate it. The operator still confirms by hand, and every candidate
+ * carries its group and date, which is what makes a wrong call recoverable.
  */
+export type JoinAnnouncementEvidence = "current-member" | "left-with-trace" | "name-match-only"
+
 export interface JoinAnnouncementCandidate {
   messageId: string
   groupId: string
   groupName: string
   createdAt: Date
-  /** True when this person currently has a Membership row in that group. */
-  currentlyMember: boolean
+  evidence: JoinAnnouncementEvidence
 }
 
 export type DeletionPlan =
@@ -222,12 +244,53 @@ export async function buildDeletionPlan(userId: string): Promise<DeletionPlan> {
     otherVoterCount: p.votes.filter((v) => v.userId !== userId).length,
   }))
 
+  // Second round, deliberately sequential: it needs joinMessages' group ids,
+  // which only exist once the first round above has resolved. Scoped to the
+  // candidate groups this person is NOT currently a member of, since a
+  // current member is already fully classified.
+  const candidateGroupIds = Array.from(
+    new Set(joinMessages.map((m) => m.groupId).filter((groupId) => !currentGroupIds.has(groupId)))
+  )
+  const [traceMessages, traceRsvps, traceGaugeVotes, traceProposalVotes] =
+    candidateGroupIds.length === 0
+      ? [[], [], [], []]
+      : await Promise.all([
+          prisma.message.findMany({
+            where: { authorId: userId, groupId: { in: candidateGroupIds } },
+            select: { groupId: true },
+          }),
+          prisma.rsvp.findMany({
+            where: { userId, event: { groupId: { in: candidateGroupIds } } },
+            select: { event: { select: { groupId: true } } },
+          }),
+          prisma.gaugeVote.findMany({
+            where: { userId, gauge: { groupId: { in: candidateGroupIds } } },
+            select: { gauge: { select: { groupId: true } } },
+          }),
+          prisma.proposalVote.findMany({
+            where: { userId, proposal: { groupId: { in: candidateGroupIds } } },
+            select: { proposal: { select: { groupId: true } } },
+          }),
+        ])
+
+  const traceGroupIds = new Set<string>()
+  for (const m of traceMessages) traceGroupIds.add(m.groupId)
+  for (const r of traceRsvps) traceGroupIds.add(r.event.groupId)
+  for (const g of traceGaugeVotes) traceGroupIds.add(g.gauge.groupId)
+  for (const p of traceProposalVotes) traceGroupIds.add(p.proposal.groupId)
+
+  function classify(groupId: string): JoinAnnouncementEvidence {
+    if (currentGroupIds.has(groupId)) return "current-member"
+    if (traceGroupIds.has(groupId)) return "left-with-trace"
+    return "name-match-only"
+  }
+
   const joinAnnouncementCandidates: JoinAnnouncementCandidate[] = joinMessages.map((msg) => ({
     messageId: msg.id,
     groupId: msg.groupId,
     groupName: msg.group.name,
     createdAt: msg.createdAt,
-    currentlyMember: currentGroupIds.has(msg.groupId),
+    evidence: classify(msg.groupId),
   }))
 
   return {

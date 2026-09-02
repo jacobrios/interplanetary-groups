@@ -340,13 +340,15 @@ describe("buildDeletionPlan", () => {
     ])
   })
 
-  it("lists every join-announcement candidate, including both when two members share a name", async () => {
+  it("lists every join-announcement candidate as current-member, including both when two members share a name", async () => {
     // The search is product-wide as of the owner's 1 Sept ruling, against a
-    // shared, non-empty dev-test database, so the shared name must be
-    // stamped unique to this run. A literal "Jesse" collided with leftover
-    // "Jesse joined" rows from earlier runs and broke this exact-list
-    // assertion, which is the standing "build your own fixtures, never
-    // lean on rows that happen to exist" rule biting for real.
+    // shared, non-empty dev-test database. Isolation is made STRUCTURAL
+    // rather than probabilistic per fix round 2 (Finding 4): the assertion
+    // below is scoped to this test's own group.id, which Prisma guarantees
+    // unique, so it cannot be affected by any ambient row anywhere else in
+    // the database, however that row happens to be named. (A stamped name
+    // is kept too, as ordinary fixture hygiene, but it is no longer what
+    // makes this assertion correct.)
     const sharedName = `[TEST] DP Shared Name ${stamp()}`
     const founder = await makeUser("[TEST] DP Founder JoinCandidates")
     const jesse1 = await makeUser(sharedName)
@@ -364,30 +366,30 @@ describe("buildDeletionPlan", () => {
 
     expect(plan.kind).toBe("ready")
     if (plan.kind !== "ready") throw new Error("expected ready")
-    const candidates = [...plan.joinAnnouncementCandidates].sort((a, b) => a.messageId.localeCompare(b.messageId))
+    const inThisGroup = plan.joinAnnouncementCandidates
+      .filter((c) => c.groupId === group.id)
+      .sort((a, b) => a.messageId.localeCompare(b.messageId))
     const expected = [joinMessage1.id, joinMessage2.id].sort()
-    expect(candidates.map((c) => c.messageId)).toEqual(expected)
-    expect(candidates.every((c) => c.groupId === group.id)).toBe(true)
+    expect(inThisGroup.map((c) => c.messageId)).toEqual(expected)
     // Both are current: Jesse1 (the person being planned for) never left.
-    expect(candidates.every((c) => c.currentlyMember === true)).toBe(true)
+    expect(inThisGroup.every((c) => c.evidence === "current-member")).toBe(true)
   })
 
-  it("still finds a join-announcement line in a group the person has since left, marked as no longer a member (owner's ruling, 1 Sept 2026)", async () => {
-    const founder = await makeUser("[TEST] DP Founder LeftGroup")
-    const leaver = await makeUser("[TEST] DP Leaver")
-    const group = await makeGroup("[TEST] DP LeftGroup Group", founder.id, [leaver.id])
+  it("classifies a left group as left-with-trace when the person left another row behind (owner's ruling, 1 Sept 2026)", async () => {
+    const founder = await makeUser("[TEST] DP Founder LeftTrace")
+    const leaver = await makeUser("[TEST] DP Leaver Trace")
+    const group = await makeGroup("[TEST] DP LeftTrace Group", founder.id, [leaver.id])
 
     const joinMessage = await prisma.message.create({
-      data: {
-        groupId: group.id,
-        authorType: MessageAuthor.SYSTEM,
-        authorId: null,
-        body: `${leaver.name} joined`,
-      },
+      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: `${leaver.name} joined` },
+    })
+    // The trace: a chat message they actually authored in this group.
+    await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.MEMBER, authorId: leaver.id, body: "climbing anyone?" },
     })
 
     // Simulate having left: the membership row is gone, the announcement
-    // (and the group) remain, exactly like leaveGroup (src/lib/groups/leave.ts).
+    // (and the trace message) remain, exactly like leaveGroup (src/lib/groups/leave.ts).
     await prisma.membership.delete({
       where: { userId_groupId: { userId: leaver.id, groupId: group.id } },
     })
@@ -398,9 +400,63 @@ describe("buildDeletionPlan", () => {
     if (plan.kind !== "ready") throw new Error("expected ready")
     const match = plan.joinAnnouncementCandidates.find((c) => c.messageId === joinMessage.id)
     expect(match).toBeDefined()
-    expect(match?.currentlyMember).toBe(false)
+    expect(match?.evidence).toBe("left-with-trace")
     // Leaving a group is not founding one, so it must not show up as a
     // deletion target: the search is wider, not the scope of what gets deleted.
+    expect(plan.groupsToDelete).toEqual([])
+  })
+
+  it("classifies a left group with zero remaining trace as name-match-only, proving the doc comment's stated residual is real", async () => {
+    const founder = await makeUser("[TEST] DP Founder LeftNoTrace")
+    const leaver = await makeUser("[TEST] DP Leaver NoTrace")
+    const group = await makeGroup("[TEST] DP LeftNoTrace Group", founder.id, [leaver.id])
+
+    // A genuine former member who posted nothing, RSVP'd to nothing, and
+    // voted on nothing: the honest limit the doc comment names. They land
+    // in "name-match-only" despite being a real match, because leaving
+    // deleted the only row that would have proven it.
+    const joinMessage = await prisma.message.create({
+      data: { groupId: group.id, authorType: MessageAuthor.SYSTEM, authorId: null, body: `${leaver.name} joined` },
+    })
+    await prisma.membership.delete({
+      where: { userId_groupId: { userId: leaver.id, groupId: group.id } },
+    })
+
+    const plan = await buildDeletionPlan(leaver.id)
+
+    expect(plan.kind).toBe("ready")
+    if (plan.kind !== "ready") throw new Error("expected ready")
+    const match = plan.joinAnnouncementCandidates.find((c) => c.messageId === joinMessage.id)
+    expect(match).toBeDefined()
+    expect(match?.evidence).toBe("name-match-only")
+  })
+
+  it("classifies a same-named stranger's join line, in a group this person was never in, as name-match-only", async () => {
+    const sharedName = `[TEST] DP Stranger Name ${stamp()}`
+    const target = await makeUser(sharedName)
+    const strangerFounder = await makeUser("[TEST] DP Stranger Founder")
+    const stranger = await makeUser(sharedName)
+    const strangerGroup = await makeGroup("[TEST] DP Stranger Group", strangerFounder.id, [stranger.id])
+
+    const strangerJoinMessage = await prisma.message.create({
+      data: {
+        groupId: strangerGroup.id,
+        authorType: MessageAuthor.SYSTEM,
+        authorId: null,
+        body: `${sharedName} joined`,
+      },
+    })
+
+    // target has no membership, no message, no RSVP, no vote anywhere in
+    // strangerGroup: nothing ties them to it except the coincidental name.
+    const plan = await buildDeletionPlan(target.id)
+
+    expect(plan.kind).toBe("ready")
+    if (plan.kind !== "ready") throw new Error("expected ready")
+    const match = plan.joinAnnouncementCandidates.find((c) => c.messageId === strangerJoinMessage.id)
+    expect(match).toBeDefined()
+    expect(match?.evidence).toBe("name-match-only")
+    // And it must not be mistaken for something target should have deleted.
     expect(plan.groupsToDelete).toEqual([])
   })
 
