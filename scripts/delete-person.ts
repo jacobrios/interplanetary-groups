@@ -473,6 +473,16 @@ function formatBlockedPlanLines(plan: Extract<DeletionPlan, { kind: "blocked" }>
     lines.push(
       `They started the group "${group.groupName}", and ${countPhrase(group.otherMembers.length, "other person is", "other people are")} still in it: ${names}.`
     )
+    // The runbook's founder-handover step needs these two ids for a direct
+    // database update (the group's own id, and whichever member becomes the
+    // new founder). Printed here, plainly labeled and each on its own line,
+    // so the operator can copy one straight out of this terminal instead of
+    // opening Prisma Studio to look them up by hand at the exact moment
+    // he's doing the rarest, most dangerous thing this tool supports.
+    lines.push(`  Group id: ${group.groupId}`)
+    for (const member of group.otherMembers) {
+      lines.push(`  ${member.name}'s user id: ${member.userId}`)
+    }
   }
 
   lines.push("")

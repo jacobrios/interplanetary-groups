@@ -389,6 +389,89 @@ describe("formatPlanLines, blocked", () => {
     expect(text).toContain("Taylor")
     expect(text).toContain("Robin")
   })
+
+  // Coordinator follow-up, found while writing the runbook: the group id
+  // and each other member's user id are the two things the founder-handover
+  // step (docs/runbooks/person-deletion.md §6) needs for a direct database
+  // update, and until now the operator had to go open Prisma Studio to find
+  // them by hand at the exact moment he's doing the rarest, most dangerous
+  // thing this tool supports. Pinned as DATA (real, distinctive ids that
+  // cannot collide with anything else in the fixture), not wording: this
+  // says the ids are present and correctly paired to the right person, and
+  // says nothing about the label text around them, which stays free to
+  // reword.
+  it("prints the group's own id and every other member's user id, so the operator never has to open Prisma Studio to find them", () => {
+    const plan: DeletionPlan = {
+      kind: "blocked",
+      reason: "founder-with-members",
+      groups: [
+        {
+          groupId: "group-id-zzq7f3",
+          groupName: "Climbing Crew",
+          otherMembers: [
+            { userId: "user-id-sam-p9k2", name: "Sam" },
+            { userId: "user-id-taylor-m4x8", name: "Taylor" },
+          ],
+        },
+      ],
+    }
+    const text = formatPlanLines(plan).join("\n")
+    expect(text).toContain("group-id-zzq7f3")
+    expect(text).toContain("user-id-sam-p9k2")
+    expect(text).toContain("user-id-taylor-m4x8")
+  })
+
+  it("pairs each printed user id with the right person, not just anywhere in the output", () => {
+    const plan: DeletionPlan = {
+      kind: "blocked",
+      reason: "founder-with-members",
+      groups: [
+        {
+          groupId: "group-id-zzq7f3",
+          groupName: "Climbing Crew",
+          otherMembers: [
+            { userId: "user-id-sam-p9k2", name: "Sam" },
+            { userId: "user-id-taylor-m4x8", name: "Taylor" },
+          ],
+        },
+      ],
+    }
+    const lines = formatPlanLines(plan)
+    const samLine = lines.find((l) => l.includes("user-id-sam-p9k2"))
+    const taylorLine = lines.find((l) => l.includes("user-id-taylor-m4x8"))
+    expect(samLine).toBeDefined()
+    expect(taylorLine).toBeDefined()
+    // Each id sits on the line naming its own person, not the other one's.
+    expect(samLine).toContain("Sam")
+    expect(samLine).not.toContain("Taylor")
+    expect(taylorLine).toContain("Taylor")
+    expect(taylorLine).not.toContain("Sam")
+  })
+
+  it("prints each id on its own line, copy-pasteable, not embedded mid-sentence", () => {
+    const plan: DeletionPlan = {
+      kind: "blocked",
+      reason: "founder-with-members",
+      groups: [
+        {
+          groupId: "group-id-zzq7f3",
+          groupName: "Climbing Crew",
+          otherMembers: [{ userId: "user-id-sam-p9k2", name: "Sam" }],
+        },
+      ],
+    }
+    const lines = formatPlanLines(plan)
+    const groupIdLine = lines.find((l) => l.includes("group-id-zzq7f3"))
+    const userIdLine = lines.find((l) => l.includes("user-id-sam-p9k2"))
+    expect(groupIdLine).toBeDefined()
+    expect(userIdLine).toBeDefined()
+    // Copy-pasteable means the id is the last thing on its line: no
+    // trailing period, comma, or other punctuation a real terminal
+    // selection would have to be trimmed of by hand before it could be
+    // pasted straight into a query.
+    expect(groupIdLine!.trimEnd().endsWith("group-id-zzq7f3")).toBe(true)
+    expect(userIdLine!.trimEnd().endsWith("user-id-sam-p9k2")).toBe(true)
+  })
 })
 
 // ── formatPlanLines: ready ───────────────────────────────────────────────
