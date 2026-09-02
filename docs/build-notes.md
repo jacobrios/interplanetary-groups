@@ -660,7 +660,11 @@ Seven High-priority items come due at the moment of the first production deploy.
     > **One decision this settles, recorded because it was nearly made the other way.** The whole-branch review's I-1 fix made the cause survive truncation, and the next instinct was to also rewrite the detail so it would read well at a glance in the email. That would have been effort spent on a surface the string never reaches. Seen on the real incident page instead, the two things a reader needs sit at the two positions a reader actually looks, the first line and the last, with Prisma's code frame in the middle where the eye skips. **It was left alone deliberately.** The general lesson is the one this project keeps re-learning in new costumes: *judge an output on the surface it lands on, not on the surface you composed it for.*
 
 
-14. **Set up real mail forwarding for `privacy@interplanetarygroups.com`.** The privacy notice shipped on 1 September 2026 names that address as the only way to ask to be deleted, and nothing receives mail there until the owner creates the forward to his own inbox. **This does not gate the merge**, because there is no migration and no code anywhere reads the address; it gates the tennis group. A deletion request sent to a dead address is the single failure that turns the whole notice into a lie, and it fails silently on the sender's side, which is the worst shape a failure can take here. The domain is bought through Vercel and its DNS already carries Resend's sending records for `account.` and `updates.`; a forwarding rule is a separate thing from both and does not touch either. **Nobody has opened the screen yet**, so nothing here names a provider or a setting, on the lesson item 13 learned three times over: do not write a third-party setting into this record until somebody has looked at it.
+14. ~~**Set up real mail forwarding for `privacy@interplanetarygroups.com`.**~~ **DONE, 2 September 2026.** Forwarding is live through ImprovMX and proven by a real third-party send reaching the owner's inbox. **The tennis-group gate this item named is cleared.** Full setup, the catch-all-deletion decision, and the honest limits are in "Mail forwarding for privacy@ goes live" below.
+
+    *Original item follows, kept for what it warned about.*
+
+    **Set up real mail forwarding for `privacy@interplanetarygroups.com`.** The privacy notice shipped on 1 September 2026 names that address as the only way to ask to be deleted, and nothing receives mail there until the owner creates the forward to his own inbox. **This does not gate the merge**, because there is no migration and no code anywhere reads the address; it gates the tennis group. A deletion request sent to a dead address is the single failure that turns the whole notice into a lie, and it fails silently on the sender's side, which is the worst shape a failure can take here. The domain is bought through Vercel and its DNS already carries Resend's sending records for `account.` and `updates.`; a forwarding rule is a separate thing from both and does not touch either. **Nobody has opened the screen yet**, so nothing here names a provider or a setting, on the lesson item 13 learned three times over: do not write a third-party setting into this record until somebody has looked at it.
 
 ### Data-foundation slice (18 to 19 June 2026)
 
@@ -6697,8 +6701,9 @@ login in the Supabase dashboard, which no code here can reach.
 **A founder is asked who takes the group over**, and a founder alone in a group takes it with them.
 **The mechanism is a script**, `npm run person:delete`, not dashboard surgery, because deleting one
 person correctly touches nine places across two systems and the deletion the notice promises has to
-be the one that happens. **The address is `privacy@interplanetarygroups.com`**, which still needs
-mail forwarding (after-launch item 14).
+be the one that happens. **The address is `privacy@interplanetarygroups.com`**, ~~which still needs
+mail forwarding (after-launch item 14)~~ **and forwarding went live 2 September 2026; see "Mail
+forwarding for privacy@ goes live" below.**
 
 **The shape carrying the safety argument.** The dangerous decision is *what* to delete, so it is made
 in a function that writes nothing and is tested against seeded rows; printing, confirming and
@@ -6733,7 +6738,9 @@ forced fix was declined for downgrading Prisma 7 to 6.
 
 **Two things that are the owner's, not ours.** `robots.ts` leaves `/privacy` and `/terms` indexable
 and was left untouched deliberately: the standing decision is that search engines get the front door
-and nothing else, and these pages sit on the other side of that line rather than inside it. And a
+and nothing else, and these pages sit on the other side of that line rather than inside it. *(Decided
+2 September 2026: leave it exactly as is; see "Mail forwarding for privacy@ goes live" below for the
+owner's reasoning, which turned out to be about spam rather than indexing.)* And a
 Jacob-built guard changed, declared: `token-contrast.test.ts` gained two entries after verifying both
 new components render only on `--surface-base`; review judged it sound and not weakened.
 
@@ -6893,7 +6900,8 @@ Written as an honest statement of what one person can stand behind rather than a
 because that is the only version of it that is true. It also names
 `privacy@interplanetarygroups.com` as a real mailto for the first time, so **after-launch item 14's
 mail forwarding now blocks two pages' promises rather than one**; update that item's wording to say
-so.
+so. *(Resolved 2 September 2026 by closing item 14 outright rather than reworking its wording; see
+"Mail forwarding for privacy@ goes live" below.)*
 
 **Layout.** Create step 1's consent line sat 35px below his 661px phone viewport; it now ends 8px
 above it. The 25.5px came out of five surrounding gaps that carried no content, not out of the
@@ -7026,3 +7034,61 @@ before teardown, which is the case that was breaking. It does not protect agains
 schedules work after the last `afterEach` has run, and nothing here changes the two flakes'
 registration into a proof they are gone: they are gone in mechanism, and the only thing that
 would prove it in fact is a long quiet stretch of green runs nobody is going to pay for.
+
+---
+
+### Mail forwarding for privacy@ goes live, and the indexing question is settled (2 September 2026)
+
+*No code, no migration. Two after-launch items closed by the owner working outside any slice, both
+recorded here because both blocked a promise the privacy notice and the terms make. Struck and
+pointed to from after-launch item 14 and from the ready-for-other-peoples-data entry above.*
+
+**Mail forwarding is live and proven.** `privacy@interplanetarygroups.com` forwards through ImprovMX
+on its free tier. DNS lives at Vercel: two MX records (`mx1.improvmx.com` priority 10,
+`mx2.improvmx.com` priority 20) and an SPF TXT record (`v=spf1 include:spf.improvmx.com ~all`), all at
+the root, all verified by ImprovMX. One named alias, `privacy@`, forwards to the owner's Gmail. **The
+default catch-all was deliberately deleted**, because a catch-all accepts every guessed address at
+the domain, which is the main way an address like this becomes a spam magnet; that is a decision
+worth recording, not just a setting.
+
+**Proven by a real send**, and worth stating precisely what that proves: an email from a third party
+(not the owner's own account) reached his Gmail inbox, landing there on its own merits rather than
+because of any prior sender training, since forwarding does not change the From and the sender Gmail
+judged was the original human sender, not this domain.
+
+**Why the root SPF record was added even though the product never sends from the root:** nothing
+declared who may send as `@interplanetarygroups.com` before this, since no SPF record existed there
+at all. It cannot affect Resend, because SPF is not inherited by subdomains, and `account.` and
+`updates.` keep their own records untouched.
+
+**Honest limit, worth carrying forward:** forwarded mail is a little more spam-prone than direct
+mail, because the forwarding hop can trip sender checks. It worked here regardless. If something
+expected at `privacy@` never arrives, check spam before concluding it was not sent.
+
+**One more limit worth knowing ahead of time:** replies go out from the owner's own Gmail address,
+not from `privacy@`, because the free tier receives mail but does not send it. Fine for now, and
+better known now than discovered mid-reply to a stranger asking to be deleted.
+
+**This closes after-launch item 14**, struck above with a pointer here.
+
+**The indexing question is decided, and the reasoning is worth keeping because it reframes the
+question.** `robots.ts` leaving `/privacy` and `/terms` indexable was recorded as the owner's call to
+make. He made it 2 September 2026: **leave it exactly as is, change nothing.** Indexing was never
+actually what he cared about; his real question was whether anything on the site could be reducing
+spam. The answer that settled it: blocking the two legal pages would not buy non-discoverability
+anyway, since the front door is already indexable and is what makes the product findable, and the
+legal pages carry no member data. If he ever wants the product unfindable, the front door is the
+lever, and that is its own one-line decision, not this one.
+
+**Worth recording as its own correction, because it was a live misconception rather than a settled
+question:** privacy and terms pages do nothing for email deliverability. Gmail's spam filter does not
+read the website. Everything that actually moves spam-foldering here is already done, SPF, DKIM,
+DMARC, the `account.` / `updates.` split, the one-click unsubscribe header, and a working unsubscribe
+link, except one piece.
+
+**Queued with a trigger rather than a date:** the root DMARC record (added 29 August 2026, above) is
+still `p=none`, monitor-only. Tightening it to quarantine is a real legitimacy signal and should wait
+until real mail has been flowing for a few weeks with nothing legitimate failing, since tightening
+early can silently bin the product's own login codes. Worth noting alongside it: the DMARC aggregate
+reports already arrive at the owner's Gmail as XML and are not readable by eye, so acting on them
+would need a parser, not a glance.
