@@ -6942,3 +6942,87 @@ this branch's own suite still carries it red until he does~~ **merged same day a
 This branch is rebased onto it, and the full suite reads green: 1576 passing across 139 files, zero
 failures, confirmed by running it.** Same class as the standing rule that the
 suite runs green from an empty database: a test leaning on ambient state it does not control.
+
+---
+
+## §11 entry: the component-test flakes had one cause, and it was never a race (2 September 2026)
+
+`fix-testing-library-cleanup`, a micro-PR against main. CLAUDE.md had registered two
+intermittent component-test failures on 1 September as pre-existing and unowned:
+`OrbitNoteScreen.test.tsx`, failing with "ReferenceError: window is not defined" from React's
+scheduler, and `UnsubscribeForm.test.tsx`. Both failed under the full suite and passed in
+isolation, which is the classic shape of two files racing. They were not racing.
+
+**What was actually true.** Testing Library ships its own cleanup and registers it after every
+test, but only when the test runner has put `afterEach` on the global object. Its own source
+says so in one line: `if (typeof afterEach === 'function')`. This repo runs vitest with
+`globals` off, deliberately, because every test file imports `describe`/`it`/`expect` by name.
+So that check has been false since the first component test was written, automatic cleanup has
+never once run in this repo, and every `render()` left its tree mounted for the rest of its
+file.
+
+That was proved rather than reasoned about, twice. A throwaway probe asserting
+`typeof globalThis.afterEach === "function"` came back `"undefined"`. A second probe rendered
+one element in a test and asserted the next test could not see it; it could, and the guard test
+this PR ships is that probe made permanent.
+
+**Why a leaked tree becomes "window is not defined", which is the part worth carrying forward.**
+React answers a commit carrying passive effects by queueing a deferred flush through its
+scheduler, and that scheduler prefers Node's `setImmediate` when it exists (its own source,
+`scheduler.development.js:211`). The queued callback reads `window`. If vitest disposes the
+file's jsdom environment before the callback runs, the callback fires against a torn-down
+global. The error surfaces inside `performWorkUntilDeadline` in `processImmediate`, and vitest
+blames whichever file happened to be running at that moment rather than the file that queued
+it. That misattribution is the whole reason this read as a race for a month: the file named in
+the failure was usually innocent.
+
+**The repo had already diagnosed this and said what the fix was.** `SeenMarker.test.tsx` and
+`UnsubscribeForm.test.tsx` each hand-rolled a drain in their own `afterEach`, and SeenMarker's
+comment names three further files with the same pattern and then says, in as many words, that
+"a global flush in a vitest setup file is the real fix; this local one only keeps this file
+from adding to it." Nobody wrote that file. This PR is that file. Both local copies were left
+in place, now redundant rather than wrong, each with a dated line saying so, because deleting
+working teardown to prove a point is not worth the risk in a micro-PR.
+
+**The fix, and the option not taken.** `vitest.setup.ts` registers one `afterEach` that
+unmounts and then drains, wired in through `setupFiles`. Setting `globals: true` would have
+been one line and is Testing Library's own documented answer, and it was declined: it makes
+`describe`/`it`/`expect` ambient across all 139 files in a suite that imports them on purpose,
+which is a suite-wide change of meaning to fix a teardown bug. Three details in that file are
+load-bearing and are commented there: the import of `@testing-library/react` is dynamic and
+gated on `document` existing, so the roughly ninety-four node-environment files that talk to
+Prisma do not load react-dom for nothing; `setImmediate` is captured at setup time rather than
+read when the hook runs, because a test that installs fake timers replaces the global and the
+drain needs the real one, the same one React's scheduler captured; and the hook is registered
+before any hook a test file declares, so it runs after them, since vitest unwinds `afterEach`
+in reverse registration order.
+
+**Evidence, and its honest limit.** Baseline on main before any change: 139 files, 1576 tests,
+all passing. After: 140 files, 1581 tests, all passing, the difference being the guard file's
+own five. Each guard was shown red with the thing it guards removed and green with it restored:
+delete the drain lines and the drain guard fails; unwire `setupFiles` and both the behavioural
+cleanup guard and the wiring guard fail. **A green suite is not the evidence here and is not
+offered as it.** The failure was intermittent and went green three runs in a row immediately
+after the failure that started this, so run counts prove nothing either way.
+
+**What each guard actually holds, because the first draft of this entry overstated it and an
+independent review caught that.** The behavioural pair (render, then assert the next test cannot
+see the tree) holds the unmount and only the unmount. It cannot hold the drain: with the
+`act()`/`setImmediate` lines deleted the whole repo stays green, including that pair, because an
+empty document says `cleanup()` ran and says nothing about what React still had queued. So the
+half that addresses the actual reported failure is the half with no behavioural test, and it has
+none for a stated reason rather than an omission: the assertion is a negative over an
+intermittent event, and a probe that queued its own `setImmediate` would go green whenever the
+runner happened to turn the event loop between tests, which is most of the time. A guard passing
+for the wrong reason is worse than none. The drain is covered by a structural guard instead,
+labelled as one in the file: it reads `vitest.setup.ts` and `vitest.config.ts` and asserts the
+wiring is still present, which catches somebody tidying away lines whose purpose is invisible,
+and does not catch a drain that is present and broken. Precedent for a test that reads repo files:
+`no-email-address-on-screen.test.tsx`.
+
+**What this does not cover, stated because the next reader will assume otherwise.** The drain
+runs at the end of each *test*, so a tree still mounted when a *file* ends is now unmounted
+before teardown, which is the case that was breaking. It does not protect against a test that
+schedules work after the last `afterEach` has run, and nothing here changes the two flakes'
+registration into a proof they are gone: they are gone in mechanism, and the only thing that
+would prove it in fact is a long quiet stretch of green runs nobody is going to pay for.

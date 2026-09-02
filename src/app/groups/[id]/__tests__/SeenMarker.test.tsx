@@ -35,6 +35,14 @@ import SeenMarker from "../SeenMarker"
 // touched (RsvpControls, ProposalChips, GroupProposalChips) carry the same
 // pattern and reproduce the same error, so a global flush in a vitest setup
 // file is the real fix; this local one only keeps this file from adding to it.
+//
+// That setup file exists as of 2 Sept 2026: vitest.setup.ts does the unmount
+// and the drain for every jsdom file, which is what fixed the two
+// intermittent failures CLAUDE.md had registered as unowned. The cleanup()
+// and the flush below are therefore redundant now, and were left in place.
+// The hook itself is NOT redundant and must not be deleted on the strength of
+// that word: its mockClear() is this file's only mock isolation, and nothing
+// global replaces it.
 afterEach(async () => {
   cleanup()
   await act(async () => {
