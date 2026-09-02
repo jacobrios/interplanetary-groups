@@ -1276,68 +1276,72 @@ Revalidating the group home as well as the event page matches how `rsvpAction` a
 Create `src/app/events/[id]/__tests__/CancelControls.test.tsx`:
 
 ```tsx
-import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from "vitest"
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
 import CancelControls from "../CancelControls"
 
-const cancelEventAction = vi.fn(async () => ({}))
-const restoreEventAction = vi.fn(async () => ({}))
+// fireEvent, not @testing-library/user-event: that package is NOT a
+// dependency of this repo, and every existing component test here drives
+// clicks with fireEvent. Do not add the dependency for this one file.
+const cancelEventAction = vi.fn(async (..._args: unknown[]) => ({}))
+const restoreEventAction = vi.fn(async (..._args: unknown[]) => ({}))
 
 vi.mock("@/app/actions/cancel-event", () => ({
   cancelEventAction: (...args: unknown[]) => cancelEventAction(...args),
   restoreEventAction: (...args: unknown[]) => restoreEventAction(...args),
 }))
 
-beforeEach(() => {
+afterEach(() => {
+  cleanup()
   cancelEventAction.mockClear()
   restoreEventAction.mockClear()
 })
 
 describe("CancelControls, live plan", () => {
-  it("shows one quiet control at rest and calls nothing", async () => {
+  it("shows one quiet control at rest and calls nothing", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    expect(screen.getByRole("button", { name: "Call this off" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Yes, call it off" })).toBeNull()
     expect(cancelEventAction).not.toHaveBeenCalled()
   })
 
-  it("does not cancel on the first tap", async () => {
+  it("does not cancel on the first tap", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    await userEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
 
     expect(cancelEventAction).not.toHaveBeenCalled()
-    expect(screen.getByRole("button", { name: "Yes, call it off" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Never mind" })).toBeInTheDocument()
-    expect(screen.getByText(/This tells the group/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Yes, call it off" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Never mind" })).toBeTruthy()
+    expect(screen.getByText(/This tells the group/)).toBeTruthy()
   })
 
   it("cancels on the second tap", async () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    await userEvent.click(screen.getByRole("button", { name: "Call this off" }))
-    await userEvent.click(screen.getByRole("button", { name: "Yes, call it off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, call it off" }))
 
-    expect(cancelEventAction).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(cancelEventAction).toHaveBeenCalledTimes(1))
   })
 
-  it("returns to rest on Never mind, having called nothing", async () => {
+  it("returns to rest on Never mind, having called nothing", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    await userEvent.click(screen.getByRole("button", { name: "Call this off" }))
-    await userEvent.click(screen.getByRole("button", { name: "Never mind" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Never mind" }))
 
     expect(cancelEventAction).not.toHaveBeenCalled()
-    expect(screen.getByRole("button", { name: "Call this off" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
   })
 })
 
 describe("CancelControls, cancelled plan", () => {
   it("offers the restore, also behind two taps", async () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled />)
-    await userEvent.click(screen.getByRole("button", { name: "Put this back on" }))
+    fireEvent.click(screen.getByRole("button", { name: "Put this back on" }))
     expect(restoreEventAction).not.toHaveBeenCalled()
 
-    await userEvent.click(screen.getByRole("button", { name: "Yes, put it back" }))
-    expect(restoreEventAction).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole("button", { name: "Yes, put it back" }))
+    await waitFor(() => expect(restoreEventAction).toHaveBeenCalledTimes(1))
   })
 })
 ```
@@ -1430,7 +1434,7 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
         <button type="button" style={quietButton} onClick={() => setConfirming(true)}>
           {restText}
         </button>
-        <ErrorLine message={errorMsg} />
+        <ErrorLine msg={errorMsg} />
       </div>
     )
   }
@@ -1470,13 +1474,13 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
           {confirmText}
         </button>
       </div>
-      <ErrorLine message={errorMsg} />
+      <ErrorLine msg={errorMsg} />
     </div>
   )
 }
 ```
 
-Check `src/components/choice.tsx` for `ErrorLine`'s actual prop name before using it; match what is there rather than what is written above.
+`ErrorLine`'s prop is `msg` (verified in `src/components/choice.tsx:102`), not `message`. It also takes an optional `marginLeft`.
 
 - [ ] **Step 5: Run the tests and confirm they pass**
 
