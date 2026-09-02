@@ -57,7 +57,7 @@
 // is reported as yes/no only, never as the value.
 
 import { prisma } from "../src/lib/prisma"
-import { ContactMethodType, MessageAuthor, ProposalKind, RsvpStatus } from "@prisma/client"
+import { ContactMethodType, EventStatus, MessageAuthor, ProposalKind, RsvpStatus } from "@prisma/client"
 import type { EventCardData } from "../src/app/groups/[id]/EventCarousel"
 import { findLiveGauges } from "../src/lib/gauges/read"
 import { findLiveProposals } from "../src/lib/proposals/read"
@@ -214,7 +214,14 @@ async function main() {
   const now = new Date()
 
   const upcomingEvents = await prisma.event.findMany({
-    where: { groupId: group.id, startsAt: { gte: now } },
+    where: {
+      groupId: group.id,
+      startsAt: { gte: now },
+      // Mirrors src/lib/digest/run.ts, the source of truth for this query.
+      // A hand-run diagnostic that quietly stops matching production is
+      // worse than no script.
+      status: EventStatus.SCHEDULED,
+    },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     include: { venues: true },
   })

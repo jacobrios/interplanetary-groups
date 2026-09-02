@@ -15,7 +15,7 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ContactMethodType } from "@prisma/client"
+import { MessageAuthor, ContactMethodType, EventStatus } from "@prisma/client"
 
 const sendEmailMock = vi.fn()
 vi.mock("@/lib/email/send", () => ({
@@ -404,5 +404,55 @@ describe("runDailyDigest", () => {
       where: { groupId: group.id, userId: badMember.id },
     })
     expect(badMembership.lastDigestSentAt).toBeNull()
+  })
+
+  it("does not ask anyone to RSVP to a plan that has been called off", async () => {
+    // A plain scheduled event (gaugeId null, like reconcile.ts's own
+    // recurring occurrences), starting exactly three group-local days from
+    // NOW so schedule.ts's rule two ("three days before it happens") is
+    // what opens the gate, the same rule a real rained-out tennis game
+    // would trip. The member has no RSVP on it, which is exactly the
+    // condition needs-you.ts's eventNeedLabel treats as "Needs your RSVP" —
+    // eventNeedLabel never itself checks status, so if the cancelled row
+    // were still in upcomingEvents this test would still see an email.
+    const founder = await makeUser("CancelFounder")
+    const member = await makeUser("CancelMember")
+    await addVerifiedEmail(member.id, `cancelled-${stamp}@example.test`)
+    const group = await makeGroup("Cancelled Group", founder.id, [founder.id, member.id])
+
+    const event = await prisma.event.create({
+      data: {
+        groupId: group.id,
+        title: "Tennis",
+        startsAt: new Date("2026-09-06T18:00:00.000Z"),
+        createdAt: MEMBER_JOINED_AT,
+      },
+    })
+
+    // Called off after being scheduled, mirroring the cancel action this
+    // slice's earlier tasks built rather than creating the row already
+    // cancelled.
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { status: EventStatus.CANCELLED, cancelledAt: NOW },
+    })
+
+    const results = await runDailyDigest(NOW, { groupIds: [group.id] })
+
+    // With the cancelled row excluded from upcomingEvents, nothing opens
+    // the gate and the member has nothing outstanding, so this reads
+    // identically to "a member with nothing to report gets no email":
+    // processed, nobody sent. Before the filter existed this failed with
+    // sent: 1, because the cancelled event's missing RSVP opened rule two
+    // and produced a "Needs your RSVP" line for a game that is off.
+    expect(results).toEqual([
+      { groupId: group.id, status: "processed", considered: 2, sent: 0, skipped: 2 },
+    ])
+    expect(sendEmailMock).not.toHaveBeenCalled()
+
+    const membership = await prisma.membership.findFirstOrThrow({
+      where: { groupId: group.id, userId: member.id },
+    })
+    expect(membership.lastDigestSentAt).toBeNull()
   })
 })

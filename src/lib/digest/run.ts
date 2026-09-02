@@ -211,7 +211,15 @@ async function processOneGroup(group: GroupRow, now: Date): Promise<DigestRunRes
   // email has no real-estate constraint, so every future event is a
   // candidate, never just the soonest five.
   const upcomingEvents: EventRow[] = await prisma.event.findMany({
-    where: { groupId: group.id, startsAt: { gte: now } },
+    where: {
+      groupId: group.id,
+      startsAt: { gte: now },
+      // A called-off plan asks nothing of anybody. Without this the digest
+      // makes a cancellation WORSE than silent: a Thursday cancellation
+      // produces a Friday email telling the group to RSVP to a game that is
+      // not happening.
+      status: EventStatus.SCHEDULED,
+    },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     include: { venues: true },
   })
