@@ -7,7 +7,7 @@
 
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor } from "@prisma/client"
+import { EventStatus, MessageAuthor } from "@prisma/client"
 import { findUpcomingEvents, hasUpcomingScheduledEvent } from "../upcoming-list"
 
 const AUTH_ID = `test-upcoming-list-${Date.now()}`
@@ -125,6 +125,30 @@ describe("hasUpcomingScheduledEvent", () => {
     })
 
     expect(await hasUpcomingScheduledEvent(groupId, NOW)).toBe(false)
+  })
+
+  it("still sees a cancelled scheduled event, which is what makes it the tombstone", async () => {
+    // Deliberately NOT filtered by status. If this guard ever learned about
+    // CANCELLED, reconcile would see nothing upcoming, computeNextOccurrence
+    // would return the same slot, and the hourly cron would recreate the
+    // plan the group just called off, with a fresh announcement. The retained
+    // row IS the record that this slot is spoken for.
+    await ensureGroup()
+    await prisma.event.deleteMany({ where: { groupId } })
+    const event = await prisma.event.create({
+      data: {
+        groupId,
+        title: "Climbing Sunday",
+        startsAt: new Date("2026-07-26T15:00:00Z"),
+        scheduledKey: `${groupId}:2026-07-26T15:00:00.000Z`,
+      },
+    })
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    expect(await hasUpcomingScheduledEvent(groupId, NOW)).toBe(true)
   })
 })
 

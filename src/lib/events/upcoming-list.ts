@@ -30,6 +30,14 @@ export type { UpcomingEvent }
  *
  * scheduledKey remains the cron's idempotency key on write; it is just not the
  * right question to ask on read.
+ *
+ * DELIBERATELY BLIND TO status (cancel-one-occurrence slice, 2 Sep 2026).
+ * A cancelled occurrence must keep satisfying this guard. Cancelling sets a
+ * status and never deletes the row precisely so that this query still sees
+ * it: the cancelled row is its own tombstone, and reconcile needs no change.
+ * Adding `status: SCHEDULED` here would make the cron recreate the plan the
+ * group just called off, within the hour, with a fresh announcement. Pinned
+ * by a test in this module's own suite and by one in reconcile's.
  */
 export async function hasUpcomingScheduledEvent(
   groupId: string,
