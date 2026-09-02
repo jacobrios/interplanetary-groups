@@ -7149,3 +7149,90 @@ override-learning successor named in §5, which would subsume the second.
 different day can say so and the group can simply not vote for a Friday nobody wants. It earns a
 record because it is the first observed case of the undated-placeholder family producing a visibly
 wrong answer in front of a real person, and because the wrong diagnosis was already in circulation.
+
+**Correction to the entry above, same day, 2 September 2026.** Two things in it are wrong and one
+case is missing, all found by reading `buildGaugeMessage` and `chooseProposedDate` more carefully
+after the owner described the bug back from memory.
+
+**The copy-only candidate fix is withdrawn.** It was offered as "stop asserting *this* Friday when no
+day was named, one string, no bench run." `buildGaugeMessage` (`src/lib/orbit/spark-copy.ts:459`)
+already guards exactly this: past `THIS_WEEK_DAYS` it says "on Friday, Aug 28" instead of "this
+Friday." At two days away, "this Friday" is an accurate description of the date. The copy is doing
+its job correctly and the wrongness is entirely in the date, so softening the wording would make the
+message vaguer while fixing nothing. **There is one real fix, the horizon field, not two.**
+
+**"Next Friday" is broken too, and worse.** The entry above only covers a phrase naming no weekday.
+When a weekday *is* named, `chooseProposedDate` takes it at face value with no buffer, deliberately,
+so on Wednesday 26 August "beers next Friday" also resolves to Friday the 28th, and Orbit answers
+"Beers this Friday?", contradicting the exact word the member used. Same root cause, no horizon
+field, and here the member named their day explicitly and still got half-heard. *(Read from the code,
+not reproduced, so treat as very likely rather than proven.)*
+
+**The owner's reading, which is the spec for whoever builds this.** On Wednesday 26 August, "next
+Friday" means **Friday 4 September**, nine days out; "this Friday" means Friday 28 August. He notes,
+correctly, that people genuinely disagree about "next Friday", and some do mean the upcoming one.
+
+**That disagreement is a design fact with an existing answer in this product, and the slice should
+reuse it rather than invent one.** When Orbit cannot settle am/pm ("meet at 8") it picks a reading,
+commits to it, and discloses it once in the same message. "Next Friday" is the same shape. Picking
+and disclosing beats asking, because the concrete-first guardrail says propose a specific day and
+absorb overrides rather than poll the group.
+
+---
+
+### Cancelling one occurrence: decided in planning, before the slice (2 September 2026)
+
+Settled with the owner in a planning session, so the build session inherits answers rather than
+stalling on them. The trigger is real and confirmed by the actual user: Doug's tennis group cancels
+for weather, and nothing in this product can represent that.
+
+**Seven decisions.** (1) **Anyone in the group can cancel**, not the founder. Weather is an
+observable fact, and founder-only rebuilds the organizer role the north star exists to dissolve.
+(2) **No group vote.** Consensus machinery exists because moving a plan takes something from people
+who liked the old time; cancelling a rained-out game takes nothing, since the alternative is not
+"tennis happens" but "people drive to a wet court." (3) **A two-tap confirm, never type-to-confirm.**
+The owner asked for type-to-confirm; the precedent argues against it. `person:delete` makes him type
+a name because that action is irreversible, and this one is reversible in two taps and announced
+publicly the moment it happens. Type-to-confirm on a reversible action teaches people the product is
+fragile. (4) **Undoable by anyone**, which is what makes decision 1 safe. (5) **A button on event
+detail**, not on the card: the card region's height budget was won by a whole slice (47.7% of the
+screen down to 34%) and a new control there spends it. (6) **Feed announcement only, no immediate
+email**, because on day one most of a new group has attached no address, so an email reaches a
+handful while everyone else drives out anyway. (7) **Cancel sets a status; it never deletes the
+row**, and that is load-bearing rather than stylistic, see below.
+
+**The mechanism that makes this small, verified rather than assumed.** `hasUpcomingScheduledEvent`
+(`src/lib/events/upcoming-list.ts:38`) asks one question: is there a scheduled event starting in the
+future? **If cancelling deleted the row, the hourly cron would recreate the cancelled event within
+the hour, with a fresh announcement**, because the guard would see nothing upcoming, `computeNext
+Occurrence` would return the same slot, and the unique `scheduledKey` freed by the delete would be
+available again. With a status flag the row stays, the guard still sees it, and **the cancelled row
+is its own tombstone**. Reconcile needs no change at all.
+
+**A required task nobody would have found by reading the ask.** The digest currently makes this worse
+rather than silent. Its "you missed" block filters to `authorType: MessageAuthor.MEMBER`
+(`src/lib/digest/run.ts:244`), so Orbit's cancellation announcement is invisible to it; and its
+needs-you block pulls every event with `startsAt >= now` and **no status filter**
+(`src/lib/digest/run.ts:212`). So a Thursday cancellation produces a Friday digest nagging the group
+to RSVP to a game that is not happening. **Filtering cancelled events out of the digest is in scope**,
+and it is the owner's own question that surfaced it.
+
+**Queued behind it, both the owner's ideas, neither built.** (a) **Propose a cancellation and let the
+group decide**, for the non-weather case ("only four of us, should we skip it?"), which is a judgment
+call rather than a fact and is what the existing chips are for. (b) **The immediate cancellation
+email**, revisited once enough of a real group has attached addresses for it to reach more than a
+handful. Both are genuinely different features rather than variants, and keeping them out is what
+keeps the urgent case shippable.
+
+**Declined and worth recording, because it looks like a cheap middle path and is not.** Orbit
+noticing "rained out" in chat and saying "sounds like you want to cancel, tap the event" was
+considered. **Recognition is the expensive half, not the action**: a new intent class costs the
+prompt change, the normalize change and the bench runs whether Orbit then cancels or merely hints. It
+would pay the whole cost for a hint. The full chat phrase can come later if anyone reaches for it.
+
+**A cost correction the owner is owed, since it had been shaping recommendations.** Bench runs had
+been cited repeatedly as a reason to defer model work. The arithmetic does not support it: a
+detection call costs $0.0047 (measured, above), so a full 33-case `eval:detect` at five runs each is
+roughly **80 cents**, and the owner's stated ceiling of $20 a month buys about twenty-five full
+benches. **Money was never the constraint.** What actually makes model work unsuitable for a short
+window is tuning rounds and wall clock, and that is what should be cited from here on.
