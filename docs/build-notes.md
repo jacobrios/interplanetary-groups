@@ -6762,7 +6762,9 @@ design, so a forwarded digest hands its reader the power to unsubscribe and to r
 original recipient; rotation stays queued. Two deletion-plan test gaps, verified by inspection only:
 a founder with one blocked and one solo group at once, and one person with a trace in one candidate
 group and none in a second. `ProposalKind.VERIFY` data is excluded from the proposal lines sent to
-Anthropic by a kind filter; other paths were not checked. The script exits 0 on a blocked plan and 1
+Anthropic by a kind filter; ~~other paths were not checked~~ *(closed 2 Sept 2026 by the
+whole-branch review: there is no other path. `src/app/actions/detect-intent.ts:141` is the only
+detection call site and it passes exactly five fields.)* The script exits 0 on a blocked plan and 1
 on not-found, defensible and inconsistent.
 
 **Two pre-existing flakes, left alone, and they deserve their own micro-PR.**
@@ -6824,3 +6826,38 @@ hidden: the three fallbacks disagreeing is exactly how the 29 July recognition b
 deleted person's message is ever the trigger message in a real conversation window, the bench has no
 case that would have caught a regression here either way. Revisit if a bench case naming a former
 member ever gets written; until then this paragraph is the decision in place of a bench run.
+**Five findings the whole-branch review queued rather than fixed, on its own recommendation that they
+be queued rather than bundled (2 Sept 2026). Each verified against the code before being written
+here, because a queued item that lives only in a chat message is not queued, it is forgotten.**
+
+- **Join-announcement evidence is scoped to the group, not the person.** `deletion-plan.ts`
+  classifies a candidate purely by which group the line sits in, so two people sharing a name who are
+  both current members of one group produce two identical `current-member` candidates, and the
+  runbook tells the owner that class is safe to confirm. The harm is bounded (a SYSTEM join line, and
+  he still confirms each candidate by hand), but the runbook's confidence outruns the evidence for
+  any group holding two matching names. Recorded rather than shrugged at, because this product has
+  known un-merged duplicate identities with identical names, audit finding 10, so this is the likely
+  real case rather than a hypothetical.
+- **The "You're back on" state after resubscribing has no control.** `UnsubscribeForm.tsx` returns a
+  bare paragraph there and the page around it carries no navigation at all, so somebody who
+  resubscribes and changes their mind again has to reload. The same shape as the email sheet's
+  done-state trap fixed on 27 August 2026, milder only because no scrim is holding them there.
+- **`MessageFeed.test.tsx` has no `cleanup`.** Its `afterEach` only calls `vi.unstubAllEnvs()`, so the
+  new label test's `queryByText("Member")` asserts over the whole accumulated document and passes only
+  because nothing rendered earlier in that file happens to contain the word. Both sibling test files
+  this slice added do call `afterEach(cleanup)`. A latent false negative, not a current failure.
+- **`src/lib/people/__tests__/delete-person.test.ts:238-259` uses unstamped fixture names** while
+  asserting the full product-wide candidate list with `toEqual`; `deletion-plan.test.ts` stamps its
+  names precisely to avoid this. Rows left behind by a crashed earlier run turn it into a confusing
+  red rather than a real failure.
+- **Neither `/privacy` nor `/terms` mentions the third-party cost of a deletion.** Deleting somebody
+  cascades away any change proposal they asked, taking every other member's votes on it with it. The
+  script warns the operator and the slice document records it as debt, but nothing tells the other
+  members. Arguably out of scope for a notice addressed to the person requesting deletion, which is
+  why it is queued rather than fixed, but the asymmetry should be visible rather than assumed.
+
+**Two things the same review closed rather than opened, recorded so nobody re-investigates them.**
+`ProposalKind.VERIFY` data reaches Anthropic by no other path, annotated above at the deferred minor
+it settles. And the `token-contrast.test.ts` guardrail change was independently re-verified by the
+reviewer, which checked all five render sites itself and confirmed the two added entries are not a
+weakening of the guard.
