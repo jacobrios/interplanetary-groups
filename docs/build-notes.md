@@ -7092,3 +7092,60 @@ until real mail has been flowing for a few weeks with nothing legitimate failing
 early can silently bin the product's own login codes. Worth noting alongside it: the DMARC aggregate
 reports already arrive at the owner's Gmail as XML and are not readable by eye, so acting on them
 would need a parser, not a glance.
+
+---
+
+### "Next week" got answered with "this Friday" (2 September 2026, diagnosed, not fixed)
+
+**What happened.** On Wednesday 26 August 2026 the owner typed "we should grab beers next week" into
+a test group's chat. Orbit answered "Love it. Beers this Friday? If three are in, I'll set it up.",
+opened a gauge for Friday 28 August at 7pm, and the idea card read "Fri 7pm · Place TBD". Friday the
+28th was two days later, inside the week the member had just excluded. Screenshot held by the owner;
+this entry is written from it plus a read of the code, not from a reproduction.
+
+**Every layer behaved exactly as specified, which is the interesting part.** The intent prompt tells
+the model that a phrase naming no weekday returns null for `statedDayOfWeek`, and it names "beers
+this weekend" and "beers tomorrow" as examples of exactly that, so the model was right to return
+null. `normalizeSpark` passed the null through, correctly. `chooseProposedDate`
+(`src/lib/orbit/spark-copy.ts:185`) then applied its documented evening fallback: Friday, pushed a
+week only when it lands inside `FALLBACK_BUFFER_DAYS`, which is 2. Wednesday to Friday is exactly 2,
+and the guard is `< 2`, so it did not push. Friday the 28th. `resolveSparkTime` supplied 7pm. Nothing
+misfired at any step.
+
+**So this is not a misread, and calling it one sends the next person to the wrong place.** It is an
+input with no data home, the mirror image of this project's own signature failure (the "beers once a
+month" row that no field could hold, §11 one-shot experiment). "Next week" carries real information,
+*not this week*, even though it names no weekday. The extraction schema has four spark fields,
+`activity`, `statedDayOfWeek`, `statedTime`, `timeAmbiguous` and `partOfDay`, and not one of them can
+hold a horizon. The information was dropped at the schema boundary, before any fallback ran. A model
+that answered this "correctly" has nowhere to put the answer.
+
+**The copy makes it land worse than the date alone would.** Orbit said "Beers **this** Friday?" The
+word "this" asserts a reading of the member's message rather than offering a proposal, so a fallback
+that was designed to be an overridable guess reads as a confident misunderstanding. "How about
+Friday?" would carry the same date and none of the contradiction. Cheaper than the schema fix and
+independent of it.
+
+**Recovery is thinner than it looks.** The day-comment path can hear "Sunday works better" and
+remember it, but it is weekday-shaped: it records a can't-that-day vote and only revives the idea if
+the gauge later closes blocked by its day. There is no path at all for "no, I meant the week after",
+because that names no weekday either. So the member who was misheard cannot correct it in the terms
+they originally used.
+
+**Not the editing slice's problem, and it should not ride along with it.** The editing slice is about
+a founder correcting group details; this is the spark path's date fallback. The two were floated
+together on 1 September because both read as "the founder can't fix what Orbit got wrong", and
+looking at the actual mechanism separates them cleanly. Recorded here so the pairing is not made
+again.
+
+**Two candidate fixes, neither chosen, the owner's to rank.** (1) Copy only: stop asserting "this"
+when no day was named. One string, no model change, no bench run, fixes the contradiction and not the
+date. (2) A horizon field on the extraction schema (`thisWeek` / `nextWeek` / null) that
+`chooseProposedDate` respects. That is a prompt change plus a normalize change plus `eval:detect`
+before-and-after numbers, so it is a small slice rather than a fix. Both sit behind the existing
+override-learning successor named in §5, which would subsume the second.
+
+**Severity, honestly:** low and self-correcting in the common case, because a member who wanted a
+different day can say so and the group can simply not vote for a Friday nobody wants. It earns a
+record because it is the first observed case of the undated-placeholder family producing a visibly
+wrong answer in front of a real person, and because the wrong diagnosis was already in circulation.
