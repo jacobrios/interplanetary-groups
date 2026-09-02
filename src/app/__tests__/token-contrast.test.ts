@@ -91,6 +91,27 @@ const FAINT_SURFACES = [
   // sets no background of its own; this surface is VERIFIED, not assumed:
   // src/app/groups/page.tsx (Task 4) is its sole render ancestor and sets
   // backgroundColor: "var(--surface-base)" on its root <main>.
+  //
+  // Also, as of the ready-for-other-peoples-data slice: the policy links
+  // (src/components/LegalFooter.tsx, both the footer and the consent line)
+  // and the "Last updated" eyebrow on the two policy pages
+  // (src/components/LegalPage.tsx). Neither component sets a background of
+  // its own, so this surface is VERIFIED rather than assumed, at all SIX
+  // render sites: src/app/page.tsx, src/app/groups/[id]/info/page.tsx,
+  // src/app/join/[inviteToken]/JoinForm.tsx and src/app/create/page.tsx all
+  // set backgroundColor: "var(--surface-base)" on their root <main>,
+  // LegalPage sets it on its own, and src/app/groups/page.tsx sets it on the
+  // <main> that renders YourGroupsScreen, which carries the footer as of
+  // 2 September 2026. (That sixth site was added by the owner-QA fix wave and
+  // the count above was left saying five for one commit, which is exactly the
+  // quiet staleness this block exists to prevent. Update it when you add a
+  // render site.) This is the token's best case, not a new worst case, so the
+  // arithmetic below is unchanged by it.
+  //
+  // And, 2 September 2026 (owner QA): the join screen's own reassurance line
+  // ("No app to download..."), which moved off --text-secondary so it and
+  // the consent line beneath it read as one block. Same <main>, same
+  // --surface-base, already covered above.
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
@@ -140,9 +161,25 @@ describe("the inventory this arithmetic was computed against", () => {
   const EXPECTED_FILES = [
     "src/app/events/[id]/ProposalSection.tsx",
     "src/app/groups/[id]/EmailAttachFlow.tsx",
+    // Added 2 September 2026, owner QA, and the guard did its job: the join
+    // screen's reassurance line moved from --text-secondary to --text-faint
+    // so it and the consent line directly under it read as one block. The
+    // surface was checked rather than assumed. JoinForm's <main> paints
+    // --surface-base (line 277) and the line sits directly on it, not inside
+    // either --surface-raised card above it, so this is the token's best case
+    // at 5.75:1 and already in FAINT_SURFACES. No new surface, no new
+    // arithmetic.
+    "src/app/join/[inviteToken]/JoinForm.tsx",
     "src/app/join/[inviteToken]/JoinSignIn.tsx",
     "src/app/page.tsx",
     "src/app/signin/SignInPanel.tsx",
+    // Added by the ready-for-other-peoples-data slice, after checking which
+    // surface each lands on rather than just widening the list: both render
+    // only on --surface-base, which is this token's best case at 5.75:1 and
+    // is already in FAINT_SURFACES above. The five render sites are named
+    // there. No new surface, so no new arithmetic.
+    "src/components/LegalFooter.tsx",
+    "src/components/LegalPage.tsx",
     "src/components/OrbitNoteScreen.tsx",
     "src/components/SendCircleButton.tsx",
     "src/components/YourGroupsScreen.tsx",

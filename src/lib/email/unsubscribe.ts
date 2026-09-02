@@ -69,3 +69,20 @@ export async function unsubscribeByToken(token: string, now: Date): Promise<void
     data: { digestOptOutAt: now },
   })
 }
+
+/**
+ * The way back in, using the same token as unsubscribeByToken. Scoped to
+ * `digestOptOutAt: { not: null }` on purpose, the mirror image of that
+ * function's own `digestOptOutAt: null` scope: it keeps a resubscribe on
+ * someone who never left (or who already came back) a genuine no-op rather
+ * than a write, which is what lets unsubscribeByToken's own idempotence
+ * survive a resubscribe in between. Silent for an unknown token, matching
+ * unsubscribeByToken's own silence: the response this feeds must never tell a
+ * stranger holding a guessed token whether it was real.
+ */
+export async function resubscribeByToken(token: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: { unsubscribeToken: token, digestOptOutAt: { not: null } },
+    data: { digestOptOutAt: null },
+  })
+}

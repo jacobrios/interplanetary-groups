@@ -53,4 +53,24 @@ describe("buildConversationWindow", () => {
   it("the knob is twenty", () => {
     expect(WINDOW_MESSAGES).toBe(20)
   })
+
+  it("labels a member message whose author row is gone 'Former member', matching the product's own label rather than a separate prompt-only phrase", () => {
+    // Deliberately not the msg() helper above, whose name === null shorthand
+    // means Orbit. A deleted person's surviving message is a real member
+    // message (isOrbit: false) with a null authorName, the shape
+    // fetch-window.ts produces once the author row is gone.
+    const out = buildConversationWindow(
+      [
+        {
+          authorName: null,
+          isOrbit: false,
+          body: "climbing this weekend?",
+          createdAt: new Date("2026-07-28T23:12:00Z"),
+        },
+      ],
+      TZ,
+      now
+    )
+    expect(out).toContain("Former member: climbing this weekend?")
+  })
 })

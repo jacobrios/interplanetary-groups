@@ -23,6 +23,7 @@
 
 import Link from "next/link"
 import { OrbitMark } from "@/components/OrbitMark"
+import LegalFooter from "@/components/LegalFooter"
 
 export interface YourGroupsScreenGroup {
   id: string
@@ -209,6 +210,35 @@ export function YourGroupsScreen({
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* The legal footer, added 2 September 2026 from the owner's QA. The
+          front door already carried one and he had never seen it: "/" sends
+          anybody who already has a group straight past it, so this is the
+          screen a signed-in person actually lands on, and without this the
+          two links are unreachable from inside the product for exactly the
+          people using it.
+
+          It lives here rather than in src/app/groups/page.tsx, which is
+          where the QA note named it, and the reason is NOT testability:
+          src/app/groups/__tests__/page.test.tsx mocks prisma and renders
+          that route for real, so either place could have been proven. The
+          reason is page.tsx's own flex chain. Its header explains at length
+          that <main> has ONE flex-item child, and that this child's default
+          flex-shrink is what carries the 100dvh bound down into the scroll
+          region below. A second child there would falsify that comment
+          rather than merely sit beside it. Placed here the footer joins the
+          same column the scroll region is in, inherits the screen's 20px
+          gutter, and leaves that mechanism intact. It renders on /groups
+          either way, and the route test asserts that it does.
+
+          flex 0 0 auto, deliberately: the scroll region above is
+          flex 1 1 auto with minHeight 0, and a shrinkable footer would let
+          the browser squeeze this instead of the list it is supposed to
+          bound. Quiet, not a new section: no heading, no rule above it, and
+          LegalFooter's own type is the eyebrow floor in --text-faint. */}
+      <div style={{ flex: "0 0 auto", padding: "18px 0 16px" }}>
+        <LegalFooter />
       </div>
     </div>
   )

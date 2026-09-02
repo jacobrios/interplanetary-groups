@@ -143,6 +143,28 @@ describe("YourGroupsScreen", () => {
     expect(container.querySelectorAll("ul li").length).toBe(2)
   })
 
+  // ADDED 2 SEPTEMBER 2026, owner QA. The front door carries a legal footer
+  // and he never saw it, because "/" sends anybody who already has a group
+  // straight past it. This is the screen a signed-in person actually lands
+  // on, so it is where the two links have to be reachable from.
+  it("carries the legal footer, since this is the screen a signed-in person actually lands on", () => {
+    render(<YourGroupsScreen groups={TWO_GROUPS} />)
+    expect(screen.getByRole("link", { name: "Privacy" }).getAttribute("href")).toBe("/privacy")
+    expect(screen.getByRole("link", { name: "Terms" }).getAttribute("href")).toBe("/terms")
+  })
+
+  it("puts the legal footer last, below every group row, so it stays a footer", () => {
+    // Order, not mere presence. A footer rendered above the list would be a
+    // new section competing with the screen's own content, and this screen's
+    // spareness is deliberate.
+    render(<YourGroupsScreen groups={TWO_GROUPS} />)
+    const lastRow = screen.getByRole("link", { name: "Sunday Soccer" })
+    const privacy = screen.getByRole("link", { name: "Privacy" })
+    expect(
+      lastRow.compareDocumentPosition(privacy) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
   it("renders nothing on a row but the group's name: no emblem, count, or badge", () => {
     render(<YourGroupsScreen groups={[{ id: "grp-1", name: "Climbing Crew" }]} />)
     const link = screen.getByRole("link", { name: "Climbing Crew" })

@@ -11,15 +11,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
 
-const { unsubscribeAction } = vi.hoisted(() => ({
+const { unsubscribeAction, resubscribeAction } = vi.hoisted(() => ({
   unsubscribeAction: vi.fn<(token: string) => Promise<"ok" | "service_error">>(),
+  resubscribeAction: vi.fn<(token: string) => Promise<"ok" | "service_error">>(),
 }))
-vi.mock("@/app/actions/unsubscribe", () => ({ unsubscribeAction }))
+vi.mock("@/app/actions/unsubscribe", () => ({ unsubscribeAction, resubscribeAction }))
 
 import UnsubscribeForm from "../UnsubscribeForm"
 
 beforeEach(() => {
   unsubscribeAction.mockResolvedValue("ok")
+  resubscribeAction.mockResolvedValue("ok")
 })
 
 // Why the flush: this file settles transitions outside act(), and React answers
@@ -36,6 +38,7 @@ afterEach(async () => {
     await new Promise((resolve) => setImmediate(resolve))
   })
   unsubscribeAction.mockReset()
+  resubscribeAction.mockReset()
 })
 
 describe("UnsubscribeForm", () => {
@@ -123,6 +126,90 @@ describe("UnsubscribeForm", () => {
       await screen.findByText(/nothing has changed yet/)
 
       expect(container.textContent).not.toMatch(/[—–]/)
+    })
+  })
+
+  // The way back. Somebody who unsubscribed by accident, or whose forwarded
+  // digest let another person do it for them, must not need the owner to
+  // hand-edit the database.
+  describe("the way back in, from the confirmation screen", () => {
+    async function unsubscribeFirst() {
+      render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+      await screen.findByText(/unsubscribed\. Orbit/)
+    }
+
+    it("offers a way back on the confirmation screen", async () => {
+      await unsubscribeFirst()
+
+      expect(
+        await screen.findByRole("button", { name: /Didn.t mean to\? Turn them back on/ })
+      ).toBeTruthy()
+    })
+
+    it("calls resubscribeAction with the same token when tapped", async () => {
+      await unsubscribeFirst()
+
+      fireEvent.click(await screen.findByRole("button", { name: /Turn them back on/ }))
+
+      await waitFor(() => expect(resubscribeAction).toHaveBeenCalledWith("tok_1"))
+    })
+
+    it("confirms it landed instead of leaving the unsubscribed copy standing", async () => {
+      await unsubscribeFirst()
+
+      fireEvent.click(await screen.findByRole("button", { name: /Turn them back on/ }))
+
+      expect(await screen.findByText(/You.re back on\. Orbit/)).toBeTruthy()
+      expect(screen.queryByText(/unsubscribed\. Orbit/)).toBeNull()
+    })
+
+    it("uses no dashes in the way-back copy or its confirmation", async () => {
+      // A single render, captured once: the earlier version of this test
+      // called the unsubscribeFirst() helper (which renders its own,
+      // never-unmounted instance) and then rendered a second instance,
+      // asserting against the second instance's container while clicking
+      // the first instance's button (Testing Library resolves
+      // getAllByRole across the whole, unswept document.body). The
+      // container under test never actually reached the way-back or
+      // confirmation copy, so an em dash in either string would have
+      // passed silently. This version clicks and asserts against the same
+      // container the whole way through.
+      const { container } = render(<UnsubscribeForm token="tok_1" />)
+      fireEvent.click(screen.getByRole("button", { name: "Stop sending me these" }))
+      await screen.findByText(/unsubscribed\. Orbit/)
+      expect(container.textContent).not.toMatch(/[—–]/)
+
+      fireEvent.click(screen.getByRole("button", { name: /Turn them back on/ }))
+      await screen.findByText(/You.re back on\. Orbit/)
+      expect(container.textContent).not.toMatch(/[—–]/)
+    })
+
+    describe("when the resubscribe write does not land", () => {
+      it("says so instead of confirming, and does not claim it landed", async () => {
+        resubscribeAction.mockResolvedValue("service_error")
+        await unsubscribeFirst()
+
+        fireEvent.click(await screen.findByRole("button", { name: /Turn them back on/ }))
+
+        expect(await screen.findByText(/nothing has changed yet/)).toBeTruthy()
+        expect(screen.queryByText(/You.re back on\. Orbit/)).toBeNull()
+      })
+
+      it("leaves the control usable so the tap can be repeated", async () => {
+        resubscribeAction.mockResolvedValue("service_error")
+        await unsubscribeFirst()
+
+        const control = await screen.findByRole("button", { name: /Turn them back on/ })
+        fireEvent.click(control)
+        await screen.findByText(/nothing has changed yet/)
+        expect((control as HTMLButtonElement).disabled).toBe(false)
+
+        resubscribeAction.mockResolvedValue("ok")
+        fireEvent.click(control)
+        expect(await screen.findByText(/You.re back on\. Orbit/)).toBeTruthy()
+        expect(resubscribeAction).toHaveBeenCalledTimes(2)
+      })
     })
   })
 })

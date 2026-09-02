@@ -26,7 +26,7 @@
 // send.ts: every service reply is normalized into a fixed result set here, and
 // no screen reads the underlying shape.
 
-import { unsubscribeByToken } from "@/lib/email/unsubscribe"
+import { unsubscribeByToken, resubscribeByToken } from "@/lib/email/unsubscribe"
 
 export type UnsubscribeResult = "ok" | "service_error"
 
@@ -38,6 +38,26 @@ export async function unsubscribeAction(token: string): Promise<UnsubscribeResul
     // Logged before returning, for the reason send.ts names: the production
     // deploy cost two hours because create-group.ts threw its error away.
     console.error("[unsubscribe] recording an opt-out failed", err)
+    return "service_error"
+  }
+}
+
+// The way back, from the confirmation screen's "Didn't mean to?" control.
+// Same silence discipline as unsubscribeAction: "ok" covers a real flip, an
+// unknown token, and someone who never left, because a caller must not be
+// able to tell those apart from the result any more than the endpoint lets a
+// stranger tell a real token from a guessed one.
+export type ResubscribeResult = "ok" | "service_error"
+
+export async function resubscribeAction(token: string): Promise<ResubscribeResult> {
+  try {
+    await resubscribeByToken(token)
+    return "ok"
+  } catch (err) {
+    // Same discipline as unsubscribeAction's own catch, for the same reason:
+    // the production deploy cost two hours because create-group.ts threw its
+    // error away.
+    console.error("[unsubscribe] recording a resubscribe failed", err)
     return "service_error"
   }
 }

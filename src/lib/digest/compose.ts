@@ -43,6 +43,7 @@
 
 import type { NeedsYouItem } from "@/lib/digest/needs-you"
 import type { YouMissedLine, YouMissedResult } from "@/lib/digest/you-missed"
+import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
 
 export interface ComposeDigestInput {
   groupId: string
@@ -192,7 +193,7 @@ function buildText(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
 }
 
 function lineLabel(line: YouMissedLine): string {
-  return line.authorName ?? "Someone"
+  return line.authorName ?? FORMER_MEMBER_LABEL
 }
 
 // ── HTML body ────────────────────────────────────────────────────────────

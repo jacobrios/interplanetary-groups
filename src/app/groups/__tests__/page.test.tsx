@@ -120,11 +120,37 @@ describe("the your-groups route", () => {
 
     render(await GroupsPage())
 
+    // The chrome links are named and excluded rather than sliced off by
+    // position, so a future one landing anywhere in the document does not
+    // silently shift this assertion's window onto the wrong three rows.
+    const CHROME = new Set(["Start a new group", "Privacy", "Terms"])
     const names = screen
       .getAllByRole("link")
       .map((el) => el.textContent)
-      .filter((text): text is string => Boolean(text) && text !== "Start a new group")
+      .filter((text): text is string => Boolean(text) && !CHROME.has(text))
 
     expect(names).toEqual(["Gamma Group", "Beta Group", "Alpha Group"])
+  })
+
+  // Added 2 September 2026, owner QA. The two policy links have to be
+  // reachable from the screen a signed-in person actually lands on, and
+  // "/" sends anybody who already has a group straight past its footer.
+  // Asserted at the ROUTE, not only on the component, because that is the
+  // claim being made: /groups carries a legal footer.
+  it("carries the legal footer through to the route", async () => {
+    getCurrentUser.mockResolvedValue({ id: "user-1" })
+    findMany.mockResolvedValue([
+      {
+        groupId: "grp-solo",
+        joinedAt: new Date("2026-01-01T00:00:00Z"),
+        lastSeenAt: null,
+        group: { id: "grp-solo", name: "Solo Climbing Crew" },
+      },
+    ])
+
+    render(await GroupsPage())
+
+    expect(screen.getByRole("link", { name: "Privacy" }).getAttribute("href")).toBe("/privacy")
+    expect(screen.getByRole("link", { name: "Terms" }).getAttribute("href")).toBe("/terms")
   })
 })
