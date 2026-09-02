@@ -86,6 +86,21 @@
 //     because the shortest version of a caveat is always to drop it. If you
 //     are shortening this page again, that is the check, and "is this
 //     sentence more generous than the code?" is still the question.
+//
+// AND A FIFTH WAY TO GET THIS WRONG, found by review the same day, which is
+// worth more than the four above because it is the one nobody was watching
+// for. This page was not edited into being wrong. THE TERMS PAGE WAS EDITED,
+// and that made this page's list of occasions the narrower of the two.
+//
+// The terms gained "if somebody crosses a line, tell me and I will look at
+// it", which is a second occasion on which the operator reads a member's
+// chat, and this page listed only "when something is broken". So the notice
+// under-disclosed a real reason he would read your messages, without a
+// single word of it changing. The occasion is named here now.
+//
+// THE RULE THAT FALLS OUT OF IT: these two pages make overlapping promises
+// about the same person, so a claim added to one can falsify the other at a
+// distance. Read both when you touch either.
 
 import type { Metadata } from "next"
 import LegalPage, {
@@ -199,8 +214,9 @@ export default function PrivacyPage() {
             every app you have ever used, and I would rather say it than let
             you assume otherwise. There is no technical wall between me and
             your group&apos;s messages, so this rests on a promise rather than
-            on software: I look when something is broken, not for
-            entertainment.
+            on software: I look when something is broken, or when somebody
+            reports a problem in their group and I have to work out what
+            happened, and not for entertainment.
           </li>
           <li>
             <LegalStrong>

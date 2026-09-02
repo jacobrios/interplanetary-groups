@@ -96,12 +96,17 @@ const FAINT_SURFACES = [
   // (src/components/LegalFooter.tsx, both the footer and the consent line)
   // and the "Last updated" eyebrow on the two policy pages
   // (src/components/LegalPage.tsx). Neither component sets a background of
-  // its own, so this surface is VERIFIED rather than assumed, at all five
+  // its own, so this surface is VERIFIED rather than assumed, at all SIX
   // render sites: src/app/page.tsx, src/app/groups/[id]/info/page.tsx,
   // src/app/join/[inviteToken]/JoinForm.tsx and src/app/create/page.tsx all
-  // set backgroundColor: "var(--surface-base)" on their root <main>, and
-  // LegalPage sets it on its own. This is the token's best case, not a new
-  // worst case, so the arithmetic below is unchanged by it.
+  // set backgroundColor: "var(--surface-base)" on their root <main>,
+  // LegalPage sets it on its own, and src/app/groups/page.tsx sets it on the
+  // <main> that renders YourGroupsScreen, which carries the footer as of
+  // 2 September 2026. (That sixth site was added by the owner-QA fix wave and
+  // the count above was left saying five for one commit, which is exactly the
+  // quiet staleness this block exists to prevent. Update it when you add a
+  // render site.) This is the token's best case, not a new worst case, so the
+  // arithmetic below is unchanged by it.
   //
   // And, 2 September 2026 (owner QA): the join screen's own reassurance line
   // ("No app to download..."), which moved off --text-secondary so it and

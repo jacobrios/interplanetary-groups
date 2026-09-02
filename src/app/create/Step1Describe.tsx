@@ -96,11 +96,11 @@ export default function Step1Describe({
           vertical spacing is kept local to this step, since it is a layout
           decision about this screen rather than part of the bubble's own
           shape. */}
-      {/* 1.25rem below, not the 2rem it was. See the vertical-budget note
-          above the Continue button: this is one of the five cuts that got
-          the consent line above the fold on the owner's phone, and this
-          spacing is explicitly local to this screen rather than ported. */}
-      <div style={{ marginTop: "1rem", marginBottom: "1.25rem" }}>
+      {/* 12px below, not the 2rem it was. See the vertical-budget note above
+          the Continue button: this is one of the five gaps that paid for the
+          consent line being above the fold, and this spacing is explicitly
+          local to this screen rather than ported from the design handoff. */}
+      <div style={{ marginTop: "1rem", marginBottom: "12px" }}>
         <TailedOrbitBubble>
           <p style={{ margin: 0 }}>{bubbleCopy}</p>
         </TailedOrbitBubble>
@@ -147,7 +147,7 @@ export default function Step1Describe({
           />
         </div>
 
-        <div style={{ marginTop: "1rem" }}>
+        <div style={{ marginTop: "12px" }}>
           <label
             htmlFor="description"
             style={fieldLabelStyle}
@@ -157,22 +157,37 @@ export default function Step1Describe({
           <textarea
             id="description"
             name="description"
-            // FOUR ROWS, NOT FIVE, and minHeight rather than height, so this
-            // stays a floor the field can grow past rather than a fixed box
-            // (CLAUDE.md: layout grows with content, never clips). Measured
-            // rather than guessed: the placeholder wraps to three lines and
-            // needs 106.5px including padding and border, so 118px shows it
-            // whole with room over, and resize: vertical below still lets a
-            // founder drag it taller. This was the largest single cut in the
-            // vertical budget described above the Continue button.
-            rows={4}
+            // FIVE ROWS, which is what main had, and the review round is why
+            // it is back. A first pass cut this to four to buy 25.5px for the
+            // vertical budget below, and that was a real regression at an
+            // accessibility text size rather than a free win: the placeholder
+            // wraps to MORE lines as the text grows, because the column stays
+            // the same width, so a fixed row count covers a band rather than
+            // every size. Measured at 375px wide:
+            //
+            //   root 16-18px  placeholder needs 3 lines
+            //   root 20-22px  4 lines   <- rows={4} runs out here
+            //   root 24px     5 lines   <- rows={5} runs out here
+            //   root 28-32px  6 to 8 lines, neither value holds it
+            //
+            // At 150% device text (root 24px) rows={4} clipped the last line
+            // and a half of the only example teaching a founder what to
+            // write, which is exactly the "layout grows with content, never
+            // clips" rule. rows={5} covers up to 150% and the 25.5px was
+            // found in the surrounding gaps instead. Nothing above 150% is
+            // held by any row count; that is a known limit, not an oversight.
+            rows={5}
             placeholder="e.g. A few of us climb at Summit Gym on Sunday mornings at 8, and we grab beers once a month."
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
             disabled={isExtracting}
             style={{
               width: "100%",
-              minHeight: "118px",
+              // Does NOT govern the rendered height; `rows` above does, at
+              // every text size, so this is not the lever it looks like.
+              // What it actually does is floor how small `resize: vertical`
+              // below lets a founder drag the field. Kept at main's value.
+              minHeight: "150px",
               // display: block removes the 6px of dead space an inline-level
               // form control leaves under itself for a text baseline that
               // nothing here sits on. Free height, no visual change.
@@ -224,7 +239,7 @@ export default function Step1Describe({
               // WAS 32px, the design's .s1-foot padding-top (14) plus .cta's
               // own margin-top (18), combined here because our button is a
               // direct flex child rather than nested in a .s1-foot wrapper
-              // (round-2 review finding). Now 20px.
+              // (round-2 review finding). Now 12px.
               //
               // THE VERTICAL BUDGET, 2 September 2026, owner QA, and the
               // whole point of it: the consent line under this button was
@@ -233,15 +248,26 @@ export default function Step1Describe({
               // advertises). A person agreeing to terms they cannot see is
               // the worst version of a consent line. Measured before: the
               // line ran 696px to 735px, so it started 35px past the fold.
+              // It now runs 613.5px to 653px, entirely above it.
               //
-              // Five cuts got it to 613.5px to 652.5px, entirely above:
-              // this gap 32 to 20, the description field 5 rows to 4 with a
-              // 118px floor, display: block on that field to drop its 6px
-              // inline-baseline gap, the gap above the description field
-              // 1.25rem to 1rem, the bubble's own bottom margin 2rem to
-              // 1.25rem, and the hint line losing its second sentence.
-              // Nothing gained a fixed height and nothing clips.
-              marginTop: "20px",
+              // WHERE THE HEIGHT CAME FROM, and the second version of this
+              // list is the one that matters, because the first was wrong.
+              // The first attempt took most of it from the description field
+              // (5 rows to 4), which read as free and was not: it clipped
+              // that field's placeholder at 150% device text. So the field
+              // was put back and the same 25.5px was taken from the five
+              // gaps around it instead, none of which carries content:
+              //
+              //   this gap                     32 -> 12
+              //   hint line's own top gap      11 -> 8
+              //   bubble's bottom margin     2rem -> 12px
+              //   gap above the description  1.25rem -> 12px
+              //   consent line's top gap       14 -> 12
+              //
+              // plus display: block on the field (6px of inline-baseline
+              // dead space) and the hint line losing its second sentence.
+              // Nothing here gained a fixed height and nothing clips.
+              marginTop: "12px",
             }}
           >
             Continue
@@ -264,7 +290,7 @@ export default function Step1Describe({
             lineHeight: "var(--leading-normal)",
             color: "var(--text-secondary)",
             textAlign: "center",
-            marginTop: "11px",
+            marginTop: "8px",
             marginBottom: 0,
           }}
         >
@@ -277,7 +303,7 @@ export default function Step1Describe({
             who never sees those two links is the person who starts the
             group. Step 1 only: it belongs with the first commitment, not
             repeated on every step of the wizard. */}
-        <div style={{ marginTop: "14px" }}>
+        <div style={{ marginTop: "12px" }}>
           <LegalConsentLine action="starting a group" />
         </div>
       </form>

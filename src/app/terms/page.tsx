@@ -17,6 +17,19 @@
 // people in your group" was cut at his ask, and a liability section was added
 // because he noticed the page had none. See the comment above that section
 // for why it is written the way it is.
+//
+// REVIEW, same day, and both findings are the same shape as the ones the
+// privacy notice next door keeps producing: a sentence reading wider or
+// kinder than the thing behind it.
+//
+//   - "tell me and I will look at it" named no address, and this page had
+//     none anywhere, so it promised a channel that did not exist. The
+//     address is on it now.
+//   - "I am not watching your chat as it happens" is true of the human and
+//     reads as true of the system, which it is not: every member message
+//     goes to Anthropic in real time. The privacy notice discloses that in
+//     full and this page links to it, so it was ambiguity rather than
+//     falsity, and "no person is watching" closes it.
 
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -26,6 +39,28 @@ import LegalPage, {
   LegalStrong,
   LegalText,
 } from "@/components/LegalPage"
+
+/**
+ * The one address this product publishes, and the same one the privacy
+ * notice names. Declared here rather than imported so neither page can
+ * silently follow the other somewhere it did not mean to go, and so the
+ * privacy notice's own test keeps pinning that page independently.
+ *
+ * IT IS ON THIS PAGE BECAUSE OF A PROMISE (review, 2 September 2026). The
+ * section below tells somebody to report a member who crosses a line, and
+ * before this the rendered page carried no address anywhere, so the sentence
+ * was a promise with no channel behind it, on the page the first real users
+ * will read. Naming it does not make the mail forwarding any more real:
+ * CLAUDE.md's after-launch item 14 is still outstanding, and it now covers
+ * two pages rather than one.
+ */
+const CONTACT_ADDRESS = "privacy@interplanetarygroups.com"
+
+const contactLinkStyle: React.CSSProperties = {
+  color: "var(--text-secondary)",
+  textDecoration: "underline",
+  overflowWrap: "break-word",
+}
 
 export const metadata: Metadata = {
   title: "Terms",
@@ -70,10 +105,14 @@ export default function TermsPage() {
       <LegalSection heading="What I am not responsible for">
         <LegalText>
           <LegalStrong>What people do in a group is between them.</LegalStrong>{" "}
-          I did not write it, I am not watching your chat as it happens, and I
-          cannot be responsible for how the people in your group treat you or
-          for what anybody does after a plan is made. If somebody crosses a
-          line, tell me and I will look at it.
+          I did not write it, no person is watching your chat as it happens,
+          and I cannot be responsible for how the people in your group treat
+          you or for what anybody does after a plan is made. If somebody
+          crosses a line, tell me at{" "}
+          <a href={`mailto:${CONTACT_ADDRESS}`} style={contactLinkStyle}>
+            {CONTACT_ADDRESS}
+          </a>{" "}
+          and I will look at it.
         </LegalText>
         <LegalText>
           <LegalStrong>A break-in is possible.</LegalStrong> I take reasonable
