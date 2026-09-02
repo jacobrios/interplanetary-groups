@@ -68,13 +68,27 @@ async function addVerifiedEmail(userId: string, value: string) {
   })
 }
 
+// Fixed and well before every other fixture timestamp in this file (the
+// earliest is the missed-chat message at 2026-09-02T12:00:00.000Z). Without
+// this, Prisma's schema default (@default(now())) stamps joinedAt with the
+// real wall clock at insert time, and you-missed.ts falls back to joinedAt
+// whenever lastSeenAt and lastDigestSentAt are both null. That silently
+// depends on ambient real time rather than a fixture the test controls: it
+// held only until the wall clock caught up with the hardcoded message date,
+// then every "missed" message stopped counting because joinedAt (today)
+// outran createdAt (a fixed date in the past). Pin it here so no test in
+// this file can develop that same latent dependency.
+const MEMBER_JOINED_AT = new Date("2026-01-01T00:00:00.000Z")
+
 async function makeGroup(label: string, founderId: string, memberIds: string[], timeZone = "UTC") {
   const group = await prisma.group.create({
     data: {
       name: `[TEST] ${label}`,
       founderId,
       timeZone,
-      memberships: { create: memberIds.map((userId) => ({ userId })) },
+      memberships: {
+        create: memberIds.map((userId) => ({ userId, joinedAt: MEMBER_JOINED_AT })),
+      },
     },
   })
   groupIds.push(group.id)
