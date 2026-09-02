@@ -8,7 +8,7 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor } from "@prisma/client"
-import { findUpcomingEvents, hasUpcomingScheduledEvent } from "../upcoming-list"
+import { findUpcomingEvents, hasUpcomingEventForActivity, hasUpcomingScheduledEvent } from "../upcoming-list"
 
 const AUTH_ID = `test-upcoming-list-${Date.now()}`
 let userId: string
@@ -186,5 +186,74 @@ describe("findUpcomingEvents", () => {
     await ensureGroup()
     const events = await findUpcomingEvents(groupId, NOW, 1)
     expect(events).toHaveLength(1)
+  })
+})
+
+describe("hasUpcomingEventForActivity", () => {
+  it("is true when a scheduled event for that activity starts in the future", async () => {
+    await ensureGroup()
+    await prisma.event.deleteMany({ where: { groupId } })
+    await prisma.event.create({
+      data: {
+        groupId,
+        title: "Tennis",
+        activityLabel: "tennis",
+        startsAt: new Date("2026-07-31T19:00:00Z"),
+      },
+    })
+
+    expect(await hasUpcomingEventForActivity(groupId, "tennis", NOW)).toBe(true)
+  })
+
+  it("matches the activity case-insensitively", async () => {
+    await ensureGroup()
+    await prisma.event.deleteMany({ where: { groupId } })
+    await prisma.event.create({
+      data: {
+        groupId,
+        title: "Tennis",
+        activityLabel: "Tennis",
+        startsAt: new Date("2026-07-31T19:00:00Z"),
+      },
+    })
+
+    expect(await hasUpcomingEventForActivity(groupId, "tennis", NOW)).toBe(true)
+  })
+
+  it("ignores an event for that activity that has already happened", async () => {
+    await ensureGroup()
+    await prisma.event.deleteMany({ where: { groupId } })
+    await prisma.event.create({
+      data: {
+        groupId,
+        title: "Tennis",
+        activityLabel: "tennis",
+        startsAt: new Date("2026-07-19T15:00:00Z"),
+      },
+    })
+
+    expect(await hasUpcomingEventForActivity(groupId, "tennis", NOW)).toBe(false)
+  })
+
+  it("ignores a called-off occurrence, so the group can reschedule it", async () => {
+    // The tennis-club bug: without this, cancelling Tuesday's rained-out game
+    // silences Orbit for "tennis Thursday?" because the cancelled row still
+    // reads as something already on the calendar.
+    await ensureGroup()
+    await prisma.event.deleteMany({ where: { groupId } })
+    const event = await prisma.event.create({
+      data: {
+        groupId,
+        title: "Tennis",
+        activityLabel: "tennis",
+        startsAt: new Date("2026-07-31T19:00:00Z"),
+      },
+    })
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    expect(await hasUpcomingEventForActivity(groupId, "tennis", NOW)).toBe(false)
   })
 })

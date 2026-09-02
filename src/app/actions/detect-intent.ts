@@ -2,11 +2,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { MessageAuthor, ProposalKind } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalKind } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
-import { findUpcomingEvents } from "@/lib/events/upcoming-list"
+import { findUpcomingEvents, hasUpcomingEventForActivity } from "@/lib/events/upcoming-list"
 import { formatEventDate, formatTime } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
@@ -87,7 +87,15 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     // numbered so a change request can say which one it means. One fetch, and
     // the same array resolves the model's answer, so the numbering can never
     // drift between what was shown and what is acted on.
-    const events = await findUpcomingEvents(group.id, now, 3)
+    //
+    // findUpcomingEvents is deliberately status-blind, because the group
+    // home's card region must still SHOW a called-off plan. Filtering
+    // belongs to each caller instead, and this caller must never offer a
+    // called-off plan as something to move. When this empties, the existing
+    // NO_PLANS_REPLY path answers honestly with no further change.
+    const events = (await findUpcomingEvents(group.id, now, 3)).filter(
+      (e) => e.status === EventStatus.SCHEDULED
+    )
     const upcomingLines = events.map(
       (e, i) =>
         `${i + 1}. ${e.title}, ${formatEventDate(e.startsAt, e.endsAt, group.timeZone)}`
@@ -160,14 +168,13 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       if (liveGauges.some((g) => g.activity.toLowerCase() === activityKey)) {
         return { status: "quiet" }
       }
-      const alreadyOnCalendar = await prisma.event.findFirst({
-        where: {
-          groupId: group.id,
-          startsAt: { gte: now },
-          activityLabel: { equals: openAsk.activity, mode: "insensitive" },
-        },
-        select: { id: true },
-      })
+      // A called-off plan must not suppress a fresh idea for the same
+      // activity: rescheduling is exactly what the group does next.
+      const alreadyOnCalendar = await hasUpcomingEventForActivity(
+        group.id,
+        openAsk.activity,
+        now
+      )
       if (alreadyOnCalendar) return { status: "quiet" }
 
       const planned = planAnswerGauge(
@@ -243,14 +250,15 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       if (liveGauges.some((g) => g.activity.toLowerCase() === activityKey)) {
         return { status: "quiet" }
       }
-      const alreadyOnCalendar = await prisma.event.findFirst({
-        where: {
-          groupId: group.id,
-          startsAt: { gte: now },
-          activityLabel: { equals: spark.activity, mode: "insensitive" },
-        },
-        select: { id: true },
-      })
+      // A called-off plan must not suppress a fresh idea for the same
+      // activity: rescheduling is exactly what the group does next. This is
+      // the tennis-club bug: without it, calling off a rained-out game
+      // silences Orbit for "tennis Thursday?" forever.
+      const alreadyOnCalendar = await hasUpcomingEventForActivity(
+        group.id,
+        spark.activity,
+        now
+      )
       if (alreadyOnCalendar) return { status: "quiet" }
 
       const proposedDate = chooseProposedDate(

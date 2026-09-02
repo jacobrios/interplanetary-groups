@@ -329,6 +329,21 @@ describe("findLiveProposals", () => {
     expect(live.map((p) => p.id)).not.toContain(first.proposal.id)
   })
 
+  it("does not report a live vote on a plan that has been called off", async () => {
+    const r = await createGroupProposal(await baseInput())
+    if (r.status !== "created") throw new Error("expected created")
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    // Belt and braces beside the supersede inside cancelEvent: a proposal
+    // opened in the same second as a cancellation must not keep asking the
+    // group to move a game that is off.
+    const live = await findLiveProposals(groupId!, NOW)
+    expect(live).toHaveLength(0)
+  })
+
   it("returned rows carry votes (with user), asker, and event.rsvps", async () => {
     const r = await createGroupProposal(await baseInput())
     if (r.status !== "created") throw new Error("expected created")

@@ -9,6 +9,7 @@
 // impossible to render in the first place.
 
 import { prisma } from "@/lib/prisma"
+import { EventStatus } from "@prisma/client"
 import type { ChangeProposal, Event, ProposalVote, Rsvp, User } from "@prisma/client"
 
 export type LiveProposal = ChangeProposal & {
@@ -25,7 +26,13 @@ export async function findLiveProposals(
     where: {
       groupId,
       answer: null,
-      event: { startsAt: { gt: now } },
+      event: {
+        startsAt: { gt: now },
+        // Belt and braces beside the supersede inside cancelEvent: a
+        // proposal opened in the same second as a cancellation would
+        // otherwise keep asking the group to move a game that is off.
+        status: EventStatus.SCHEDULED,
+      },
       // A proposal whose proposed time has itself passed is no longer
       // answerable: confirming it would move the plan into the past, so its
       // chips stop rendering here rather than depending on the action guard.
