@@ -305,7 +305,11 @@ member's user id, printed right below that. Once you know from the founder's
 reply which person is taking over, use that person's line. You don't need to
 open a database tool or look anything up anywhere else; both ids the next
 step needs were already sitting in the script's own output the moment it
-refused.
+refused. If that's gone by the time you hear back (a reply to an email can
+take days, and the terminal is often closed by then), just run the exact
+same lookup command again: it changes nothing on this path, so it's safe to
+run as many times as you need, and it will print the same ids again as long
+as the group's membership hasn't changed in the meantime.
 
 **Run the reassignment.** This is the one and only line that actually changes
 anything. Paste the group id and the chosen person's user id into the
