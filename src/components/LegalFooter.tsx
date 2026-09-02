@@ -24,10 +24,44 @@
 // caller wraps it in whatever spacing that screen's rhythm asks for.
 
 import Link from "next/link"
+import { visuallyHiddenStyle } from "@/components/visually-hidden"
 
 const linkStyle: React.CSSProperties = {
   color: "var(--text-secondary)",
   textDecoration: "underline",
+}
+
+/**
+ * A consent link, and the one thing that separates the two shapes in this
+ * file: it opens in a new tab.
+ *
+ * WHY, and it is a real bug rather than a convention borrowed for its own
+ * sake (owner QA, 2 September 2026). He tapped Terms from create step 1,
+ * then the back control, and landed on his groups list rather than back in
+ * the wizard. Had he already typed a group description it would have been
+ * gone. Reading the terms before agreeing to them must never cost somebody
+ * their work.
+ *
+ * WHY NOT router.back(): back links in this product are fixed parent links
+ * and never browser history (CLAUDE.md, navigation), because somebody
+ * arriving from a shared link has no history behind them. That rule is not
+ * bent here; the tab is simply never left in the first place.
+ *
+ * The footer shape deliberately does NOT do this. Nothing is lost by leaving
+ * the front door or the group info page, and a footer that spawned tabs
+ * would be the annoying version of the same convention.
+ *
+ * The "(opens in a new tab)" text is visually hidden rather than absent: a
+ * sighted person gets the new tab itself as feedback, and somebody on a
+ * screen reader gets nothing at all unless the link's own name says so.
+ */
+function ConsentLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} target="_blank" rel="noopener noreferrer" style={linkStyle}>
+      {children}
+      <span style={visuallyHiddenStyle}> (opens in a new tab)</span>
+    </Link>
+  )
 }
 
 /**
@@ -82,15 +116,8 @@ export default function LegalFooter() {
 export function LegalConsentLine({ action }: { action: string }) {
   return (
     <p style={lineStyle}>
-      By {action} you agree to the{" "}
-      <Link href="/terms" style={linkStyle}>
-        Terms
-      </Link>{" "}
-      and the{" "}
-      <Link href="/privacy" style={linkStyle}>
-        Privacy notice
-      </Link>
-      .
+      By {action} you agree to the <ConsentLink href="/terms">Terms</ConsentLink> and
+      the <ConsentLink href="/privacy">Privacy notice</ConsentLink>.
     </p>
   )
 }

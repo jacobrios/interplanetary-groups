@@ -102,6 +102,11 @@ const FAINT_SURFACES = [
   // set backgroundColor: "var(--surface-base)" on their root <main>, and
   // LegalPage sets it on its own. This is the token's best case, not a new
   // worst case, so the arithmetic below is unchanged by it.
+  //
+  // And, 2 September 2026 (owner QA): the join screen's own reassurance line
+  // ("No app to download..."), which moved off --text-secondary so it and
+  // the consent line beneath it read as one block. Same <main>, same
+  // --surface-base, already covered above.
   "surface-base",
   // The email-ask sheet's own ground: its step eyebrow and its resend line.
   "surface-low",
@@ -151,6 +156,15 @@ describe("the inventory this arithmetic was computed against", () => {
   const EXPECTED_FILES = [
     "src/app/events/[id]/ProposalSection.tsx",
     "src/app/groups/[id]/EmailAttachFlow.tsx",
+    // Added 2 September 2026, owner QA, and the guard did its job: the join
+    // screen's reassurance line moved from --text-secondary to --text-faint
+    // so it and the consent line directly under it read as one block. The
+    // surface was checked rather than assumed. JoinForm's <main> paints
+    // --surface-base (line 277) and the line sits directly on it, not inside
+    // either --surface-raised card above it, so this is the token's best case
+    // at 5.75:1 and already in FAINT_SURFACES. No new surface, no new
+    // arithmetic.
+    "src/app/join/[inviteToken]/JoinForm.tsx",
     "src/app/join/[inviteToken]/JoinSignIn.tsx",
     "src/app/page.tsx",
     "src/app/signin/SignInPanel.tsx",

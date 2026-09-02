@@ -12,6 +12,11 @@
 //
 // Deliberately not tested: the wording, for the same reason as the privacy
 // notice. See that file's header.
+//
+// OWNER QA, 2 SEPTEMBER 2026: the opening paragraph's "Please be kind to the
+// people in your group" was cut at his ask, and a liability section was added
+// because he noticed the page had none. See the comment above that section
+// for why it is written the way it is.
 
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -30,11 +35,10 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms" lastUpdated="1 September 2026">
+    <LegalPage title="Terms" lastUpdated="2 September 2026">
       <LegalText>
         The short version: this is a personal project, made by one person, and
-        it is offered exactly as it is. Please be kind to the people in your
-        group.
+        it is offered exactly as it is.
       </LegalText>
 
       <LegalSection heading="What this is">
@@ -52,6 +56,35 @@ export default function TermsPage() {
           break. It might lose a plan, send a reminder at the wrong time, or
           not send one at all. To the extent the law allows it, I am not liable
           for anything that goes wrong or for anything it costs you.
+        </LegalText>
+      </LegalSection>
+
+      {/* Added 2 September 2026 at the owner's ask, after his phone pass
+          found the page had no liability section at all. Written as an
+          honest statement of what he can and cannot stand behind, NOT as a
+          legal shield: he is one person, this is a small project, and a
+          paragraph of boilerplate indemnity language would read as a lie in
+          the voice the rest of the page speaks in. The three things he named
+          are here in his order: what members do to each other, a breach
+          being possible, and the whole thing being at your own risk. */}
+      <LegalSection heading="What I am not responsible for">
+        <LegalText>
+          <LegalStrong>What people do in a group is between them.</LegalStrong>{" "}
+          I did not write it, I am not watching your chat as it happens, and I
+          cannot be responsible for how the people in your group treat you or
+          for what anybody does after a plan is made. If somebody crosses a
+          line, tell me and I will look at it.
+        </LegalText>
+        <LegalText>
+          <LegalStrong>A break-in is possible.</LegalStrong> I take reasonable
+          care with what the app keeps, and the privacy notice says exactly
+          where it goes and who handles it. Nobody can honestly promise that a
+          small project will never be broken into, so I am not going to. Using
+          this app means accepting that risk, and it is a good reason not to
+          write anything here you would be badly hurt by seeing elsewhere.
+        </LegalText>
+        <LegalText>
+          All of it is offered as is, and you use it at your own risk.
         </LegalText>
       </LegalSection>
 
@@ -96,9 +129,8 @@ export default function TermsPage() {
           <LegalStrong>You own what you write.</LegalStrong> By posting it here
           you give permission to store it and to show it to the people in your
           group. Nothing you write is ever sold or published. It does leave
-          your group in two ways, and I would rather you heard it here: a few
-          outside services handle it so the app can work at all, and I can read
-          it myself. The{" "}
+          your group in two ways: a few outside services handle it so the app
+          can work at all, and I can read it myself. The{" "}
           <Link
             href="/privacy"
             style={{ color: "var(--text-secondary)", textDecoration: "underline" }}
@@ -119,8 +151,7 @@ export default function TermsPage() {
       <LegalSection heading="Your information">
         <LegalText>
           What else the app keeps, who can see it, and how to have it deleted
-          is all on the privacy notice, linked just above. It is worth the two
-          minutes.
+          is all on the privacy notice, linked just above.
         </LegalText>
       </LegalSection>
     </LegalPage>

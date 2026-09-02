@@ -69,8 +69,11 @@ describe("JoinForm, the ordinary join, which must not get worse", () => {
     expect(name.getAttribute("name")).toBe("memberName")
     expect(name.getAttribute("placeholder")).toBe("What should the crew call you?")
     expect(screen.getByRole("button", { name: /Join Tuesday Climbers/ })).toBeDefined()
+    // Reworded 2 September 2026: "no password" was false, since there is no
+    // password YET, and this screen's one reassuring sentence must not be
+    // more generous than the software.
     expect(
-      screen.getByText("No app to download, no password. You'll land right in the group.")
+      screen.getByText("No app to download. You'll land right in the group.")
     ).toBeDefined()
     // The second path is a door, not a second form: nothing of it is on screen
     // until somebody opens it.

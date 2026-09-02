@@ -70,6 +70,22 @@
 // reworded. The one exception is the contact address, which IS pinned by a
 // test, because a notice promising deletion at an address that is wrong or
 // missing makes the whole page a lie.
+//
+// OWNER QA, 2 SEPTEMBER 2026, and both changes are worth naming because a
+// later brevity pass could undo either without noticing:
+//
+//   - The page blurred two different things about the operator: that he CAN
+//     read the database, and WHEN he looks. A reader could land on "ask to
+//     be deleted" and infer that asking invites somebody to go and read
+//     their chat. It does not: deletion is a script plus a dashboard step,
+//     and the page now says so twice, once where the reading is admitted
+//     and once where the deletion is requested, because those are two
+//     different readers arriving from two different worries.
+//   - Words were cut; caveats were not. The four claims listed above were
+//     re-checked against the code AFTER the trim, not before it, precisely
+//     because the shortest version of a caveat is always to drop it. If you
+//     are shortening this page again, that is the check, and "is this
+//     sentence more generous than the code?" is still the question.
 
 import type { Metadata } from "next"
 import LegalPage, {
@@ -100,37 +116,36 @@ const contactLinkStyle: React.CSSProperties = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" lastUpdated="1 September 2026">
+    <LegalPage title="Privacy notice" lastUpdated="2 September 2026">
       <LegalText>
-        Interplanetary Groups is a small personal project. I built it and I
-        run it, on my own. This page says what the app keeps about you, who
-        can see it, and how to have it deleted. It is meant to be read, so I
-        have kept it short and skipped the legal padding.
+        I built Interplanetary Groups on my own, and I run it on my own. This
+        page says what the app keeps about you, who can see it, and how to
+        have it deleted. No legal padding.
       </LegalText>
 
       <LegalSection heading="What the app keeps">
         <LegalList>
           <li>
-            <LegalStrong>Your name.</LegalStrong> You type it when you join a
-            group or start one. It is how the group knows who said what.
+            <LegalStrong>Your name,</LegalStrong> so the group knows who said
+            what.
           </li>
           <li>
-            <LegalStrong>Your email address, if you give one.</LegalStrong>{" "}
-            Giving it is optional, always.
+            <LegalStrong>Your email address, if you give one.</LegalStrong> It
+            is always optional.
           </li>
           <li>
-            <LegalStrong>What you write in the group chat.</LegalStrong> Every
-            message you send, kept for as long as the group exists.
+            <LegalStrong>What you write in the group chat,</LegalStrong> kept
+            for as long as the group exists.
           </li>
           <li>
-            <LegalStrong>Your answers to plans.</LegalStrong> Whether you are
+            <LegalStrong>Your answers to plans:</LegalStrong> whether you are
             in or out, and how you voted on an idea or on a change to a time.
           </li>
           <li>
-            <LegalStrong>Your group&apos;s details.</LegalStrong> Its name, the
-            description the founder first wrote about it, the days and times
-            it meets, its time zone, and its meeting spot, including the
-            street address if the founder gave one.
+            <LegalStrong>Your group&apos;s details:</LegalStrong> its name, the
+            description the founder first wrote about it, the days and times it
+            meets, its time zone, and its meeting spot, including the street
+            address if the founder gave one.
           </li>
           <li>
             <LegalStrong>When you last opened the group,</LegalStrong> and when
@@ -143,13 +158,13 @@ export default function PrivacyPage() {
         <LegalList>
           <li>
             Your name, your messages and your answers are what running a group
-            means. Take them away and there is no group.
+            means.
           </li>
           <li>
             Your email address does two things and nothing else. It signs you
-            back in when you get a new phone or clear your browser, so you come
-            back as yourself instead of as a second copy of yourself. And it
-            sends you reminders about your own group.
+            back in on a new phone or a cleared browser, so you come back as
+            yourself instead of as a second copy of yourself, and it sends you
+            reminders about your own group.
           </li>
           <li>
             When you last opened the group is what stops a reminder telling you
@@ -168,30 +183,36 @@ export default function PrivacyPage() {
         <LegalList>
           <li>
             <LegalStrong>The people in your group</LegalStrong> see your name,
-            your messages, and your answers to plans. That is the whole point
-            of a group.
+            your messages, and your answers to plans.
           </li>
           <li>
             <LegalStrong>
               Your email address is never shown to your group.
             </LegalStrong>{" "}
             You are the only member who can see the address the app holds for
-            you, and you see it on your group&apos;s info page. Nobody else in
-            your group sees it anywhere. The two exceptions are not members:
-            I can read it, like everything else in the next point, and the
-            service that sends the email has to be handed it.
+            you, on your group&apos;s info page. The two exceptions are not
+            members: I can read it, and the service that sends the email has to
+            be handed it.
           </li>
           <li>
             <LegalStrong>I can read the database.</LegalStrong> That is true of
             every app you have ever used, and I would rather say it than let
             you assume otherwise. There is no technical wall between me and
-            your group&apos;s messages, so this part rests on a promise rather
-            than on the software: I look when something is broken and I need
-            to fix it, and not for entertainment.
+            your group&apos;s messages, so this rests on a promise rather than
+            on software: I look when something is broken, not for
+            entertainment.
+          </li>
+          <li>
+            <LegalStrong>
+              Asking to be deleted is not one of those times.
+            </LegalStrong>{" "}
+            Deleting somebody is mechanical: a script, then a dashboard, and
+            none of it involves reading what you wrote. Asking does not invite
+            me into your conversation.
           </li>
           <li>
             <LegalStrong>Nobody else,</LegalStrong> apart from the services
-            below, which handle it so the app can work at all.
+            below.
           </li>
         </LegalList>
       </LegalSection>
@@ -200,19 +221,18 @@ export default function PrivacyPage() {
         <LegalList>
           <li>
             <LegalStrong>Anthropic</LegalStrong> runs the model behind Orbit,
-            the assistant in your group. Every time somebody sends a message, a
-            picture of your group goes to Anthropic so Orbit can work out what
-            was meant. That picture is the last twenty messages with the names
-            attached to them, the next few plans with their days and times, any
-            idea the group is voting on right now, any open question about
-            moving a plan, including the name of whoever asked, and any day
-            Orbit is still waiting to hear back about. Your group&apos;s
-            description goes too: the first time you describe your group
-            while starting one, which is before the group itself exists, and
-            again every time Orbit asks a follow-up question about it and you
-            answer, since each answer is sent back alongside the description
-            it is clarifying. This is the one on this list most people would
-            not guess, which is why it is first.
+            the assistant in your group. Every message sends a picture of your
+            group to Anthropic so Orbit can work out what was meant: the last
+            twenty messages with the names attached, the
+            next few plans with their days and times, any idea the group is
+            voting on right now, any open question about moving a plan,
+            including the name of whoever asked, and any day Orbit is still
+            waiting to hear back about. Your group&apos;s description goes too:
+            once when you first describe your group while starting one, before
+            the group itself exists, and again with every answer you give to
+            Orbit&apos;s follow-up questions, since each answer is sent
+            alongside the description it is clarifying. This is the one most
+            people would not guess, which is why it is first.
           </li>
           <li>
             <LegalStrong>Resend</LegalStrong> sends the email. It handles your
@@ -225,16 +245,15 @@ export default function PrivacyPage() {
           </li>
           <li>
             <LegalStrong>Vercel</LegalStrong> runs the site. Like any web host,
-            its server logs record the ordinary details of a request, including
-            your IP address.
+            its logs record the ordinary details of a request, including your IP
+            address.
           </li>
           <li>
             <LegalStrong>Better Stack</LegalStrong> watches whether the site is
             broken. What it gets is the error, not your information. I will not
-            promise it never sees a scrap of one: when something breaks, the
-            error sometimes repeats back the thing that broke it, and that
-            thing could be yours. Nothing I wrote puts your information in
-            there.
+            promise it never sees a scrap of one, because an error sometimes
+            repeats back the thing that broke it, and that could be yours.
+            Nothing I wrote sends your information there.
           </li>
         </LegalList>
       </LegalSection>
@@ -242,8 +261,8 @@ export default function PrivacyPage() {
       <LegalSection heading="Cookies">
         <LegalText>
           The app sets cookies to keep you signed in, and that is all they do.
-          There are no analytics, no tracking, no advertising, and nothing that
-          follows you around other websites.
+          No analytics, no tracking, no advertising, and nothing that follows
+          you around other websites.
         </LegalText>
       </LegalSection>
 
@@ -253,9 +272,9 @@ export default function PrivacyPage() {
           <a href={`mailto:${CONTACT_ADDRESS}`} style={contactLinkStyle}>
             {CONTACT_ADDRESS}
           </a>{" "}
-          and ask. It is done by hand, by me, within seven days. There is no
-          button for it yet, and I would rather tell you that than pretend
-          there is.
+          and ask. I do it within seven days, with a script and then a
+          dashboard, and it is not a read of your messages. There is no button
+          for it yet, and I would rather say so than pretend there is.
         </LegalText>
 
         <LegalText>What goes:</LegalText>
@@ -263,22 +282,19 @@ export default function PrivacyPage() {
           <li>your account and your name;</li>
           <li>your email address;</li>
           <li>
-            every answer you ever gave: whether you were in or out of a plan,
-            and every vote on an idea or on a change to a time, on past plans
-            as well as upcoming ones;
+            every answer you ever gave: in or out of a plan, and every vote on
+            an idea or on a change to a time, on past plans as well as upcoming
+            ones;
           </li>
           <li>
             the line the group saw when you joined, in every group, including
-            ones you have already left. This one takes a judgement call rather
-            than a lookup, and you should know that: the app never recorded who
-            those lines were about, so they are found by matching your name and
-            I confirm each one by hand. One in a group you joined, never posted
-            in, and then left can be missed;
+            ones you have already left. This one is a judgement call rather than
+            a lookup, and you should know that: the app never recorded who those
+            lines were about, so they are found by matching your name and I
+            confirm each by hand. One in a group you joined, never posted in,
+            and then left can be missed;
           </li>
-          <li>
-            any group you started that nobody else is left in. It goes with
-            you.
-          </li>
+          <li>any group you started that nobody else is left in.</li>
         </LegalList>
 
         <LegalText>
@@ -288,9 +304,9 @@ export default function PrivacyPage() {
           <li>
             <LegalStrong>Your chat messages stay in the group,</LegalStrong>{" "}
             and they stop carrying your name. Where your name used to be, the
-            group sees &ldquo;Former member&rdquo; instead. They are not
-            removed, because taking one half of a conversation away leaves
-            everybody else&apos;s messages making no sense.
+            group sees &ldquo;Former member&rdquo; instead. Taking one half of
+            a conversation away leaves everybody else&apos;s messages making no
+            sense.
           </li>
           <li>
             <LegalStrong>
@@ -299,23 +315,23 @@ export default function PrivacyPage() {
             If another member typed your name in a message, or Orbit said
             &ldquo;Sam and Jordan are in so far,&rdquo; those words belong to
             the conversation and they stay. Nothing goes hunting through
-            everybody&apos;s messages for your name, and I would rather be
-            honest about that than promise a clean sweep I cannot deliver.
+            everybody&apos;s messages for your name, and I would rather say so
+            than promise a clean sweep I cannot deliver.
           </li>
         </LegalList>
 
         <LegalText>
-          One thing has to be sorted out first. If you started a group that
-          other people are still in, the group needs to be handed to one of
-          them before your account can go, so their group does not disappear
-          with you. Email the address above and we will work it out.
+          One thing first. If you started a group other people are still in, it
+          has to be handed to one of them before your account can go, so their
+          group does not disappear with you. Email the address above and we will
+          sort it out.
         </LegalText>
       </LegalSection>
 
       <LegalSection heading="Children">
         <LegalText>
-          This is not built for children under 13, and it is not meant for
-          them to use.
+          This is not built for children under 13, and is not meant for them to
+          use.
         </LegalText>
       </LegalSection>
 

@@ -96,7 +96,11 @@ export default function Step1Describe({
           vertical spacing is kept local to this step, since it is a layout
           decision about this screen rather than part of the bubble's own
           shape. */}
-      <div style={{ marginTop: "1rem", marginBottom: "2rem" }}>
+      {/* 1.25rem below, not the 2rem it was. See the vertical-budget note
+          above the Continue button: this is one of the five cuts that got
+          the consent line above the fold on the owner's phone, and this
+          spacing is explicitly local to this screen rather than ported. */}
+      <div style={{ marginTop: "1rem", marginBottom: "1.25rem" }}>
         <TailedOrbitBubble>
           <p style={{ margin: 0 }}>{bubbleCopy}</p>
         </TailedOrbitBubble>
@@ -143,7 +147,7 @@ export default function Step1Describe({
           />
         </div>
 
-        <div style={{ marginTop: "1.25rem" }}>
+        <div style={{ marginTop: "1rem" }}>
           <label
             htmlFor="description"
             style={fieldLabelStyle}
@@ -153,14 +157,26 @@ export default function Step1Describe({
           <textarea
             id="description"
             name="description"
-            rows={5}
+            // FOUR ROWS, NOT FIVE, and minHeight rather than height, so this
+            // stays a floor the field can grow past rather than a fixed box
+            // (CLAUDE.md: layout grows with content, never clips). Measured
+            // rather than guessed: the placeholder wraps to three lines and
+            // needs 106.5px including padding and border, so 118px shows it
+            // whole with room over, and resize: vertical below still lets a
+            // founder drag it taller. This was the largest single cut in the
+            // vertical budget described above the Continue button.
+            rows={4}
             placeholder="e.g. A few of us climb at Summit Gym on Sunday mornings at 8, and we grab beers once a month."
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
             disabled={isExtracting}
             style={{
               width: "100%",
-              minHeight: "150px",
+              minHeight: "118px",
+              // display: block removes the 6px of dead space an inline-level
+              // form control leaves under itself for a text baseline that
+              // nothing here sits on. Free height, no visual change.
+              display: "block",
               padding: "14px 15px",
               backgroundColor: "var(--surface-raised)",
               border: "1px solid var(--hairline)",
@@ -205,11 +221,27 @@ export default function Step1Describe({
               borderRadius: "30px",
               cursor: canSubmit ? "pointer" : "not-allowed",
               opacity: canSubmit ? 1 : 0.5,
-              // 32px: .s1-foot's padding-top (14) plus .cta's own
-              // margin-top (18) from the design, combined here since our
-              // button is a direct flex child rather than nested in a
-              // .s1-foot wrapper (round-2 review finding).
-              marginTop: "32px",
+              // WAS 32px, the design's .s1-foot padding-top (14) plus .cta's
+              // own margin-top (18), combined here because our button is a
+              // direct flex child rather than nested in a .s1-foot wrapper
+              // (round-2 review finding). Now 20px.
+              //
+              // THE VERTICAL BUDGET, 2 September 2026, owner QA, and the
+              // whole point of it: the consent line under this button was
+              // BELOW THE FOLD on his phone (iPhone 13 Pro in Chrome, which
+              // gives the page 661 CSS pixels, not the 844 the device
+              // advertises). A person agreeing to terms they cannot see is
+              // the worst version of a consent line. Measured before: the
+              // line ran 696px to 735px, so it started 35px past the fold.
+              //
+              // Five cuts got it to 613.5px to 652.5px, entirely above:
+              // this gap 32 to 20, the description field 5 rows to 4 with a
+              // 118px floor, display: block on that field to drop its 6px
+              // inline-baseline gap, the gap above the description field
+              // 1.25rem to 1rem, the bubble's own bottom margin 2rem to
+              // 1.25rem, and the hint line losing its second sentence.
+              // Nothing gained a fixed height and nothing clips.
+              marginTop: "20px",
             }}
           >
             Continue
@@ -218,8 +250,14 @@ export default function Step1Describe({
 
         {/* Hint line below the primary action (mockup screen 01 position).
             Reference text: meta scale, secondary color, never an action.
-            Rendered in the pause state too — it explains what Orbit is
-            doing with the description either way. */}
+            Rendered in the pause state too, since it explains what Orbit is
+            doing with the description either way.
+
+            "Mention your usual spot too, if you have one." was deleted
+            2 September 2026 at the owner's ask: it cost a whole rendered
+            row on his phone, and the venue it asks for never gates anything
+            (CLAUDE.md, venue never gates), so nothing is lost by a founder
+            who does not read it. */}
         <p
           style={{
             fontSize: "var(--type-meta)",
@@ -231,7 +269,6 @@ export default function Step1Describe({
           }}
         >
           Orbit reads this to set your days, send reminders, and build a shared group page.
-          Mention your usual spot too, if you have one.
         </p>
 
         {/* The same consent line the join screen carries, beside the same

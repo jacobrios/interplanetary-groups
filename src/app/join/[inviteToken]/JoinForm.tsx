@@ -161,12 +161,28 @@ const fieldErrorStyle: CSSProperties = {
   color: "var(--danger)",
 }
 
+// The reassurance line, and the consent line under it, are ONE BLOCK as of
+// 2 September 2026 (owner QA). They were not: this line was --text-secondary
+// inside a 16px inset, and LegalConsentLine is --text-faint at the full
+// column width, so two centred lines of the same size sat at two shades and
+// two measures directly under each other and read as a mistake, which is
+// what he noticed.
+//
+// Both fixed here rather than in the shared component: LegalFooter's own
+// --text-faint is deliberate and is shared by four placements, so the line
+// that moves is this one. Dropping the 16px inset is also what buys the
+// copy its single row, measured: at the old 295px measure the sentence
+// wrapped to two lines, at the full 327px it is 299.3px and fits on one.
+//
+// The copy itself lost "no password", which was simply false: there is no
+// password YET. The rest of this slice is about copy not being more
+// generous than the software, and this sentence was the product's own
+// version of the same bug.
 const reassureStyle: CSSProperties = {
   marginTop: "13px",
-  padding: "0 16px",
   textAlign: "center",
   fontSize: "var(--type-eyebrow)",
-  color: "var(--text-secondary)",
+  color: "var(--text-faint)",
   fontWeight: 500,
   lineHeight: "var(--leading-normal)",
 }
@@ -329,7 +345,7 @@ export default function JoinForm({
             </button>
 
             <p style={reassureStyle}>
-              No app to download, no password. You&apos;ll land right in the group.
+              No app to download. You&apos;ll land right in the group.
             </p>
 
             {/* Consent, beside the action rather than in a page footer.
