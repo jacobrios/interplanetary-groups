@@ -31,7 +31,9 @@ beforeEach(() => {
 // "ReferenceError: window is not defined", blamed on whichever file was running
 // rather than this one. Draining the queue inside act() leaves nothing pending.
 // Fuller note, including the three pre-existing files with the same pattern, is
-// in src/app/groups/[id]/__tests__/SeenMarker.test.tsx.
+// in src/app/groups/[id]/__tests__/SeenMarker.test.tsx. As of 2 Sept 2026
+// vitest.setup.ts does this for every jsdom file, so this local copy is
+// redundant rather than wrong, and was left in place.
 afterEach(async () => {
   cleanup()
   await act(async () => {
