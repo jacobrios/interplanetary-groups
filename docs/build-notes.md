@@ -666,6 +666,10 @@ Seven High-priority items come due at the moment of the first production deploy.
 
     **Set up real mail forwarding for `privacy@interplanetarygroups.com`.** The privacy notice shipped on 1 September 2026 names that address as the only way to ask to be deleted, and nothing receives mail there until the owner creates the forward to his own inbox. **This does not gate the merge**, because there is no migration and no code anywhere reads the address; it gates the tennis group. A deletion request sent to a dead address is the single failure that turns the whole notice into a lie, and it fails silently on the sender's side, which is the worst shape a failure can take here. The domain is bought through Vercel and its DNS already carries Resend's sending records for `account.` and `updates.`; a forwarding rule is a separate thing from both and does not touch either. **Nobody has opened the screen yet**, so nothing here names a provider or a setting, on the lesson item 13 learned three times over: do not write a third-party setting into this record until somebody has looked at it.
 
+15. **Run the cancel-one-occurrence migration against production before this branch merges to main.** Migration `20260902203547_add_event_status`. The command and the method are item 1's, unchanged and for the same reason: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy` as a one-off inline override on that single command, never by editing `.env`, then `npm run db:which` immediately afterwards to confirm the checkout is back on dev-test. Port 5432, the session pooler; 6543 hangs silently with no error, which is item 1's recorded trap.
+    *What it adds:* the `EventStatus` enum (`SCHEDULED`, `CANCELLED`), plus `Event.status` defaulting to `SCHEDULED` and a nullable `Event.cancelledAt`. Purely additive, no backfill, no `DROP` of any kind, no index. Read the generated SQL once before running it; it is two statements.
+    *Why the order matters, and it is the milder direction of item 1's rule rather than the severe one.* Running the migration first is safe: production briefly carries two columns the live code has never heard of, and nothing reads them until this slice ships. Running it late is not catastrophic the way item 1's was, because no unselected whole-row `User` query is involved, but it does break the group home and the event page for every member the moment the code lands, since both read `Event.status` to decide whether a plan reads as called off. **It is still a merge gate**, just for a smaller blast radius than item 1's.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -7236,3 +7240,89 @@ detection call costs $0.0047 (measured, above), so a full 33-case `eval:detect` 
 roughly **80 cents**, and the owner's stated ceiling of $20 a month buys about twenty-five full
 benches. **Money was never the constraint.** What actually makes model work unsuitable for a short
 window is tuning rounds and wall clock, and that is what should be cited from here on.
+
+## §11 entry: cancelling one occurrence (2 September 2026)
+
+Built in a day, eleven tasks, against a real deadline: the tennis group's invite link goes out around
+Friday 4 September, and nothing in the product could say a plan was off. Asked directly what makes
+tennis get cancelled, the organizer said weather. Test-suite baseline at slice start, run rather than
+copied: 1581 passing across 140 files. Finishing: 1629 across 144.
+
+**The row is never deleted, and that is the decision the whole slice rests on.**
+`hasUpcomingScheduledEvent` asks one question, "is there a scheduled event starting in the future",
+with no status filter. Delete the row on a cancel and the hourly cron would recreate the cancelled
+plan within the hour with a fresh announcement: the guard would see nothing upcoming,
+`computeNextOccurrence` would return the same slot, and the unique `scheduledKey` freed by the delete
+would be available again. With a status flag the row stays, the guard still sees it, and **the
+cancelled row is its own tombstone; reconcile needed no change at all.** A second correct behaviour
+falls out free: no new occurrence appears until the cancelled one's start passes, after which the
+cron schedules next week's as normal. Two tests pin this, and a reviewer independently reproduced
+both mutations: adding `status: SCHEDULED` to the guard reddens the first, and deleting the row
+instead of cancelling makes reconcile recreate the occurrence as a fresh SCHEDULED event.
+
+**RSVPs survive a cancel untouched, and that is what makes "anyone can undo it" safe rather than
+merely permitted.** The contrast with `move.ts` is the argument: a move deletes every RSVP because
+the plan changed, and an 8am yes displayed against a 6pm plan misrepresents who is coming. A cancel
+does not change the plan, it removes it; if it comes back it is the identical plan at the identical
+time, and the people who said they were coming still mean it. Deleting their answers would be
+destructive with no truth behind it. Proven in the browser, not just in tests: a cancel and restore
+round trip returned the card to "1 In · 1 Out · 2 TBD", exactly what it read before.
+
+**Orbit names the person who called it off, and no other Orbit announcement names anyone.** The
+impersonal rule is about preferences: naming a person's constraint turns "what time works?" into
+"how do we accommodate Sam?". This is not a preference. A time change goes through a group vote, so
+it is nobody's individual call; **a cancellation has no vote and no permission gate**, which means
+the social check is the only check there is. An anonymous cancellation in a 16-to-20 person group
+leaves nobody to ask why. Settled with the owner during planning.
+
+**The consequence, registered as debt: this is the product's first stored Orbit message body
+containing a member's name.** Verified rather than assumed. `buildTallyLine` is called at render, so
+every other Orbit line naming people is composed live from vote rows and never stored. Person
+deletion works by nulling `authorId` on a person's own messages and cannot reach a name inside
+Orbit's prose, so a deleted person's name survives in that one line. Same class as the deletion
+script's hand-judged join-line matching, which is already accepted.
+
+**Four read sites beyond the digest treated a called-off plan as still on, and the worst of them
+would have cost the tennis group the thing they most need.** Rain out Tuesday, say "tennis
+Thursday?", and Orbit stayed silent, because a cancelled tennis event still counted as booked and
+the spark path refuses a second idea for an activity already on the calendar. The group would have
+lost the ability to reschedule the game they had just called off. That guard turned out to be the
+same query written twice, so it was extracted to `hasUpcomingEventForActivity` and tested directly;
+the plan's own approach could not have tested it at all, because `detectIntentAction` has no test
+harness anywhere in the repo. The others: the numbered plan list handed to the model, `findLiveProposals`,
+and the write guards on `setRsvp`, `moveEventCoreInTx` and `createGroupProposal`.
+
+**The digest's "you missed" widening was done from event rows, not by widening its MEMBER filter.**
+That filter is settled, and widening it reopens "which other Orbit messages qualify", which is a
+design question rather than a filter change. Reading `cancelledAt` against the member's own read
+position keeps the rule intact, matches the structured-extract-then-format discipline, and makes an
+undone cancellation vanish from the email automatically, since a restore nulls the field. The
+needs-you fix is the smaller half and the more urgent one: without it a Thursday cancellation
+produced a Friday email telling the group to RSVP to a game that is not happening, which is worse
+than silence.
+
+**The card and the detail screen disagree about counts on purpose.** The card drops its counts, the
+detail screen keeps its roster. The preview card shows the gist and the gist is that the plan is off;
+the detail screen carries completeness, and those answers still exist. Both files say so, or a future
+reader would "fix" one of them.
+
+**A race the plan did not anticipate, closed with a real test.** The first implementation put the
+cancelled check in `moveEventCoreInTx`'s pre-read, which that file's own comment declares is a fast
+path and not the guard. A cancel committing between the pre-read and the conditional write let both
+succeed: the plan moved, every RSVP was deleted, and Orbit announced a new time for a called-off
+plan. The fix is one clause on the conditional write. The test opens a real transaction and commits
+a genuinely separate second-connection write into that exact gap, and a reviewer removed the clause
+and watched it go red.
+
+**Two honest gaps, both stated rather than discovered later.** The filter that stops Orbit offering a
+called-off plan as a move target has **no test**: it is one line inside an action this repo cannot
+drive, and building that harness is its own slice. And `src/app/actions/cancel-event.ts` has no test
+of its own; a reviewer read both actions and cleared every error branch, which is read-only
+assurance, not coverage.
+
+**Debt, and the one the group will actually feel:** a member who already saved the plan to their
+calendar still gets buzzed. "Add to calendar" is hidden on a called-off plan, so there is no path to
+re-fetch an `.ics` carrying `STATUS:CANCELLED`. The subscribable feed in §6 is the real fix. Also:
+the digest fires at 8pm group-local, so a Tuesday-morning cancellation of a Tuesday-evening game
+reaches the inbox after the game, and the date phrasing has no past tense, so it reads "Called off:
+Tennis this Tue" about a Tuesday already gone. Low frequency, and the owner's call.
