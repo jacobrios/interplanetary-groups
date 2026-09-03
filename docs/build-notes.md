@@ -7236,3 +7236,29 @@ detection call costs $0.0047 (measured, above), so a full 33-case `eval:detect` 
 roughly **80 cents**, and the owner's stated ceiling of $20 a month buys about twenty-five full
 benches. **Money was never the constraint.** What actually makes model work unsuitable for a short
 window is tuning rounds and wall clock, and that is what should be cited from here on.
+
+**Correction, 2 September 2026: the 1Password diagnosis recorded on 31 August is wrong, and it took
+two days to land because the correction was parked outside the repository.** The entry above records
+that the 1Password CLI app integration "failed throughout the incident and was never resolved" with
+`op whoami` returning "no account found for filter", and recommends a `read -rs` typed-paste fallback
+plus two notes to be added to `docs/runbooks/production-migration.md`. **None of that stands.** The
+CLI had simply been signed out. `op signin` is the entire fix, the owner confirms that is what he
+does whenever it stops working, and the runbook's `op read` steps work exactly as written. The
+runbook needs no notes and the `read -rs` fallback should never be revived.
+
+**The process failure is the more useful half.** The retraction was reached on 31 August, on the same
+day, and written up as a queued micro-PR at `.claude/carryover/fix-retracted-1password-diagnosis.md`,
+to be run once the concurrent latency slice merged. That slice closed on 1 September. The file is
+gone, presumably with the worktree it lived in, so the correction was never applied and the wrong
+claim sat in CLAUDE.md, which loads every session, for two days. On 2 September a planning session
+read it and repeated it back to the owner as a live warning about a tool that works fine.
+
+**The rule this earns, and it generalises past this incident: a correction parked outside the
+repository is not a correction.** Land it in the same session it is reached, as its own micro-PR
+against main if it belongs to no open slice, or accept that it may never land at all. The queue-it-
+behind-the-open-slice instinct is right for code that would conflict; it is wrong for a documentation
+correction, which conflicts with nothing and whose whole cost is paid by every session that reads the
+stale version in the meantime. This is the second time this project has been bitten by the same
+shape: the safety-net template's working-directory fix never reached the project it came from either,
+which is why `safety-net-drift.mjs` exists.
+
