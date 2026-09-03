@@ -277,10 +277,9 @@ export default function EmailAskNote({
    * by which point a revalidation may already have nulled it.
    *
    * Scoping is unchanged and is the whole safety of it: it holds a sheet that
-   * is ALREADY open, and it can never open one, because it is only ever set
-   * from an effect that runs when the sheet is genuinely on screen. A member
-   * the gate says nothing to sees nothing, on any re-render, and a test holds
-   * that. It stores which ask was live rather than a bare boolean, so the copy
+   * is ALREADY open, and it can never open one, because it is only ever set on
+   * a render where `showing` is already true. A member the gate says nothing to
+   * sees nothing, on any re-render, and a test holds that. It stores which ask was live rather than a bare boolean, so the copy
    * cannot silently switch asks underneath a member reading it. `answered`
    * still outranks it, so every exit still closes the sheet.
    */
@@ -378,9 +377,26 @@ export default function EmailAskNote({
   // `now` is the server render's clock arriving as a prop, never new Date(), so
   // the stored instant never depends on the device's own clock. It is in the
   // dependency array because it is genuinely read here; the trigger is still
-  // `showing`. A fresh server render while the sheet is open rewrites the same
-  // cookie a few moments later, which is harmless: the member is looking at the
-  // sheet at that moment, so that is when the cooldown should start.
+  // `showing`.
+  //
+  // WHAT THAT MEANS IN PRACTICE, stated plainly because it is the normal path
+  // rather than an edge case, and an earlier version of this comment implied
+  // the opposite. `now` is a new value on every server render, and the latch
+  // above deliberately holds this sheet open ACROSS those renders, so each
+  // revalidation that arrives while the sheet is up refires this effect and
+  // rewrites the cookie. The stored instant is therefore the last render while
+  // the sheet was open, not the moment it first appeared, and the 24 hours runs
+  // from there.
+  //
+  // Accepted, not guarded, and the reason is the sheet's own modality: it
+  // covers the screen and blocks the composer, so a member cannot do anything
+  // that would revalidate while it is up. That bounds this to the one or two
+  // renders already in flight from their own last send, seconds apart, which
+  // moves the deadline by seconds. A guard here would buy nothing and would add
+  // a second thing that has to agree with the write.
+  //
+  // What is genuinely pinned is that a single appearance writes ONCE, not once
+  // per render, and a test asserts that count rather than just the value.
   //
   // Development StrictMode runs this twice. The second write is the same value
   // to the same cookie, so there is deliberately no guard for it.
