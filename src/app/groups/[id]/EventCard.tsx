@@ -109,6 +109,37 @@ export default function EventCard({
             color: "inherit",
           }}
         >
+          {/* Called-off status, above the title (QA feedback round, spec
+              §13). It used to share the counts row below, right-aligned,
+              which the owner found missable on his phone; the cause was
+              position, not size, so it moves here to match the detail
+              screen. Card-local rather than a change to NeedLabel itself:
+              NeedLabel is shared with IdeaCard and the event detail screen,
+              and this above-title slot is specific to this card. Row-
+              neutral by construction: the counts row below drops entirely
+              on a called-off card (it held nothing else), so this replaces
+              rather than adds a row; the marginBottom here mirrors the
+              0.55em the removed row used to carry above it, so the move
+              costs nothing.
+
+              MEASURED, not assumed (browser pass, mobile 375x812): a
+              filled chip (surface-low fill, 3px/9px padding, 20px radius)
+              was built and cost 4.2px in the one case that can grow, all
+              cards on a group home called off, where the tallest card is
+              itself a cancelled one (127.8px before this slice's reposition,
+              132px with the chip). The owner's hard constraint, stated
+              twice, is that this slice adds not one pixel to the card
+              region's height; his ruling in advance was that if the chip
+              costs height there, the chip goes and the reposition stays.
+              It does, so the fill, padding and radius below are gone: the
+              bare NeedLabel, repositioned only. Same case remeasured at
+              127.8px, matching the before number exactly. */}
+          {isCancelled && (
+            <div style={{ marginBottom: "0.55em" }}>
+              <NeedLabel value={needLabel} />
+            </div>
+          )}
+
           {/* Event title. Steps down to --text-secondary when called off:
               status is carried by brightness, never by hue (the owner is
               red/green colourblind), and the label above already names the
@@ -156,18 +187,26 @@ export default function EventCard({
               fixes a height or hides overflow, staying inside the card's own
               overflow:hidden only because the row is free to grow. Both
               inside the Link, same as before this task, so the label joins
-              the tap target rather than shrinking it. */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "baseline",
-              columnGap: "10px",
-              rowGap: "3px",
-              marginTop: "0.55em",
-            }}
-          >
-            {!isCancelled && (
+              the tap target rather than shrinking it.
+
+              Called off (QA feedback round, spec §13): this whole row is
+              dropped on a cancelled card rather than left rendering with
+              nothing but the label in it. The label used to live here,
+              right-aligned; it moved above the title (see above), and the
+              row it left behind holds nothing else on a called-off plan
+              (no counts), so removing the row is what keeps the move
+              row-neutral rather than adding an empty one. */}
+          {!isCancelled && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "baseline",
+                columnGap: "10px",
+                rowGap: "3px",
+                marginTop: "0.55em",
+              }}
+            >
               <p
                 style={{
                   fontSize: "var(--type-label)",
@@ -180,13 +219,13 @@ export default function EventCard({
               >
                 {countsLabel}
               </p>
-            )}
-            {needLabel && (
-              <div style={{ flexShrink: 0, marginLeft: "auto" }}>
-                <NeedLabel value={needLabel} />
-              </div>
-            )}
-          </div>
+              {needLabel && (
+                <div style={{ flexShrink: 0, marginLeft: "auto" }}>
+                  <NeedLabel value={needLabel} />
+                </div>
+              )}
+            </div>
+          )}
         </Link>
 
         {/* RSVP controls — only for authenticated viewers. Bottom-anchored

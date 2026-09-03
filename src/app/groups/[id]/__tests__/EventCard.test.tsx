@@ -142,6 +142,61 @@ describe("EventCard, a called-off plan", () => {
     expect(screen.queryByText(/Needs your RSVP/)).toBeNull()
   })
 
+  // QA feedback round (spec §13): the label was missable on a real phone
+  // because of POSITION, not size. It had inherited the need-label slot
+  // down in the counts row; it now sits above the title, matching the
+  // detail screen. A filled chip was also built and measured in the
+  // browser (task-5 report): it cost 4.2px in the one case that can grow,
+  // all cards on a group home called off, which breaks the owner's hard
+  // constraint that this must not add a pixel to the card region's height.
+  // His ruling in advance was that if the chip costs height there, the
+  // chip goes and the reposition stays — so this asserts the bare label,
+  // repositioned only, with no fill. The height claim itself is verified
+  // separately in the browser, not by this jsdom test, which cannot lay
+  // anything out.
+  it("puts the label above the title, unfilled, off the counts row", () => {
+    const { container } = render(
+      <EventCard
+        event={{
+          id: "e1",
+          title: "Tennis",
+          startsAt: new Date("2099-06-14T18:00:00Z"),
+          endsAt: null,
+          status: EventStatus.CANCELLED,
+          venues: [],
+        }}
+        groupId="g1"
+        timeZone="UTC"
+        inCount={4}
+        outCount={1}
+        pendingCount={3}
+        viewerStatus={null}
+        viewerHasSession
+      />
+    )
+
+    const label = screen.getByText("Called off")
+    const title = screen.getByText("Tennis")
+
+    // Above the title: the label's position in the document precedes the
+    // title's, so title "follows" label.
+    expect(label.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // No fill: the chip was measured to cost height in the all-cancelled
+    // case and was pulled per the owner's advance ruling, so the wrapper
+    // above the title carries no background of its own.
+    const wrapper = label.parentElement as HTMLElement
+    expect(wrapper.style.backgroundColor).toBe("")
+
+    // The counts row it left behind holds nothing else on a called-off
+    // card, so it is dropped rather than left as an empty wrapper.
+    expect(container.querySelector('[data-ask]')).toBeNull()
+    const flexRows = Array.from(container.querySelectorAll("div")).filter(
+      (el) => el.style.display === "flex" && el.style.flexWrap === "wrap"
+    )
+    expect(flexRows).toHaveLength(0)
+  })
+
   it("is unchanged for a live plan", () => {
     render(
       <EventCard
