@@ -281,8 +281,16 @@ export default async function GroupPage({ params }: Props) {
   // component owns the decision (shouldOfferEmail), this page only owns
   // gathering the facts that decision needs, and this is one more of them.
   //
-  // The skipped case passes the values that cannot produce an ask, which is
-  // not a fiction the gate has to trust: the count alone already closes it.
+  // The skipped case passes the values that cannot produce an ask. What
+  // makes that safe differs by which of the two skip branches fired, and
+  // both need naming here rather than one: emailAskIsSettled closes the gate
+  // on the count and asked-at columns alone, before shouldOfferEmail ever
+  // reaches latestContributionAt, so the fake null there is genuinely inert.
+  // emailAskIsSnoozed closes it on lastShownAt instead, with emailAskCount
+  // frequently still 0 on that branch (a snooze on the very first ask), so
+  // the count is not what closes this one. It is still safe, for the same
+  // shape of reason: shouldOfferEmail checks the snooze before it ever reads
+  // latestContributionAt, so the fake values are never consulted either way.
   const emailAsk: EmailAskNoteProps | null =
     viewer && askState
       ? {

@@ -281,7 +281,19 @@ const IDEA: IdeaItem = {
   },
 }
 
-/** The group home's whole client tree, with Orbit's email ask showing. */
+/**
+ * The group home's whole client tree, with Orbit's email ask showing.
+ *
+ * WARNING for whoever calls this a second time in the same test: rendering
+ * EmailAskNote writes the email-ask cooldown cookie into jsdom's shared
+ * cookie jar the moment it appears, and nothing in this file clears it
+ * afterward (unlike EmailAskNote.test.tsx's own suite, which resets it in an
+ * afterEach for exactly this reason). This file is safe today because it
+ * renders the group home once per test; a future test that calls
+ * renderGroupHome() twice would find the sheet silently absent on the second
+ * render, with no error, because the cookie written by the first render
+ * reads as fresh to the mount check.
+ */
 function renderGroupHome() {
   // jsdom has no scrollIntoView; the feed calls it on mount.
   Element.prototype.scrollIntoView = vi.fn()

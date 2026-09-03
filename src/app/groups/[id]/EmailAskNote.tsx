@@ -242,12 +242,6 @@ export default function EmailAskNote({
    * now says. This codebase had already learned the same lesson one file over,
    * in EmailStatusRow's `attached` state, for the same reason.
    *
-   * Scoped deliberately, because the dangerous version of this is easy to
-   * write: it holds a sheet that is ALREADY open, and it can never open one.
-   * A member the gate says nothing to sees nothing, on any re-render, and a
-   * test holds that. It stores which ask was live rather than a bare boolean,
-   * so the copy cannot silently switch asks underneath a member reading it.
-   *
    * WIDENED 3 Sept 2026, from "attached" to "shown", and the sentence it
    * replaced is worth quoting because it was true when written and the
    * cooldown made it false: "of the gate's four inputs, only
@@ -278,10 +272,11 @@ export default function EmailAskNote({
    *
    * Scoping is unchanged and is the whole safety of it: it holds a sheet that
    * is ALREADY open, and it can never open one, because it is only ever set on
-   * a render where `showing` is already true. A member the gate says nothing to
-   * sees nothing, on any re-render, and a test holds that. It stores which ask was live rather than a bare boolean, so the copy
-   * cannot silently switch asks underneath a member reading it. `answered`
-   * still outranks it, so every exit still closes the sheet.
+   * a render where `showing` is already true. A member the gate says nothing
+   * to sees nothing, on any re-render, and a test holds that. It stores which
+   * ask was live rather than a bare boolean, so the copy cannot silently
+   * switch asks underneath a member reading it. `answered` still outranks
+   * it, so every exit still closes the sheet.
    */
   const [shownUnder, setShownUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
   /**
@@ -308,6 +303,15 @@ export default function EmailAskNote({
    *   component re-renders. Same class of protection as the `shownUnder`
    *   latch above, reached for the same reason.
    *
+   *   The same never-again property has a cost worth naming, not fixing: a
+   *   mount that outlives the cooldown never re-checks it. A member who opens
+   *   the group home while the cookie is fresh and leaves that tab open past
+   *   the 24-hour window will not see the sheet on that page instance even
+   *   after the cooldown has genuinely ended; it returns on the next mount
+   *   (a reload, in-app navigation, or a fresh visit). Correct given the
+   *   once-per-mount rule above and harmless, but it is a delay this design
+   *   accepts, not only the hiding it exists to prevent.
+   *
    * HYDRATION: the `typeof document` check makes this false on the server. On
    * a genuine first load it is false on the client too, because the server
    * only rendered the sheet after finding no fresh cookie and nothing has
@@ -315,6 +319,16 @@ export default function EmailAskNote({
    * second tab writing the cookie between the server render and hydration,
    * which costs a hydration warning and a sheet that does not show. Named
    * rather than defended against.
+   *
+   * A second, distinct way they can disagree: emailAskCookieIsFresh is
+   * presence-based (see its own doc comment) while the server reads and
+   * parses the value, and the two fail in opposite directions on a cookie
+   * whose value is present but unparseable. That reads as not-snoozed on
+   * the server, which renders the sheet into the SSR HTML, and as fresh
+   * here, which then suppresses it the moment this initializer runs, so the
+   * member sees the exact draw-then-vanish flicker this state initializer
+   * exists to prevent, from the other direction. Not reachable through any
+   * value this product writes; see emailAskCookieIsFresh for the mechanism.
    */
   const [suppressedByCooldown] = useState(
     () => typeof document !== "undefined" && emailAskCookieIsFresh()

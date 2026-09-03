@@ -36,6 +36,18 @@ export const EMAIL_ASK_SHOWN_COOKIE = "ipg_email_ask_shown"
  * code that also runs on the server (a `typeof` check rather than a direct
  * reference, since referencing an undeclared global by name would throw
  * before the check ever ran).
+ *
+ * The asymmetry with parseEmailAskShown below, named rather than left
+ * implicit: that parser fails toward SHOWING on anything it cannot read
+ * (see its own doc comment), because it looks at the value. This function
+ * never looks at the value, only presence, so it cannot apply that same
+ * repair. A cookie whose value is present but unparseable (hand-edited to
+ * "" or "abc" or a negative number, never produced by markEmailAskShown
+ * itself) reads as fresh here and reads as not-snoozed on the server, and
+ * nothing then rewrites it to something valid, so the two disagree for as
+ * long as that cookie exists. Not reachable from any path this product
+ * writes; recorded because the failure direction is the opposite of the
+ * parser's and a future change to either should not assume they match.
  */
 export function emailAskCookieIsFresh(): boolean {
   if (typeof document === "undefined") return false
@@ -57,6 +69,11 @@ export function emailAskCookieIsFresh(): boolean {
  * corrupted cookie, and nobody would ever see it happen or know to fix it.
  * Failing toward showing costs at most one redundant ask; failing toward
  * hiding costs it forever, silently.
+ *
+ * emailAskCookieIsFresh above does not share this repair, and cannot: it
+ * never reads the value, so a present-but-unparseable cookie reads as fresh
+ * there while this function reads it as null (not snoozed) here. See that
+ * function's own doc comment for what that disagreement can produce.
  */
 export function parseEmailAskShown(raw: string | undefined): Date | null {
   if (raw === undefined || raw === "") return null
@@ -78,16 +95,32 @@ export function parseEmailAskShown(raw: string | undefined): Date | null {
  * cooldown measured against the server's idea of "now."
  *
  * max-age is derived from ASK_COOLDOWN_MS (imported from email-offer.ts,
- * never re-declared here as a second literal) but it is garbage collection
- * only. The timestamp in the value is the authority, not this attribute:
- * emailAskCookieIsFresh only checks presence, and parseEmailAskShown reads
- * the value, neither ever asks the browser how much max-age is left. Both
- * exist because they fail in opposite, and both safe, directions: if the
- * device clock runs ahead of the server's, max-age expires the cookie early
- * and the sheet shows early (redundant, not silent); if the device clock
- * runs behind, the cookie lingers past the true window but the timestamp
- * inside it still governs whatever reads it next. Neither skew direction can
- * make the ask disappear for good.
+ * never re-declared here as a second literal), and which of the two readers
+ * treats it as authoritative depends on which reader it is, not on some
+ * single answer for the cookie as a whole. The server never sees max-age at
+ * all (a browser's Cookie header carries only name and value), so
+ * parseEmailAskShown has nothing to consult but the timestamp, and that
+ * timestamp, being the server's own render clock at write time, is what the
+ * server-side comparison in emailAskIsSnoozed relies on. The client mount
+ * check is the opposite: emailAskCookieIsFresh never reads the value, only
+ * whether the cookie still exists, so for that reader max-age is the entire
+ * mechanism, the browser's own enforcement of it is what makes presence mean
+ * "written within the last day." max-age is a backstop that happens to
+ * mirror the same window for the server reader, and the load-bearing
+ * mechanism for the client one.
+ *
+ * A constant offset between the device's clock and the server's has no
+ * effect on max-age, which the browser counts down as a duration from the
+ * moment the cookie was received, not by comparing two clocks. What can move
+ * it is a clock JUMP on the device after the cookie is already stored: jump
+ * the device clock forward and the browser's countdown reads more time as
+ * having elapsed than actually has, expiring the cookie early, so the sheet
+ * shows again sooner than a full day (redundant, not silent); jump it
+ * backward and elapsed time reads as smaller, so the cookie lingers past the
+ * true window and the sheet is suppressed a little longer than intended.
+ * Neither direction can make the ask disappear for good, because the
+ * server-side check is keyed to the server's own clock via the stored
+ * timestamp and is untouched by anything happening to the device's clock.
  *
  * Secure is set only when the page itself is served over https. This is
  * load-bearing, not polish: phone QA runs against the Mac's LAN address over
