@@ -56,6 +56,26 @@ describe("CancelControls, live plan", () => {
     expect(cancelEventAction).not.toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
   })
+
+  // Owner's phone QA, 3 Sept 2026: the cancel consequence shouts the state
+  // word, matching Orbit's own announcements. The restore consequence is
+  // deliberately untouched, so it is pinned here too, as the negative case.
+  it("shouts OFF in the cancel consequence line, and leaves the restore one alone", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    expect(
+      screen.getByText("This tells the group the plan is OFF. Anyone can undo it.")
+    ).toBeTruthy()
+
+    cleanup()
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled />)
+    fireEvent.click(screen.getByRole("button", { name: "Put this back on" }))
+    expect(
+      screen.getByText(
+        "This tells the group the plan is back on, with everyone's RSVPs as they were."
+      )
+    ).toBeTruthy()
+  })
 })
 
 describe("CancelControls, cancelled plan", () => {
@@ -102,14 +122,18 @@ describe("CancelControls, shape", () => {
     expect(off.getAttribute("style")).not.toContain("--action")
   })
 
-  it("makes the safe confirm control the brighter of the two, and neither teal", () => {
+  // Owner's phone QA, 3 Sept 2026: the brightness asymmetry from the 2 Sept
+  // round is reversed. Both confirm controls now carry the same ink weight,
+  // per the product's own "an open question does not lean" rule; the
+  // safe-first position is still what protects against an accidental tap.
+  it("gives both confirm controls equal weight, and neither teal", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
     fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
 
     const safe = screen.getByRole("button", { name: "Never mind" })
     const destructive = screen.getByRole("button", { name: "Yes, call it off" })
     expect(safe.style.color).toBe("var(--text-primary)")
-    expect(destructive.style.color).toBe("var(--text-secondary)")
+    expect(destructive.style.color).toBe("var(--text-primary)")
     for (const el of [safe, destructive]) {
       expect(el.getAttribute("style")).not.toContain("--action")
     }
@@ -148,7 +172,7 @@ describe("CancelControls, confirm row closes after a successful action", () => {
     await waitFor(() => expect(cancelEventAction).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, call it off" })).toBeNull())
     expect(screen.queryByRole("button", { name: "Never mind" })).toBeNull()
-    expect(screen.queryByText(/This tells the group the plan is off/)).toBeNull()
+    expect(screen.queryByText(/This tells the group the plan is OFF/)).toBeNull()
     expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
   })
 
@@ -191,5 +215,20 @@ describe("event page places the control outside the details card", () => {
     const card = source.slice(cardStart, calendar)
     expect(card).toContain("<RsvpControls")
     expect(card).not.toContain("<CancelControls")
+  })
+})
+
+// Same instrument as above, same reason: the detail screen's called-off
+// label cannot be rendered by this suite. This pins that it goes through
+// CancelledLabel (bright --text-primary) rather than plain NeedLabel
+// (grey), matching the group home card's treatment (owner's phone QA,
+// 3 Sept 2026).
+describe("event page renders the called-off label bright, not through NeedLabel's grey", () => {
+  const source = readFileSync(join(process.cwd(), "src/app/events/[id]/page.tsx"), "utf8")
+
+  it("imports and renders CancelledLabel for the status, and never renders plain NeedLabel", () => {
+    expect(source).toContain('import { CancelledLabel } from "@/components/NeedLabel"')
+    expect(source).toContain("<CancelledLabel value={eventCardLabel(true, null)} />")
+    expect(source).not.toContain("<NeedLabel")
   })
 })

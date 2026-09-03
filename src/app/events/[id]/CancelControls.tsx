@@ -39,6 +39,23 @@
 // Neither confirm control is teal, in either state: teal never leans an open
 // question. Neither is red either: status and action are never carried by hue
 // in this product.
+//
+// ── Confirm-row weight, reversed again (owner's phone QA, 3 Sept 2026) ──
+// "Never mind" and "Yes, call it off"/"Yes, put it back" now share the SAME
+// ink weight, both --text-primary. The previous round had dimmed the
+// destructive option to --text-secondary, on purpose, to make the safe
+// control read as the louder one; the owner reversed that call, because it
+// was solving a safety problem the product had already settled as a
+// symmetry problem. From CLAUDE.md: "teal never leans an open question. When
+// a control offers two or more equally valid answers, the options carry
+// equal weight while open" (the RSVP pair carries teal on both borders, and
+// the gauge chips are both grey). This is that same rule: while the confirm row
+// is open, it IS an open question, so leaning one answer's brightness over
+// the other's was never a different case from leaning color. The safe-first
+// POSITION (see above) still does the accidental-tap protection on its own;
+// brightness doing it too just cost clarity for no added safety. Both bright
+// rather than both quiet: these are the only two controls in this region,
+// and dimming both would read as disabled.
 
 import { useState, useTransition } from "react"
 import { cancelEventAction, restoreEventAction } from "@/app/actions/cancel-event"
@@ -107,9 +124,14 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
 
   const restText = isCancelled ? "Put this back on" : "Call this off"
   const confirmText = isCancelled ? "Yes, put it back" : "Yes, call it off"
+  // The cancel consequence shouts the state word, matching Orbit's own
+  // announcements ("Squash this Thu is OFF"), owner's phone QA, 3 Sept 2026.
+  // The restore consequence is deliberately left alone: only the cancel line
+  // was named, and "back on" already reads as the reassuring case, not one
+  // that needed shouting.
   const consequence = isCancelled
     ? "This tells the group the plan is back on, with everyone's RSVPs as they were."
-    : "This tells the group the plan is off. Anyone can undo it."
+    : "This tells the group the plan is OFF. Anyone can undo it."
 
   function submit() {
     startTransition(async () => {
@@ -160,13 +182,17 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
         {consequence}
       </p>
       <div style={{ display: "flex", gap: "0.625rem" }}>
-        {/* Safe control first, in the resting button's own position, and
-            brighter than the other one. The brightness used to run the other
-            way, which made the destructive option the louder of the two; the
-            owner called that backwards on 2 Sept 2026 and he is right. Both
-            stay outlined and hue-free, so the only thing separating them is
-            ink weight, which is exactly the "brightness plus label, never
-            hue" rule this product already runs on. */}
+        {/* Equal weight, both --text-primary (owner's phone QA, 3 Sept 2026,
+            reversing the 2 Sept round). This IS an open question while the
+            confirm row is showing, and the product already has a rule for
+            that: "teal never leans an open question... the options carry
+            equal weight while open" (CLAUDE.md). Dimming the destructive
+            option was solving a safety problem the product had already
+            settled as a symmetry problem; the safe-first POSITION below
+            still does the accidental-tap protection on its own, so having
+            brightness do it too just cost clarity. Both bright rather than
+            both quiet: dimming both would read as disabled, and these are
+            the only two controls in this region. */}
         <button
           type="button"
           style={{
@@ -181,7 +207,11 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
         </button>
         <button
           type="button"
-          style={{ ...confirmPill, opacity: isPending ? 0.65 : 1 }}
+          style={{
+            ...confirmPill,
+            color: "var(--text-primary)",
+            opacity: isPending ? 0.65 : 1,
+          }}
           disabled={isPending}
           onClick={submit}
         >

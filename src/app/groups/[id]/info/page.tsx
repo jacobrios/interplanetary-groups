@@ -332,17 +332,18 @@ export default async function GroupInfoPage({ params }: Props) {
           ))}
         </div>
 
-        <p
-          style={{
-            fontSize: "var(--type-meta)",
-            color: "var(--text-secondary)",
-            fontWeight: 500,
-            textAlign: "center",
-            marginTop: "9px",
-          }}
-        >
-          Want to change something? Just tell Orbit in the chat.
-        </p>
+        {/* The line pointing a member at Orbit in the chat for changes used
+            to sit here and is deleted (owner's phone QA, 3 Sept 2026): it
+            was untrue on this specific page, since the name, the members,
+            the rhythms and the venue all get an honest DECLINE from Orbit
+            today, not a change. No replacement copy: the page's own
+            controls (invite link, Manage members, Reset link, Leave)
+            already say what a member and a founder actually CAN do here,
+            and this container carries no uniform gap (see the note above),
+            so deleting the paragraph closes its own space rather than
+            leaving a hole; the bottom block below is unaffected, being
+            pinned by its own marginTop: auto regardless of what sits
+            above it. */}
 
         {/* The page's bottom block. The `marginTop: auto` that used to sit on
             the Leave button alone now sits on this wrapper, so the leave

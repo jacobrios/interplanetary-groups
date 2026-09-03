@@ -37,7 +37,7 @@
 
 import Link from "next/link"
 import RsvpControls from "@/components/RsvpControls"
-import { NeedLabel } from "@/components/NeedLabel"
+import { NeedLabel, CancelledLabel } from "@/components/NeedLabel"
 import { formatEventDate } from "@/lib/events/format"
 import { formatCounts } from "@/lib/events/roster"
 import { eventCardLabel } from "@/lib/cards/region"
@@ -145,7 +145,13 @@ export default function EventCard({
               position, not size, so it moves here to match the detail
               screen. Card-local rather than a change to NeedLabel itself:
               NeedLabel is shared with IdeaCard and the event detail screen,
-              and this above-title slot is specific to this card. Row-
+              and this above-title slot is specific to this card. Renders
+              through CancelledLabel (components/NeedLabel.tsx), a sibling
+              export that always renders bright --text-primary rather than
+              NeedLabel's needsViewer-conditioned grey, since a cancellation
+              is a status rather than a need (QA feedback round, spec §14:
+              "it's the thing that needs to stand out the most on the
+              card"). NeedLabel's own function is untouched. Row-
               neutral by construction: the counts row below drops entirely
               on a called-off card (it held nothing else), so this replaces
               rather than adds a row; the marginBottom here mirrors the
@@ -166,7 +172,7 @@ export default function EventCard({
               127.8px, matching the before number exactly. */}
           {isCancelled && (
             <div style={{ marginBottom: "0.55em" }}>
-              <NeedLabel value={needLabel} />
+              <CancelledLabel value={needLabel} />
             </div>
           )}
 

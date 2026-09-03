@@ -199,6 +199,36 @@ describe("EventCard, a called-off plan", () => {
     expect(flexRows).toHaveLength(0)
   })
 
+  // Owner's phone QA, 3 Sept 2026: "it's the thing that needs to stand out
+  // the most on the card." The label now renders through CancelledLabel
+  // (components/NeedLabel.tsx), always bright --text-primary rather than
+  // NeedLabel's grey needsViewer:false color, since a called-off card dims
+  // its title and the status should be the brightest thing on it.
+  it("renders the called-off label bright, not the quiet grey a false needsViewer would give it", () => {
+    render(
+      <EventCard
+        event={{
+          id: "e1",
+          title: "Tennis",
+          startsAt: new Date("2099-06-14T18:00:00Z"),
+          endsAt: null,
+          status: EventStatus.CANCELLED,
+          venues: [],
+        }}
+        groupId="g1"
+        timeZone="UTC"
+        inCount={4}
+        outCount={1}
+        pendingCount={3}
+        viewerStatus={null}
+        viewerHasSession
+      />
+    )
+
+    const label = screen.getByText("Called off")
+    expect(label.style.color).toBe("var(--text-primary)")
+  })
+
   it("keeps the whole-card overlay, which is the case that needed it most", () => {
     // The measured worst case: a called-off card drops both the counts row
     // and the RSVP pair, which left its bottom 43% inert with no link and no

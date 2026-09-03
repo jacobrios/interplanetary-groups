@@ -14,7 +14,7 @@ import CancelControls from "./CancelControls"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
-import { NeedLabel } from "@/components/NeedLabel"
+import { CancelledLabel } from "@/components/NeedLabel"
 import { Clock, MapPin, Check } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
@@ -173,13 +173,19 @@ export default async function EventPage({ params }: Props) {
           }}
         >
           <div style={{ padding: "15px 16px" }}>
-            {/* Called-off status label, above the title. Grey, never teal:
-                teal in this slot means "this needs you", and a called-off
-                plan needs nothing from anybody (eventCardLabel, shared with
-                the home card so the two words can never disagree). */}
+            {/* Called-off status label, above the title. Bright
+                --text-primary, never teal: teal in this slot means "this
+                needs you", and a called-off plan needs nothing from anybody
+                (eventCardLabel, shared with the home card so the two words
+                can never disagree). Renders through CancelledLabel
+                (components/NeedLabel.tsx) rather than NeedLabel itself, so
+                the status reads as the brightest thing on the screen
+                (owner's phone QA, 3 Sept 2026), matching the group home
+                card's treatment; NeedLabel's own grey needsViewer ladder is
+                unchanged for every other caller. */}
             {isCancelled && (
               <p style={{ marginBottom: "8px" }}>
-                <NeedLabel value={eventCardLabel(true, null)} />
+                <CancelledLabel value={eventCardLabel(true, null)} />
               </p>
             )}
 
