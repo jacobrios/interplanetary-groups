@@ -248,12 +248,43 @@ export default function EmailAskNote({
    * test holds that. It stores which ask was live rather than a bare boolean,
    * so the copy cannot silently switch asks underneath a member reading it.
    *
-   * Attach is the only case that needs this, and that is worth stating so the
-   * next reader does not widen it on a hunch: of the gate's four inputs, only
+   * WIDENED 3 Sept 2026, from "attached" to "shown", and the sentence it
+   * replaced is worth quoting because it was true when written and the
+   * cooldown made it false: "of the gate's four inputs, only
    * `hasVerifiedEmail` can be flipped to null-the-offer by the member's own
-   * action inside this sheet. A dismissal already sets `answered`.
+   * action inside this sheet." Two more can now, and neither needs the member
+   * to do anything inside the sheet at all:
+   *
+   *   `lastShownAt`, because this component now writes the cooldown cookie
+   *   itself the moment it appears, and the next server render reads it back.
+   *
+   *   `latestContributionAt`, because page.tsx SKIPS the three contribution
+   *   reads once that same cookie says snoozed, so it comes down null.
+   *
+   * Both arrive together, on any revalidation after the sheet appears, and
+   * this app revalidates constantly: send-message.ts on every message,
+   * detect-intent.ts whenever Orbit does anything visible, 1 to 6 seconds
+   * later. The live path is a brand-new member whose first message is an idea
+   * Orbit answers. Every input the offer needs goes quiet at once, so latching
+   * any single one of them would not have held.
+   *
+   * So the latch is now on the fact that the sheet APPEARED, which is the
+   * thing all of those failures have in common, and attach is one case of it
+   * rather than the only one. `attachedUnder` was folded into this: it could
+   * only ever be set while the sheet was open, which means strictly after this
+   * one, so it can no longer say anything this does not already say. It was
+   * also the weaker of the two, because it captured the offer at attach time,
+   * by which point a revalidation may already have nulled it.
+   *
+   * Scoping is unchanged and is the whole safety of it: it holds a sheet that
+   * is ALREADY open, and it can never open one, because it is only ever set
+   * from an effect that runs when the sheet is genuinely on screen. A member
+   * the gate says nothing to sees nothing, on any re-render, and a test holds
+   * that. It stores which ask was live rather than a bare boolean, so the copy
+   * cannot silently switch asks underneath a member reading it. `answered`
+   * still outranks it, so every exit still closes the sheet.
    */
-  const [attachedUnder, setAttachedUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
+  const [shownUnder, setShownUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
   /**
    * THE MOUNT CHECK, and it looks redundant against `lastShownAt` above until
    * you know why it is here: the browser and phone back gesture does not
@@ -275,7 +306,7 @@ export default function EmailAskNote({
    *   A LAZY INITIALIZER runs during this mount's first render and never
    *   again. That is exactly the guarantee needed: it can never hide a sheet a
    *   member is already reading or typing into, however many times this
-   *   component re-renders. Same class of protection as the `attachedUnder`
+   *   component re-renders. Same class of protection as the `shownUnder`
    *   latch above, reached for the same reason.
    *
    * HYDRATION: the `typeof document` check makes this false on the server. On
@@ -305,10 +336,32 @@ export default function EmailAskNote({
     lastShownAt,
     now,
   })
-  // The live offer, or the one this sheet was opened under if the member has
-  // since attached an address and made the live one null. See the latch above.
-  const activeOffer = offer ?? attachedUnder
+  // The ask this sheet actually opened under, or the live one if it has not
+  // opened yet. The latch is read FIRST, not as a fallback: once the sheet is
+  // up, the words on it are pinned, so a later render cannot switch a member
+  // from one ask to the other mid-read. See the latch above.
+  const activeOffer = shownUnder ?? offer
   const showing = !answered && !suppressedByCooldown && activeOffer !== null
+
+  // Pin what appeared, on the first render that actually shows it. Two things
+  // about the shape of this, because both look wrong at a glance and neither
+  // is:
+  //
+  //   IT SETS STATE DURING RENDER, which is React's documented way to adjust
+  //   state when the inputs change, and it is deliberate rather than lazy. In
+  //   an effect it would be a lint error here (react-hooks/set-state-in-effect,
+  //   an error in this repo, not a warning) and, worse, it would cascade a
+  //   second render after paint. Guarded on `shownUnder === null`, so it can
+  //   fire at most once per mount and cannot loop.
+  //
+  //   IT READS `showing`, WHICH ALREADY CARRIES EVERY GUARD. That is what
+  //   makes "it can hold a sheet open and can never open one" structural
+  //   rather than careful: `showing` is false for a member the gate says
+  //   nothing to, false on a mount the cooldown suppressed, and false once
+  //   the member has answered, so in none of those cases is anything pinned.
+  if (showing && shownUnder === null) {
+    setShownUnder(activeOffer)
+  }
 
   // The cooldown starts by the sheet appearing. Its own effect, deliberately
   // not folded into the focus-and-scroll-lock one below: that effect's cleanup
@@ -497,11 +550,13 @@ export default function EmailAskNote({
             // done step has no control at all and the scroll lock plus the
             // scrim trap them; see EmailAttachFlow's onDone for the full story.
             onDone={handleLeaveQuietly}
-            // Throws the latch. Captured as the offer that was live at this
-            // moment rather than as a boolean, so the sheet cannot switch from
-            // the first ask's wording to the second's underneath a member who
-            // is mid-read.
-            onAttached={() => setAttachedUnder(offer)}
+            // No onAttached here any more, and its absence is deliberate
+            // rather than an omission. It used to throw a latch of its own at
+            // the moment an address was saved; that latch is folded into the
+            // shown-latch above, which was already set before this flow could
+            // possibly reach its end, and which captures the ask at the
+            // stronger moment. See the latch comment for why the narrower one
+            // could not say anything the wider one does not.
             messageSlot={(message) => (
               // Round 10's labeled note. Grid, never a float: the mark occupies
               // its own column and spans both rows, so every line of copy

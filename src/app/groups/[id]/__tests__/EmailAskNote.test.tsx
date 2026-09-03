@@ -65,6 +65,21 @@ function secondAskProps(overrides: Record<string, unknown> = {}) {
   })
 }
 
+/**
+ * Wipes the device's cooldown, the way a member clearing site data would.
+ *
+ * Hoisted up here because it is needed in three different places and one of
+ * them is easy to miss: jsdom keeps ONE cookie jar for the whole file, and the
+ * sheet now writes that cookie whenever it appears. So a test that renders,
+ * cleans up, and renders again inside a single `it` will find its second mount
+ * suppressed by its own first mount unless it clears in between. Two tests in
+ * this file do exactly that, and both silently lost the second half of what
+ * they prove before this was added.
+ */
+function clearCooldownCookie() {
+  document.cookie = `${EMAIL_ASK_SHOWN_COOKIE}=; path=/; max-age=0`
+}
+
 afterEach(() => {
   cleanup()
   dismissMock.mockClear()
@@ -95,15 +110,26 @@ describe("EmailAskNote, who never sees it", () => {
   })
 })
 
-describe("EmailAskNote, showing writes nothing", () => {
+describe("EmailAskNote, showing calls no server action", () => {
   it("calls no action at all on a bare render, in either ask", () => {
     // The strongest rule in this element, and the one most at risk of being
     // "restored" wrongly: the counter counts DECLINES, not appearances. An
     // earlier draft of the brief said the opposite, so this is pinned rather
-    // than left to the success path's incidental assertion. If anyone adds a
-    // mark-as-shown write, this reddens.
+    // than left to the success path's incidental assertion. If anyone makes a
+    // bare render advance the lifetime counter, this reddens.
+    //
+    // SCOPE, narrowed 3 Sept 2026 along with this block's title, which used to
+    // say "showing writes nothing" and promised more than it holds. Appearing
+    // does now write one thing, the device-local cooldown cookie, and that is
+    // deliberate: see the cooldown blocks at the foot of this file. What must
+    // never happen, and what this holds, is a SERVER action firing on a bare
+    // render. The two are different mechanisms measuring different things.
     render(<EmailAskNote {...firstAskProps()} />)
     cleanup()
+    // The first render just wrote the cooldown, and jsdom keeps one cookie jar
+    // for the file, so without this the second mount below is suppressed and
+    // silently proves nothing.
+    clearCooldownCookie()
     render(<EmailAskNote {...secondAskProps()} />)
 
     expect(dismissMock).not.toHaveBeenCalled()
@@ -135,6 +161,11 @@ describe("EmailAskNote, the copy", () => {
     render(<EmailAskNote {...firstAskProps()} />)
     expect(document.body.textContent).not.toContain("group you started")
     cleanup()
+    // Same trap, from a new direction, 3 Sept 2026: the first render now
+    // writes the cooldown cookie, which suppressed the second mount and left
+    // this test's second half asserting against an empty body again. Proven by
+    // mutation both ways before this line was added.
+    clearCooldownCookie()
 
     render(<EmailAskNote {...secondAskProps()} />)
     expect(document.body.textContent).not.toContain("group you started")
@@ -665,6 +696,12 @@ describe("EmailAskNote, the cooldown starts when the sheet appears", () => {
     render(<EmailAskNote {...firstAskProps()} />)
 
     expect(storedCooldownInstant()).toEqual(NOW)
+    // ONCE, and this is the assertion that holds the effect's dependency list
+    // honest. That effect is keyed on [showing, now] rather than [showing]
+    // alone, because `now` is genuinely read inside it. Without a count here, a
+    // duplicate write would be completely invisible, since the second one
+    // stores the same value as the first.
+    expect(cookieWrites).toHaveLength(1)
   })
 
   it("writes nothing when the gate says nothing, so the write follows the sheet and not the mount", () => {
@@ -726,6 +763,68 @@ describe("EmailAskNote, the cooldown and the lifetime asks are independent", () 
 
     expect(storedCooldownInstant()).toEqual(NOW)
     expect(dismissMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("EmailAskNote, surviving the revalidation its own write causes", () => {
+  // THE REGRESSION THIS BLOCK EXISTS FOR, and it is the exact failure the
+  // owner's original no-client-suppression rule was written to prevent: the
+  // sheet appearing and then vanishing out from under somebody reading it.
+  //
+  // The live sequence, every link of it verified in code rather than guessed:
+  // GroupHome mounts this component for any viewer with an askState, so it is
+  // mounted and its cooldown check captured LONG BEFORE the offer goes live,
+  // and it never remounts. The member's first contribution is usually a chat
+  // message; send-message.ts revalidates the path, so a new server render
+  // arrives, the offer goes live, the sheet appears, and the effect writes the
+  // cookie. Then Orbit answers, detect-intent.ts revalidates again 1 to 6
+  // seconds later, and THAT render reads the cookie this sheet just wrote:
+  // page.tsx sees the cooldown, skips the three contribution reads, and hands
+  // down a fresh lastShownAt AND a null latestContributionAt. Every input the
+  // offer needs is gone at once.
+  //
+  // So freezing lastShownAt at mount would not be enough on its own. The sheet
+  // has to survive the whole props object going quiet, which is why the latch
+  // below pins what actually appeared rather than any one input.
+
+  it("stays on screen when the next render brings back nothing at all", () => {
+    const { rerender, container } = render(<EmailAskNote {...firstAskProps()} />)
+    expect(screen.getByRole("dialog")).toBeDefined()
+
+    rerender(
+      <EmailAskNote {...firstAskProps({ lastShownAt: NOW, latestContributionAt: null })} />
+    )
+
+    expect(container.innerHTML).not.toBe("")
+    expect(screen.getByText(FIRST_ASK)).toBeDefined()
+  })
+
+  it("keeps showing the ask it opened under, never switching copy mid-read", () => {
+    // The latch stores WHICH ask was live, not a bare boolean, so the words
+    // cannot change underneath somebody halfway through reading them.
+    render(<EmailAskNote {...firstAskProps()} />)
+    expect(screen.getByText(FIRST_ASK)).toBeDefined()
+
+    cleanup()
+    clearCooldownCookie()
+
+    const { rerender } = render(<EmailAskNote {...firstAskProps()} />)
+    rerender(<EmailAskNote {...secondAskProps()} />)
+
+    expect(screen.getByText(FIRST_ASK)).toBeDefined()
+    expect(screen.queryByText(SECOND_ASK)).toBeNull()
+  })
+
+  it("still closes on every exit, because the member always outranks the latch", async () => {
+    const { rerender, container } = render(<EmailAskNote {...firstAskProps()} />)
+    rerender(
+      <EmailAskNote {...firstAskProps({ lastShownAt: NOW, latestContributionAt: null })} />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+    expect(dismissMock).toHaveBeenCalledTimes(1)
   })
 })
 
