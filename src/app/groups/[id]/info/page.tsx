@@ -349,33 +349,40 @@ export default async function GroupInfoPage({ params }: Props) {
             pinned by its own marginTop: auto regardless of what sits
             above it. */}
 
-        {/* The page's bottom block. The `marginTop: auto` that used to sit on
-            the Leave button alone now sits on this wrapper, so the leave
-            control and the policy links move to the bottom of the page as one
-            group rather than the links pushing Leave back up it.
+        {/* ── Leave: members only, never the founder (spec decision 3) ── */}
+        {/* Sits with the content rather than pinned to the bottom of the page
+            (owner's phone QA, 3 Sept 2026). It had been the first child of a
+            bottom-anchored block holding it and the policy links together,
+            which was fine while the "just tell Orbit in the chat" line sat
+            above it; deleting that line as untrue left the button stranded
+            under a large empty gap on a short page. 24px is the block this
+            wrapper already used, and it is deliberately wider than the page's
+            16px section rhythm, because a leave-the-group control should not
+            sit as close to the card above it as two ordinary sections sit to
+            each other.
 
-            Corrected in review (fix round 1), because the first version of
-            this comment claimed Leave kept its position "exactly as before"
-            and it cannot: it is now the first child of a bottom-anchored
-            block rather than the block itself, so it sits higher than before
-            by the footer's own height plus the 18px below. Harmless on
-            screen, and this project treats a wrong record as a real defect.
-
-            A founder, who never sees Leave, gets the links pinned to the
-            bottom on their own. */}
-        <div style={{ marginTop: "auto", paddingTop: "24px" }}>
-          {/* ── Leave: members only, never the founder (spec decision 3) ── */}
-          {isMember && !isFounder && (
+            History, kept because this project treats its comments as a
+            record: the auto margin sat on the Leave button alone, then moved
+            to a wrapper around both so the links could not push Leave back up
+            the page. Splitting them is what lets Leave move up while the
+            footer stays a footer. */}
+        {isMember && !isFounder && (
+          <div style={{ marginTop: "24px" }}>
             <LeaveGroupButton groupId={group.id} groupName={group.name} />
-          )}
-
-          {/* The same quiet footer the front door carries. This is the one
-              reference page a member already comes to for "what is this
-              group and how do I get out of it", so it is where somebody
-              already inside the product goes looking for the policies. */}
-          <div style={{ marginTop: "18px" }}>
-            <LegalFooter />
           </div>
+        )}
+
+        {/* The same quiet footer the front door carries. This is the one
+            reference page a member already comes to for "what is this
+            group and how do I get out of it", so it is where somebody
+            already inside the product goes looking for the policies.
+
+            Keeps the bottom anchor the old shared wrapper carried, so the
+            links stay at the foot of the page whether or not a Leave button
+            renders above them. A founder, who never sees Leave, gets the
+            links pinned on their own exactly as before. */}
+        <div style={{ marginTop: "auto", paddingTop: "18px" }}>
+          <LegalFooter />
         </div>
       </div>
     </main>
