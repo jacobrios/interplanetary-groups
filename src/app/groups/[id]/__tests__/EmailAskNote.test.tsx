@@ -14,6 +14,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
 import EmailAskNote from "../EmailAskNote"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
+// The real cookie module, deliberately unmocked: the sheet's cooldown is worth
+// nothing unless these tests drive the same reader and writer the product does.
+import { EMAIL_ASK_SHOWN_COOKIE, parseEmailAskShown } from "@/lib/auth/email-ask-cooldown"
 
 // Typed to the seam's real result unions, so a test that stubs an outcome the
 // seam cannot return stops being a test of anything.
@@ -597,5 +600,171 @@ describe("EmailAskNote, layout", () => {
     expect(save.style.height).toBe("")
     expect(save.style.minHeight).not.toBe("")
     expect(save.style.padding).not.toBe("")
+  })
+})
+
+// ─── The cooldown the sheet starts by appearing ──────────────────────────────
+//
+// Everything below is the 3 Sept 2026 cooldown slice. Read
+// docs/superpowers/specs/2026-09-03-email-ask-cooldown-design.md before
+// changing any of it; the two mechanisms in this file measure different things
+// on purpose. The lifetime counter above records ANSWERS (the worded exit, and
+// nothing else). The cookie here records an IMPRESSION, so that the three free
+// exits, plus the phone's back gesture, which runs none of our code at all,
+// stop meaning "nothing happened."
+//
+// A second file-level afterEach is registered below rather than folding the
+// cookie reset into the existing one, so the block above stays exactly as it
+// was. It is not optional hygiene: jsdom keeps one cookie jar for the whole
+// file, so without it the first render in this file would snooze every render
+// after it and most of the tests above would stop seeing a sheet at all.
+
+/**
+ * Records every assignment to document.cookie and still lets it land, so a
+ * test can assert "this was written" and, which matters more here, "this was
+ * NOT written." The real setter is captured off Document.prototype before the
+ * spy replaces the property on the instance.
+ */
+let cookieWrites: string[] = []
+let cookieSetter: ReturnType<typeof vi.spyOn> | null = null
+
+function watchCookieWrites() {
+  const real = Object.getOwnPropertyDescriptor(Document.prototype, "cookie")!.set!
+  cookieWrites = []
+  cookieSetter = vi.spyOn(document, "cookie", "set").mockImplementation((value: string) => {
+    cookieWrites.push(value)
+    real.call(document, value)
+  })
+}
+
+/** The instant currently stored on the device, or null if nothing is stored. */
+function storedCooldownInstant(): Date | null {
+  const pair = document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(`${EMAIL_ASK_SHOWN_COOKIE}=`))
+  return parseEmailAskShown(pair?.split("=")[1])
+}
+
+/** Puts a cooldown on the device, the way a previous appearance would have. */
+function seedCooldownCookie(shownAt: Date) {
+  document.cookie = `${EMAIL_ASK_SHOWN_COOKIE}=${shownAt.getTime()}; path=/`
+}
+
+afterEach(() => {
+  cookieSetter?.mockRestore()
+  cookieSetter = null
+  cookieWrites = []
+  document.cookie = `${EMAIL_ASK_SHOWN_COOKIE}=; path=/; max-age=0`
+})
+
+describe("EmailAskNote, the cooldown starts when the sheet appears", () => {
+  it("writes the cooldown when the sheet appears, carrying the server's own clock", () => {
+    // The server's render clock, not the device's: a phone with its clock set
+    // wrong still gets a cooldown measured against the server's idea of now.
+    watchCookieWrites()
+    render(<EmailAskNote {...firstAskProps()} />)
+
+    expect(storedCooldownInstant()).toEqual(NOW)
+  })
+
+  it("writes nothing when the gate says nothing, so the write follows the sheet and not the mount", () => {
+    // THE IMPORTANT ONE. If the write were tied to the component mounting
+    // rather than to the sheet appearing, a member who already has an address
+    // would silently start a cooldown for an ask nobody is making.
+    watchCookieWrites()
+    const { container } = render(<EmailAskNote {...firstAskProps({ hasVerifiedEmail: true })} />)
+
+    expect(container.innerHTML).toBe("")
+    expect(cookieWrites).toEqual([])
+    expect(storedCooldownInstant()).toBeNull()
+  })
+
+  it("writes nothing when the server already says it was shown inside the window", () => {
+    watchCookieWrites()
+    const { container } = render(
+      <EmailAskNote {...firstAskProps({ lastShownAt: new Date("2026-08-26T17:50:00Z") })} />
+    )
+
+    expect(container.innerHTML).toBe("")
+    expect(cookieWrites).toEqual([])
+  })
+})
+
+describe("EmailAskNote, the cooldown and the lifetime asks are independent", () => {
+  // Two mechanisms, one sheet. The cooldown says "not today"; the counter says
+  // "not ever again." A test for each exit, because the whole defect this
+  // slice fixes was one exit recording nothing.
+
+  it("keeps the cooldown after the worded exit, which still spends a lifetime ask", async () => {
+    watchCookieWrites()
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+
+    expect(storedCooldownInstant()).toEqual(NOW)
+    expect(dismissMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps the cooldown after a tap on the scrim, which still spends nothing", async () => {
+    watchCookieWrites()
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.click(scrim())
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+
+    expect(storedCooldownInstant()).toEqual(NOW)
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+
+  it("keeps the cooldown after Escape, which still spends nothing", async () => {
+    watchCookieWrites()
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    fireEvent.keyDown(document, { key: "Escape" })
+    await waitFor(() => expect(container.innerHTML).toBe(""))
+
+    expect(storedCooldownInstant()).toEqual(NOW)
+    expect(dismissMock).not.toHaveBeenCalled()
+  })
+})
+
+describe("EmailAskNote, the back gesture the server cannot see", () => {
+  // Task 0 measured this before any code was written: Next's client router
+  // cache serves a back or forward navigation from memory, does not expire,
+  // and is not configurable. So on the gesture an iPhone member reaches for
+  // first, the props below still say "show the sheet" however long ago the
+  // cookie was written. The mount check is the only thing standing there.
+
+  const SHOWN_TEN_MINUTES_AGO = new Date("2026-08-26T17:50:00Z")
+
+  it("renders nothing at all when a cooldown is already on the device", () => {
+    // The props are the ones the server handed over on the render being
+    // replayed: lastShownAt null, offer live. Only the device knows better.
+    seedCooldownCookie(SHOWN_TEN_MINUTES_AGO)
+    watchCookieWrites()
+
+    const { container } = render(<EmailAskNote {...firstAskProps()} />)
+
+    // innerHTML, not a query for the dialog: this has to be nothing on the
+    // FIRST render, never something drawn and then taken away, which is the
+    // flicker the whole no-client-suppression rule existed to prevent.
+    expect(container.innerHTML).toBe("")
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  it("does not push the deadline forward on a mount it suppressed", () => {
+    // THE WORST OUTCOME AVAILABLE IN THIS SLICE, and the reason the write is
+    // gated on the same `showing` the mount check feeds. If a suppressed mount
+    // wrote anyway, every back gesture would move the deadline another day
+    // out, and a member who navigates that way would never be asked again,
+    // silently, forever.
+    seedCooldownCookie(SHOWN_TEN_MINUTES_AGO)
+    watchCookieWrites()
+
+    render(<EmailAskNote {...firstAskProps()} />)
+
+    expect(cookieWrites).toEqual([])
+    expect(storedCooldownInstant()).toEqual(SHOWN_TEN_MINUTES_AGO)
   })
 })
