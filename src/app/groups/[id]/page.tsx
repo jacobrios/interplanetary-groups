@@ -284,8 +284,10 @@ export default async function GroupPage({ params }: Props) {
   // The skipped case passes the values that cannot produce an ask. What
   // makes that safe differs by which of the two skip branches fired, and
   // both need naming here rather than one: emailAskIsSettled closes the gate
-  // on the count and asked-at columns alone, before shouldOfferEmail ever
-  // reaches latestContributionAt, so the fake null there is genuinely inert.
+  // on emailAskCount alone (askState.emailAskedAt rides along in the local
+  // variable but plays no part in that predicate), before shouldOfferEmail
+  // ever reaches latestContributionAt, so the fake null there is genuinely
+  // inert.
   // emailAskIsSnoozed closes it on lastShownAt instead, with emailAskCount
   // frequently still 0 on that branch (a snooze on the very first ask), so
   // the count is not what closes this one. It is still safe, for the same

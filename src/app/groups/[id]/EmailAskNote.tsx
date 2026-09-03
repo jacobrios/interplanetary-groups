@@ -270,13 +270,14 @@ export default function EmailAskNote({
    * also the weaker of the two, because it captured the offer at attach time,
    * by which point a revalidation may already have nulled it.
    *
-   * Scoping is unchanged and is the whole safety of it: it holds a sheet that
-   * is ALREADY open, and it can never open one, because it is only ever set on
-   * a render where `showing` is already true. A member the gate says nothing
-   * to sees nothing, on any re-render, and a test holds that. It stores which
-   * ask was live rather than a bare boolean, so the copy cannot silently
-   * switch asks underneath a member reading it. `answered` still outranks
-   * it, so every exit still closes the sheet.
+   * Scoping is unchanged and is the whole safety of it (the dangerous version
+   * of this latch is easy to write): it holds a sheet that is ALREADY open,
+   * and it can never open one, because it is only ever set on a render where
+   * `showing` is already true. A member the gate says nothing to sees
+   * nothing, on any re-render, and a test holds that. It stores which ask
+   * was live rather than a bare boolean, so the copy cannot silently switch
+   * asks underneath a member reading it. `answered` still outranks it, so
+   * every exit still closes the sheet.
    */
   const [shownUnder, setShownUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
   /**
