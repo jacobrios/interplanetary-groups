@@ -33,9 +33,11 @@
 // round 10's, and the grid is load-bearing: the mark sits in its own column so
 // no line of a six-line paragraph wraps around it.
 //
-// Nothing here is ever posted to the feed and nothing about it is stored except
-// the answer: a worded dismissal advances the counter, an attach creates the
-// contact method, and simply being shown writes nothing at all.
+// Nothing here is ever posted to the feed, and nothing about it reaches the
+// database except the answer: a worded dismissal advances the counter, an
+// attach creates the contact method, and nothing else writes a row. Being
+// shown does now leave one mark, and it is deliberately not a row: a
+// device-local cooldown cookie, described under THE COOLDOWN below.
 //
 // The field state, request/confirm calls, and error copy live in
 // EmailAttachFlow, shared with the group info page's permanent row. What stays
@@ -87,18 +89,66 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // WHAT EACH WAY OUT COSTS. The asymmetry is deliberate and points one way.
 // ─────────────────────────────────────────────────────────────────────────────
-//   "Not now" / "No thanks"  ->  spends one of the two lifetime asks
-//   Tapping the scrim        ->  free
-//   Escape                   ->  free
-//   Navigating away          ->  free (nothing is written on render)
+// Two columns, because there are now two mechanisms and they measure different
+// things. The first column is the one that was always here and has not moved.
 //
-// The silent gesture is the cheap one. Somebody who read the ask and tapped the
-// worded exit has told us something, and spending an ask honours it. Inverted,
-// it would be a bug. Both halves are tested, because testing only the expensive
-// one would let the free ones quietly become expensive.
+//                              lifetime asks (2 ever)   cooldown (24h)
+//   "Not now" / "No thanks"    spends one               already running
+//   Tapping the scrim          free                     already running
+//   Escape                     free                     already running
+//   Navigating away            free                     already running
+//   The phone's back gesture   free                     already running
+//
+// The first column is the asymmetry, and it is unchanged: the silent gesture is
+// the cheap one. Somebody who read the ask and tapped the worded exit has told
+// us something, and spending an ask honours it. Inverted, it would be a bug.
+// Both halves are tested, because testing only the expensive one would let the
+// free ones quietly become expensive.
+//
+// The second column reads the same on every row for a reason, and it is the
+// point rather than a shrug: no exit starts the cooldown, because the cooldown
+// started when the sheet appeared, and it is already running by the time any of
+// these happen.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// THE COOLDOWN, added 3 Sept 2026. Spec:
+// docs/superpowers/specs/2026-09-03-email-ask-cooldown-design.md
+// ─────────────────────────────────────────────────────────────────────────────
+// The defect it closes: "free" had been built as "means nothing at all," when
+// tapping outside a sheet plainly means "not right now." So a member whose exit
+// was the scrim tap met this sheet again on every single return to the group
+// home, forever. That is the loop; the two lifetime asks were never the
+// problem and are untouched.
+//
+// THE TRIGGER IS THE SHEET APPEARING, not any dismissal. That covers all four
+// ways out with one write, including the one no dismissal handler can ever
+// reach: the phone's own back gesture leaves the page entirely, so none of this
+// component's code runs and nothing could be recorded on the way out. The bound
+// therefore comes from the code rather than from a member's habits. This
+// amended the decision Jacob arrived with, on his call, and the reasoning is in
+// the spec's "The amendment" section.
+//
+// THE COOKIE IS READ TWICE, IN TWO PLACES, AND THE SECOND ONE IS NOT REDUNDANT.
+// The server reads it and hands the answer down as `lastShownAt`. This
+// component reads it once more, at mount, in the state initializer below. That
+// second read exists because the browser and phone back gesture does NOT re-run
+// the server render: Next's client router cache serves back and forward
+// navigations from memory, by design, and it does not expire and is not
+// configurable. That was measured against the real app before any of this was
+// written (spec, "The task 0 result"), three independent ways: no server render
+// logged, a 100-byte response where genuine renders return the whole payload,
+// and the stale copy still served after waiting forty seconds. Left
+// server-side only, this fix would be honoured on every path except the one an
+// iPhone member reaches for first. Delete the mount check and you silently
+// restore the bug on that path; a test in EmailAskNote.test.tsx fails if you
+// do.
+//
+// The cookie records an IMPRESSION while the counter beside it records only
+// ANSWERS. Nothing reads across, and the difference is on purpose.
 
 import { useEffect, useId, useRef, useState, useTransition } from "react"
 import { shouldOfferEmail, type EmailAskState } from "@/lib/auth/email-offer"
+import { emailAskCookieIsFresh, markEmailAskShown } from "@/lib/auth/email-ask-cooldown"
 import { dismissEmailOfferAction } from "@/app/actions/email-ask"
 import { OrbitMark } from "@/components/OrbitMark"
 import EmailAttachFlow from "./EmailAttachFlow"
@@ -141,6 +191,27 @@ export interface EmailAskNoteProps {
   askState: EmailAskState
   latestContributionAt: Date | null
   hasVerifiedEmail: boolean
+  /**
+   * The moment this sheet was last shown to this member, or null if it never
+   * has been. This arrives from the server (the page reads the cooldown
+   * cookie and hands the value in as a prop) so that the same value is
+   * present on the server render and on hydration. That is what stops the
+   * sheet appearing and then vanishing. Fed straight into shouldOfferEmail,
+   * which owns the comparison against the cooldown window.
+   *
+   * NARROWED 3 Sept 2026, task 5, and the original wording is worth keeping
+   * in view because it was right about the danger and wrong about the scope.
+   * It said this component "must never read the cookie itself." What must
+   * never happen is a read that can change its answer WHILE the sheet is up:
+   * a value re-read on a later render could hide a sheet somebody is reading
+   * or typing into, which is the failure the sentence was guarding against
+   * and is still forbidden. A single read taken in a state initializer, which
+   * runs once during this mount's first render and never again, cannot do
+   * that. It exists because the back gesture never re-runs the server render,
+   * so this prop is stale on exactly the path a phone uses most; see THE
+   * COOLDOWN in the header comment.
+   */
+  lastShownAt: Date | null
   /** Injected rather than read here, so a test's outcome never depends on the clock. */
   now: Date
 }
@@ -150,6 +221,7 @@ export default function EmailAskNote({
   askState,
   latestContributionAt,
   hasVerifiedEmail,
+  lastShownAt,
   now,
 }: EmailAskNoteProps) {
   const [answered, setAnswered] = useState(false)
@@ -170,18 +242,98 @@ export default function EmailAskNote({
    * now says. This codebase had already learned the same lesson one file over,
    * in EmailStatusRow's `attached` state, for the same reason.
    *
-   * Scoped deliberately, because the dangerous version of this is easy to
-   * write: it holds a sheet that is ALREADY open, and it can never open one.
-   * A member the gate says nothing to sees nothing, on any re-render, and a
-   * test holds that. It stores which ask was live rather than a bare boolean,
-   * so the copy cannot silently switch asks underneath a member reading it.
-   *
-   * Attach is the only case that needs this, and that is worth stating so the
-   * next reader does not widen it on a hunch: of the gate's four inputs, only
+   * WIDENED 3 Sept 2026, from "attached" to "shown", and the sentence it
+   * replaced is worth quoting because it was true when written and the
+   * cooldown made it false: "of the gate's four inputs, only
    * `hasVerifiedEmail` can be flipped to null-the-offer by the member's own
-   * action inside this sheet. A dismissal already sets `answered`.
+   * action inside this sheet." Two more can now, and neither needs the member
+   * to do anything inside the sheet at all:
+   *
+   *   `lastShownAt`, because this component now writes the cooldown cookie
+   *   itself the moment it appears, and the next server render reads it back.
+   *
+   *   `latestContributionAt`, because page.tsx SKIPS the three contribution
+   *   reads once that same cookie says snoozed, so it comes down null.
+   *
+   * Both arrive together, on any revalidation after the sheet appears, and
+   * this app revalidates constantly: send-message.ts on every message,
+   * detect-intent.ts whenever Orbit does anything visible, 1 to 6 seconds
+   * later. The live path is a brand-new member whose first message is an idea
+   * Orbit answers. Every input the offer needs goes quiet at once, so latching
+   * any single one of them would not have held.
+   *
+   * So the latch is now on the fact that the sheet APPEARED, which is the
+   * thing all of those failures have in common, and attach is one case of it
+   * rather than the only one. `attachedUnder` was folded into this: it could
+   * only ever be set while the sheet was open, which means strictly after this
+   * one, so it can no longer say anything this does not already say. It was
+   * also the weaker of the two, because it captured the offer at attach time,
+   * by which point a revalidation may already have nulled it.
+   *
+   * Scoping is unchanged and is the whole safety of it (the dangerous version
+   * of this latch is easy to write): it holds a sheet that is ALREADY open,
+   * and it can never open one, because it is only ever set on a render where
+   * `showing` is already true. A member the gate says nothing to sees
+   * nothing, on any re-render, and a test holds that. It stores which ask
+   * was live rather than a bare boolean, so the copy cannot silently switch
+   * asks underneath a member reading it. `answered` still outranks it, so
+   * every exit still closes the sheet.
    */
-  const [attachedUnder, setAttachedUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
+  const [shownUnder, setShownUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
+  /**
+   * THE MOUNT CHECK, and it looks redundant against `lastShownAt` above until
+   * you know why it is here: the browser and phone back gesture does not
+   * re-run the server render, so on that path `lastShownAt` is whatever the
+   * cached render said, however long ago that was. The full measurement is in
+   * the header comment under THE COOLDOWN. Delete this and the fix works
+   * everywhere except the gesture an iPhone member reaches for first.
+   *
+   * WHY A STATE INITIALIZER, which is the odd-looking part:
+   *
+   *   An EFFECT runs after paint, so on a back-gesture return the sheet would
+   *   draw and then vanish. That flicker is what the original
+   *   no-client-suppression rule existed to prevent, and it would be worse
+   *   than the bug being fixed.
+   *
+   *   A useLayoutEffect would avoid the paint but warns during server
+   *   rendering, and would need an isomorphic wrapper for no gain.
+   *
+   *   A LAZY INITIALIZER runs during this mount's first render and never
+   *   again. That is exactly the guarantee needed: it can never hide a sheet a
+   *   member is already reading or typing into, however many times this
+   *   component re-renders. Same class of protection as the `shownUnder`
+   *   latch above, reached for the same reason.
+   *
+   *   The same never-again property has a cost worth naming, not fixing: a
+   *   mount that outlives the cooldown never re-checks it. A member who opens
+   *   the group home while the cookie is fresh and leaves that tab open past
+   *   the 24-hour window will not see the sheet on that page instance even
+   *   after the cooldown has genuinely ended; it returns on the next mount
+   *   (a reload, in-app navigation, or a fresh visit). Correct given the
+   *   once-per-mount rule above and harmless, but it is a delay this design
+   *   accepts, not only the hiding it exists to prevent.
+   *
+   * HYDRATION: the `typeof document` check makes this false on the server. On
+   * a genuine first load it is false on the client too, because the server
+   * only rendered the sheet after finding no fresh cookie and nothing has
+   * written one yet, so the two agree. The one way they can disagree is a
+   * second tab writing the cookie between the server render and hydration,
+   * which costs a hydration warning and a sheet that does not show. Named
+   * rather than defended against.
+   *
+   * A second, distinct way they can disagree: emailAskCookieIsFresh is
+   * presence-based (see its own doc comment) while the server reads and
+   * parses the value, and the two fail in opposite directions on a cookie
+   * whose value is present but unparseable. That reads as not-snoozed on
+   * the server, which renders the sheet into the SSR HTML, and as fresh
+   * here, which then suppresses it the moment this initializer runs, so the
+   * member sees the exact draw-then-vanish flicker this state initializer
+   * exists to prevent, from the other direction. Not reachable through any
+   * value this product writes; see emailAskCookieIsFresh for the mechanism.
+   */
+  const [suppressedByCooldown] = useState(
+    () => typeof document !== "undefined" && emailAskCookieIsFresh()
+  )
   const [, startTransition] = useTransition()
   const sheetRef = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<Element | null>(null)
@@ -191,11 +343,82 @@ export default function EmailAskNote({
   // can test a component and cannot test a server-rendered screen. The page
   // gathers the facts; the one decision about whether a member is asked is made
   // here, where a test can hold it to it.
-  const offer = shouldOfferEmail({ user: askState, latestContributionAt, hasVerifiedEmail, now })
-  // The live offer, or the one this sheet was opened under if the member has
-  // since attached an address and made the live one null. See the latch above.
-  const activeOffer = offer ?? attachedUnder
-  const showing = !answered && activeOffer !== null
+  const offer = shouldOfferEmail({
+    user: askState,
+    latestContributionAt,
+    hasVerifiedEmail,
+    lastShownAt,
+    now,
+  })
+  // The ask this sheet actually opened under, or the live one if it has not
+  // opened yet. The latch is read FIRST, not as a fallback: once the sheet is
+  // up, the words on it are pinned, so a later render cannot switch a member
+  // from one ask to the other mid-read. See the latch above.
+  const activeOffer = shownUnder ?? offer
+  const showing = !answered && !suppressedByCooldown && activeOffer !== null
+
+  // Pin what appeared, on the first render that actually shows it. Two things
+  // about the shape of this, because both look wrong at a glance and neither
+  // is:
+  //
+  //   IT SETS STATE DURING RENDER, which is React's documented way to adjust
+  //   state when the inputs change, and it is deliberate rather than lazy. In
+  //   an effect it would be a lint error here (react-hooks/set-state-in-effect,
+  //   an error in this repo, not a warning) and, worse, it would cascade a
+  //   second render after paint. Guarded on `shownUnder === null`, so it can
+  //   fire at most once per mount and cannot loop.
+  //
+  //   IT READS `showing`, WHICH ALREADY CARRIES EVERY GUARD. That is what
+  //   makes "it can hold a sheet open and can never open one" structural
+  //   rather than careful: `showing` is false for a member the gate says
+  //   nothing to, false on a mount the cooldown suppressed, and false once
+  //   the member has answered, so in none of those cases is anything pinned.
+  if (showing && shownUnder === null) {
+    setShownUnder(activeOffer)
+  }
+
+  // The cooldown starts by the sheet appearing. Its own effect, deliberately
+  // not folded into the focus-and-scroll-lock one below: that effect's cleanup
+  // gives back things borrowed from the page, and this write is not borrowed
+  // and must never be undone on the way out.
+  //
+  // GATED ON `showing`, WHICH ALREADY CARRIES `!suppressedByCooldown`, and that
+  // is load-bearing rather than incidental. A suppressed mount that wrote
+  // anyway would push the deadline another 24 hours out on every back-gesture
+  // return, so a member who navigates that way would never be asked again,
+  // silently and permanently. That is the worst outcome available here, and it
+  // is why there is exactly one write site and it sits behind this flag.
+  //
+  // `now` is the server render's clock arriving as a prop, never new Date(), so
+  // the stored instant never depends on the device's own clock. It is in the
+  // dependency array because it is genuinely read here; the trigger is still
+  // `showing`.
+  //
+  // WHAT THAT MEANS IN PRACTICE, stated plainly because it is the normal path
+  // rather than an edge case, and an earlier version of this comment implied
+  // the opposite. `now` is a new value on every server render, and the latch
+  // above deliberately holds this sheet open ACROSS those renders, so each
+  // revalidation that arrives while the sheet is up refires this effect and
+  // rewrites the cookie. The stored instant is therefore the last render while
+  // the sheet was open, not the moment it first appeared, and the 24 hours runs
+  // from there.
+  //
+  // Accepted, not guarded, and the reason is the sheet's own modality: it
+  // covers the screen and blocks the composer, so a member cannot do anything
+  // that would revalidate while it is up. That bounds this to the one or two
+  // renders already in flight from their own last send, seconds apart, which
+  // moves the deadline by seconds. A guard here would buy nothing and would add
+  // a second thing that has to agree with the write.
+  //
+  // What is genuinely pinned is that a single appearance writes ONCE, not once
+  // per render, and a test asserts that count rather than just the value.
+  //
+  // Development StrictMode runs this twice. The second write is the same value
+  // to the same cookie, so there is deliberately no guard for it.
+  useEffect(() => {
+    if (!showing) return
+    markEmailAskShown(now)
+  }, [showing, now])
 
   // Focus and the page's scroll, taken on open and given back on close. Both
   // halves live in one effect because both are borrowed from the page and both
@@ -358,11 +581,13 @@ export default function EmailAskNote({
             // done step has no control at all and the scroll lock plus the
             // scrim trap them; see EmailAttachFlow's onDone for the full story.
             onDone={handleLeaveQuietly}
-            // Throws the latch. Captured as the offer that was live at this
-            // moment rather than as a boolean, so the sheet cannot switch from
-            // the first ask's wording to the second's underneath a member who
-            // is mid-read.
-            onAttached={() => setAttachedUnder(offer)}
+            // No onAttached here any more, and its absence is deliberate
+            // rather than an omission. It used to throw a latch of its own at
+            // the moment an address was saved; that latch is folded into the
+            // shown-latch above, which was already set before this flow could
+            // possibly reach its end, and which captures the ask at the
+            // stronger moment. See the latch comment for why the narrower one
+            // could not say anything the wider one does not.
             messageSlot={(message) => (
               // Round 10's labeled note. Grid, never a float: the mark occupies
               // its own column and spans both rows, so every line of copy

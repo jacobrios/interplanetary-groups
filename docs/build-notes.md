@@ -7471,3 +7471,107 @@ bare `npx tsc --noEmit` report about thirty errors from duplicate type identitie
 project's. PR #95 scoped the vitest runner to exclude that path and vitest is clean; nothing scoped
 `tsconfig.json`, so the typechecker still walks in. Filter with
 `grep -v "^\.claude/worktrees"` until somebody decides whether to exclude it.
+
+---
+
+## §11 entry: the email ask learns to take no for an answer (3 September 2026)
+
+**The complaint, and what it was not.** The owner tapped outside the email sheet
+on his phone, read some chat, navigated, came back, and the sheet was open
+waiting for him. Again, and again, forever. The tempting reading is that the
+sheet was buggy. It was not: the sheet reappearing was written down, on purpose,
+in two places. `email-ask.ts` says `emailAskCount` "is not an impression counter:
+it only advances when the member answers an offer by dismissing it," and
+`EmailAskNote.tsx` tables the scrim tap as a free exit because "the silent
+gesture is the cheap one."
+
+Both of those still stand. **The defect was narrower and it was a translation
+error: "free" had been built as "means nothing at all", when tapping outside a
+modal plainly means "not right now".** So the product heard a person say "later"
+and recorded silence. This slice teaches it to hear that, and changes nothing
+about what the two lifetime asks count.
+
+**Why it mattered on this particular day.** A tennis group of sixteen to twenty
+people was days from arriving. Everyone starts anonymous, and the ask fires on a
+person's first contribution, so most of that group would have met this.
+
+**What was settled with the owner**, and the numbers are his: a 24-hour
+cooldown; per person rather than per group, because Orbit is asking who you are
+and not which group you are in; a cookie rather than a database column, so no
+migration; and the free exits stay free of the lifetime counter. He also
+accepted, knowingly, that somebody who only ever taps outside is asked once a
+day indefinitely, on the original design's own reasoning: tapping away usually
+means they did not read it and want to get back to what they were doing, which
+is not a decision to refuse.
+
+**The decision that changed mid-design, and the correction that caused it.**
+He arrived with "any dismissal sets the snooze". A fourth way out cannot be
+reached that way: the phone's back gesture leaves the page, so none of our code
+runs. I recommended accepting it, on the claim that it cost at most one extra
+look. He accepted conditionally, on exactly that claim, and **the claim was
+wrong.** Nothing in the code bounds it; somebody whose habit is the back gesture
+would have met the same endless loop. So the trigger moved from "a dismissal" to
+"the sheet appeared".
+
+**Then the gate measured something that changed the design again.** Before any
+code, the assumption underneath the whole approach was tested: does coming back
+to the group home re-ask the server? Opening the app, reloading and in-app
+navigation all do. **The back gesture does not, and cannot be made to.** Next's
+client router cache serves it from memory, does not expire (confirmed by waiting
+forty seconds and repeating), and is not configurable. Confirmed three ways: no
+render logged, a 100-byte response where real renders return the page, and the
+stale copy still served after the wait.
+
+Left server-side only, the fix would have been honoured everywhere except the
+gesture an iPhone user reaches for first. So the sheet reads the cookie itself,
+**exactly once, at the instant it is created.** That reverses an instruction the
+owner gave deliberately, and he reversed it himself once the measurement was in
+front of him. The narrowness is the safety: looking once, at birth, means it can
+never hide itself while somebody is reading it or typing an address into it.
+
+**The bug this slice introduced, and caught.** Making the sheet write a cookie
+gave it a way to silence its own props. Orbit answering a member's first message
+revalidates the group home a second or two later; that render read the cookie
+the sheet had just written, and **the sheet vanished under the reader.** Exactly
+the failure the owner's original rule existed to prevent, and the same symptom
+that caused the `attachedUnder` latch to be built after his phone QA in the
+email slice. The fix widened that latch from "attached" to "shown": once the
+sheet is genuinely on screen it stays until the member closes it, whatever the
+server says next. `attachedUnder` was folded in and deleted, and the evidence is
+mutation rather than argument: removing the latch reddens the two old attach
+tests and the three new ones together, so one mechanism demonstrably carries
+both jobs.
+
+**A lesson this file should keep, because it happened three times.** This slice
+produced three false comments, and one of them was introduced by the fix for
+another: a paragraph was rewritten, the claim survived, and a clause inside it
+naming the mechanism went stale underneath. In a file that carries most of its
+reasoning in prose, **rewriting a paragraph means re-reading every clause in it
+against the code as it now stands, not only the sentence being corrected.**
+
+**Verification.** Suite 1663 of 1663 across 145 files at slice start, 1704 of
+1704 across 146 at the end, run by the controller rather than quoted from a
+report. Six-step browser pass on a 375x812 viewport: the sheet appears and
+writes the cookie, tapping outside then returning through the app is quiet, the
+back gesture is quiet, deleting the cookie brings the sheet straight back
+(proving the cookie is what does the work rather than some other state), and the
+group info page's permanent email row is untouched by any of it. After every
+free exit `emailAskCount` was still 0, so the two-ask allowance is provably
+unharmed. **Not verified: a real iPhone.** The back gesture was exercised in a
+Chromium pane, and the owner's phone pass is the only instrument for the real
+thing.
+
+**Debt, all of it small and all of it named in the spec:** the cookie is per
+device and clears with site data; a shared device inherits one snooze; two
+places now know about the cooldown, which looks redundant and is not, guarded by
+comments and by a test that reddens if the second one is deleted; the parser
+fails toward showing the sheet while the mount check fails toward silence, which
+is only reachable by hand-editing a cookie; and a tab left open past the 24-hour
+expiry will not show the sheet again until the next mount.
+
+**Out of lane, not fixed, routed to its own micro-PR:** `UnsubscribeForm.test.tsx`
+fails intermittently on this branch and on main, untouched by this slice, seen
+twice by two different agents on the day. Diagnosed as a `disabled` read without
+a `waitFor`, racing a two-commit React update. That is a different mechanism from
+the flake the 2 September cleanup fix closed in the same file, so the class is not
+closed and the record should stop implying it is.

@@ -6,7 +6,13 @@
 // on any machine, in any timezone, on any day.
 
 import { describe, it, expect } from "vitest"
-import { shouldOfferEmail, emailAskIsSettled, type EmailAskState } from "../email-offer"
+import {
+  shouldOfferEmail,
+  emailAskIsSettled,
+  emailAskIsSnoozed,
+  ASK_COOLDOWN_MS,
+  type EmailAskState,
+} from "../email-offer"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -23,6 +29,7 @@ describe("shouldOfferEmail: verified email always wins", () => {
       user: state({ emailAskCount: 0 }),
       latestContributionAt: new Date("2026-08-10T00:00:00.000Z"),
       hasVerifiedEmail: true,
+      lastShownAt: null,
       now: new Date("2026-08-10T00:00:01.000Z"),
     })
     expect(result).toBeNull()
@@ -33,6 +40,7 @@ describe("shouldOfferEmail: verified email always wins", () => {
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: sevenDaysLater,
       hasVerifiedEmail: true,
+      lastShownAt: null,
       now: sevenDaysLater,
     })
     expect(result).toBeNull()
@@ -45,6 +53,7 @@ describe("shouldOfferEmail: the count ceiling", () => {
       user: state({ emailAskCount: 2, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(sevenDaysLater.getTime() + DAY_MS),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + DAY_MS),
     })
     expect(result).toBeNull()
@@ -55,6 +64,7 @@ describe("shouldOfferEmail: the count ceiling", () => {
       user: state({ emailAskCount: 3, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(sevenDaysLater.getTime() + DAY_MS),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + DAY_MS),
     })
     expect(result).toBeNull()
@@ -67,6 +77,7 @@ describe("shouldOfferEmail: the first ask", () => {
       user: state({ emailAskCount: 0 }),
       latestContributionAt: new Date("2026-08-05T00:00:00.000Z"),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date("2026-08-05T00:00:01.000Z"),
     })
     expect(result).toBe("first")
@@ -77,6 +88,7 @@ describe("shouldOfferEmail: the first ask", () => {
       user: state({ emailAskCount: 0 }),
       latestContributionAt: null,
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date("2026-08-05T00:00:00.000Z"),
     })
     expect(result).toBeNull()
@@ -91,6 +103,7 @@ describe("shouldOfferEmail: the second ask, at the seven-day boundary", () => {
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(askedOnceAt.getTime() + 1),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: sevenDaysLater,
     })
     expect(result).toBe("second")
@@ -101,6 +114,7 @@ describe("shouldOfferEmail: the second ask, at the seven-day boundary", () => {
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(askedOnceAt.getTime() + 1),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() - 1000),
     })
     expect(result).toBeNull()
@@ -111,6 +125,7 @@ describe("shouldOfferEmail: the second ask, at the seven-day boundary", () => {
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(askedOnceAt.getTime() + 1),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + 1000),
     })
     expect(result).toBe("second")
@@ -123,6 +138,7 @@ describe("shouldOfferEmail: the second ask also requires a fresh contribution", 
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: null,
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + DAY_MS),
     })
     expect(result).toBeNull()
@@ -133,6 +149,7 @@ describe("shouldOfferEmail: the second ask also requires a fresh contribution", 
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: new Date(askedOnceAt.getTime() - DAY_MS),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + DAY_MS),
     })
     expect(result).toBeNull()
@@ -144,6 +161,7 @@ describe("shouldOfferEmail: the second ask also requires a fresh contribution", 
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: askedOnceAt,
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(sevenDaysLater.getTime() + DAY_MS),
     })
     expect(result).toBeNull()
@@ -158,6 +176,7 @@ describe("shouldOfferEmail: the second ask also requires a fresh contribution", 
       user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
       latestContributionAt: null,
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date(askedOnceAt.getTime() + 365 * DAY_MS),
     })
     expect(result).toBeNull()
@@ -176,6 +195,7 @@ describe("shouldOfferEmail: emailAskedAt missing while emailAskCount is 1", () =
         user: state({ emailAskCount: 1, emailAskedAt: null }),
         latestContributionAt: new Date("2026-08-20T00:00:00.000Z"),
         hasVerifiedEmail: false,
+        lastShownAt: null,
         now: new Date("2026-09-20T00:00:00.000Z"),
       })
     ).not.toThrow()
@@ -184,9 +204,226 @@ describe("shouldOfferEmail: emailAskedAt missing while emailAskCount is 1", () =
       user: state({ emailAskCount: 1, emailAskedAt: null }),
       latestContributionAt: new Date("2026-08-20T00:00:00.000Z"),
       hasVerifiedEmail: false,
+      lastShownAt: null,
       now: new Date("2026-09-20T00:00:00.000Z"),
     })
     expect(result).toBeNull()
+  })
+})
+
+// ── the 24-hour cooldown (added 3 Sept 2026, email-ask-cooldown slice) ──────
+//
+// The sheet is modal, and tapping outside it (the ordinary "not now" gesture)
+// records nothing toward emailAskCount, which used to mean a member met the
+// sheet again on every return to the group home. lastShownAt and the cooldown
+// it feeds close that gap without touching the count at all.
+
+describe("shouldOfferEmail: the 24-hour cooldown", () => {
+  const contributed = new Date("2026-08-05T00:00:00.000Z")
+  const now = new Date("2026-08-05T00:00:01.000Z")
+
+  it("never shown (lastShownAt: null), count 0, contributed: still fires \"first\" (proves the new input does not break the existing path)", () => {
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 0 }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: null,
+      now,
+    })
+    expect(result).toBe("first")
+  })
+
+  it("shown ten minutes ago suppresses an otherwise-due first ask", () => {
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000)
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 0 }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: tenMinutesAgo,
+      now,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("pins the boundary as inclusive: shown exactly 24 hours ago is no longer snoozed", () => {
+    const exactly24hAgo = new Date(now.getTime() - ASK_COOLDOWN_MS)
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 0 }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: exactly24hAgo,
+      now,
+    })
+    expect(result).toBe("first")
+  })
+
+  it("shown 25 hours ago is well past the cooldown", () => {
+    const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000)
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 0 }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: twentyFiveHoursAgo,
+      now,
+    })
+    expect(result).toBe("first")
+  })
+
+  it("a future lastShownAt (a skewed device clock) reads as snoozed, not as expired", () => {
+    const anHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 0 }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: anHourFromNow,
+      now,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("the settled check still wins: count 2 and shown ten minutes ago stays null", () => {
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000)
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 2, emailAskedAt: askedOnceAt }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: tenMinutesAgo,
+      now,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("the settled check still wins: count 2 and never shown stays null too (the cooldown is not a way back in)", () => {
+    const result = shouldOfferEmail({
+      user: state({ emailAskCount: 2, emailAskedAt: askedOnceAt }),
+      latestContributionAt: contributed,
+      hasVerifiedEmail: false,
+      lastShownAt: null,
+      now,
+    })
+    expect(result).toBeNull()
+  })
+
+  it("a verified email beats every cooldown combination", () => {
+    const combos: Array<Date | null> = [
+      null,
+      new Date(now.getTime() - 10 * 60 * 1000),
+      new Date(now.getTime() - ASK_COOLDOWN_MS),
+      new Date(now.getTime() - 25 * 60 * 60 * 1000),
+      new Date(now.getTime() + 60 * 60 * 1000),
+    ]
+    for (const lastShownAt of combos) {
+      const result = shouldOfferEmail({
+        user: state({ emailAskCount: 0 }),
+        latestContributionAt: contributed,
+        hasVerifiedEmail: true,
+        lastShownAt,
+        now,
+      })
+      expect(result).toBeNull()
+    }
+  })
+
+  it("the second-ask boundary matrix, re-run with lastShownAt: null, is unchanged", () => {
+    // Same three boundary instants as "shouldOfferEmail: the second ask, at
+    // the seven-day boundary" above, restated here with the new required
+    // field so the cooldown's absence-of-effect is proven rather than assumed.
+    const underBoundaryNow = new Date(sevenDaysLater.getTime() - 1000)
+    const atBoundaryNow = sevenDaysLater
+    const overBoundaryNow = new Date(sevenDaysLater.getTime() + 1000)
+    const contributionSinceAsk = new Date(askedOnceAt.getTime() + 1)
+
+    expect(
+      shouldOfferEmail({
+        user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
+        latestContributionAt: contributionSinceAsk,
+        hasVerifiedEmail: false,
+        lastShownAt: null,
+        now: underBoundaryNow,
+      })
+    ).toBeNull()
+
+    expect(
+      shouldOfferEmail({
+        user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
+        latestContributionAt: contributionSinceAsk,
+        hasVerifiedEmail: false,
+        lastShownAt: null,
+        now: atBoundaryNow,
+      })
+    ).toBe("second")
+
+    expect(
+      shouldOfferEmail({
+        user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
+        latestContributionAt: contributionSinceAsk,
+        hasVerifiedEmail: false,
+        lastShownAt: null,
+        now: overBoundaryNow,
+      })
+    ).toBe("second")
+  })
+
+  it("the same matrix with a fresh lastShownAt is null throughout: the cooldown gates the second ask too", () => {
+    const underBoundaryNow = new Date(sevenDaysLater.getTime() - 1000)
+    const atBoundaryNow = sevenDaysLater
+    const overBoundaryNow = new Date(sevenDaysLater.getTime() + 1000)
+    const contributionSinceAsk = new Date(askedOnceAt.getTime() + 1)
+
+    for (const boundaryNow of [underBoundaryNow, atBoundaryNow, overBoundaryNow]) {
+      const fresh = new Date(boundaryNow.getTime() - 10 * 60 * 1000)
+      const result = shouldOfferEmail({
+        user: state({ emailAskCount: 1, emailAskedAt: askedOnceAt }),
+        latestContributionAt: contributionSinceAsk,
+        hasVerifiedEmail: false,
+        lastShownAt: fresh,
+        now: boundaryNow,
+      })
+      expect(result).toBeNull()
+    }
+  })
+})
+
+describe("emailAskIsSnoozed", () => {
+  const now = new Date("2026-08-10T00:00:00.000Z")
+
+  it("is false when lastShownAt is null", () => {
+    expect(emailAskIsSnoozed(null, now)).toBe(false)
+  })
+
+  it("a value the type rules out but a caller could still hand it at runtime reads as never shown, not as a crash", () => {
+    // This function is called directly inside EmailAskNote's render body, a
+    // user-facing path. The type says `Date | null` and every real and test
+    // caller in this repo was verified to pass one of those two, but nothing
+    // stops some future caller from going around the type (a stale client
+    // cache, an untyped script, a JSON round trip) and handing this an
+    // `undefined` it was never supposed to see. This is the fix-round-1
+    // regression test: an earlier version of this guard used `=== null`,
+    // which let `undefined` fall through to `.getTime()` and throw, taking
+    // down the group home for that member. It now reads a non-Date value the
+    // same way it reads a genuine `null`: not snoozed, ask allowed to show.
+    // Failing toward showing an optional nudge one extra time is recoverable;
+    // failing toward a broken render is not.
+    expect(emailAskIsSnoozed(undefined as unknown as Date | null, now)).toBe(false)
+  })
+
+  it("is true when shown just now", () => {
+    expect(emailAskIsSnoozed(now, now)).toBe(true)
+  })
+
+  it("is false exactly at the 24-hour boundary", () => {
+    const exactly24hAgo = new Date(now.getTime() - ASK_COOLDOWN_MS)
+    expect(emailAskIsSnoozed(exactly24hAgo, now)).toBe(false)
+  })
+
+  it("is false well past the cooldown", () => {
+    const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000)
+    expect(emailAskIsSnoozed(twentyFiveHoursAgo, now)).toBe(false)
+  })
+
+  it("is true for a future lastShownAt (a skewed device clock)", () => {
+    const anHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
+    expect(emailAskIsSnoozed(anHourFromNow, now)).toBe(true)
   })
 })
 
@@ -231,6 +468,7 @@ describe("emailAskIsSettled", () => {
                 user,
                 latestContributionAt,
                 hasVerifiedEmail,
+                lastShownAt: null,
                 now,
               })
               if (offer !== null) offersSeen += 1
