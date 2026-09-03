@@ -119,9 +119,14 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
       formData.set("groupId", groupId)
       const action = isCancelled ? restoreEventAction : cancelEventAction
       const result = await action({}, formData)
+      // Reset for both outcomes, not just the error branch. The server
+      // action revalidates on success and isCancelled flips on the next
+      // render, but this component instance is not remounted, so any local
+      // state left dangling here (namely confirming) survives into that
+      // re-render and reopens the confirm row for the OPPOSITE action.
+      setConfirming(false)
       if (result?.errors?.general) {
         setErrorMsg(result.errors.general)
-        setConfirming(false)
       }
     })
   }

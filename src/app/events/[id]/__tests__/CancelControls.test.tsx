@@ -132,6 +132,39 @@ describe("CancelControls, shape", () => {
   })
 })
 
+// ── The bug found driving the real app: confirming survived a success ──────
+// The component instance is not remounted between renders, only its props
+// change (isCancelled flips after the server action revalidates), so any
+// local state the component fails to reset on success survives into the
+// re-render for the OPPOSITE action. Before the fix, `confirming` was reset
+// to false only on the error branch, so a successful cancel or restore left
+// the confirm row open, now describing the action that was just undone.
+describe("CancelControls, confirm row closes after a successful action", () => {
+  it("closes the confirm row and shows the resting control again after a successful cancel", async () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, call it off" }))
+
+    await waitFor(() => expect(cancelEventAction).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, call it off" })).toBeNull())
+    expect(screen.queryByRole("button", { name: "Never mind" })).toBeNull()
+    expect(screen.queryByText(/This tells the group the plan is off/)).toBeNull()
+    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
+  })
+
+  it("closes the confirm row and shows the resting control again after a successful restore", async () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled />)
+    fireEvent.click(screen.getByRole("button", { name: "Put this back on" }))
+    fireEvent.click(screen.getByRole("button", { name: "Yes, put it back" }))
+
+    await waitFor(() => expect(restoreEventAction).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, put it back" })).toBeNull())
+    expect(screen.queryByRole("button", { name: "Never mind" })).toBeNull()
+    expect(screen.queryByText(/This tells the group the plan is back on/)).toBeNull()
+    expect(screen.getByRole("button", { name: "Put this back on" })).toBeTruthy()
+  })
+})
+
 // The event page is a server component that reads the database, so this suite
 // cannot render it and cannot assert the placement from the DOM. This reads
 // the source instead, which is an honest but weaker instrument: it proves the
