@@ -41,6 +41,19 @@
 // founder-specific problem, and "everyone can lose a session" is exactly the
 // finding that made this slice a priority (CLAUDE.md, "Identity, auth, and
 // known gaps").
+//
+// Amended 3 Sept 2026, owner's phone QA: "Add your email" was a quiet
+// underlined text link and he found it too hard to see. That matters more
+// here than it would on a merely convenient control, because a member with
+// no address attached is the one who comes back as a duplicate person after
+// losing a session, which is the exact failure this whole row exists to
+// prevent. It is now a full-width outlined pill, the same geometry
+// CancelControls already uses for "Call this off" on the event screen, and
+// the expanded flow lost the hairline box it used to sit inside so a tap
+// reads as text-then-two-controls appearing in place, the way CancelControls'
+// own confirm step already does. "Change email" is deliberately untouched;
+// see the note beside it below for why the two controls are no longer meant
+// to look alike.
 
 import { useState } from "react"
 import EmailAttachFlow from "../EmailAttachFlow"
@@ -103,6 +116,18 @@ const REQUEST_ERROR_MESSAGES = {
 // width and the user-agent stylesheet centers its text, which is exactly
 // what ManageMembers and ResetInviteLink already set this same property to
 // avoid on this same page.
+//
+// As of 3 Sept 2026 this style is used for "Change email" alone. "Add your
+// email" moved to the full-width pill below it, by the owner's explicit
+// choice on his phone QA, and this is not an oversight left half-finished:
+// prominence follows what is at stake, not what the control does. A member
+// with no address attached risks coming back as a stranger the next time
+// their session drops, so that control has to be easy to find. A member
+// changing an address already has one on file and is already protected, so
+// "Change email" stays exactly this quiet link, along with "Manage members"
+// and "Reset link" below on this same page, which the owner confirmed should
+// stay quiet links for the identical reason: nothing is at risk if they go
+// unnoticed a little longer.
 const LINK_STYLE = {
   background: "none",
   border: "none",
@@ -113,6 +138,38 @@ const LINK_STYLE = {
   textDecoration: "underline",
   cursor: "pointer",
 } as const
+
+// Geometry reproduced from CancelControls (src/app/events/[id]/CancelControls.tsx),
+// which itself reproduced it from AddToCalendarButton, so this pill stacks as
+// the same shape a member has likely already tapped elsewhere in the product
+// rather than inventing a third control shape for the same job. minHeight is
+// a floor, never a fixed height, per the layout-grows rule: it has to survive
+// enlarged device text without clipping. Outlined rather than teal, on
+// purpose: this is a secondary action next to "Leave group" and "Change
+// email" on the same page, and CLAUDE.md's colour rule reserves teal for an
+// action that genuinely matters, never a default weight for "important
+// enough to be a button."
+const pill: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  width: "100%",
+  minHeight: "44px",
+  padding: "0.75rem 1.5rem",
+  borderRadius: "24px",
+  fontSize: "var(--type-label)",
+  fontWeight: 600,
+  lineHeight: "var(--leading-normal)",
+  cursor: "pointer",
+}
+
+const outlinedPill: React.CSSProperties = {
+  ...pill,
+  background: "transparent",
+  border: "1px solid var(--hairline)",
+  color: "var(--text-secondary)",
+}
 
 export default function EmailStatusRow({ emailAddress }: Props) {
   const [expanded, setExpanded] = useState(false)
@@ -156,21 +213,29 @@ export default function EmailStatusRow({ emailAddress }: Props) {
         </button>
       </span>
     ) : (
-      <button type="button" onClick={() => setExpanded(true)} style={LINK_STYLE}>
+      <button type="button" onClick={() => setExpanded(true)} style={outlinedPill}>
         Add your email
       </button>
     )
   }
 
   return (
-    // The quiet expand-box pattern already used by ManageMembers' remove
-    // confirm and ResetInviteLink's confirm: a hairline border, no fill, so it
-    // reads as an inline state change rather than a card of its own.
+    // This used to be the quiet expand-box pattern ManageMembers' remove
+    // confirm and ResetInviteLink's confirm both still use: a hairline
+    // border, no fill, reading as an inline state change rather than a card
+    // of its own. The owner asked this row to depart from that, in his own
+    // words: "similar to what it already looks like, just without the little
+    // box border. Kind of like what happens when you click the Call this off
+    // button and text and two new buttons appear." A boxed flow sitting right
+    // under a real pill button read as a control nested inside a control,
+    // where CancelControls' own confirm step on the event screen just lets
+    // its text and buttons appear in place with nothing drawn around them.
+    // flexDirection: column and the gap survive the border's removal because
+    // they are doing real layout work independent of it, spacing the flow's
+    // message paragraph from its form; the padding that existed only to hold
+    // content off the border is gone with the border it was measured against.
     <div
       style={{
-        border: "1px solid var(--hairline)",
-        borderRadius: "0.5rem",
-        padding: "0.75rem",
         display: "flex",
         flexDirection: "column",
         gap: "0.5rem",
