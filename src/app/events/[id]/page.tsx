@@ -206,16 +206,22 @@ export default async function EventPage({ params }: Props) {
             </h1>
 
             {/* Meta rows (.ed-meta / .ed-mrow): icon-led lines replacing the
-                stacked key/value MetaRow. The "When"/"Where"/"Activity" key
-                labels are visually deleted, exactly as the design draws it,
-                but restored as visually-hidden text ahead of each row's
-                value (fix round 1, task 3): the pre-visual MetaRow rendered
-                those words and a screen reader read them, and dropping them
-                to an aria-hidden icon plus bare text was a real regression
-                — a listener heard a bare date, then "The climbing gym",
-                then "climbing" echoing the page heading. See
-                task-3-report.md's fix-round-1 section for the accessibility
-                trace before and after. */}
+                stacked key/value MetaRow. The "When"/"Where" key labels are
+                visually deleted, exactly as the design draws it, but
+                restored as visually-hidden text ahead of each row's value
+                (fix round 1, task 3): the pre-visual MetaRow rendered those
+                words and a screen reader read them, and dropping them to an
+                aria-hidden icon plus bare text was a real regression (a
+                listener heard a bare date, then "The climbing gym", then
+                "climbing" echoing the page heading). See task-3-report.md's
+                fix-round-1 section for the accessibility trace before and
+                after.
+
+                A third row, "Activity", stood here alongside When and
+                Where at that time and was part of the traced regression
+                above; it was deleted on 2 September 2026 (QA feedback
+                round) because it printed the same word the title already
+                showed. */}
             <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
               <DetailRow
                 icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
@@ -421,17 +427,22 @@ export default async function EventPage({ params }: Props) {
 // ─── Sub-components (server-only, no "use client") ────────────────────────────
 
 // One icon-plus-text meta line (.ed-mrow, task 3), replacing the stacked
-// key/value MetaRow. `icon` is null for the activity row (no drawn glyph in
-// the design); `paddingLeft` on the no-icon branch is the icon's own
-// footprint (16px width + 9px gap) so every row's text lands in the same
-// column regardless of whether it carries an icon.
+// key/value MetaRow. `icon` was null for the activity row (no drawn glyph
+// in the design); `paddingLeft` on the no-icon branch stood in for the
+// missing icon's own footprint (16px width + 9px gap) so every row's text
+// landed in the same column regardless of whether it carried an icon. The
+// activity row was deleted on 2 September 2026 (QA feedback round) because
+// it printed the same word the title already showed, so no caller passes a
+// null icon today; the branch and the nullable `icon` type are left as they
+// are on purpose, a tidy rather than a fix, and queued as its own decision.
 //
 // `label` (fix round 1, task 3) is the word MetaRow used to render visibly
-// ("When" / "Where" / "Activity") — deleted from the visible design per the
-// brief, but restored here as visually-hidden text ahead of the value, so a
-// screen reader still hears what kind of row this is. The trailing space in
-// the rendered text is a separator, not new copy: without it, "When" and
-// the date would run together into one word for a speech synthesizer.
+// ("When" / "Where", and "Activity" before that row was deleted), removed
+// from the visible design per the brief, but restored here as visually-hidden
+// text ahead of the value, so a screen reader still hears what kind of row
+// this is. The trailing space in the rendered text is a separator, not new
+// copy: without it, "When" and the date would run together into one word
+// for a speech synthesizer.
 //
 // `color` (task 7, cancel-one-occurrence) is optional and defaults to the
 // live-plan ink: a called-off plan passes the dimmer `detailInk` so every

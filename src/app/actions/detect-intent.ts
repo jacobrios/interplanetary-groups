@@ -110,9 +110,16 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     // No extra query: fetchedEvents already holds every status inside the
     // region's cap, so comparing its length against the filtered count says
     // whether a called-off plan sits in that same window. Honest limit: this
-    // signal only sees inside the fetched window, so a group with
-    // CARD_REGION_CAP called-off plans sitting ahead of a scheduled one would
-    // still get the plain NO_PLANS_REPLY.
+    // signal only sees inside the fetched window, so a group with six
+    // upcoming events, the soonest CARD_REGION_CAP all called off and the
+    // sixth still scheduled, fetches five cancelled rows and nothing else.
+    // scheduledEvents is then empty (candidates is too) while
+    // hasCalledOffPlans reads true, so Orbit tells the group to bring a plan
+    // back by tapping the plan up top even though a live plan exists just
+    // past the window. That needs CARD_REGION_CAP cancellations stacked
+    // ahead of a live plan, so it is rare. If it ever matters, the fix is a
+    // second narrow query that counts called-off plans without the cap,
+    // rather than widening this fetch.
     const hasCalledOffPlans = scheduledEvents.length < fetchedEvents.length
     const upcomingLines = events.map(
       (e, i) =>

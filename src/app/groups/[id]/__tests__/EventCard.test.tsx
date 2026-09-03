@@ -152,7 +152,7 @@ describe("EventCard, a called-off plan", () => {
   // all cards on a group home called off, which breaks the owner's hard
   // constraint that this must not add a pixel to the card region's height.
   // His ruling in advance was that if the chip costs height there, the
-  // chip goes and the reposition stays — so this asserts the bare label,
+  // chip goes and the reposition stays, so this asserts the bare label,
   // repositioned only, with no fill. The height claim itself is verified
   // separately in the browser, not by this jsdom test, which cannot lay
   // anything out.
