@@ -391,18 +391,20 @@ describe("emailAskIsSnoozed", () => {
     expect(emailAskIsSnoozed(null, now)).toBe(false)
   })
 
-  it("throws on a runtime-absent lastShownAt rather than silently reading it as never shown", () => {
-    // The type says `Date | null`, and every real and test caller in this
-    // repo now passes one of those two. Nothing can hand this function
-    // `undefined` without going around TypeScript, which is exactly what this
-    // does (task 4's own tightening from `== null` to `=== null`, so this test
-    // is what proves the change is real rather than a comment-only edit: with
-    // the old loose check this call returned `false`, the same as a genuine
-    // `null`, and would not have thrown). A future caller that somehow loses
-    // the type (an untyped script, a JSON round trip) now fails loudly here
-    // instead of quietly treating a missing value as "the sheet was never
-    // shown," which is the direction that would hide a real bug.
-    expect(() => emailAskIsSnoozed(undefined as unknown as Date | null, now)).toThrow()
+  it("a value the type rules out but a caller could still hand it at runtime reads as never shown, not as a crash", () => {
+    // This function is called directly inside EmailAskNote's render body, a
+    // user-facing path. The type says `Date | null` and every real and test
+    // caller in this repo was verified to pass one of those two, but nothing
+    // stops some future caller from going around the type (a stale client
+    // cache, an untyped script, a JSON round trip) and handing this an
+    // `undefined` it was never supposed to see. This is the fix-round-1
+    // regression test: an earlier version of this guard used `=== null`,
+    // which let `undefined` fall through to `.getTime()` and throw, taking
+    // down the group home for that member. It now reads a non-Date value the
+    // same way it reads a genuine `null`: not snoozed, ask allowed to show.
+    // Failing toward showing an optional nudge one extra time is recoverable;
+    // failing toward a broken render is not.
+    expect(emailAskIsSnoozed(undefined as unknown as Date | null, now)).toBe(false)
   })
 
   it("is true when shown just now", () => {

@@ -86,8 +86,8 @@ export function emailAskIsSettled(user: EmailAskState): boolean {
 
 /**
  * Whether the sheet was shown recently enough that showing it again right now
- * would read as pestering rather than a nudge. False when lastShownAt is
- * null, since there is nothing to be recent relative to.
+ * would read as pestering rather than a nudge. False when lastShownAt is not
+ * a usable Date, since there is nothing to be recent relative to.
  *
  * It exists for the same reason emailAskIsSettled does: so page.tsx can skip
  * work whose answer cannot matter, without re-implementing the rule. It is
@@ -99,23 +99,40 @@ export function emailAskIsSettled(user: EmailAskState): boolean {
  * evidence of elapsed time is the direction that would actually pester
  * someone.
  *
- * The check is `=== null`, matching the type exactly. It was `== null`
- * (loose) for tasks 1 through 3, deliberately, because the two call sites
- * that construct `lastShownAt` were not updated until tasks 3 and 4, so until
- * both landed this function was reachable with the field simply absent,
- * which JavaScript hands through as `undefined` however the type is spelled.
- * Task 4 is what closes that gap: page.tsx (task 3) and EmailAskNote.tsx
- * (task 4) are now the only two callers of shouldOfferEmail's `lastShownAt`
- * outside tests, both pass a real `Date | null`, and every test call site
- * does too, verified by a repo-wide search rather than assumed. With no
- * caller left that can hand this function `undefined`, `== null` had become a
- * standing invitation for a future caller to do exactly that and have it
- * silently read as "never shown" instead of failing loudly. `=== null` turns
- * a genuinely missing value back into the type error it should always have
- * been.
+ * ONE PRINCIPLE, held in two layers, not two principles. The type is the
+ * real enforcement: `ShouldOfferEmailInput.lastShownAt` is `Date | null`,
+ * required, not optional, and every real and test caller in this repo was
+ * verified by a repo-wide search to pass it explicitly (page.tsx, the QA
+ * script, and every test in email-offer.test.ts and EmailAskNote.test.tsx).
+ * That is what actually prevents a member from ever seeing a broken screen
+ * over this, and it is why the type stays strict rather than being loosened
+ * back to accept `undefined`.
+ *
+ * The runtime guard below is defense for what the type cannot see: this
+ * function is called directly inside EmailAskNote's render body, a
+ * user-facing path, and a stale client cache or any other route that goes
+ * around TypeScript could in principle hand it something other than a Date
+ * or null. `instanceof Date` catches that case the same way `=== null` alone
+ * would not (it lets `undefined` and any other non-Date value through to
+ * `.getTime()`, which throws), and it resolves that case exactly the way
+ * `shouldOfferEmail` already resolves its own missing-data case a few lines
+ * down, at `emailAskedAt === null`: withhold the ask rather than guess or
+ * throw on a user-facing path. Failing toward showing an optional nudge one
+ * extra time is recoverable; taking down the group home's render is not.
+ *
+ * This used to be a loose `== null` check, which was wrong for a different
+ * reason and is worth keeping on record: for tasks 1 through 3, the two call
+ * sites that construct `lastShownAt` had not been updated yet, so this
+ * function was routinely reachable with the field simply absent, and `==
+ * null` was catching that as an accident of a mid-refactor state rather than
+ * as a deliberate defense. Once every caller was updated (task 4), that
+ * accidental reason for tolerance was gone, but the function still needed
+ * *some* runtime tolerance for the reason above, so the fix was never "go
+ * strict" on its own; it is "go strict in the type, stay defensive at the
+ * boundary, and say why each layer exists."
  */
 export function emailAskIsSnoozed(lastShownAt: Date | null, now: Date): boolean {
-  if (lastShownAt === null) return false
+  if (!(lastShownAt instanceof Date)) return false
   return now.getTime() - lastShownAt.getTime() < ASK_COOLDOWN_MS
 }
 
