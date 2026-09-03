@@ -2,8 +2,12 @@
 //
 // The full group-info page (walkthrough screen 10, grown in place from the
 // invite-link stub per the group-info slice). The group's reference page:
-// identity, members, standing rhythm, invite link, leave. Changing group
-// details happens by telling Orbit in the chat, and the page says so.
+// identity, members, standing rhythm, invite link, leave. A line here used
+// to tell a member that changing group details happens by telling Orbit in
+// the chat; it was deleted on 2 September 2026 (owner's phone QA, round 2)
+// because it was untrue on this specific page. The group's name, its
+// members, its rhythms and its venue all get an honest decline from Orbit
+// here, never a change, so do not re-add a line promising one.
 //
 // Visibility (spec decisions 3 to 5):
 //   member          identity · invite+share · card · hint · Leave
