@@ -417,3 +417,81 @@ Nothing else: no new environment variable, no dashboard setting, no third-party 
 
 The owner wants to hand the tennis group its invite link around Friday 4 September 2026. This slice
 is the last thing before that.
+
+---
+
+## 13. QA feedback round (2 September 2026)
+
+The owner ran the slice on a real phone and gave one round of feedback. Everything below is
+settled with him and is not open; the reasoning is here so the build session inherits answers.
+
+**One correctness bug, found by him, pre-existing and not this slice's.** `planChange` declines a
+day-change at rung 1, BEFORE rung 2 asks whether any plan exists. So "can we move it to Thursday?"
+in a group with nothing live answers "I can't move it to another day yet. I can change the time if
+that helps", offering to change the time of nothing. It fires in a brand new empty group too, so it
+predates cancellation, but this slice makes it common: any group that calls off its only plan now
+hits it. **Fixed here rather than queued**, because it is a reorder of about five lines in the same
+pure function and the same test file as the no-plans copy change, and shipping cancellation without
+it hands the tennis group a misleading reply on the exact day they need it. Declared in the PR body
+as a pre-existing fix riding along.
+
+**Two no-plans replies instead of one.** An empty calendar and a calendar of called-off plans are
+different truths, and the second has an action attached. `NO_PLANS_REPLY` stays for the first.
+The second reads: "I don't see any plans that are still on. To bring one back, tap the plan up top."
+Deterministic, no model call, chosen from a boolean the caller already has for free.
+
+**Orbit's announcements lead with the state, and put the state word in caps.** Both halves are the
+owner's call. Leading with the state is for scanning a feed, where the first three words carry the
+meaning; the caps are because "on" and "off" are short words in the middle of a sentence and he
+missed them on his own phone. Final strings:
+- "Squash this Thu is OFF. Rae called it off. Anyone can put it back on, tap the plan up top."
+- "Squash this Thu is back ON. Rae put it back, and everyone's RSVPs are the same as before."
+"Up top" is deliberate and already this product's vocabulary ("take a look up top", "It's up top").
+The earlier wording pointed at "the plan's page", which was true but told a member nothing about
+where to go. "Plan" stays: it is already Orbit's word in two other strings, so dropping it here
+would mean dropping it everywhere.
+
+**Both controls leave the details card.** Putting them in the card's footer band was the mistake
+behind three separate complaints: a box inside a box, a "Call this off" narrower than the RSVP pair
+above it, and a confirm step whose two buttons sat inside the same border as "I'm in" and "Can't
+make it", reading as four options for one question. They move out to full-width pills below the
+card, in the geometry "Add to calendar" already uses. **Restore is teal**, because on a called-off
+plan it genuinely is the screen's primary action and the only teal on that screen; **cancel is
+outlined**, because it is secondary to the RSVP and destructive. The confirm step travels with them,
+which dissolves the four-options problem without a separate fix, and the confirm's brightness flips:
+the destructive option must not be the visually louder one.
+
+**"CALLED OFF" moves above the title on the card**, matching the detail screen, with a filled chip
+behind it. It was missable because of position rather than size: it had inherited the need-label
+slot, right-aligned down in the counts row. **HARD CONSTRAINT, the owner's, stated twice: this must
+not add a single pixel to the card region's height.** That budget was won by an entire slice (47.7%
+of the screen down to 34%) and the chat feed is what pays for any growth. The mechanism that makes
+it safe: the label renders only on a cancelled card, the region takes its height from the tallest
+card, and a cancelled card has two fewer rows than a live one, so with any live card present the
+region cannot move. Moving the label is row-neutral by itself, since the counts row it leaves is
+empty on a cancelled card and gets dropped. The all-cancelled case is the only one that can grow,
+and it must be MEASURED rather than assumed; if the chip costs height there, the chip goes and the
+reposition stays.
+
+**Red is declined, and the owner agreed with the pushback.** The standing rule is "status by
+brightness plus icon or label, never by hue", so using red here means amending a rule rather than
+picking a colour. A called-off game is also not an error, which is what red says. Revisit only if
+the reposition lands and it is still missable on a real phone, with evidence rather than in advance.
+
+**The lowercase activity row on event detail is deleted.** The title is the title-cased form of that
+same stored string, so it printed the same word twice on nearly every event. Pre-existing and live in
+production; declared out of lane in the PR body.
+
+**A pre-existing defect confirmed on production: event cards need a double tap.** The owner first
+blamed his wifi, then reproduced it on the live site. Diagnosed before anything else is built,
+because a fix that restructures the card would collide with the label work. Two candidates, neither
+confirmed at the time of writing: the rail's `scroll-snap-type: x mandatory` with `overflow-x: auto`,
+which iOS Safari commonly lets swallow a first touch, or the tappable `<Link>` covering only the
+title, metadata and counts while the RSVP block sits outside it, which on a cancelled card leaves the
+bottom of the card looking tappable and inert.
+
+**Declined for now: a Claude Design pass on the two new controls.** The owner weighed it and chose to
+take the consistency-with-what-exists approach first, on the understanding that the full-width
+outlined pill for "Call this off" is a judgement call rather than a drawn source, since nothing in
+the design system covers a secondary destructive action. If it does not come out right, a design run
+is the next move.
