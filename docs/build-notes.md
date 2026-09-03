@@ -7388,3 +7388,61 @@ the comment now names the real case rather than its mirror image. An RSVP error 
 home card is click-through to the event page, a consequence of raising the button row above the
 stretched link. And `DetailRow` carries a now-unreachable null-icon branch after the duplicated
 activity row was deleted.
+
+### Postscript two: the second QA round (3 September 2026)
+
+Four small changes plus one diagnosis that found nothing, which is itself the finding.
+
+**The label goes bright white, and the reasoning generalises.** The owner reached for two fixes to
+one problem: change "CALLED OFF" to "CANCELLED", and make it brighter. He was solving a contrast
+problem with a vocabulary change. He never misread the label, he missed it, and a grey 13px
+"CANCELLED" is exactly as missable as a grey 13px "CALLED OFF". **The word stayed.** It is already
+consistent across the label, the button and Orbit's own "Rae called it off", and "called off" is how
+people actually talk about weather ("they called off the game") where "cancelled" is how a system
+talks about a record.
+
+What shipped is brightness, and it is a rule rather than a patch: **the card already carries status
+in brightness, and a called-off card dims its title, so making the label the brightest thing on a
+dimmed card inverts the hierarchy meaningfully.** On a live card the plan shouts and the status is
+quiet; on a called-off card the status shouts and the plan recedes. Measured in the browser: label
+`#ecedf2`, title `#a7aab6`, font size still 13px, so the height budget is untouched by construction.
+Implemented as a sibling `CancelledLabel` export rather than a branch inside `NeedLabel`, because a
+cancellation is a status and not a need, and bending the need ladder for one caller would plant a
+conditional in shared code that means one thing for one consumer.
+
+**The confirm buttons went back to equal weight, reversing a change made two rounds earlier.** I had
+recommended leaning them so the destructive option was quieter, the owner approved it, and on seeing
+it he said it felt weird to nudge them at all. He was right and the product had already settled it:
+"teal never leans an open question... the options carry equal weight while open". I had treated it as
+a safety problem when the recorded rule calls it a symmetry problem. The safe-first POSITION still
+does the accidental-tap protection; brightness doing it too cost clarity for nothing.
+
+**A line was deleted for being false rather than for being clutter.** The group info page said "Want
+to change something? Just tell Orbit in the chat." On that page it is untrue: the name, the members,
+the rhythms and the venue all get an honest decline. Worth recording because the line was not wrong
+when written; Orbit's decline paths grew around it and nobody re-read it.
+
+**The tap freeze was not reproduced, and that is the honest outcome.** The owner reported that after
+putting a plan back on, event cards briefly stopped responding, and that navigating away and back
+cleared it. Five deliberate attempts, including a zero-delay restore-then-navigate-then-tap race and
+the same race with the email sheet showing and dismissing, all came back clean; `elementFromPoint`
+returned the correct topmost element every time. **The instrument is wrong**: he saw it in iOS Safari
+and we tested in Chromium, which has different transition and paint timing. The highest-ranked
+candidate is a router-level transition stacking `SeenMarker`'s mount-time action on top of the
+restore's revalidation, a mechanism this codebase has already proven once in the message-send-latency
+slice, and it **predates** the tap fixes, which touched hit-testing rather than navigation. **No fix
+shipped**, because an untestable speculative change to an unrelated component is worse than a
+recorded symptom. The free experiment: the queued email-ask fix removes the sheet from the picture
+entirely, so if the freeze stops afterwards, the sheet was involved.
+
+**Confirmed as real while looking for something else:** the email-ask sheet reappears on every return
+to the group home while unanswered. That is working as designed, and the design is wrong. Only the
+worded exit spends one of the two lifetime asks; the scrim tap and navigating away are free, which
+was meant to stop an accidental dismissal burning an ask and instead nags on every navigation. Its
+own micro-PR, and it ranks high because the tennis group meets it on day one.
+
+**An environment trap worth knowing:** a concurrent git worktree under `.claude/worktrees/` makes a
+bare `npx tsc --noEmit` report about thirty errors from duplicate type identities, none of them the
+project's. PR #95 scoped the vitest runner to exclude that path and vitest is clean; nothing scoped
+`tsconfig.json`, so the typechecker still walks in. Filter with
+`grep -v "^\.claude/worktrees"` until somebody decides whether to exclude it.
