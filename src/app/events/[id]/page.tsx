@@ -238,17 +238,6 @@ export default async function EventPage({ params }: Props) {
                   {venueLabel}
                 </DetailRow>
               )}
-
-              {/* Activity label — optional free-text tag. The design draws
-                  no third row and no glyph for it; this row gets no icon and
-                  is indented to the same text column so the rows stay
-                  aligned (controller resolution E, a judgment call, not a
-                  ported value). */}
-              {event.activityLabel && (
-                <DetailRow icon={null} label="Activity" color={detailInk}>
-                  {event.activityLabel}
-                </DetailRow>
-              )}
             </div>
           </div>
 
