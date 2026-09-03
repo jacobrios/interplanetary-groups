@@ -47,6 +47,7 @@ function firstAskProps(overrides: Record<string, unknown> = {}) {
     askState: { emailAskCount: 0, emailAskedAt: null },
     latestContributionAt: YESTERDAY,
     hasVerifiedEmail: false,
+    lastShownAt: null,
     now: NOW,
     ...overrides,
   }

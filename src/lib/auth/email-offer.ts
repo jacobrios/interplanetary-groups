@@ -99,17 +99,23 @@ export function emailAskIsSettled(user: EmailAskState): boolean {
  * evidence of elapsed time is the direction that would actually pester
  * someone.
  *
- * The `== null` check (rather than `=== null`) is deliberate even though the
- * type says `Date | null`: task 1 adds `lastShownAt` as a required field, but
- * the two call sites that construct it are updated in tasks 3 and 4, not
- * here. Until then they call this function with the field simply absent,
+ * The check is `=== null`, matching the type exactly. It was `== null`
+ * (loose) for tasks 1 through 3, deliberately, because the two call sites
+ * that construct `lastShownAt` were not updated until tasks 3 and 4, so until
+ * both landed this function was reachable with the field simply absent,
  * which JavaScript hands through as `undefined` however the type is spelled.
- * Treating that the same as "never shown" is the conservative answer this
- * function already owes in the other direction, and it is what keeps this
- * task from having to touch files outside its own.
+ * Task 4 is what closes that gap: page.tsx (task 3) and EmailAskNote.tsx
+ * (task 4) are now the only two callers of shouldOfferEmail's `lastShownAt`
+ * outside tests, both pass a real `Date | null`, and every test call site
+ * does too, verified by a repo-wide search rather than assumed. With no
+ * caller left that can hand this function `undefined`, `== null` had become a
+ * standing invitation for a future caller to do exactly that and have it
+ * silently read as "never shown" instead of failing loudly. `=== null` turns
+ * a genuinely missing value back into the type error it should always have
+ * been.
  */
 export function emailAskIsSnoozed(lastShownAt: Date | null, now: Date): boolean {
-  if (lastShownAt == null) return false
+  if (lastShownAt === null) return false
   return now.getTime() - lastShownAt.getTime() < ASK_COOLDOWN_MS
 }
 

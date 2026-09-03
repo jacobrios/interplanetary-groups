@@ -391,6 +391,20 @@ describe("emailAskIsSnoozed", () => {
     expect(emailAskIsSnoozed(null, now)).toBe(false)
   })
 
+  it("throws on a runtime-absent lastShownAt rather than silently reading it as never shown", () => {
+    // The type says `Date | null`, and every real and test caller in this
+    // repo now passes one of those two. Nothing can hand this function
+    // `undefined` without going around TypeScript, which is exactly what this
+    // does (task 4's own tightening from `== null` to `=== null`, so this test
+    // is what proves the change is real rather than a comment-only edit: with
+    // the old loose check this call returned `false`, the same as a genuine
+    // `null`, and would not have thrown). A future caller that somehow loses
+    // the type (an untyped script, a JSON round trip) now fails loudly here
+    // instead of quietly treating a missing value as "the sheet was never
+    // shown," which is the direction that would hide a real bug.
+    expect(() => emailAskIsSnoozed(undefined as unknown as Date | null, now)).toThrow()
+  })
+
   it("is true when shown just now", () => {
     expect(emailAskIsSnoozed(now, now)).toBe(true)
   })

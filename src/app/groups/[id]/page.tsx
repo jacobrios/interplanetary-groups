@@ -283,17 +283,7 @@ export default async function GroupPage({ params }: Props) {
   //
   // The skipped case passes the values that cannot produce an ask, which is
   // not a fiction the gate has to trust: the count alone already closes it.
-  //
-  // Built as an unannotated local first, then handed to the EmailAskNoteProps
-  // slot below, rather than written as one typed object literal. That is
-  // deliberate, not stylistic: EmailAskNoteProps does not declare lastShownAt
-  // yet (task 4 adds it, alongside wiring shouldOfferEmail to actually read
-  // it), so a directly-typed literal would trip TypeScript's excess-property
-  // check on a field this task is required to send and the very next task is
-  // required to receive. Routing it through an unannotated variable keeps the
-  // real structural check (every field EmailAskNoteProps requires today is
-  // still present) while not making this task's landing depend on task 4's.
-  const emailAskProps =
+  const emailAsk: EmailAskNoteProps | null =
     viewer && askState
       ? {
           ...((await emailAskInputs) ?? { latestContributionAt: null, hasVerifiedEmail: false }),
@@ -303,7 +293,6 @@ export default async function GroupPage({ params }: Props) {
           now,
         }
       : null
-  const emailAsk: EmailAskNoteProps | null = emailAskProps
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,

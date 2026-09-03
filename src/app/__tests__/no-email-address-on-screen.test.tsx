@@ -318,6 +318,7 @@ function renderGroupHome() {
         askState: { emailAskCount: 0, emailAskedAt: null },
         latestContributionAt: new Date("2026-08-25T18:00:00Z"),
         hasVerifiedEmail: false,
+        lastShownAt: null,
         now: new Date("2026-08-26T18:00:00Z"),
       }}
     />

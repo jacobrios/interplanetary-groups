@@ -141,6 +141,19 @@ export interface EmailAskNoteProps {
   askState: EmailAskState
   latestContributionAt: Date | null
   hasVerifiedEmail: boolean
+  /**
+   * The moment this sheet was last shown to this member, or null if it never
+   * has been. This arrives from the server (the page reads the cooldown
+   * cookie and hands the value in as a prop) so that the same value is
+   * present on the server render and on hydration. That is what stops the
+   * sheet appearing and then vanishing, and it is the reason this component
+   * must never read the cookie itself for the decision below: a client-only
+   * read would see one thing on the server's markup and, on a slower device,
+   * possibly a different thing by the time React hydrates, and the gate would
+   * disagree with itself mid-mount. Fed straight into shouldOfferEmail, which
+   * owns the comparison against the cooldown window.
+   */
+  lastShownAt: Date | null
   /** Injected rather than read here, so a test's outcome never depends on the clock. */
   now: Date
 }
@@ -150,6 +163,7 @@ export default function EmailAskNote({
   askState,
   latestContributionAt,
   hasVerifiedEmail,
+  lastShownAt,
   now,
 }: EmailAskNoteProps) {
   const [answered, setAnswered] = useState(false)
@@ -191,7 +205,13 @@ export default function EmailAskNote({
   // can test a component and cannot test a server-rendered screen. The page
   // gathers the facts; the one decision about whether a member is asked is made
   // here, where a test can hold it to it.
-  const offer = shouldOfferEmail({ user: askState, latestContributionAt, hasVerifiedEmail, now })
+  const offer = shouldOfferEmail({
+    user: askState,
+    latestContributionAt,
+    hasVerifiedEmail,
+    lastShownAt,
+    now,
+  })
   // The live offer, or the one this sheet was opened under if the member has
   // since attached an address and made the live one null. See the latch above.
   const activeOffer = offer ?? attachedUnder
