@@ -47,13 +47,18 @@
 // here than it would on a merely convenient control, because a member with
 // no address attached is the one who comes back as a duplicate person after
 // losing a session, which is the exact failure this whole row exists to
-// prevent. It is now a full-width outlined pill, the same geometry
-// CancelControls already uses for "Call this off" on the event screen, and
-// the expanded flow lost the hairline box it used to sit inside so a tap
-// reads as text-then-two-controls appearing in place, the way CancelControls'
-// own confirm step already does. "Change email" is deliberately untouched;
-// see the note beside it below for why the two controls are no longer meant
-// to look alike.
+// prevent. It is now a full-width outlined pill; the expanded flow lost the
+// hairline box it used to sit inside so a tap reads as text-then-two-controls
+// appearing in place, the way CancelControls' own confirm step on the event
+// screen already does. "Change email" is deliberately untouched; see the
+// note beside it below for why the two controls are no longer meant to look
+// alike.
+//
+// Corrected the same day, second pass of the owner's QA: the pill's shape
+// (full width, rounded ends) still nods at CancelControls, but its label
+// color and border weight are matched to LeaveGroupButton's own "Leave
+// group" pill on this same page instead, not to CancelControls. See the
+// comment beside the pill style below for why.
 
 import { useState } from "react"
 import EmailAttachFlow from "../EmailAttachFlow"
@@ -139,23 +144,45 @@ const LINK_STYLE = {
   cursor: "pointer",
 } as const
 
-// Geometry reproduced from CancelControls (src/app/events/[id]/CancelControls.tsx),
-// which itself reproduced it from AddToCalendarButton, so this pill stacks as
-// the same shape a member has likely already tapped elsewhere in the product
-// rather than inventing a third control shape for the same job. minHeight is
-// a floor, never a fixed height, per the layout-grows rule: it has to survive
-// enlarged device text without clipping. Outlined rather than teal, on
-// purpose: this is a secondary action next to "Leave group" and "Change
-// email" on the same page, and CLAUDE.md's colour rule reserves teal for an
-// action that genuinely matters, never a default weight for "important
-// enough to be a button."
+// Geometry matched to LeaveGroupButton's own collapsed-state button
+// (src/app/groups/[id]/info/LeaveGroupButton.tsx, the "Leave group" pill),
+// not to CancelControls on the event screen, corrected 3 Sept 2026 after the
+// owner's phone QA. LeaveGroupButton is this page's own drawn control: its
+// comment says its minHeight is "46px per .gi-leave at default text", meaning
+// its values trace to the design handoff for this screen, which makes it the
+// right sibling to match here rather than a control borrowed from a different
+// screen with a different reason for looking the way it does.
+//
+// The event screen's outlinedPill is deliberately NOT the reference any
+// more. There, "Call this off" sits directly under the RSVP pair, and that
+// context is what earns the dimmer --text-secondary label color: cancelling
+// is meant to read as the quieter option next to the primary RSVP ask sitting
+// right above it. Nothing on the group info page plays that role next to
+// "Add your email". Reusing the event screen's dimmed text here just because
+// the two pills share a shape carried a hierarchy decision that belonged to a
+// different screen's layout, and it produced the exact thing the owner
+// flagged: "Add your email" reading dimmer than "Leave group" directly below
+// it, when adding an email is the more important control of the two. It is
+// what stops a member coming back after a lost session as a duplicate person
+// and silently corrupting every attendance count in the group; leaving a
+// group is rare and destructive by comparison. The brighter, full-strength
+// text color is carrying that hierarchy on purpose, matching LeaveGroupButton
+// rather than sitting a shade behind it.
+//
+// minHeight is a floor, never a fixed height, per the layout-grows rule: it
+// has to survive enlarged device text without clipping. Outlined rather than
+// teal, on purpose: this is still one control among several on the page
+// ("Leave group", "Manage members", "Reset link"), and CLAUDE.md's colour
+// rule reserves teal for an action that genuinely matters, never a default
+// weight for "important enough to be a button." Brightness, not colour, is
+// what carries this control's own relative importance.
 const pill: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
   width: "100%",
-  minHeight: "44px",
+  minHeight: "46px",
   padding: "0.75rem 1.5rem",
   borderRadius: "24px",
   fontSize: "var(--type-label)",
@@ -167,8 +194,8 @@ const pill: React.CSSProperties = {
 const outlinedPill: React.CSSProperties = {
   ...pill,
   background: "transparent",
-  border: "1px solid var(--hairline)",
-  color: "var(--text-secondary)",
+  border: "1.7px solid var(--hairline)",
+  color: "var(--text-primary)",
 }
 
 export default function EmailStatusRow({ emailAddress }: Props) {

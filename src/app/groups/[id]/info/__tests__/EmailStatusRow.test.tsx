@@ -99,14 +99,15 @@ describe("EmailStatusRow, collapsed states", () => {
   // address is in today, and that is the population most exposed to coming
   // back as a duplicate person after a lost session. Full width is the
   // point this time, so the assertion checks for it directly rather than
-  // guarding against it, and against the CancelControls geometry this pill
-  // reuses (44px minHeight is the floor CLAUDE.md's layout-grows rule asks
-  // for, never a fixed height).
+  // guarding against it. minHeight is 46px, matched to LeaveGroupButton's own
+  // "Leave group" pill on this same page rather than to CancelControls on the
+  // event screen (corrected same day, second pass of the owner's QA); it
+  // remains a floor, never a fixed height, per CLAUDE.md's layout-grows rule.
   it("renders the add control as a full-width pill, easy to find on a phone", () => {
     render(<EmailStatusRow emailAddress={null} />)
     const control = screen.getByRole("button", { name: "Add your email" })
     expect(control.style.width).toBe("100%")
-    expect(control.style.minHeight).toBe("44px")
+    expect(control.style.minHeight).toBe("46px")
   })
 })
 
