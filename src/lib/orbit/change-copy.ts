@@ -304,3 +304,13 @@ export function buildAlreadyAtReply(
  * Reply when Orbit looks for plans to change and finds none.
  */
 export const NO_PLANS_REPLY = "I don't see any plans on the calendar right now."
+
+/**
+ * Reply when Orbit looks for plans to change and finds none live, but the
+ * emptiness is a calendar of called-off plans rather than a blank one. An
+ * empty calendar and a calendar of called-off plans are different truths,
+ * and the second has an action attached, so it gets its own line rather
+ * than sharing NO_PLANS_REPLY's wording.
+ */
+export const NO_PLANS_ALL_CALLED_OFF_REPLY =
+  "I don't see any plans that are still on. To bring one back, tap the plan up top."

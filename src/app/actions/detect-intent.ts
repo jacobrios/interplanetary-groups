@@ -104,9 +104,16 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     // three, so a called-off plan lets the next scheduled plan up rather than
     // shrinking the model's list. When this empties, the existing
     // NO_PLANS_REPLY path answers honestly with no further change.
-    const events = (await findUpcomingEvents(group.id, now, CARD_REGION_CAP))
-      .filter((e) => e.status === EventStatus.SCHEDULED)
-      .slice(0, MODEL_PLAN_LIMIT)
+    const fetchedEvents = await findUpcomingEvents(group.id, now, CARD_REGION_CAP)
+    const scheduledEvents = fetchedEvents.filter((e) => e.status === EventStatus.SCHEDULED)
+    const events = scheduledEvents.slice(0, MODEL_PLAN_LIMIT)
+    // No extra query: fetchedEvents already holds every status inside the
+    // region's cap, so comparing its length against the filtered count says
+    // whether a called-off plan sits in that same window. Honest limit: this
+    // signal only sees inside the fetched window, so a group with
+    // CARD_REGION_CAP called-off plans sitting ahead of a scheduled one would
+    // still get the plain NO_PLANS_REPLY.
+    const hasCalledOffPlans = scheduledEvents.length < fetchedEvents.length
     const upcomingLines = events.map(
       (e, i) =>
         `${i + 1}. ${e.title}, ${formatEventDate(e.startsAt, e.endsAt, group.timeZone)}`
@@ -328,7 +335,8 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         user.name,
         group.memberships.length,
         group.timeZone,
-        now
+        now,
+        hasCalledOffPlans
       )
 
       if (plan.action === "quiet") return { status: "quiet" }

@@ -16,6 +16,7 @@ import {
   buildWhichPlanQuestion,
   buildWhichTimeQuestion,
   changeStartInstant,
+  NO_PLANS_ALL_CALLED_OFF_REPLY,
   NO_PLANS_REPLY,
   PAST_TIME_REPLY,
   resolveChangeTime,
@@ -42,11 +43,28 @@ export function planChange(
   askerName: string,
   memberCount: number,
   timeZone: string,
-  now: Date
+  now: Date,
+  hasCalledOffPlans: boolean
 ): ChangePlan {
+  // Rung 0: nothing to move outranks what kind of change was asked for. A
+  // group with no live candidates gets the honest no-plans reply whatever
+  // fields were requested, day-change included (the owner-QA "Thursday"
+  // failure: a day decline was firing before this rung ever asked whether
+  // there was a plan to decline about). Two replies for two different
+  // truths: a blank calendar and a calendar that is all called off, since
+  // the second carries an action the first doesn't.
+  if (candidates.length === 0) {
+    return {
+      action: "reply",
+      body: hasCalledOffPlans ? NO_PLANS_ALL_CALLED_OFF_REPLY : NO_PLANS_REPLY,
+    }
+  }
+
   // Rung 1: anything beyond the time declines, target or no target, clear or
   // probable. The decline never needed the target (the owner-QA "it" failure),
-  // and the model's conservative tiebreak is the false-positive guard.
+  // and the model's conservative tiebreak is the false-positive guard. Rung 0
+  // has already ruled out an empty calendar, so there is always at least one
+  // real plan for this decline to be about.
   if (change.requestedFields.some((f) => f !== "time")) {
     return {
       action: "reply",
@@ -59,9 +77,8 @@ export function planChange(
   const resolved = target ?? (candidates.length === 1 ? candidates[0] : null)
 
   // Rung 2: a time request with no resolvable target gets a which-plan
-  // question, or the honest no-plans reply when there is nothing to move.
+  // question. Candidates are non-empty here, per rung 0.
   if (!resolved) {
-    if (candidates.length === 0) return { action: "reply", body: NO_PLANS_REPLY }
     return { action: "reply", body: buildWhichPlanQuestion(candidates.map((c) => c.label)) }
   }
 
