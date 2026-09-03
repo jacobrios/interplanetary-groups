@@ -9,6 +9,13 @@
 // Pure and time-injected, like the rest of Orbit's decision code (see
 // spark-copy.ts's isGaugeLive): no clock read here, so a test's outcome can
 // never depend on the machine it runs on.
+//
+// The ask also carries a short cooldown now, separate from emailAskCount: the
+// sheet is modal, and tapping outside it (the ordinary "not now" gesture)
+// records nothing toward the count, so without a cooldown a member would meet
+// the sheet again on every return to the group home, forever. lastShownAt
+// closes that gap. The caller sources it from a cookie; this module never
+// reads a cookie and must not learn how the value is stored.
 
 /** The two User columns this decision reads. Never the whole Prisma row. */
 export interface EmailAskState {
@@ -29,12 +36,33 @@ export interface ShouldOfferEmailInput {
    */
   latestContributionAt: Date | null
   hasVerifiedEmail: boolean
+  /**
+   * The moment the sheet was last put in front of this member, or null if it
+   * never has been. Deliberately an instant handed in rather than a boolean
+   * computed by the caller: the comparison belongs here, beside the seven-day
+   * one, where a test can hold it, and the shape matches what a `User` column
+   * would store if the cookie is ever replaced.
+   *
+   * The caller reads this from a cookie. This module never does, and must not
+   * learn how it is stored.
+   */
+  lastShownAt: Date | null
   now: Date
 }
 
 export type EmailOffer = "first" | "second" | null
 
 const SECOND_ASK_MIN_WAIT_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Exported so the cookie module (task 2) can set its max-age to the same
+ * duration instead of holding its own copy of `24 * 60 * 60 * 1000`; two
+ * separately typed copies of "24 hours" is how they end up disagreeing. The
+ * product rule for how long a dismissal snoozes the ask lives here, next to
+ * the decision it governs, and the cookie module imports it rather than
+ * restating it.
+ */
+export const ASK_COOLDOWN_MS = 24 * 60 * 60 * 1000
 
 /**
  * Both asks are spent, so nothing else can matter.
@@ -57,24 +85,68 @@ export function emailAskIsSettled(user: EmailAskState): boolean {
 }
 
 /**
+ * Whether the sheet was shown recently enough that showing it again right now
+ * would read as pestering rather than a nudge. False when lastShownAt is
+ * null, since there is nothing to be recent relative to.
+ *
+ * It exists for the same reason emailAskIsSettled does: so page.tsx can skip
+ * work whose answer cannot matter, without re-implementing the rule. It is
+ * exported so there is exactly one definition of the cooldown, used by both
+ * the page's skip and the decision below. Like emailAskIsSettled, it is
+ * allowed to be conservative and is never allowed to be wrong in the other
+ * direction: a future-skewed lastShownAt (a device clock running fast) still
+ * reads as snoozed rather than as expired, because treating clock skew as
+ * evidence of elapsed time is the direction that would actually pester
+ * someone.
+ *
+ * The `== null` check (rather than `=== null`) is deliberate even though the
+ * type says `Date | null`: task 1 adds `lastShownAt` as a required field, but
+ * the two call sites that construct it are updated in tasks 3 and 4, not
+ * here. Until then they call this function with the field simply absent,
+ * which JavaScript hands through as `undefined` however the type is spelled.
+ * Treating that the same as "never shown" is the conservative answer this
+ * function already owes in the other direction, and it is what keeps this
+ * task from having to touch files outside its own.
+ */
+export function emailAskIsSnoozed(lastShownAt: Date | null, now: Date): boolean {
+  if (lastShownAt == null) return false
+  return now.getTime() - lastShownAt.getTime() < ASK_COOLDOWN_MS
+}
+
+/**
  * Whether, and which, email ask to show right now.
  *
- * emailAskCount is not an impression counter: it only advances when the
- * member answers an offer by dismissing it, never for simply having seen one
- * on screen and moved past it without acting. That is why "first" can stay
- * true across many renders in a row (nothing has counted yet), and it is
- * also why there is no bound here on how many times "first" or "second" can
- * be returned; the caller advancing the count on a real dismissal is what
- * eventually turns this off.
+ * emailAskCount is still not an impression counter: it only advances when the
+ * member answers an offer by dismissing it with the worded exit, never for
+ * simply having seen one on screen and moved past it without acting (a tap
+ * outside the sheet, the ordinary "not now," records nothing toward it).
+ * That is why "first" can stay true across many renders in a row on that
+ * axis alone; the caller advancing the count on a real dismissal is still
+ * what eventually turns this off for good.
+ *
+ * What is no longer true without qualification: this function can now return
+ * null on a render where the count-based answer would have been "first" or
+ * "second," because of the cooldown below (see emailAskIsSnoozed), a separate
+ * and temporary state that neither reads emailAskCount nor is read by it. The
+ * cooldown can only ever suppress an ask the count would otherwise allow; it
+ * can never revive one the count has already retired, and it never advances
+ * or resets the count itself.
  */
 export function shouldOfferEmail({
   user,
   latestContributionAt,
   hasVerifiedEmail,
+  lastShownAt,
   now,
 }: ShouldOfferEmailInput): EmailOffer {
   if (hasVerifiedEmail) return null
   if (user.emailAskCount >= 2) return null
+
+  // The permanent answers are read first: an address on file or both asks
+  // already spent settle this member forever, and nothing below can change
+  // that. The cooldown is checked only after, because it is temporary, not a
+  // settled state, just a "we asked recently, leave them alone for a day."
+  if (emailAskIsSnoozed(lastShownAt, now)) return null
 
   if (user.emailAskCount === 0) {
     return latestContributionAt !== null ? "first" : null
