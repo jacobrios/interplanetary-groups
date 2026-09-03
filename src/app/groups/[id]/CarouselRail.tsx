@@ -39,6 +39,29 @@ export function CarouselRail({ peek, children }: { peek: boolean; children: Reac
         display: "flex",
         gap: `${RAIL_GAP_REM}rem`,
         overflowX: peek ? "auto" : "visible",
+        // Double-tap fix, 2 Sept 2026. Setting overflow-x alone made this a
+        // scroll container on BOTH axes: CSS blockifies the other axis when
+        // one is not `visible`, so overflow-y computed to `auto` here with
+        // nobody having written it. A two-axis scroll container whose
+        // touch-action is `auto` must hold a touch to work out whether it is
+        // a horizontal pan, a vertical pan or a tap, and that is the
+        // configuration iOS Safari is known to spend a first touch on.
+        // Declaring pan-x says the rail only ever pans horizontally, so a
+        // stationary touch has nothing to disambiguate. It forbids vertical
+        // panning OF THE RAIL, which is already impossible (scrollHeight ===
+        // clientHeight, measured); the page still scrolls, because that
+        // gesture belongs to the feed below.
+        //
+        // Honest about its own status: this was never observed eating a tap.
+        // It is reasoned from the computed styles, the pane is Chromium, and
+        // the only instrument that could confirm it is a real iPhone. It is
+        // here because it is free, layout-neutral and well motivated, not
+        // because it is proven.
+        touchAction: peek ? "pan-x" : undefined,
+        // The second axis stated rather than left to a blockification rule
+        // nobody wrote down. Changes nothing on screen: the rail does not
+        // overflow vertically, and `auto` was already clipping the same way.
+        overflowY: peek ? "hidden" : undefined,
         scrollSnapType: peek ? "x mandatory" : undefined,
         scrollPaddingLeft: peek ? 16 : undefined,
         padding: peek ? "0 16px" : undefined,

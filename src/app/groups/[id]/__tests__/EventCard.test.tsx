@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen } from "@testing-library/react"
 import EventCard from "../EventCard"
@@ -197,6 +199,35 @@ describe("EventCard, a called-off plan", () => {
     expect(flexRows).toHaveLength(0)
   })
 
+  it("keeps the whole-card overlay, which is the case that needed it most", () => {
+    // The measured worst case: a called-off card drops both the counts row
+    // and the RSVP pair, which left its bottom 43% inert with no link and no
+    // button on it. Nothing about the overlay is conditional on status, and
+    // this is the case that would hurt most if a future edit made it so.
+    const { container } = render(
+      <EventCard
+        event={{
+          id: "e1",
+          title: "Tennis",
+          startsAt: new Date("2099-06-14T18:00:00Z"),
+          endsAt: null,
+          status: EventStatus.CANCELLED,
+          venues: [],
+        }}
+        groupId="g1"
+        timeZone="UTC"
+        inCount={4}
+        outCount={1}
+        pendingCount={3}
+        viewerStatus={null}
+        viewerHasSession
+      />
+    )
+    const overlay = container.querySelector("[data-tap-overlay]") as HTMLElement
+    expect(overlay).not.toBeNull()
+    expect(overlay.closest("a")?.getAttribute("href")).toBe("/events/e1")
+  })
+
   it("is unchanged for a live plan", () => {
     render(
       <EventCard
@@ -221,5 +252,93 @@ describe("EventCard, a called-off plan", () => {
     expect(screen.getByText(/4 In/)).toBeDefined()
     expect(screen.getByText("Needs your RSVP")).toBeDefined()
     expect(screen.queryByText("Called off")).toBeNull()
+  })
+})
+
+// Double-tap fix, 2 Sept 2026. Three separate causes made an event card take
+// two taps on a phone; these guard the two of them that live in this file.
+//
+// STATED PLAINLY, because a guard that is read as more than it is becomes a
+// liability: none of this proves a thumb lands. jsdom has no layout engine, so
+// getBoundingClientRect returns zeros and there is no Playwright or headless
+// browser anywhere in this repo. No test here can assert that a tap at a given
+// point on the card navigates. What these cases hold is that the MECHANISM is
+// still wired: the card is a positioning context, the link carries an overlay
+// pinned to all four of its edges, and the RSVP buttons are raised above that
+// overlay so it cannot swallow them. Same shape and same honesty as
+// src/__tests__/testing-library-cleanup.test.tsx. The geometry itself was
+// measured in a browser with document.elementFromPoint (task 6 report) and has
+// to be re-measured by hand if anyone wants it again.
+describe("EventCard, the whole card is the tap target", () => {
+  it("makes the card root the positioning context the overlay resolves against", () => {
+    const { container } = renderCard()
+    const root = container.firstElementChild as HTMLElement
+    expect(root.style.position).toBe("relative")
+  })
+
+  it("gives the link an overlay covering the card, as a child of the link", () => {
+    const { container } = renderCard()
+    const overlay = container.querySelector("[data-tap-overlay]") as HTMLElement
+    expect(overlay).not.toBeNull()
+    // A child of the anchor, never a sibling in the card's flex column. A
+    // position:static sibling would add a flex row and grow the card, which
+    // the owner's height budget forbids outright.
+    expect(overlay.parentElement?.tagName).toBe("A")
+    expect(overlay.parentElement?.getAttribute("href")).toBe("/events/e1")
+    // Out of flow and pinned to all four edges, so it contributes no height.
+    expect(overlay.style.position).toBe("absolute")
+    expect(overlay.style.inset).toBe("0px")
+  })
+
+  it("raises the RSVP block above the overlay so its buttons still take taps", () => {
+    const { container } = renderCard()
+    const ask = container.querySelector("[data-ask]") as HTMLElement
+    expect(ask).not.toBeNull()
+    // Without both of these the stretched link paints over its own card's
+    // buttons, which is a worse bug than the one it fixes.
+    expect(ask.style.position).toBe("relative")
+    expect(ask.style.zIndex).toBe("1")
+  })
+
+  it("carries the pressed-state class on the link itself", () => {
+    const { container } = renderCard()
+    const link = container.querySelector("a") as HTMLElement
+    expect(link.className).toContain("tap-card")
+  })
+})
+
+// The pressed state cannot be an inline style (:active is a pseudo-class), so
+// it lives in globals.css beside .scrollbar-hidden and the ::placeholder rule,
+// which are there for the same reason and say so in their own comments. This
+// reads the stylesheet, the way no-email-address-on-screen.test.tsx reads repo
+// files, and holds two things: that the rules exist at all, and that they stay
+// colour-only. It cannot prove anything flashes on a real screen.
+describe("the card's pressed state stays wired and stays free", () => {
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8")
+  // Every declaration of a .tap-card rule, gathered from the selector to its
+  // closing brace. Read out of the file rather than sliced to the end of it,
+  // so the last case below cannot go green just because it found nothing to
+  // look at: with the rules deleted this is empty, and the first assertion in
+  // each case is what says so.
+  const rules = [...css.matchAll(/^\.tap-card[^{]*\{[^}]*\}/gm)].map((m) => m[0])
+  const block = rules.join("\n")
+
+  it("lights the overlay while the link is held", () => {
+    expect(css).toMatch(/\.tap-card:active\s+\.tap-card-veil\s*\{[^}]*background-color:/)
+  })
+
+  it("makes iOS's own tap highlight visible on a dark card", () => {
+    // :active is unreliable on iOS Safari without a touch listener on the
+    // element, and this product ships no such listener. The tap-highlight
+    // colour is the half that fires there, so losing it would leave the fix
+    // working everywhere except the device the bug was reported on.
+    expect(block).toMatch(/-webkit-tap-highlight-color:/)
+  })
+
+  it("costs no height: colour only, no transform and no box metrics", () => {
+    // The card region's height budget was won by a whole slice. A pressed
+    // state built from transform, padding or border-width would spend it.
+    expect(rules.length).toBeGreaterThan(0)
+    expect(block).not.toMatch(/transform|padding|border-width|font-size|margin|\bwidth\b|\bheight\b/)
   })
 })
