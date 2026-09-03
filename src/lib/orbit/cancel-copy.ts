@@ -22,12 +22,21 @@
 // whenPhrase and cap are imported rather than copied so the date phrasing
 // here can never drift from the date phrasing in a time change.
 
-import { whenPhrase } from "./change-copy"
+import { cap, whenPhrase } from "./change-copy"
 
 /**
- * The feed line the moment a plan is called off. Two sentences, and the
- * second earns its place: it is the only place in the product where the
- * group ever learns that anyone can undo this.
+ * The feed line the moment a plan is called off. Leads with the label and
+ * the state word, capitalized, because a member scans a feed rather than
+ * reading it line by line, and the first few words are what carries the
+ * meaning: "Tennis this Tue is OFF" tells the whole story before anyone
+ * reads who did it. OFF is in caps on top of that, deliberately breaking
+ * normal sentence casing, because the owner missed the lowercase word in
+ * the middle of a sentence on his own phone (spec section 13, QA feedback
+ * round). The second sentence names who called it off (see below for why
+ * this announcement names anyone at all) and the third earns its place: it
+ * is the only place in the product where the group learns that anyone can
+ * undo this, and "up top" points at the pinned card region on the group
+ * home, which is where the plan actually is.
  */
 export function buildCancelAnnouncement(
   actorName: string,
@@ -36,13 +45,17 @@ export function buildCancelAnnouncement(
   timeZone: string,
   now: Date
 ): string {
-  return `${actorName} called off ${label} ${whenPhrase(startsAt, timeZone, now)}. If that's not right, anyone can put it back on the plan's page.`
+  return `${cap(label)} ${whenPhrase(startsAt, timeZone, now)} is OFF. ${actorName} called it off. Anyone can put it back on, tap the plan up top.`
 }
 
 /**
- * The feed line when a plan comes back. The second sentence answers the
- * question a member will actually have, and it is answerable only because a
- * cancel does not touch a single RSVP row (spec section 5).
+ * The feed line when a plan comes back. Same lead-with-the-state shape as
+ * the cancel announcement, for the same reason: ON in caps is what a member
+ * scanning the feed actually needs to see first, after missing the
+ * lowercase form on a real phone (spec section 13, QA feedback round). The
+ * second half answers the question a member will actually have, and it is
+ * answerable only because a cancel does not touch a single RSVP row (spec
+ * section 5).
  */
 export function buildRestoreAnnouncement(
   actorName: string,
@@ -51,5 +64,5 @@ export function buildRestoreAnnouncement(
   timeZone: string,
   now: Date
 ): string {
-  return `${actorName} put ${label} ${whenPhrase(startsAt, timeZone, now)} back on. Everyone's RSVPs are the same as before.`
+  return `${cap(label)} ${whenPhrase(startsAt, timeZone, now)} is back ON. ${actorName} put it back, and everyone's RSVPs are the same as before.`
 }

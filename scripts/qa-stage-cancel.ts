@@ -37,6 +37,7 @@
 
 import { EventStatus, MessageAuthor, RsvpStatus } from "@prisma/client"
 import { prisma } from "../src/lib/prisma"
+import { buildCancelAnnouncement } from "../src/lib/orbit/cancel-copy"
 import { judge } from "./db-which"
 
 /** The same ref db:which checks against (CLAUDE.md, "Two databases, never crossed"). */
@@ -106,14 +107,16 @@ async function main(): Promise<void> {
   // The already called-off plan, with its RSVPs deliberately left in place:
   // the roster on its detail screen is what shows that cancelling took
   // nobody's answer away.
+  const squashStartsAt = daysOut(4)
+  const squashCancelledAt = new Date()
   const squash = await prisma.event.create({
     data: {
       groupId: group.id,
       title: "Squash",
       activityLabel: "squash",
-      startsAt: daysOut(4),
+      startsAt: squashStartsAt,
       status: EventStatus.CANCELLED,
-      cancelledAt: new Date(),
+      cancelledAt: squashCancelledAt,
       venues: { create: { name: "Eastside Club", displayLabel: "Eastside" } },
     },
   })
@@ -127,13 +130,21 @@ async function main(): Promise<void> {
 
   // The announcement that would have been posted when Squash was called
   // off, so the feed reads the way it will in life rather than showing a
-  // cancelled plan nobody ever mentioned.
+  // cancelled plan nobody ever mentioned. Built through the real function
+  // rather than typed out here, so this seeded line can never drift from
+  // what the product actually says.
   await prisma.message.create({
     data: {
       groupId: group.id,
       authorType: MessageAuthor.ORBIT,
       authorId: null,
-      body: "Rae called off squash this Thu. If that's not right, anyone can put it back on the plan's page.",
+      body: buildCancelAnnouncement(
+        "Rae",
+        "squash",
+        squashStartsAt,
+        group.timeZone,
+        squashCancelledAt
+      ),
     },
   })
 

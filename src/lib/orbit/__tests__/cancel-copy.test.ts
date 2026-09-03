@@ -9,10 +9,10 @@ const START = new Date("2026-09-08T23:00:00Z")
 const NOW = new Date("2026-09-06T15:00:00Z")
 
 describe("buildCancelAnnouncement", () => {
-  it("names the person, the activity, and when, and points at the undo", () => {
+  it("leads with the capitalized label and state, names who, and points up top", () => {
     const body = buildCancelAnnouncement("Sam", "tennis", START, TZ, NOW)
     expect(body).toBe(
-      "Sam called off tennis this Tue. If that's not right, anyone can put it back on the plan's page."
+      "Tennis this Tue is OFF. Sam called it off. Anyone can put it back on, tap the plan up top."
     )
   })
 
@@ -22,6 +22,11 @@ describe("buildCancelAnnouncement", () => {
     expect(body).toContain("on Tue, Sep 22")
   })
 
+  it("capitalizes the label at the start of the sentence", () => {
+    const body = buildCancelAnnouncement("Sam", "tennis", START, TZ, NOW)
+    expect(body.startsWith("Tennis")).toBe(true)
+  })
+
   it("carries no em dash or en dash", () => {
     const body = buildCancelAnnouncement("Sam", "tennis", START, TZ, NOW)
     expect(body).not.toMatch(/[–—]/)
@@ -29,11 +34,16 @@ describe("buildCancelAnnouncement", () => {
 })
 
 describe("buildRestoreAnnouncement", () => {
-  it("names the person and says the RSVPs are unchanged", () => {
+  it("leads with the capitalized label and state, names who, and says RSVPs are unchanged", () => {
     const body = buildRestoreAnnouncement("Jordan", "tennis", START, TZ, NOW)
     expect(body).toBe(
-      "Jordan put tennis this Tue back on. Everyone's RSVPs are the same as before."
+      "Tennis this Tue is back ON. Jordan put it back, and everyone's RSVPs are the same as before."
     )
+  })
+
+  it("capitalizes the label at the start of the sentence", () => {
+    const body = buildRestoreAnnouncement("Jordan", "tennis", START, TZ, NOW)
+    expect(body.startsWith("Tennis")).toBe(true)
   })
 
   it("carries no em dash or en dash", () => {
