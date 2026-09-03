@@ -48,6 +48,13 @@ count.
    away often means they did not read it and want to get back to what they were
    doing, which is not a decision to refuse. Revisit only if it becomes a real
    complaint.
+8. **The sheet reads the cookie too, once, at the moment it is created.** This
+   overrides the brief's "do not suppress the sheet on the client after the
+   server has decided to show it," and it was Jacob's call on 3 Sept 2026 after
+   task 0 measured the reason. See "The task 0 result" below. The override is
+   narrow and must stay narrow: the read happens exactly once per mount, in the
+   state initializer, and never again, so it cannot hide a sheet a member is
+   already reading or typing into.
 
 ### The amendment, and why it is here rather than buried
 
@@ -78,6 +85,32 @@ after a successful attach, shares `handleLeaveQuietly` with the scrim tap, and a
 dismissal-triggered write would have written a pointless snooze for somebody who
 had just succeeded. Nothing writes on exit any more, so there is nothing to
 separate and `onDone` is left exactly as it is.
+
+### The task 0 result, measured 3 Sept 2026 before any code was written
+
+Task 0 existed to prove that returning to the group home re-runs the server
+render, because the whole cookie design rests on it. **It half-failed, and that
+is why decision 8 exists.** Measured against the real app on a seeded QA group,
+with the sheet live:
+
+| Path back to the group home | Fresh server render? |
+| --- | --- |
+| First load, or a reload | yes |
+| In-app navigation out to group info and back | yes, a full 1181ms render |
+| A later visit in a new session | yes |
+| **Browser / phone back gesture** | **no** |
+
+The back path was confirmed three independent ways rather than inferred: no
+`GET /groups/<id>` appeared in the server log; the response the browser did
+receive was 100 bytes where genuine renders return the whole payload; and,
+because a short-lived cache would have made this moot, the same test was re-run
+after waiting forty seconds on the other screen, with the same result. **The
+client router cache serves back and forward navigations by design and does not
+expire, and it is not configurable**, so no server-side setting can close this.
+
+Left server-side only, the cookie would therefore be honoured on every path
+except the one most likely on a phone. It self-corrects on the next real render,
+which is not good enough for the gesture an iPhone user reaches for first.
 
 ### Non-goals, each with where it belongs instead
 
@@ -138,6 +171,17 @@ separate and `onDone` is left exactly as it is.
 - **The 24-hour constant is a product number with no test that could tell you it
   is the wrong number.** It is tested for being applied correctly, not for being
   right.
+- **Two places now know about the cooldown instead of one**, the server gate and
+  the sheet's own mount check, because the client router cache made one place
+  insufficient (see the task 0 result). Somebody who finds the second one
+  without reading why will delete it as redundant and quietly restore the bug on
+  the back gesture. Guarded by a comment at the site, by a test that fails if it
+  is removed, and by this document.
+- **The mount check is presence-based, not clock-based**, so it trusts the
+  cookie's own `max-age` for expiry rather than comparing timestamps. A device
+  whose clock is badly wrong therefore gets a cooldown measured by its own
+  clock. The failure is silence on a broken-clock device for up to a day, and
+  the group info page's permanent row is still open to them.
 
 ---
 
@@ -145,7 +189,20 @@ separate and `onDone` is left exactly as it is.
 
 Written for the agents that execute it. Full length on purpose; not thinned.
 
-### Task 0 — Prove the return navigation re-reads the server (no code)
+### Task 0 — DONE, 3 Sept 2026. Result in the front section.
+
+Ran before any code. In-app navigation, reloads and new sessions re-render on
+the server; **the browser and phone back gesture does not, and cannot be made
+to.** Jacob ruled on it the same day and the answer is decision 8: the sheet
+reads the cookie once at mount as well. Tasks 1 to 4 are unchanged by that;
+task 5 carries the new half. The original instructions are kept below because
+they are the procedure for re-running this measurement if the framework's
+caching behaviour ever changes.
+
+<details>
+<summary>Original task 0 instructions, kept for re-running the measurement</summary>
+
+### Prove the return navigation re-reads the server (no code)
 
 **This gates everything after it.** The whole design rests on the group page
 being re-rendered on the server, with a fresh cookie read, when a member returns
@@ -178,6 +235,8 @@ Jacob before writing any of tasks 1 to 6.** The fallback would be a
 every page and is his call, not the build's.
 
 Record what was observed, path by path, in the PR body.
+
+</details>
 
 ### Task 1 — The decision function learns about the cooldown
 
@@ -282,6 +341,20 @@ no group id, no user id. A cookie a member can read and edit is fine here,
 because the worst a forged value can do is silence an optional nudge on that
 person's own device for a day.
 
+**The mount check**, client-only, exported, added by decision 8:
+
+```
+export function emailAskCookieIsFresh(): boolean
+```
+
+Reads `document.cookie` and returns whether the cookie is present at all.
+**Presence-based, not clock-based, and that is deliberate**: the cookie's own
+`max-age` is the cooldown, so a cookie that still exists was written inside the
+window. This keeps the client out of the business of comparing timestamps, which
+it cannot do reliably anyway because the value carries the *server's* clock
+while the client only has its own. Returns false when `document` is undefined,
+so it is safe to call from code that also runs on the server.
+
 **The parser**, pure and exported:
 
 ```
@@ -385,11 +458,55 @@ Pass it into the existing `shouldOfferEmail` call.
 
 File: `src/app/groups/[id]/EmailAskNote.tsx`.
 
-Add an effect that calls `markEmailAskShown(now)` when `showing` becomes true.
-It can sit in the existing focus-and-scroll-lock effect, which already keys on
-`showing`, or in its own; **its own is preferred**, because that effect's
-cleanup returns borrowed things and this write is not borrowed and must not be
-undone on close.
+This task has two halves and **the order between them is the whole safety
+argument**. Read both before writing either.
+
+#### 5a. The mount check (decision 8, the back-gesture half)
+
+Add one piece of state, read exactly once, in a lazy initializer:
+
+```
+const [suppressedByCooldown] = useState(
+  () => typeof document !== "undefined" && emailAskCookieIsFresh()
+)
+```
+
+Fold it into the existing gate: `const showing = !answered && !suppressedByCooldown && activeOffer !== null`.
+
+**Why a state initializer and not an effect**, which must be in the comment
+because it looks like an odd choice:
+
+- **An effect runs after paint**, so on a back-gesture return the sheet would
+  draw and then vanish. That is the flicker Jacob's original rule existed to
+  prevent, and it would be worse than the bug.
+- **A `useLayoutEffect` would avoid the paint but warns during server
+  rendering**, and would need an isomorphic wrapper for no gain.
+- **A lazy initializer runs during the first render of this mount and never
+  again.** That is exactly the guarantee needed: it can never hide a sheet a
+  member is already reading or typing into, however many times the component
+  re-renders. It is the same class of protection as the `attachedUnder` latch
+  above it, arrived at for the same reason.
+
+**Hydration:** `typeof document !== "undefined"` makes this false on the server.
+On a genuine first load it is also false on the client, because the server only
+rendered the sheet after finding no fresh cookie and nothing has written one
+yet, so the two agree. The one way they can disagree is a second tab writing the
+cookie between the server render and hydration, which costs a hydration warning
+and a sheet that does not show. Name that in the comment; do not defend against
+it.
+
+#### 5b. The write
+
+In a `useEffect` keyed on `showing`, when `showing` is true, call
+`markEmailAskShown(now)`. Its own effect, **not** folded into the existing
+focus-and-scroll-lock effect: that effect's cleanup returns borrowed things, and
+this write is not borrowed and must never be undone on close.
+
+**The write is gated on `showing`, which already includes
+`!suppressedByCooldown`. That is load-bearing, not incidental.** If a suppressed
+mount wrote the cookie anyway, every back-gesture return would push the deadline
+another 24 hours forward and a member who navigated that way often would never
+be asked again. Write only when the sheet actually appears.
 
 Notes for the implementer:
 
@@ -427,6 +544,13 @@ first and shown failing:
   independent.
 - After tapping the scrim, and after pressing Escape → the cookie is still
   there.
+- **Mounted with a fresh cookie already in `document.cookie` and an offer the
+  gate would otherwise show → nothing renders at all**, on the very first
+  render, and no second cookie write happens. This is the back-gesture case and
+  it is the test that fails if somebody deletes the mount check as redundant.
+- **Mounted with a fresh cookie → the deadline is not pushed forward.** Assert
+  no write occurred, not merely that nothing rendered. This is the one that
+  catches the "never asked again" failure described in 5b.
 
 The existing tests in this file, particularly the ones holding the free-exit and
 expensive-exit asymmetry, must keep passing untouched. If one of them needs
@@ -443,8 +567,11 @@ Not a test, and not optional.
    value.
 4. Delete the cookie. Reload. **The sheet appears again**, proving the cookie is
    what is doing the work and not some other state.
-5. Repeat step 2 using the browser's back button rather than in-app navigation,
-   which is the path task 0 exists to have already cleared.
+5. Repeat step 2 using the browser's back button rather than in-app navigation.
+   **This is the path task 0 proved the server cannot see, so it is the one
+   proving decision 8's mount check actually works.** It must be quiet. If it
+   is not, the mount check is not doing its job and nothing else in this slice
+   matters.
 6. Confirm the group info page's permanent email row is unaffected and still
    offers to attach an address.
 
