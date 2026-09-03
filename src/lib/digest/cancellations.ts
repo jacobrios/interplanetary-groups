@@ -28,7 +28,6 @@ import { whenPhrase } from "@/lib/orbit/change-copy"
 export interface CancellationRow {
   id: string
   title: string
-  activityLabel: string | null
   startsAt: Date
   cancelledAt: Date | null
 }

@@ -255,7 +255,6 @@ async function main() {
     select: {
       id: true,
       title: true,
-      activityLabel: true,
       startsAt: true,
       cancelledAt: true,
     },

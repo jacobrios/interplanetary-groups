@@ -127,6 +127,17 @@ nulled, announcement written.
 **It does not revive the superseded vote.** That vote is dead; anyone who still wants the time moved
 can ask again, and reopening a vote nobody is currently having is worse than silence.
 
+**Amended 2 September 2026, whole-branch review: restore takes the `already_started` guard too, and
+this section was wrong to leave it to `cancelEvent` alone.** The reasoning above treated the guard as
+belonging to cancelling, on the ground that cancelling a past game means nothing. Restoring one is
+worse than meaningless, and the path to it is ordinary rather than exotic: Tuesday's game is called
+off Tuesday morning, 7pm goes by, the hourly cron sees no upcoming scheduled event and books next
+Tuesday, and a member whose tab still shows the old event page taps "Put this back on". The row flips
+to SCHEDULED, Orbit announces that a game which never happened is back on, and the group then cannot
+find it anywhere, because every upcoming query wants `startsAt >= now`. So `restoreEvent` refuses
+`startsAt <= now` with `already_started`, and `restoreEventAction` gives it the same sentence the
+cancel path already gives. It is the mirror rather than an asymmetry.
+
 ### Server action
 
 `src/app/actions/cancel-event.ts`, holding two exported actions. Each one:

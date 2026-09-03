@@ -269,6 +269,7 @@ function buildHtml(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
       )
       .join("")
     sections.push(`
+      <tr><td style="height:20px;line-height:20px;font-size:0;">&nbsp;</td></tr>
       <tr>
         <td style="padding:0 0 8px 0;color:${TEXT_PRIMARY};font-size:15px;font-weight:600;">Called off</td>
       </tr>

@@ -22,7 +22,7 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer, ProposalKind } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalAnswer, ProposalKind } from "@prisma/client"
 import type { Prisma } from "@prisma/client"
 import { runProposalEndgame } from "../endgame"
 import { findLiveProposals } from "../read"
@@ -197,6 +197,31 @@ describe("runProposalEndgame", () => {
       eventStartsAt: new Date("2099-06-14T09:00:00Z"), // moved to 9am
       priorStartsAt: FUTURE_START, // asker was shown 8am
       proposedStartsAt: FUTURE_PROPOSED,
+    })
+
+    const results = await runProposalEndgame(NOW, { groupId: groupId! })
+    expect(results).toEqual([{ proposalId: proposal.id, action: "superseded" }])
+
+    const after = await prisma.changeProposal.findUnique({ where: { id: proposal.id } })
+    expect(after?.answer).toBe(ProposalAnswer.SUPERSEDED)
+    expect(after?.answeredAt).not.toBeNull()
+    expect(await closureMessages()).toHaveLength(0)
+  })
+
+  it("supersedes silently when the plan was called off, instead of lapsing into a feed that already says it is off", async () => {
+    // The narrow race the cancel slice leaves open: a GROUP proposal opened in
+    // the same moment the plan was called off. findLiveProposals hides it, so
+    // nobody can answer it, and a lapse here would post "Climbing is staying
+    // at 8am" under Orbit's own "climbing is called off".
+    const { proposal, event } = await makeProposal({
+      eventStartsAt: FUTURE_START,
+      priorStartsAt: FUTURE_START,
+      // Past, so the clock alone would send this down the lapse path.
+      proposedStartsAt: PAST_PROPOSED,
+    })
+    await prisma.event.update({
+      where: { id: event.id },
+      data: { status: EventStatus.CANCELLED, cancelledAt: NOW },
     })
 
     const results = await runProposalEndgame(NOW, { groupId: groupId! })

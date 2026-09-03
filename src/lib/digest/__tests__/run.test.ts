@@ -412,7 +412,7 @@ describe("runDailyDigest", () => {
     // NOW so schedule.ts's rule two ("three days before it happens") is
     // what opens the gate, the same rule a real rained-out tennis game
     // would trip. The member has no RSVP on it, which is exactly the
-    // condition needs-you.ts's eventNeedLabel treats as "Needs your RSVP" —
+    // condition needs-you.ts's eventNeedLabel treats as "Needs your RSVP";
     // eventNeedLabel never itself checks status, so if the cancelled row
     // were still in upcomingEvents this test would still see an email.
     const founder = await makeUser("CancelFounder")

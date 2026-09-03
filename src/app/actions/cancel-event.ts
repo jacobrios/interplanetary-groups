@@ -117,6 +117,9 @@ export async function restoreEventAction(
     if (result.reason === "not_cancelled") {
       return { errors: { general: "This one's already back on." } }
     }
+    if (result.reason === "already_started") {
+      return { errors: { general: "This one has already started." } }
+    }
     return { errors: { general: "Couldn't do that, try again." } }
   }
 

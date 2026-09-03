@@ -229,7 +229,6 @@ async function processOneGroup(group: GroupRow, now: Date): Promise<DigestRunRes
     select: {
       id: true,
       title: true,
-      activityLabel: true,
       startsAt: true,
       cancelledAt: true,
     },

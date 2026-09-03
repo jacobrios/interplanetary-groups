@@ -37,7 +37,10 @@ export type CancelEventResult =
 
 export type RestoreEventResult =
   | { status: "restored" }
-  | { status: "skipped"; reason: "no_event" | "not_cancelled" | "stale" }
+  | {
+      status: "skipped"
+      reason: "no_event" | "not_cancelled" | "already_started" | "stale"
+    }
 
 interface CancelInput {
   eventId: string
@@ -108,6 +111,13 @@ export async function cancelEvent({
  * deliberate asymmetry: it does NOT revive the vote the cancel superseded.
  * That vote is dead, and reopening a question nobody is currently asking is
  * worse than silence. Anyone who still wants the time moved can ask again.
+ *
+ * The already_started guard is not an asymmetry, it is the mirror: putting
+ * back a plan whose start has gone by announces a game that never happened,
+ * and then hides it, because every upcoming query wants startsAt >= now. The
+ * live path to it is real rather than theoretical: once the cancelled
+ * occurrence's start passes, the hourly cron books the next one, and a stale
+ * tab still offering "Put this back on" is all it takes.
  */
 export async function restoreEvent({
   eventId,
@@ -119,6 +129,9 @@ export async function restoreEvent({
     if (!event) return { status: "skipped", reason: "no_event" } as const
     if (event.status !== EventStatus.CANCELLED) {
       return { status: "skipped", reason: "not_cancelled" } as const
+    }
+    if (event.startsAt.getTime() <= now.getTime()) {
+      return { status: "skipped", reason: "already_started" } as const
     }
 
     const updated = await tx.event.updateMany({

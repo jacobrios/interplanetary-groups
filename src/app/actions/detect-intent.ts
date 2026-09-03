@@ -6,6 +6,7 @@ import { EventStatus, MessageAuthor, ProposalKind } from "@prisma/client"
 
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
+import { CARD_REGION_CAP } from "@/lib/cards/region"
 import { findUpcomingEvents, hasUpcomingEventForActivity } from "@/lib/events/upcoming-list"
 import { formatEventDate, formatTime } from "@/lib/events/format"
 import { createGauge } from "@/lib/gauges/create"
@@ -34,6 +35,10 @@ import {
   resolveSparkTime,
   sparkStartInstant,
 } from "@/lib/orbit/spark-copy"
+
+/** How many plans the model is asked to choose between. Unchanged from the
+ *  spark slice; only what gets fetched before the status filter changed. */
+const MODEL_PLAN_LIMIT = 3
 
 export type DetectIntentResult =
   | { status: "gauged" | "changed" | "asked" | "replied" | "quiet" }
@@ -83,19 +88,25 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
     const group = message.group
     const now = new Date()
 
-    // The model sees every plan the group sees (the carousel's three), each
-    // numbered so a change request can say which one it means. One fetch, and
-    // the same array resolves the model's answer, so the numbering can never
-    // drift between what was shown and what is acted on.
+    // The plans the model is offered, each numbered so a change request can
+    // say which one it means. This list is NOT what the group sees: the card
+    // region shows up to CARD_REGION_CAP cards and a called-off plan holds
+    // one of them, so a plan can be card 1 on screen and absent here. That is
+    // deliberate, because this caller must never offer a called-off plan as
+    // something to move. What the numbering does guarantee is the part that
+    // matters: the same filtered array resolves the model's answer further
+    // down, so the number the model picks and the plan acted on are always
+    // the same plan.
     //
     // findUpcomingEvents is deliberately status-blind, because the group
-    // home's card region must still SHOW a called-off plan. Filtering
-    // belongs to each caller instead, and this caller must never offer a
-    // called-off plan as something to move. When this empties, the existing
+    // home's card region must still SHOW a called-off plan; filtering belongs
+    // to each caller instead. Fetch the region's own cap, filter, then take
+    // three, so a called-off plan lets the next scheduled plan up rather than
+    // shrinking the model's list. When this empties, the existing
     // NO_PLANS_REPLY path answers honestly with no further change.
-    const events = (await findUpcomingEvents(group.id, now, 3)).filter(
-      (e) => e.status === EventStatus.SCHEDULED
-    )
+    const events = (await findUpcomingEvents(group.id, now, CARD_REGION_CAP))
+      .filter((e) => e.status === EventStatus.SCHEDULED)
+      .slice(0, MODEL_PLAN_LIMIT)
     const upcomingLines = events.map(
       (e, i) =>
         `${i + 1}. ${e.title}, ${formatEventDate(e.startsAt, e.endsAt, group.timeZone)}`

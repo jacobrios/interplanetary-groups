@@ -12,7 +12,6 @@ function row(over: Partial<Parameters<typeof deriveCancellations>[0]["events"][0
   return {
     id: "e1",
     title: "Tennis",
-    activityLabel: "tennis",
     startsAt: new Date("2026-09-08T23:00:00Z"),
     cancelledAt: new Date("2026-09-06T12:00:00Z"),
     ...over,

@@ -246,6 +246,31 @@ describe("restoreEvent", () => {
     expect(after?.answer).toBe(ProposalAnswer.SUPERSEDED)
   })
 
+  it("refuses to put back a plan whose start has already passed", async () => {
+    // The tennis-club shape: Tuesday is called off Tuesday morning, 7pm goes
+    // by, the cron books next Tuesday, and somebody's stale tab still offers
+    // "Put this back on". Restoring here would announce a game that never
+    // happened and then hide it, since every upcoming query wants
+    // startsAt >= now.
+    await cancelEvent({ eventId: eventId!, announcementBody: "off", now: NOW })
+    const afterStart = new Date(START.getTime() + 60_000)
+
+    const result = await restoreEvent({
+      eventId: eventId!,
+      announcementBody: "Jordan put tennis this Mon back on.",
+      now: afterStart,
+    })
+    expect(result).toEqual({ status: "skipped", reason: "already_started" })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.status).toBe(EventStatus.CANCELLED)
+    expect(event?.cancelledAt).toEqual(NOW)
+
+    // The cancellation line only: nothing announced about a game in the past.
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(1)
+  })
+
   it("refuses an event that is not cancelled", async () => {
     const result = await restoreEvent({ eventId: eventId!, announcementBody: "x", now: NOW })
     expect(result).toEqual({ status: "skipped", reason: "not_cancelled" })
