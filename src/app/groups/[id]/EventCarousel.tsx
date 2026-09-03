@@ -21,7 +21,7 @@ import IdeaCard from "./IdeaCard"
 import { CarouselRail } from "./CarouselRail"
 import type { RegionEntry } from "@/lib/cards/region"
 import type { IdeaItem } from "@/lib/pending/derive"
-import { RsvpStatus } from "@prisma/client"
+import { RsvpStatus, EventStatus } from "@prisma/client"
 
 export interface EventCardData {
   event: {
@@ -29,6 +29,7 @@ export interface EventCardData {
     title: string
     startsAt: Date
     endsAt: Date | null
+    status: EventStatus
     venues: { displayLabel: string | null; name: string }[]
   }
   inCount: number

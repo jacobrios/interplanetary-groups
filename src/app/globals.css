@@ -76,3 +76,52 @@ body {
    load-bearing: Firefox's UA stylesheet applies its own opacity on top of
    the color, which would otherwise dim the token a second time. */
 input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
+
+/* A third thing inline styles cannot express, for a reason close to the one
+   the two above give: :active is a pseudo-class. (Only close, and worth
+   saying rather than glossing: .tap-card-ask below is here to sit beside its
+   own pair, not because an inline style could not have carried it.)
+
+   The problem it answers (double-tap fix, 2 Sept 2026): tapping an event card
+   on the group home did nothing visible for a measured 1000ms, warm and
+   local, because /events/[id] is fully dynamic, there is no loading.tsx
+   anywhere in the app, and nothing on the card had a pressed state of any
+   kind. The tap worked; nothing said so; the member tapped again. That fires
+   on every tap, including one landing dead centre on the title.
+
+   Two halves, and they cover different browsers rather than restating each
+   other. -webkit-tap-highlight-color is the half that fires on iOS, where
+   :active is unreliable on an element carrying no touch listener and this
+   product ships none; iOS's own default highlight is a DARK wash, close to
+   invisible on a card that is already #262b37 on a #15161e page, so this
+   replaces it with a light one. The :active rule is the half that covers
+   everywhere else, lighting the card's tap overlay (EventCard's
+   data-tap-overlay span), so THAT half flashes exactly the area that is
+   tappable.
+
+   The two halves do not flash the same area, and the difference is worth
+   knowing before anyone reads a phone screenshot as a bug. WebKit paints the
+   tap highlight over the anchor's OWN rects and does not pick up an
+   absolutely positioned descendant, so on iOS a tap in the card's newly live
+   lower band most likely lights the upper part of the card instead of the
+   spot under the finger. Feedback still arrives inside the same frame, which
+   is the whole of what this fix needs; it is just not congruent with the
+   touch. Unobserved either way: no iOS device was available and no synthetic
+   tap could be driven in the browser pane, so the iOS half of this rests on
+   how WebKit is documented to behave rather than on anything anyone saw.
+
+   COLOUR ONLY, and that is a constraint rather than a preference: the card
+   region's height budget was won by an entire slice, so a pressed state built
+   from transform, padding or border-width would spend it. Held by
+   src/app/groups/[id]/__tests__/EventCard.test.tsx. */
+.tap-card { -webkit-tap-highlight-color: rgba(236, 237, 242, .13); }
+.tap-card:active .tap-card-veil { background-color: rgba(236, 237, 242, .06); }
+/* The RSVP block has to be raised above that overlay so its buttons still take
+   taps, but raising the whole block also raises its padding and the gap
+   between the two pills, which is roughly 22px of card plus a column down the
+   middle of the answer row. Measured, not predicted: the hit-test grid showed
+   them inert. This hands pointers back to the buttons alone, so every part of
+   the block that is not a button falls through to the overlay and navigates.
+   Colour-free and layout-free: pointer-events changes no box. */
+.tap-card-ask { pointer-events: none; }
+.tap-card-ask button { pointer-events: auto; }

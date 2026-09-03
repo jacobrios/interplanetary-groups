@@ -1,7 +1,7 @@
 // src/lib/events/rsvp.ts
 import { prisma } from "@/lib/prisma"
 import type { Rsvp } from "@prisma/client"
-import { RsvpStatus } from "@prisma/client"
+import { EventStatus, RsvpStatus } from "@prisma/client"
 
 interface SetRsvpInput {
   supabaseAuthId: string
@@ -29,6 +29,7 @@ interface SetRsvpResult {
  * 4. Throws "NO_EVENT" when no Event row exists for the given event id.
  * 5. Throws "NOT_A_MEMBER" when the resolved user is not a member of the
  *    event's group.
+ * 6. Throws "EVENT_CANCELLED" when the event has been called off.
  *
  * This function is intentionally reusable: the event-detail page and the
  * future home-screen quick-RSVP card both call it.
@@ -49,7 +50,7 @@ export async function setRsvp({
     // count, the silent-drop failure the slice exists to close.
     const event = await tx.event.findUnique({
       where: { id: eventId },
-      select: { groupId: true },
+      select: { groupId: true, status: true },
     })
     if (!event) throw new Error("NO_EVENT")
     const membership = await tx.membership.findUnique({
@@ -57,6 +58,14 @@ export async function setRsvp({
       select: { id: true },
     })
     if (!membership) throw new Error("NOT_A_MEMBER")
+    // Checked after membership, deliberately: the members-only wall's rule
+    // is that a non-member learns nothing about a group, not even that one
+    // of its plans has been called off. Checking this first would leak that
+    // one bit of the group's state past the wall to someone who posts an
+    // event id without being a member. A stale tab still holds live RSVP
+    // buttons, which is why this guard exists at all, on the server rather
+    // than only on the screen.
+    if (event.status === EventStatus.CANCELLED) throw new Error("EVENT_CANCELLED")
 
     const rsvp = await tx.rsvp.upsert({
       where: { eventId_userId: { eventId, userId: user.id } },

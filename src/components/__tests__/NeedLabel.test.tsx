@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest"
 import { cleanup, render, screen } from "@testing-library/react"
-import { NeedLabel } from "../NeedLabel"
+import { NeedLabel, CancelledLabel } from "../NeedLabel"
 
 afterEach(cleanup)
 
@@ -27,5 +27,31 @@ describe("NeedLabel", () => {
     const root = container.firstElementChild as HTMLElement
     expect(root.tagName).toBe("SPAN")
     expect(root.style.color).toBe("var(--action)")
+  })
+})
+
+// CancelledLabel is a sibling export, not a NeedLabel variant: these guard
+// that it renders bright regardless of the value's needsViewer flag, and
+// that NeedLabel's own needsViewer-conditioned color above is untouched by
+// its existence (owner's phone QA, 3 Sept 2026).
+describe("CancelledLabel", () => {
+  it("renders nothing when given no value", () => {
+    const { container } = render(<CancelledLabel value={null} />)
+    expect(container.innerHTML).toBe("")
+  })
+
+  it("renders the called-off status in bright text-primary, not the grey NeedLabel would give a false needsViewer", () => {
+    render(<CancelledLabel value={{ text: "Called off", needsViewer: false }} />)
+    const el = screen.getByText("Called off")
+    expect(el.style.color).toBe("var(--text-primary)")
+    expect(el.style.textTransform).toBe("uppercase")
+  })
+
+  it("matches NeedLabel's geometry exactly, size and weight, only the color differs", () => {
+    render(<CancelledLabel value={{ text: "Called off", needsViewer: false }} />)
+    const el = screen.getByText("Called off")
+    expect(el.style.fontSize).toBe("var(--type-eyebrow)")
+    expect(el.style.fontWeight).toBe("700")
+    expect(el.style.letterSpacing).toBe("0.14em")
   })
 })

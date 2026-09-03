@@ -121,7 +121,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, fireEvent, screen } from "@testing-library/react"
-import { MessageAuthor } from "@prisma/client"
+import { MessageAuthor, EventStatus } from "@prisma/client"
 import GroupHome from "../groups/[id]/GroupHome"
 import EventCard from "../groups/[id]/EventCard"
 import IdeaCard from "../groups/[id]/IdeaCard"
@@ -263,6 +263,7 @@ const EVENT = {
   title: "Climbing",
   startsAt: new Date("2026-08-27T19:00:00-06:00"),
   endsAt: null,
+  status: EventStatus.SCHEDULED,
   venues: [{ displayLabel: "Movement", name: "Movement Baker" }],
 }
 

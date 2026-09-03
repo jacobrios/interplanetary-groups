@@ -1,6 +1,7 @@
 // src/app/events/[id]/page.tsx
 import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
+import { EventStatus } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { deriveRoster } from "@/lib/events/roster"
@@ -9,13 +10,16 @@ import RsvpControls from "@/components/RsvpControls"
 import RosterAvatar from "./RosterAvatar"
 import AddToCalendarButton from "./AddToCalendarButton"
 import ProposalSection from "./ProposalSection"
+import CancelControls from "./CancelControls"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
+import { CancelledLabel } from "@/components/NeedLabel"
 import { Clock, MapPin, Check } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
+import { eventCardLabel } from "@/lib/cards/region"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -68,6 +72,12 @@ export default async function EventPage({ params }: Props) {
   // Multi-venue UI is a fast-follow (build-notes §8).
   const venue = event.venues[0] ?? null
   const venueLabel = venue ? (venue.displayLabel ?? venue.name) : null
+
+  const isCancelled = event.status === EventStatus.CANCELLED
+  // Brightness carries the state, never hue: the same device the roster
+  // below already uses for IN / HAVEN'T REPLIED / OUT. The owner is
+  // red/green colourblind and the status ladder is hue-free by rule.
+  const detailInk = isCancelled ? "var(--text-secondary)" : "var(--text-primary)"
 
   const dateLabel = formatEventDate(event.startsAt, event.endsAt, event.group.timeZone)
 
@@ -163,6 +173,22 @@ export default async function EventPage({ params }: Props) {
           }}
         >
           <div style={{ padding: "15px 16px" }}>
+            {/* Called-off status label, above the title. Bright
+                --text-primary, never teal: teal in this slot means "this
+                needs you", and a called-off plan needs nothing from anybody
+                (eventCardLabel, shared with the home card so the two words
+                can never disagree). Renders through CancelledLabel
+                (components/NeedLabel.tsx) rather than NeedLabel itself, so
+                the status reads as the brightest thing on the screen
+                (owner's phone QA, 3 Sept 2026), matching the group home
+                card's treatment; NeedLabel's own grey needsViewer ladder is
+                unchanged for every other caller. */}
+            {isCancelled && (
+              <p style={{ marginBottom: "8px" }}>
+                <CancelledLabel value={eventCardLabel(true, null)} />
+              </p>
+            )}
+
             {/* Event title — moved inside the card this task. --type-title
                 (24px), down from the previous --type-display (28px): the
                 role map puts event-detail title at title. */}
@@ -171,7 +197,7 @@ export default async function EventPage({ params }: Props) {
                 fontSize: "var(--type-title)",
                 fontWeight: 800,
                 letterSpacing: "-.01em",
-                color: "var(--text-primary)",
+                color: detailInk,
                 lineHeight: "var(--leading-tight)",
                 // No ported value exists for the title-to-meta gap — the
                 // source gives .ed-title's own type rules and .ed-meta's
@@ -186,20 +212,27 @@ export default async function EventPage({ params }: Props) {
             </h1>
 
             {/* Meta rows (.ed-meta / .ed-mrow): icon-led lines replacing the
-                stacked key/value MetaRow. The "When"/"Where"/"Activity" key
-                labels are visually deleted, exactly as the design draws it,
-                but restored as visually-hidden text ahead of each row's
-                value (fix round 1, task 3): the pre-visual MetaRow rendered
-                those words and a screen reader read them, and dropping them
-                to an aria-hidden icon plus bare text was a real regression
-                — a listener heard a bare date, then "The climbing gym",
-                then "climbing" echoing the page heading. See
-                task-3-report.md's fix-round-1 section for the accessibility
-                trace before and after. */}
+                stacked key/value MetaRow. The "When"/"Where" key labels are
+                visually deleted, exactly as the design draws it, but
+                restored as visually-hidden text ahead of each row's value
+                (fix round 1, task 3): the pre-visual MetaRow rendered those
+                words and a screen reader read them, and dropping them to an
+                aria-hidden icon plus bare text was a real regression (a
+                listener heard a bare date, then "The climbing gym", then
+                "climbing" echoing the page heading). See task-3-report.md's
+                fix-round-1 section for the accessibility trace before and
+                after.
+
+                A third row, "Activity", stood here alongside When and
+                Where at that time and was part of the traced regression
+                above; it was deleted on 2 September 2026 (QA feedback
+                round) because it printed the same word the title already
+                showed. */}
             <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
               <DetailRow
                 icon={<Clock size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
                 label="When"
+                color={detailInk}
               >
                 {dateLabel}
               </DetailRow>
@@ -212,19 +245,9 @@ export default async function EventPage({ params }: Props) {
                 <DetailRow
                   icon={<MapPin size={16} stroke="var(--text-secondary)" strokeWidth={2} />}
                   label="Where"
+                  color={detailInk}
                 >
                   {venueLabel}
-                </DetailRow>
-              )}
-
-              {/* Activity label — optional free-text tag. The design draws
-                  no third row and no glyph for it; this row gets no icon and
-                  is indented to the same text column so the rows stay
-                  aligned (controller resolution E, a judgment call, not a
-                  ported value). */}
-              {event.activityLabel && (
-                <DetailRow icon={null} label="Activity">
-                  {event.activityLabel}
                 </DetailRow>
               )}
             </div>
@@ -240,8 +263,19 @@ export default async function EventPage({ params }: Props) {
               too, matching the home-card caller (EventCard.tsx): a member
               who RSVPs here and taps back should see the card's need label
               already settled, not the pre-tap "Needs your RSVP" from a
-              stale render. */}
-          {viewer && (
+              stale render.
+
+              This band holds the RSVP pair and nothing else, as of 2 Sept
+              2026 (QA feedback round, spec §13). The cancel and restore
+              controls briefly lived in here too and that was a mistake with
+              three visible symptoms on the owner's phone: this band already
+              means "answer this question", so a control sharing it read as a
+              box inside a box, sat narrower than the pair above it, and its
+              confirm step looked like two more options for the RSVP. Both
+              controls moved out below the card; see the region under "Add to
+              calendar". A called-off plan has no RSVP pair, so the band
+              itself does not render there at all. */}
+          {viewer && !isCancelled && (
             <div
               style={{
                 borderTop: "1.6px solid var(--hairline)",
@@ -249,7 +283,11 @@ export default async function EventPage({ params }: Props) {
                 backgroundColor: "transparent",
               }}
             >
-              <RsvpControls eventId={event.id} currentStatus={viewerStatus} groupId={event.group.id} />
+              <RsvpControls
+                eventId={event.id}
+                currentStatus={viewerStatus}
+                groupId={event.group.id}
+              />
             </div>
           )}
         </div>
@@ -270,10 +308,48 @@ export default async function EventPage({ params }: Props) {
             it actually saves, and the vote reads as its own matter below.
             (Putting the button inside the details card was the stronger
             semantic answer and was deliberately not taken; the owner's
-            call, 14 Aug QA.) */}
-        <div style={{ marginBottom: "16px" }}>
-          <AddToCalendarButton eventId={event.id} />
-        </div>
+            call, 14 Aug QA.)
+
+            Extended 2 Sept 2026 (QA feedback round, spec §13): this is a
+            region of full-width pills now, not a single button, so the
+            ordering rule above has a third element to cover. The order is
+            "Add to calendar" then "Call this off", and it follows the same
+            logic that put the calendar button here in the first place: both
+            pills act on the plan the details card describes, and the quieter,
+            rarer, heavier action goes last. On a called-off plan neither of
+            those is true of the calendar button, so the region holds one pill
+            only, "Put this back on", which is then the screen's sole teal. */}
+        {/* Hidden on a called-off plan: there is nothing to save. The honest
+            gap this leaves is registered as debt in the spec, and it is real:
+            a member who already saved the plan still gets buzzed, and there
+            is no path here to re-fetch an .ics carrying STATUS:CANCELLED.
+            The subscribable feed (build-notes §6) is the actual fix. */}
+        {!isCancelled && (
+          <div style={{ marginBottom: "16px" }}>
+            <AddToCalendarButton eventId={event.id} />
+          </div>
+        )}
+
+        {/* ── Call this off / Put this back on ───────────────────────────── */}
+        {/* Outside the details card on purpose (spec §13): inside its footer
+            band the control inherited a container that means "answer this
+            question", which is what made it read as a fourth RSVP option.
+            Out here it is its own pill in its own region, the same width and
+            the same shape as the calendar button above it, and its confirm
+            step is unmistakably about it alone.
+
+            Members only, like every write on this screen. No such control on
+            the group home card (decision 5): the card region's height budget
+            was won by a whole slice and a control there spends it. */}
+        {viewer && (
+          <div style={{ marginBottom: "16px" }}>
+            <CancelControls
+              eventId={event.id}
+              groupId={event.group.id}
+              isCancelled={isCancelled}
+            />
+          </div>
+        )}
 
         {/* ── Open time-change vote ─────────────────────────────────────── */}
         {/* The vote on this plan's time; the chips live here (the group
@@ -284,6 +360,12 @@ export default async function EventPage({ params }: Props) {
         {proposalBand && <ProposalSection band={proposalBand} />}
 
         {/* ── Roster card ────────────────────────────────────────────── */}
+        {/* Unchanged on a called-off plan, on purpose: cancelling touches no
+            Rsvp row, so every answer here still exists and is still true.
+            The detail screen carries completeness (build-notes), and that
+            does not stop being the job just because the plan is off. If
+            this card looks untouched next to the rest of this task's diff,
+            that is the point, not an oversight. */}
         {/* Per build-notes §7: detail screen shows who, by name, grouped
             IN / OUT / HAVEN'T REPLIED. Distinction is by grouping, the
             heading labels, and (task 4) name brightness — never by color
@@ -351,24 +433,35 @@ export default async function EventPage({ params }: Props) {
 // ─── Sub-components (server-only, no "use client") ────────────────────────────
 
 // One icon-plus-text meta line (.ed-mrow, task 3), replacing the stacked
-// key/value MetaRow. `icon` is null for the activity row (no drawn glyph in
-// the design); `paddingLeft` on the no-icon branch is the icon's own
-// footprint (16px width + 9px gap) so every row's text lands in the same
-// column regardless of whether it carries an icon.
+// key/value MetaRow. `icon` was null for the activity row (no drawn glyph
+// in the design); `paddingLeft` on the no-icon branch stood in for the
+// missing icon's own footprint (16px width + 9px gap) so every row's text
+// landed in the same column regardless of whether it carried an icon. The
+// activity row was deleted on 2 September 2026 (QA feedback round) because
+// it printed the same word the title already showed, so no caller passes a
+// null icon today; the branch and the nullable `icon` type are left as they
+// are on purpose, a tidy rather than a fix, and queued as its own decision.
 //
 // `label` (fix round 1, task 3) is the word MetaRow used to render visibly
-// ("When" / "Where" / "Activity") — deleted from the visible design per the
-// brief, but restored here as visually-hidden text ahead of the value, so a
-// screen reader still hears what kind of row this is. The trailing space in
-// the rendered text is a separator, not new copy: without it, "When" and
-// the date would run together into one word for a speech synthesizer.
+// ("When" / "Where", and "Activity" before that row was deleted), removed
+// from the visible design per the brief, but restored here as visually-hidden
+// text ahead of the value, so a screen reader still hears what kind of row
+// this is. The trailing space in the rendered text is a separator, not new
+// copy: without it, "When" and the date would run together into one word
+// for a speech synthesizer.
+//
+// `color` (task 7, cancel-one-occurrence) is optional and defaults to the
+// live-plan ink: a called-off plan passes the dimmer `detailInk` so every
+// row steps down together, brightness carrying the state, never hue.
 function DetailRow({
   icon,
   label,
+  color = "var(--text-primary)",
   children,
 }: {
   icon: ReactNode | null
   label: string
+  color?: string
   children: ReactNode
 }) {
   return (
@@ -379,7 +472,7 @@ function DetailRow({
         gap: "9px",
         fontSize: "var(--type-meta)",
         lineHeight: "var(--leading-normal)",
-        color: "var(--text-primary)",
+        color,
         fontWeight: 600,
         paddingLeft: icon ? undefined : "25px",
       }}

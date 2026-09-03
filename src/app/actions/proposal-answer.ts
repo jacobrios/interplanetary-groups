@@ -10,11 +10,15 @@ import { moveEventTime } from "@/lib/events/move"
 import { buildChangeAnnouncement, buildGroupProposalQuestion, PAST_TIME_REPLY, STALE_PROPOSAL_ERROR } from "@/lib/orbit/change-copy"
 import { consensusFloor } from "@/lib/proposals/consensus"
 import { createGroupProposal } from "@/lib/proposals/create"
-import { ProposalAnswer } from "@prisma/client"
+import { EventStatus, ProposalAnswer } from "@prisma/client"
 
 export interface ProposalAnswerState {
   errors?: { general?: string }
 }
+
+/** The same sentence rsvpAction gives for a called-off plan, so a member
+ *  meets one wording for one fact wherever they tap. */
+const CANCELLED_ERROR = "This one's been called off."
 
 /**
  * Server action: the asker answers Orbit's change question with one tap.
@@ -85,6 +89,16 @@ export async function proposalAnswerAction(
       if (proposal.event.startsAt.getTime() <= now.getTime()) {
         return { errors: { general: "That plan has already started." } }
       }
+      // A stale VERIFY chip confirmed after the plan was called off. Neither
+      // branch below can answer this honestly on its own: the move reports
+      // "cancelled" but its fallback copy invites a retry that can never
+      // work, and createGroupProposal folds a called-off plan into "stale",
+      // whose copy says the plan changed, which is false. It did not change,
+      // it is off. Never-leave-a-direct-ask-hanging wants a true answer, not
+      // just an answer.
+      if (proposal.event.status === EventStatus.CANCELLED) {
+        return { errors: { general: CANCELLED_ERROR } }
+      }
       if (proposal.proposedStartsAt.getTime() <= now.getTime()) {
         return { errors: { general: PAST_TIME_REPLY } }
       }
@@ -116,7 +130,12 @@ export async function proposalAnswerAction(
           resolveProposalId: proposal.id,
         })
         if (moved.status === "skipped") {
-          errorMsg = moved.reason === "stale" ? STALE_PROPOSAL_ERROR : "Couldn't save that, try again."
+          errorMsg =
+            moved.reason === "cancelled"
+              ? CANCELLED_ERROR
+              : moved.reason === "stale"
+                ? STALE_PROPOSAL_ERROR
+                : "Couldn't save that, try again."
         }
       } else {
         // The asker confirmed the reading; the question now goes to the group.
@@ -135,7 +154,23 @@ export async function proposalAnswerAction(
           resolveVerifyProposalId: proposal.id,
         })
         if (created.status === "skipped") {
-          errorMsg = created.reason === "stale" ? STALE_PROPOSAL_ERROR : "That one's already out to the group."
+          if (created.reason === "stale") {
+            // createGroupProposal reports one "stale" for two different
+            // facts, a plan that moved and a plan that was called off. The
+            // guard above catches the common case; this re-read keeps the
+            // narrow race honest, since telling somebody the plan changed
+            // when it was called off sends them looking for a new time.
+            const fresh = await prisma.event.findUnique({
+              where: { id: proposal.eventId },
+              select: { status: true },
+            })
+            errorMsg =
+              fresh?.status === EventStatus.CANCELLED
+                ? CANCELLED_ERROR
+                : STALE_PROPOSAL_ERROR
+          } else {
+            errorMsg = "That one's already out to the group."
+          }
         }
       }
     }

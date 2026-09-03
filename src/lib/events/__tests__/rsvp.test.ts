@@ -1,7 +1,7 @@
 // src/lib/events/__tests__/rsvp.test.ts
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { RsvpStatus } from "@prisma/client"
+import { EventStatus, RsvpStatus } from "@prisma/client"
 import { setRsvp } from "../rsvp"
 
 describe("setRsvp", () => {
@@ -85,5 +85,37 @@ describe("setRsvp", () => {
         status: RsvpStatus.IN,
       })
     ).rejects.toThrow("NO_USER")
+  })
+
+  it("refuses an RSVP on a plan that has been called off", async () => {
+    // Clear the row the earlier OUT-flip test left behind so "no row
+    // written" below is an honest assertion about this call, not a stale
+    // leftover from a preceding test in this chained-fixture file.
+    await prisma.rsvp.deleteMany({ where: { eventId } })
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    // try/finally rather than a trailing statement: this file chains
+    // fixtures across tests via afterAll cleanup, not per-test isolation,
+    // so leaving eventId CANCELLED would poison whatever test runs after
+    // this one, even if an assertion below throws first.
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (!user?.supabaseAuthId) throw new Error("Preceding test did not create user")
+
+      await expect(
+        setRsvp({ supabaseAuthId: user.supabaseAuthId, eventId, status: RsvpStatus.IN })
+      ).rejects.toThrow("EVENT_CANCELLED")
+
+      const rows = await prisma.rsvp.findMany({ where: { eventId } })
+      expect(rows).toHaveLength(0)
+    } finally {
+      await prisma.event.update({
+        where: { id: eventId },
+        data: { status: EventStatus.SCHEDULED, cancelledAt: null },
+      })
+    }
   })
 })

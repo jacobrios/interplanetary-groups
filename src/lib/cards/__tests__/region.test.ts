@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   CARD_REGION_CAP,
   composeCardRegion,
+  eventCardLabel,
   eventNeedLabel,
   ideaNeedLabel,
 } from "../region"
@@ -52,6 +53,22 @@ describe("eventNeedLabel (the dense-face ladder, spec decision 6)", () => {
   it("RSVP settled: bare, regardless of any open time-change vote", () => {
     expect(eventNeedLabel("IN")).toBeNull()
     expect(eventNeedLabel("OUT")).toBeNull()
+  })
+})
+
+describe("eventCardLabel", () => {
+  it("says called off, and never as a need on the viewer", () => {
+    const label = eventCardLabel(true, null)
+    expect(label).toEqual({ text: "Called off", needsViewer: false })
+  })
+
+  it("outranks an outstanding RSVP, because a called-off plan needs nothing", () => {
+    expect(eventCardLabel(true, null)?.text).toBe("Called off")
+    expect(eventCardLabel(false, null)?.text).toBe("Needs your RSVP")
+  })
+
+  it("falls through to the ordinary ladder for a live plan", () => {
+    expect(eventCardLabel(false, "IN")).toBeNull()
   })
 })
 

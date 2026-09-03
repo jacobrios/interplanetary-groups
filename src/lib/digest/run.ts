@@ -25,13 +25,14 @@
 // either sweep that already ran this hour.
 
 import { prisma } from "@/lib/prisma"
-import { ContactMethodType, MessageAuthor, ProposalKind, RsvpStatus } from "@prisma/client"
+import { ContactMethodType, MessageAuthor, ProposalKind, RsvpStatus, EventStatus } from "@prisma/client"
 import type { EventCardData } from "@/app/groups/[id]/EventCarousel"
 import { getLocalParts } from "@/lib/orbit/occurrence"
 import { findLiveGauges, type LiveGauge } from "@/lib/gauges/read"
 import { findLiveProposals, type LiveProposal } from "@/lib/proposals/read"
 import { deriveNeedsYouItems } from "@/lib/digest/needs-you"
 import { deriveYouMissed, type YouMissedMessage } from "@/lib/digest/you-missed"
+import { deriveCancellations, type CancellationRow } from "@/lib/digest/cancellations"
 import { isDigestEligibleToday, isNeedsYouGateOpen } from "@/lib/digest/schedule"
 import { composeDigestEmail } from "@/lib/digest/compose"
 import { sendEmail } from "@/lib/email/send"
@@ -100,6 +101,7 @@ interface EventRow {
   endsAt: Date | null
   createdAt: Date
   gaugeId: string | null
+  status: EventStatus
   venues: { displayLabel: string | null; name: string }[]
 }
 
@@ -206,11 +208,45 @@ async function processOneGroup(group: GroupRow, now: Date): Promise<DigestRunRes
   })
   const verifiedEmails = await loadVerifiedEmails(memberships.map((m) => m.user.id))
 
+  // One query for the whole group, filtered per member by the pure module.
+  // Bounded by the earliest read position across the group's members, so a
+  // long-dormant member cannot make this unbounded.
+  const earliestWatermark = memberships.reduce<Date>(
+    (earliest, m) => {
+      const seen = m.lastSeenAt
+      const sent = m.lastDigestSentAt
+      const later = seen && sent ? (seen > sent ? seen : sent) : (seen ?? sent ?? m.joinedAt)
+      return later < earliest ? later : earliest
+    },
+    now
+  )
+  const cancelledEvents: CancellationRow[] = await prisma.event.findMany({
+    where: {
+      groupId: group.id,
+      status: EventStatus.CANCELLED,
+      cancelledAt: { gte: earliestWatermark },
+    },
+    select: {
+      id: true,
+      title: true,
+      startsAt: true,
+      cancelledAt: true,
+    },
+  })
+
   // No cap, unlike the card region: needs-you.ts's own header note says an
   // email has no real-estate constraint, so every future event is a
   // candidate, never just the soonest five.
   const upcomingEvents: EventRow[] = await prisma.event.findMany({
-    where: { groupId: group.id, startsAt: { gte: now } },
+    where: {
+      groupId: group.id,
+      startsAt: { gte: now },
+      // A called-off plan asks nothing of anybody. Without this the digest
+      // makes a cancellation WORSE than silent: a Thursday cancellation
+      // produces a Friday email telling the group to RSVP to a game that is
+      // not happening.
+      status: EventStatus.SCHEDULED,
+    },
     orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
     include: { venues: true },
   })
@@ -277,6 +313,7 @@ async function processOneGroup(group: GroupRow, now: Date): Promise<DigestRunRes
         liveGauges,
         liveProposals,
         messages,
+        cancelledEvents,
         origin,
         verifiedEmail: verifiedEmails.get(membership.user.id) ?? null,
       })
@@ -315,6 +352,7 @@ async function processOneMember(input: {
   liveGauges: LiveGauge[]
   liveProposals: LiveProposal[]
   messages: YouMissedMessage[]
+  cancelledEvents: CancellationRow[]
   origin: string
   /** From loadVerifiedEmails, keyed by user id ahead of this call — belt-
    *  and-braces (brief's own wording): a ContactMethod row only ever exists
@@ -333,6 +371,7 @@ async function processOneMember(input: {
     liveGauges,
     liveProposals,
     messages,
+    cancelledEvents,
     origin,
     verifiedEmail,
   } = input
@@ -359,6 +398,7 @@ async function processOneMember(input: {
         title: event.title,
         startsAt: event.startsAt,
         endsAt: event.endsAt,
+        status: event.status,
         venues: event.venues,
       },
       inCount,
@@ -391,7 +431,16 @@ async function processOneMember(input: {
     viewerId: user.id,
   })
 
-  if (needsYou.length === 0 && youMissed === null) {
+  const cancellations = deriveCancellations({
+    events: cancelledEvents,
+    lastSeenAt: membership.lastSeenAt,
+    lastDigestSentAt: membership.lastDigestSentAt,
+    joinedAt: membership.joinedAt,
+    timeZone: group.timeZone,
+    now,
+  })
+
+  if (needsYou.length === 0 && youMissed === null && cancellations.length === 0) {
     return "skipped_nothing_to_report"
   }
 
@@ -401,10 +450,11 @@ async function processOneMember(input: {
     groupName: group.name,
     needsYou,
     youMissed,
+    cancellations,
     siteOrigin: origin,
     unsubscribeToken,
   })
-  // composeDigestEmail re-checks the identical both-empty condition already
+  // composeDigestEmail re-checks the identical all-empty condition already
   // checked above. Reaching null here would mean this function's own check
   // disagreed with compose's, which is a bug in this function, not a
   // legitimate second "nothing to send" case — treated exactly like the

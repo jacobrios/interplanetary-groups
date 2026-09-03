@@ -21,11 +21,11 @@
 // reconcile test pinning the cron's side of this).
 
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, ProposalAnswer, RsvpStatus, type Prisma } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalAnswer, RsvpStatus, type Prisma } from "@prisma/client"
 
 export type MoveEventResult =
   | { status: "moved" }
-  | { status: "skipped"; reason: "no_event" | "stale" | "noop" }
+  | { status: "skipped"; reason: "no_event" | "stale" | "noop" | "cancelled" }
 
 /**
  * Thrown, never returned, when the resolveProposalId stamp's conditional
@@ -83,6 +83,11 @@ export async function moveEventCoreInTx(
 ): Promise<MoveEventResult> {
   const event = await tx.event.findUnique({ where: { id: eventId } })
   if (!event) return { status: "skipped", reason: "no_event" } as const
+  // A called-off plan is not a plan to move. Reachable from a stale tab
+  // holding a live time-change chip.
+  if (event.status === EventStatus.CANCELLED) {
+    return { status: "skipped", reason: "cancelled" } as const
+  }
   if (event.startsAt.getTime() !== expectedStartsAt.getTime()) {
     return { status: "skipped", reason: "stale" } as const
   }
@@ -93,11 +98,18 @@ export async function moveEventCoreInTx(
   // The pre-read above is a fast path, not the guard: at READ COMMITTED two
   // concurrent calls can both pass it and both try to write. The real stale
   // guard is this conditional write, which only succeeds if startsAt still
-  // matches what was just read; a concurrent mover would have already
-  // changed it, so this one loses the race and reports stale honestly
-  // instead of overwriting the other mover's result.
+  // matches what was just read AND the event is still SCHEDULED; a
+  // concurrent mover would have already changed startsAt, and a concurrent
+  // cancelEvent would have already flipped status, so either one loses the
+  // race and reports stale honestly instead of overwriting the other
+  // caller's result or moving a plan that was just called off. The status
+  // check duplicates the pre-read's own cancelled check above on purpose:
+  // that one gives the honest "cancelled" reason in the common,
+  // non-racing case; this one is what actually closes the race, and a race
+  // it catches reports the plainer "stale" rather than "cancelled" since by
+  // the time it fires the event has already moved out from under it.
   const updated = await tx.event.updateMany({
-    where: { id: eventId, startsAt: expectedStartsAt },
+    where: { id: eventId, startsAt: expectedStartsAt, status: EventStatus.SCHEDULED },
     data: { startsAt: newStartsAt, previousStartsAt: event.startsAt },
   })
   if (updated.count === 0) return { status: "skipped", reason: "stale" } as const

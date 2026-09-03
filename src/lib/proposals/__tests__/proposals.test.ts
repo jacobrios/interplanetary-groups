@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from "vitest"
 import { prisma } from "@/lib/prisma"
 import {
+  EventStatus,
   MessageAuthor,
   ProposalAnswer,
   ProposalVoteAnswer,
@@ -256,6 +257,23 @@ describe("createGroupProposal", () => {
     })
     expect(otherLiveAfter?.answer).toBeNull() // supersede rolled back
   })
+
+  it("refuses to open a time-change vote on a plan that has been called off", async () => {
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    // A called-off plan hits the same in-tx guard as a stale priorStartsAt:
+    // the internal StaleEventInTx throw is caught by this function's own
+    // catch block and surfaces as the same "skipped"/"stale" shape the
+    // mismatched-timestamp case above already asserts, not as a rejection.
+    const result = await createGroupProposal(await baseInput())
+    expect(result).toEqual({ status: "skipped", reason: "stale" })
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(0)
+  })
 })
 
 describe("findLiveProposals", () => {
@@ -309,6 +327,21 @@ describe("findLiveProposals", () => {
     await createGroupProposal(await baseInput({ otherSourceMessage: true, otherAsker: true }))
     const live = await findLiveProposals(groupId!, NOW)
     expect(live.map((p) => p.id)).not.toContain(first.proposal.id)
+  })
+
+  it("does not report a live vote on a plan that has been called off", async () => {
+    const r = await createGroupProposal(await baseInput())
+    if (r.status !== "created") throw new Error("expected created")
+    await prisma.event.update({
+      where: { id: eventId! },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    // Belt and braces beside the supersede inside cancelEvent: a proposal
+    // opened in the same second as a cancellation must not keep asking the
+    // group to move a game that is off.
+    const live = await findLiveProposals(groupId!, NOW)
+    expect(live).toHaveLength(0)
   })
 
   it("returned rows carry votes (with user), asker, and event.rsvps", async () => {

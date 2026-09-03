@@ -10,6 +10,7 @@
 // silently delay the group's recurring event (build-notes §11, spark part two).
 
 import { prisma } from "@/lib/prisma"
+import { EventStatus } from "@prisma/client"
 import type { UpcomingEvent } from "./upcoming"
 
 export type { UpcomingEvent }
@@ -30,6 +31,14 @@ export type { UpcomingEvent }
  *
  * scheduledKey remains the cron's idempotency key on write; it is just not the
  * right question to ask on read.
+ *
+ * DELIBERATELY BLIND TO status (cancel-one-occurrence slice, 2 Sep 2026).
+ * A cancelled occurrence must keep satisfying this guard. Cancelling sets a
+ * status and never deletes the row precisely so that this query still sees
+ * it: the cancelled row is its own tombstone, and reconcile needs no change.
+ * Adding `status: SCHEDULED` here would make the cron recreate the plan the
+ * group just called off, within the hour, with a fresh announcement. Pinned
+ * by a test in this module's own suite and by one in reconcile's.
  */
 export async function hasUpcomingScheduledEvent(
   groupId: string,
@@ -37,6 +46,36 @@ export async function hasUpcomingScheduledEvent(
 ): Promise<boolean> {
   const existing = await prisma.event.findFirst({
     where: { groupId, startsAt: { gte: now }, gaugeId: null },
+    select: { id: true },
+  })
+  return existing !== null
+}
+
+/**
+ * Whether the group already has a SCHEDULED (never CANCELLED) occurrence of
+ * this activity coming up.
+ *
+ * A called-off plan must not answer yes here. Rescheduling is exactly what a
+ * group does after calling something off (the tennis club cancelling a rained
+ * out game and asking about Thursday instead), so if a cancelled row kept
+ * counting as "already on the calendar," Orbit would stay silent for every
+ * fresh idea about that same activity until the cancelled row's own start
+ * time passed. The two callers that guard against a duplicate gauge or a
+ * duplicate change target (detect-intent.ts) both need this same answer, so
+ * it lives here once rather than as the same query written twice.
+ */
+export async function hasUpcomingEventForActivity(
+  groupId: string,
+  activity: string,
+  now: Date
+): Promise<boolean> {
+  const existing = await prisma.event.findFirst({
+    where: {
+      groupId,
+      startsAt: { gte: now },
+      status: EventStatus.SCHEDULED,
+      activityLabel: { equals: activity, mode: "insensitive" },
+    },
     select: { id: true },
   })
   return existing !== null

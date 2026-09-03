@@ -30,10 +30,11 @@
 // "things" (two different kind strings) rather than "votes" (one product
 // word), which is why needsYouKindLabel below reduces to two buckets before
 // asking whether they differ, never comparing kind strings directly. The
-// combined subject (both blocks present) drops the specific label
-// altogether and always says "thing(s)", deliberately, to keep the front of
-// the subject short enough that the message count still has a chance of
-// surviving truncation on a phone's notification or inbox-list row.
+// combined subject (needs-you and you-missed both present) drops the
+// specific label altogether and always says "thing(s)", deliberately, to
+// keep the front of the subject short enough that the message count still
+// has a chance of surviving truncation on a phone's notification or
+// inbox-list row.
 //
 // The group name always leads the subject. Not a style preference: on a
 // phone it is often all that survives truncation, and it is what tells a
@@ -43,6 +44,7 @@
 
 import type { NeedsYouItem } from "@/lib/digest/needs-you"
 import type { YouMissedLine, YouMissedResult } from "@/lib/digest/you-missed"
+import type { CancellationLine } from "@/lib/digest/cancellations"
 import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
 
 export interface ComposeDigestInput {
@@ -52,6 +54,9 @@ export interface ComposeDigestInput {
   needsYou: NeedsYouItem[]
   /** Already decided by deriveYouMissed; null means nothing was missed. */
   youMissed: YouMissedResult | null
+  /** Already decided by deriveCancellations; may be empty. Derived from
+   *  event rows, never Orbit's prose; see cancellations.ts's header for why. */
+  cancellations: CancellationLine[]
   /**
    * Absolute origin ("https://interplanetarygroups.com"), no trailing
    * slash. Passed in rather than read from process.env or src/lib/site-url.ts,
@@ -111,7 +116,12 @@ function needsYouKindLabel(items: NeedsYouItem[]): "RSVP" | "vote" | "thing" {
   return hasRsvp ? "RSVP" : "vote"
 }
 
-function buildSubject(groupName: string, needsYou: NeedsYouItem[], youMissed: YouMissedResult | null): string {
+function buildSubject(
+  groupName: string,
+  needsYou: NeedsYouItem[],
+  youMissed: YouMissedResult | null,
+  cancellations: CancellationLine[]
+): string {
   const needsCount = needsYou.length
   const missedCount = youMissed?.count ?? 0
   const needsVerb = needsCount === 1 ? "needs" : "need"
@@ -128,10 +138,18 @@ function buildSubject(groupName: string, needsYou: NeedsYouItem[], youMissed: Yo
     return `${groupName}: ${needsCount} ${word} ${needsVerb} you`
   }
 
-  // Reached only when youMissed is non-null (both-empty is handled by the
-  // caller-facing composeDigestEmail before this is ever called).
-  const messageWord = pluralize(missedCount, "message")
-  return `${groupName}: ${missedCount} new ${messageWord}`
+  if (missedCount > 0) {
+    const messageWord = pluralize(missedCount, "message")
+    return `${groupName}: ${missedCount} new ${messageWord}`
+  }
+
+  // Reached only when needsYou and youMissed are BOTH empty, which means
+  // cancellations is the only reason composeDigestEmail's gate let this call
+  // happen at all. A needs-you-shaped subject ("2 things need you") would be
+  // false here, nothing needs the reader, so this block gets its own honest
+  // wording naming what actually filled the email.
+  const planWord = pluralize(cancellations.length, "plan")
+  return `${groupName}: ${cancellations.length} ${planWord} called off`
 }
 
 function absoluteUrl(origin: string, path: string): string {
@@ -172,6 +190,13 @@ function buildText(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
     for (const item of input.needsYou) {
       parts.push(`- ${item.title} · ${item.whenLine} (${item.label})`)
       parts.push(`  ${absoluteUrl(input.siteOrigin, item.url)}`)
+    }
+  }
+
+  if (input.cancellations.length > 0) {
+    if (parts.length > 0) parts.push("")
+    for (const line of input.cancellations) {
+      parts.push(`Called off: ${line.title} ${line.whenLine}`)
     }
   }
 
@@ -236,6 +261,25 @@ function buildHtml(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
       </tr>`)
   }
 
+  if (input.cancellations.length > 0) {
+    const rows = input.cancellations
+      .map(
+        (line) =>
+          `<div style="margin-top:6px;color:${TEXT_PRIMARY};font-size:14px;">${escapeHtml(line.title)} ${escapeHtml(line.whenLine)}</div>`
+      )
+      .join("")
+    sections.push(`
+      <tr><td style="height:20px;line-height:20px;font-size:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:0 0 8px 0;color:${TEXT_PRIMARY};font-size:15px;font-weight:600;">Called off</td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;background:${CARD_BG};border-radius:8px;">
+          ${rows}
+        </td>
+      </tr>`)
+  }
+
   if (input.youMissed) {
     const messageWord = pluralize(input.youMissed.count, "message")
     const lines = input.youMissed.lines
@@ -286,20 +330,27 @@ function buildHtml(input: ComposeDigestInput, groupUrl: string, unsubscribeUrl: 
 
 /**
  * Compose the whole digest email, or null when there is nothing to send.
- * Both blocks empty is checked FIRST and returns null before any other work
- * runs, so a caller that forgets the rule (task 8's own job, restated here
- * on purpose) still cannot produce an empty digest by calling this module:
- * there is no code path in here that reaches a subject or a body without at
- * least one block having content.
+ * All three blocks (needs-you, you-missed, cancellations) being empty is
+ * checked FIRST and returns null before any other work runs, so a caller
+ * that forgets the rule (task 8's own job, restated here on purpose) still
+ * cannot produce an empty digest by calling this module: there is no code
+ * path in here that reaches a subject or a body without at least one block
+ * having content.
  */
 export function composeDigestEmail(input: ComposeDigestInput): ComposedDigestEmail | null {
-  if (input.needsYou.length === 0 && input.youMissed === null) return null
+  if (
+    input.needsYou.length === 0 &&
+    input.youMissed === null &&
+    input.cancellations.length === 0
+  ) {
+    return null
+  }
 
   const groupUrl = absoluteUrl(input.siteOrigin, `/groups/${input.groupId}`)
   const unsubscribeUrl = absoluteUrl(input.siteOrigin, `/api/unsubscribe/${input.unsubscribeToken}`)
 
   return {
-    subject: buildSubject(input.groupName, input.needsYou, input.youMissed),
+    subject: buildSubject(input.groupName, input.needsYou, input.youMissed, input.cancellations),
     text: buildText(input, groupUrl, unsubscribeUrl),
     html: buildHtml(input, groupUrl, unsubscribeUrl),
     unsubscribeUrl,

@@ -28,7 +28,7 @@
 
 import { describe, it, expect, afterEach } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor } from "@prisma/client"
+import { EventStatus, MessageAuthor } from "@prisma/client"
 import { reconcileScheduledEvents } from "../reconcile"
 
 // ---------------------------------------------------------------------------
@@ -348,6 +348,43 @@ describe("reconcileScheduledEvents", () => {
 
     const messageCount = await prisma.message.count({ where: { groupId: group.id } })
     expect(messageCount).toBe(0)
+  })
+
+  it("does not recreate an occurrence the group called off", async () => {
+    // The whole reason cancel sets a status instead of deleting the row.
+    // Without the retained row this sweep would schedule the same slot again
+    // and announce it, within the hour, undoing the cancellation nobody asked
+    // to undo.
+    const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+    const scheduledEvent = await prisma.event.create({
+      data: {
+        groupId: group.id,
+        title: "[TEST] Called-off Occurrence",
+        startsAt: new Date("2099-07-01T10:00:00Z"),
+        scheduledKey: `${group.id}:2099-07-01T10:00:00.000Z`,
+      },
+    })
+    eventIds.push(scheduledEvent.id)
+
+    await prisma.event.update({
+      where: { id: scheduledEvent.id },
+      data: { status: EventStatus.CANCELLED, cancelledAt: new Date() },
+    })
+
+    const messagesBefore = await prisma.message.count({ where: { groupId: group.id } })
+
+    const results = await reconcileScheduledEvents(NOW, { groupId: group.id })
+    for (const r of results) if (r.status === "created") eventIds.push(r.eventId)
+
+    const events = await prisma.event.findMany({ where: { groupId: group.id } })
+    for (const e of events) if (!eventIds.includes(e.id)) eventIds.push(e.id)
+    expect(events).toHaveLength(1)
+    expect(events[0].status).toBe(EventStatus.CANCELLED)
+
+    const allMessages = await prisma.message.findMany({ where: { groupId: group.id } })
+    for (const m of allMessages) if (!messageIds.includes(m.id)) messageIds.push(m.id)
+    expect(allMessages).toHaveLength(messagesBefore)
   })
 
   it("still schedules the standing rhythm when a sparked event is upcoming", async () => {

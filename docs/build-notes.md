@@ -666,6 +666,10 @@ Seven High-priority items come due at the moment of the first production deploy.
 
     **Set up real mail forwarding for `privacy@interplanetarygroups.com`.** The privacy notice shipped on 1 September 2026 names that address as the only way to ask to be deleted, and nothing receives mail there until the owner creates the forward to his own inbox. **This does not gate the merge**, because there is no migration and no code anywhere reads the address; it gates the tennis group. A deletion request sent to a dead address is the single failure that turns the whole notice into a lie, and it fails silently on the sender's side, which is the worst shape a failure can take here. The domain is bought through Vercel and its DNS already carries Resend's sending records for `account.` and `updates.`; a forwarding rule is a separate thing from both and does not touch either. **Nobody has opened the screen yet**, so nothing here names a provider or a setting, on the lesson item 13 learned three times over: do not write a third-party setting into this record until somebody has looked at it.
 
+15. **Run the cancel-one-occurrence migration against production before this branch merges to main.** Migration `20260902203547_add_event_status`. The command and the method are item 1's, unchanged and for the same reason: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy` as a one-off inline override on that single command, never by editing `.env`, then `npm run db:which` immediately afterwards to confirm the checkout is back on dev-test. Port 5432, the session pooler; 6543 hangs silently with no error, which is item 1's recorded trap.
+    *What it adds:* the `EventStatus` enum (`SCHEDULED`, `CANCELLED`), plus `Event.status` defaulting to `SCHEDULED` and a nullable `Event.cancelledAt`. Purely additive, no backfill, no `DROP` of any kind, no index. Read the generated SQL once before running it; it is two statements.
+    *Why the order matters, and it is the milder direction of item 1's rule rather than the severe one.* Running the migration first is safe: production briefly carries two columns the live code has never heard of, and nothing reads them until this slice ships. Running it late is not catastrophic the way item 1's was, because no unselected whole-row `User` query is involved, but it does break the group home and the event page for every member the moment the code lands, since both read `Event.status` to decide whether a plan reads as called off. **It is still a merge gate**, just for a smaller blast radius than item 1's.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -7262,3 +7266,208 @@ stale version in the meantime. This is the second time this project has been bit
 shape: the safety-net template's working-directory fix never reached the project it came from either,
 which is why `safety-net-drift.mjs` exists.
 
+## §11 entry: cancelling one occurrence (2 September 2026)
+
+Built in a day, eleven tasks, against a real deadline: the tennis group's invite link goes out around
+Friday 4 September, and nothing in the product could say a plan was off. Asked directly what makes
+tennis get cancelled, the organizer said weather. Test-suite baseline at slice start, run rather than
+copied: 1581 passing across 140 files. Finishing: 1629 across 144.
+
+**The row is never deleted, and that is the decision the whole slice rests on.**
+`hasUpcomingScheduledEvent` asks one question, "is there a scheduled event starting in the future",
+with no status filter. Delete the row on a cancel and the hourly cron would recreate the cancelled
+plan within the hour with a fresh announcement: the guard would see nothing upcoming,
+`computeNextOccurrence` would return the same slot, and the unique `scheduledKey` freed by the delete
+would be available again. With a status flag the row stays, the guard still sees it, and **the
+cancelled row is its own tombstone; reconcile needed no change at all.** A second correct behaviour
+falls out free: no new occurrence appears until the cancelled one's start passes, after which the
+cron schedules next week's as normal. Two tests pin this, and a reviewer independently reproduced
+both mutations: adding `status: SCHEDULED` to the guard reddens the first, and deleting the row
+instead of cancelling makes reconcile recreate the occurrence as a fresh SCHEDULED event.
+
+**RSVPs survive a cancel untouched, and that is what makes "anyone can undo it" safe rather than
+merely permitted.** The contrast with `move.ts` is the argument: a move deletes every RSVP because
+the plan changed, and an 8am yes displayed against a 6pm plan misrepresents who is coming. A cancel
+does not change the plan, it removes it; if it comes back it is the identical plan at the identical
+time, and the people who said they were coming still mean it. Deleting their answers would be
+destructive with no truth behind it. Proven in the browser, not just in tests: a cancel and restore
+round trip returned the card to "1 In · 1 Out · 2 TBD", exactly what it read before.
+
+**Orbit names the person who called it off, and no other Orbit announcement names anyone.** The
+impersonal rule is about preferences: naming a person's constraint turns "what time works?" into
+"how do we accommodate Sam?". This is not a preference. A time change goes through a group vote, so
+it is nobody's individual call; **a cancellation has no vote and no permission gate**, which means
+the social check is the only check there is. An anonymous cancellation in a 16-to-20 person group
+leaves nobody to ask why. Settled with the owner during planning.
+
+**The consequence, registered as debt: this is the product's first stored Orbit message body
+containing a member's name.** Verified rather than assumed. `buildTallyLine` is called at render, so
+every other Orbit line naming people is composed live from vote rows and never stored. Person
+deletion works by nulling `authorId` on a person's own messages and cannot reach a name inside
+Orbit's prose, so a deleted person's name survives in that one line. Same class as the deletion
+script's hand-judged join-line matching, which is already accepted.
+
+**Four read sites beyond the digest treated a called-off plan as still on, and the worst of them
+would have cost the tennis group the thing they most need.** Rain out Tuesday, say "tennis
+Thursday?", and Orbit stayed silent, because a cancelled tennis event still counted as booked and
+the spark path refuses a second idea for an activity already on the calendar. The group would have
+lost the ability to reschedule the game they had just called off. That guard turned out to be the
+same query written twice, so it was extracted to `hasUpcomingEventForActivity` and tested directly;
+the plan's own approach could not have tested it at all, because `detectIntentAction` has no test
+harness anywhere in the repo. The others: the numbered plan list handed to the model, `findLiveProposals`,
+and the write guards on `setRsvp`, `moveEventCoreInTx` and `createGroupProposal`.
+
+**The digest's "you missed" widening was done from event rows, not by widening its MEMBER filter.**
+That filter is settled, and widening it reopens "which other Orbit messages qualify", which is a
+design question rather than a filter change. Reading `cancelledAt` against the member's own read
+position keeps the rule intact, matches the structured-extract-then-format discipline, and makes an
+undone cancellation vanish from the email automatically, since a restore nulls the field. The
+needs-you fix is the smaller half and the more urgent one: without it a Thursday cancellation
+produced a Friday email telling the group to RSVP to a game that is not happening, which is worse
+than silence.
+
+**The card and the detail screen disagree about counts on purpose.** The card drops its counts, the
+detail screen keeps its roster. The preview card shows the gist and the gist is that the plan is off;
+the detail screen carries completeness, and those answers still exist. Both files say so, or a future
+reader would "fix" one of them.
+
+**A race the plan did not anticipate, closed with a real test.** The first implementation put the
+cancelled check in `moveEventCoreInTx`'s pre-read, which that file's own comment declares is a fast
+path and not the guard. A cancel committing between the pre-read and the conditional write let both
+succeed: the plan moved, every RSVP was deleted, and Orbit announced a new time for a called-off
+plan. The fix is one clause on the conditional write. The test opens a real transaction and commits
+a genuinely separate second-connection write into that exact gap, and a reviewer removed the clause
+and watched it go red.
+
+**Two honest gaps, both stated rather than discovered later.** The filter that stops Orbit offering a
+called-off plan as a move target has **no test**: it is one line inside an action this repo cannot
+drive, and building that harness is its own slice. And `src/app/actions/cancel-event.ts` has no test
+of its own; a reviewer read both actions and cleared every error branch, which is read-only
+assurance, not coverage.
+
+**Debt, and the one the group will actually feel:** a member who already saved the plan to their
+calendar still gets buzzed. "Add to calendar" is hidden on a called-off plan, so there is no path to
+re-fetch an `.ics` carrying `STATUS:CANCELLED`. The subscribable feed in §6 is the real fix. Also:
+the digest fires at 8pm group-local, so a Tuesday-morning cancellation of a Tuesday-evening game
+reaches the inbox after the game, and the date phrasing has no past tense, so it reads "Called off:
+Tennis this Tue" about a Tuesday already gone. Low frequency, and the owner's call.
+
+### Postscript: the QA feedback round (2 September 2026)
+
+The owner ran the merged-but-unmerged branch on his own phone and gave one round of feedback. Nine
+commits came out of it. Suite 1631 to 1656 across 144 files. The reason this postscript exists rather
+than a second entry: nothing here changed a decision, it changed what shipped against them.
+
+**He found a bug none of us did, and it was pre-existing.** `planChange` declined a day-change before
+it checked whether any plan existed, so in a group whose plans were all called off, "can we move it
+to Thursday?" got "I can't move it to another day yet. I can change the time if that helps." Orbit
+offered to change the time of nothing. It fires in a brand new empty group too, so cancellation did
+not cause it; cancellation made it common, because a group can now have plans that are all off. The
+fix is a reorder: "is there anything to move" outranks "what kind of change is this". Fixed here
+rather than queued because it is five lines in the same pure function as the copy change beside it,
+and shipping cancellation without it hands the tennis group a misleading reply on the exact day they
+need it.
+
+**Three of his complaints were one mistake.** The cancel and restore controls sat inside the details
+card's footer band, which already belongs to the RSVP pair. So the control was a box inside a box,
+narrower than the pair above it, and its confirm step read as two more options for the RSVP question:
+his words, "it's like four options instead of two". Moving both out to full-width pills below the
+card fixed all three at once. Restore is teal because on a called-off plan it is the screen's primary
+action and the only teal there; cancel stays outlined because the RSVP is the primary ask and calling
+a plan off is the heavier, rarer move. The asymmetry is deliberate.
+
+**The height constraint held, and once it actually bit.** He stated twice that the card region could
+not grow by a pixel, because that budget was won by an entire slice and the chat feed pays for any
+growth. The "CALLED OFF" label was repositioned above the title AND given a filled chip; the chip
+measured 4.2px over in the all-cancelled case and was pulled under his advance ruling. Both cases
+came back byte-identical, 186.9921875px and 127.796875px. A later reviewer made the measurements
+almost redundant by showing height neutrality by construction: every property added across the whole
+round is layout-inert. That is the stronger check and it is the one to reach for next time.
+
+**The double-tap had three causes, not one.** He reproduced it on production after first blaming his
+wifi. A read-only diagnosis measured that the tappable link covered only part of the card, leaving
+17% of a live card and 51% of a called-off card inert, with the bottom 43% of a called-off card
+completely dead. It also found the rail is a two-axis scroll container iOS may spend a first touch
+disambiguating, and, the one nobody had named, that **nothing in this product has a pressed state**
+while navigation takes about a second, so a working tap looks like nothing happened. All three were
+fixed; inert area went from 50.6% to 1.1%, hit-tested. **Two of the three target iOS specifically and
+nothing here has touched an iOS device**, so they rest on documented WebKit behaviour. The
+discriminator for the next phone pass: a group showing exactly one card has no scroll container at
+all, so if that still double-taps, the rail was never the problem.
+
+**A reviewer caught an accessibility regression inside the fix.** `touch-action: pan-x` does not
+include `pinch-zoom`, so the first version of the rail fix disabled two-finger zoom over the top third
+of the group home. Its reasoning is worth keeping: an unproven mitigation must not cost a proven
+behaviour.
+
+**The browser pass found what four reviews and a passing test suite did not.** After a successful
+cancel or restore, the control kept its confirm step open, and because the plan's status had flipped,
+it was now the OPPOSITE action's confirmation. A member who had just put a plan back on was one tap
+from calling it off again. The component tests mock the server action and never observe the
+post-success render with a flipped prop, which is exactly the seam a real interaction crosses and a
+mock does not.
+
+**Registered, not fixed:** `hasCalledOffPlans` reads a five-event window, so a group with five
+called-off plans stacked ahead of a live one gets told to bring a plan back while a live plan exists;
+the comment now names the real case rather than its mirror image. An RSVP error line on the group
+home card is click-through to the event page, a consequence of raising the button row above the
+stretched link. And `DetailRow` carries a now-unreachable null-icon branch after the duplicated
+activity row was deleted.
+
+### Postscript two: the second QA round (3 September 2026)
+
+Four small changes plus one diagnosis that found nothing, which is itself the finding.
+
+**The label goes bright white, and the reasoning generalises.** The owner reached for two fixes to
+one problem: change "CALLED OFF" to "CANCELLED", and make it brighter. He was solving a contrast
+problem with a vocabulary change. He never misread the label, he missed it, and a grey 13px
+"CANCELLED" is exactly as missable as a grey 13px "CALLED OFF". **The word stayed.** It is already
+consistent across the label, the button and Orbit's own "Rae called it off", and "called off" is how
+people actually talk about weather ("they called off the game") where "cancelled" is how a system
+talks about a record.
+
+What shipped is brightness, and it is a rule rather than a patch: **the card already carries status
+in brightness, and a called-off card dims its title, so making the label the brightest thing on a
+dimmed card inverts the hierarchy meaningfully.** On a live card the plan shouts and the status is
+quiet; on a called-off card the status shouts and the plan recedes. Measured in the browser: label
+`#ecedf2`, title `#a7aab6`, font size still 13px, so the height budget is untouched by construction.
+Implemented as a sibling `CancelledLabel` export rather than a branch inside `NeedLabel`, because a
+cancellation is a status and not a need, and bending the need ladder for one caller would plant a
+conditional in shared code that means one thing for one consumer.
+
+**The confirm buttons went back to equal weight, reversing a change made two rounds earlier.** I had
+recommended leaning them so the destructive option was quieter, the owner approved it, and on seeing
+it he said it felt weird to nudge them at all. He was right and the product had already settled it:
+"teal never leans an open question... the options carry equal weight while open". I had treated it as
+a safety problem when the recorded rule calls it a symmetry problem. The safe-first POSITION still
+does the accidental-tap protection; brightness doing it too cost clarity for nothing.
+
+**A line was deleted for being false rather than for being clutter.** The group info page said "Want
+to change something? Just tell Orbit in the chat." On that page it is untrue: the name, the members,
+the rhythms and the venue all get an honest decline. Worth recording because the line was not wrong
+when written; Orbit's decline paths grew around it and nobody re-read it.
+
+**The tap freeze was not reproduced, and that is the honest outcome.** The owner reported that after
+putting a plan back on, event cards briefly stopped responding, and that navigating away and back
+cleared it. Five deliberate attempts, including a zero-delay restore-then-navigate-then-tap race and
+the same race with the email sheet showing and dismissing, all came back clean; `elementFromPoint`
+returned the correct topmost element every time. **The instrument is wrong**: he saw it in iOS Safari
+and we tested in Chromium, which has different transition and paint timing. The highest-ranked
+candidate is a router-level transition stacking `SeenMarker`'s mount-time action on top of the
+restore's revalidation, a mechanism this codebase has already proven once in the message-send-latency
+slice, and it **predates** the tap fixes, which touched hit-testing rather than navigation. **No fix
+shipped**, because an untestable speculative change to an unrelated component is worse than a
+recorded symptom. The free experiment: the queued email-ask fix removes the sheet from the picture
+entirely, so if the freeze stops afterwards, the sheet was involved.
+
+**Confirmed as real while looking for something else:** the email-ask sheet reappears on every return
+to the group home while unanswered. That is working as designed, and the design is wrong. Only the
+worded exit spends one of the two lifetime asks; the scrim tap and navigating away are free, which
+was meant to stop an accidental dismissal burning an ask and instead nags on every navigation. Its
+own micro-PR, and it ranks high because the tennis group meets it on day one.
+
+**An environment trap worth knowing:** a concurrent git worktree under `.claude/worktrees/` makes a
+bare `npx tsc --noEmit` report about thirty errors from duplicate type identities, none of them the
+project's. PR #95 scoped the vitest runner to exclude that path and vitest is clean; nothing scoped
+`tsconfig.json`, so the typechecker still walks in. Filter with
+`grep -v "^\.claude/worktrees"` until somebody decides whether to exclude it.

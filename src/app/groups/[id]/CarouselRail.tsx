@@ -39,6 +39,48 @@ export function CarouselRail({ peek, children }: { peek: boolean; children: Reac
         display: "flex",
         gap: `${RAIL_GAP_REM}rem`,
         overflowX: peek ? "auto" : "visible",
+        // Double-tap fix, 2 Sept 2026. Setting overflow-x alone made this a
+        // scroll container on BOTH axes: CSS blockifies the other axis when
+        // one is not `visible`, so overflow-y computed to `auto` here with
+        // nobody having written it. A two-axis scroll container whose
+        // touch-action is `auto` must hold a touch to work out whether it is
+        // a horizontal pan, a vertical pan or a tap, and that is the
+        // configuration iOS Safari is known to spend a first touch on.
+        // Declaring pan-x says the rail only ever pans horizontally, so a
+        // stationary touch has nothing to disambiguate.
+        //
+        // Giving up the vertical pan costs nothing, but NOT for the reason
+        // first written here. That reason ("the page still scrolls, because
+        // that gesture belongs to the feed below") was wrong and is corrected
+        // rather than quietly deleted: page.tsx is height:100dvh with
+        // overflow:hidden, so the page does not scroll at all, and the feed is
+        // its own separate scroll container. The actual reason is that this
+        // rail never scrolled vertically to begin with: it is flexShrink:0
+        // inside that fixed-height page, and scrollHeight === clientHeight,
+        // measured. A vertical swipe here was already inert, so pan-x forbids
+        // something nobody could do.
+        //
+        // pinch-zoom IS KEPT DELIBERATELY and must not be "simplified" away.
+        // pan-x on its own does not include it, so a bare pan-x would refuse a
+        // two-finger zoom starting anywhere in the card region, which is the
+        // top third of the group home in a mobile-first product. Unlike the
+        // vertical pan, that is not free: zoom is a real accessibility
+        // affordance, and this product already treats legibility as a floor
+        // rather than a taste (see the --text-faint note in globals.css).
+        // It matters more than usual because the mitigation it belongs to is
+        // unproven, as the next paragraph says: an unproven fix must not cost
+        // a proven behaviour.
+        //
+        // Honest about its own status: this was never observed eating a tap.
+        // It is reasoned from the computed styles, the pane is Chromium, and
+        // the only instrument that could confirm it is a real iPhone. It is
+        // here because it is free, layout-neutral and well motivated, not
+        // because it is proven.
+        touchAction: peek ? "pan-x pinch-zoom" : undefined,
+        // The second axis stated rather than left to a blockification rule
+        // nobody wrote down. Changes nothing on screen: the rail does not
+        // overflow vertically, and `auto` was already clipping the same way.
+        overflowY: peek ? "hidden" : undefined,
         scrollSnapType: peek ? "x mandatory" : undefined,
         scrollPaddingLeft: peek ? 16 : undefined,
         padding: peek ? "0 16px" : undefined,

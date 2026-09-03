@@ -20,12 +20,19 @@
 //
 // The liveness boundary here MIRRORS read.ts (findLiveProposals), which is
 // the single source of truth, not a second derivation: a proposal is dead
-// once min(proposedStartsAt, event.startsAt) <= now, and moot once
-// priorStartsAt no longer equals the event's startsAt. If the boundary ever
-// changes, it changes there first and this file follows.
+// once min(proposedStartsAt, event.startsAt) <= now, moot once priorStartsAt
+// no longer equals the event's startsAt, and (since the cancel slice, 2
+// September 2026) moot once the event itself is CANCELLED. If the boundary
+// ever changes, it changes there first and this file follows.
 
 import { prisma } from "@/lib/prisma"
-import { MessageAuthor, Prisma, ProposalAnswer, ProposalKind } from "@prisma/client"
+import {
+  EventStatus,
+  MessageAuthor,
+  Prisma,
+  ProposalAnswer,
+  ProposalKind,
+} from "@prisma/client"
 import { buildProposalClosureMessage } from "@/lib/orbit/change-copy"
 
 export type ProposalEndgameResult =
@@ -43,7 +50,7 @@ export type ProposalEndgameResult =
     }
 
 const proposalInclude = {
-  event: { select: { startsAt: true, title: true, activityLabel: true } },
+  event: { select: { startsAt: true, title: true, activityLabel: true, status: true } },
   group: { select: { timeZone: true } },
 } satisfies Prisma.ChangeProposalInclude
 
@@ -99,6 +106,15 @@ async function handleOne(
   // wait for the boundary either. SUPERSEDED already means "overtaken before
   // the group answered"; this is its second shape (see the schema comment).
   if (proposal.priorStartsAt.getTime() !== proposal.event.startsAt.getTime()) {
+    return supersede(proposal, now)
+  }
+
+  // The same shape, for the plan being called off rather than moved: read.ts
+  // retired this question the instant the status flipped, so nobody can
+  // answer it, and lapsing would post "tennis is staying at 7pm" into a feed
+  // whose line above says tennis is off. Reachable only in the narrow race
+  // against cancelEvent's own supersede, which is exactly why it is here.
+  if (proposal.event.status === EventStatus.CANCELLED) {
     return supersede(proposal, now)
   }
 

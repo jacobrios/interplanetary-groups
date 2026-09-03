@@ -134,6 +134,9 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
   }))
   const target =
     intent.change.targetEventIndex !== null ? candidates[intent.change.targetEventIndex] : null
+  // This bench's fixtures carry no called-off plans, so the eighth argument
+  // is always false; passing it preserves this bench's existing behaviour
+  // exactly (see src/lib/orbit/change-plan.ts for what it changes).
   const plan = planChange(
     intent.change,
     target,
@@ -141,7 +144,8 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
     c.trigger.author,
     c.memberCount,
     TIME_ZONE,
-    now
+    now,
+    false
   )
 
   const text =
