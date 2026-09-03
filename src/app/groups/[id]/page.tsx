@@ -23,6 +23,7 @@
 // Claude Design handoff (round4-base.css); its dot row was deleted 17 Aug
 // 2026. See CarouselRail.tsx.
 
+import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
@@ -46,7 +47,8 @@ import { deriveIdeaItems } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
 import { loadEmailAskInputs } from "@/lib/auth/email-ask"
-import { emailAskIsSettled } from "@/lib/auth/email-offer"
+import { emailAskIsSettled, emailAskIsSnoozed } from "@/lib/auth/email-offer"
+import { EMAIL_ASK_SHOWN_COOKIE, parseEmailAskShown } from "@/lib/auth/email-ask-cooldown"
 import type { EmailAskNoteProps } from "./EmailAskNote"
 import FeedSeam from "./FeedSeam"
 import CardRegionEmpty from "./CardRegionEmpty"
@@ -76,6 +78,25 @@ export default async function GroupPage({ params }: Props) {
     viewer !== null && group.memberships.some((m) => m.userId === viewer.id)
   if (!viewerIsMember) return <MembersOnlyWall />
 
+  // ── Orbit's email ask: the clock and the cooldown cookie ──────────────────
+  // One `now`, declared once, and reused for both the skip check below and
+  // the `emailAsk` prop further down. Those two reads used to each call
+  // `new Date()` on their own, which is fine right up until a render straddles
+  // the cooldown boundary between them: the skip check could read a
+  // just-expired cooldown as still-live and never load the contribution
+  // facts, while the prop's own clock reads it as expired and hands the
+  // component a `now` that would have shown the ask. Sharing one instant
+  // makes that disagreement impossible rather than merely unlikely.
+  //
+  // Reading the cookie here adds no dynamic-rendering cost: this page is
+  // already dynamic, because getCurrentUser() reads the Supabase session
+  // cookie above. A future reader should not "optimize" this cookies() call
+  // away believing it is what forces the dynamic render; removing it would
+  // not make this page static.
+  const now = new Date()
+  const cookieStore = await cookies()
+  const lastShownAt = parseEmailAskShown(cookieStore.get(EMAIL_ASK_SHOWN_COOKIE)?.value)
+
   // ── Orbit's email ask: started here, awaited far below ────────────────────
   // Started rather than awaited, because nothing between here and where it is
   // read depends on it. This screen already runs a chain of sequential awaits
@@ -90,6 +111,14 @@ export default async function GroupPage({ params }: Props) {
   // allowed to skip work that could not change the answer, and a test walks
   // the whole input space to keep it that way.
   //
+  // Joined by emailAskIsSnoozed on the same reasoning: a cooldown cookie
+  // written within the last day is the same kind of already-answered
+  // question, just answered on the device rather than in the database.
+  // Snoozed can only ever mean "no ask this render," so no value the three
+  // contribution reads could come back with would change the outcome, and
+  // skipping them is safe in the same conservative direction as the settled
+  // check above.
+  //
   // Fail-soft, and this is the reason it catches rather than throwing: an
   // optional nudge must never take down the group home. A failure logs, the
   // ask does not render this time, and the rest of the screen is unaffected.
@@ -99,7 +128,7 @@ export default async function GroupPage({ params }: Props) {
     ? { emailAskCount: viewer.emailAskCount, emailAskedAt: viewer.emailAskedAt }
     : null
   const emailAskInputs =
-    viewer && askState && !emailAskIsSettled(askState)
+    viewer && askState && !emailAskIsSettled(askState) && !emailAskIsSnoozed(lastShownAt, now)
       ? loadEmailAskInputs({ userId: viewer.id, groupId: group.id }).catch((err) => {
           console.error("[email-ask] loading the ask inputs failed", err)
           return { latestContributionAt: null, hasVerifiedEmail: false }
@@ -245,19 +274,36 @@ export default async function GroupPage({ params }: Props) {
   // Scoped to this group, not to everything this person has ever done: the
   // reasoning is on loadEmailAskInputs itself. `now` is passed rather than read
   // in the client, for the same reason every other Orbit decision takes its
-  // clock as an argument.
+  // clock as an argument. It is the SAME `now` the skip check above used, not
+  // a fresh read, for the straddle reason explained at that hoist.
+  //
+  // lastShownAt rides along too, read from the cooldown cookie above: the
+  // component owns the decision (shouldOfferEmail), this page only owns
+  // gathering the facts that decision needs, and this is one more of them.
   //
   // The skipped case passes the values that cannot produce an ask, which is
   // not a fiction the gate has to trust: the count alone already closes it.
-  const emailAsk: EmailAskNoteProps | null =
+  //
+  // Built as an unannotated local first, then handed to the EmailAskNoteProps
+  // slot below, rather than written as one typed object literal. That is
+  // deliberate, not stylistic: EmailAskNoteProps does not declare lastShownAt
+  // yet (task 4 adds it, alongside wiring shouldOfferEmail to actually read
+  // it), so a directly-typed literal would trip TypeScript's excess-property
+  // check on a field this task is required to send and the very next task is
+  // required to receive. Routing it through an unannotated variable keeps the
+  // real structural check (every field EmailAskNoteProps requires today is
+  // still present) while not making this task's landing depend on task 4's.
+  const emailAskProps =
     viewer && askState
       ? {
           ...((await emailAskInputs) ?? { latestContributionAt: null, hasVerifiedEmail: false }),
           groupName: group.name,
           askState,
-          now: new Date(),
+          lastShownAt,
+          now,
         }
       : null
+  const emailAsk: EmailAskNoteProps | null = emailAskProps
 
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,

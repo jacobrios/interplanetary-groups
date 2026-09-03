@@ -190,6 +190,16 @@ async function verdictFor(userId: string, groupId: string) {
       user,
       latestContributionAt: inputs.latestContributionAt,
       hasVerifiedEmail: inputs.hasVerifiedEmail,
+      // A Node script has no browser and so no cookie jar: it cannot see the
+      // cooldown cookie the real group home reads. Passing null is the
+      // honest value, not a stand-in for "never shown"; it means this
+      // verdict is the server-side gate's answer with the device's own
+      // cooldown left out entirely. Whoever is staging with this script
+      // should read "first" or "second" here as "the server side allows it,"
+      // not as a promise that the browser they are about to open will show
+      // it: a device that already dismissed the sheet in the last 24 hours
+      // is snoozed regardless of what this line prints.
+      lastShownAt: null,
       now,
     }),
   }
@@ -540,7 +550,11 @@ async function seedViewer(groupId: string, state: ViewerState) {
         otherQaGroups: elsewhere,
         readMe:
           "shouldOfferEmail is the real production function, called here on the rows that were just written. " +
-          '"first" or "second" means the ask WILL render for this viewer on that group home; null means it will not. ' +
+          '"first" or "second" means the server side allows the ask for this viewer on that group home; null means it will not. ' +
+          "This verdict is computed with lastShownAt: null, because a Node script has no browser and so no cookie jar. " +
+          "That means it does NOT know about the 24-hour cooldown cookie the real page also checks: a browser that " +
+          'already dismissed the sheet in the last day will still show nothing even when this prints "first". ' +
+          "Clear the ipg_email_ask_shown cookie in that browser, or wait out the cooldown, before treating a mismatch as a bug. " +
           "supabaseIdentity is read straight off Supabase's own auth.users row, separately from anything this " +
           "script wrote: our ContactMethod table and Supabase's identity are two different places, and this " +
           "script can only ever act on the first.",
