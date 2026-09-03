@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest"
 import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import CancelControls from "../CancelControls"
 
 // fireEvent, not @testing-library/user-event: that package is NOT a
@@ -64,5 +66,97 @@ describe("CancelControls, cancelled plan", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Yes, put it back" }))
     await waitFor(() => expect(restoreEventAction).toHaveBeenCalledTimes(1))
+  })
+})
+
+// ── Shape, after the 2 Sept 2026 QA feedback round (spec §13) ──────────────
+// These pin the decisions the owner settled after his phone pass, not a
+// stylist's preference: the control is a full-width pill outside the details
+// card rather than a small button inside it, restore is the only teal, and
+// the safe confirm control is the brighter of the two.
+describe("CancelControls, shape", () => {
+  it("rests as a full-width pill in both states", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    const off = screen.getByRole("button", { name: "Call this off" })
+    expect(off.style.width).toBe("100%")
+    expect(off.style.borderRadius).toBe("24px")
+    expect(off.style.minHeight).toBe("44px")
+
+    cleanup()
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled />)
+    const back = screen.getByRole("button", { name: "Put this back on" })
+    expect(back.style.width).toBe("100%")
+    expect(back.style.borderRadius).toBe("24px")
+    expect(back.style.minHeight).toBe("44px")
+  })
+
+  it("puts teal on the restore and never on the cancel", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled />)
+    const back = screen.getByRole("button", { name: "Put this back on" })
+    expect(back.style.backgroundColor).toBe("var(--action)")
+    expect(back.style.color).toBe("var(--action-ink)")
+
+    cleanup()
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    const off = screen.getByRole("button", { name: "Call this off" })
+    expect(off.getAttribute("style")).not.toContain("--action")
+  })
+
+  it("makes the safe confirm control the brighter of the two, and neither teal", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+
+    const safe = screen.getByRole("button", { name: "Never mind" })
+    const destructive = screen.getByRole("button", { name: "Yes, call it off" })
+    expect(safe.style.color).toBe("var(--text-primary)")
+    expect(destructive.style.color).toBe("var(--text-secondary)")
+    for (const el of [safe, destructive]) {
+      expect(el.getAttribute("style")).not.toContain("--action")
+    }
+  })
+
+  it("gives the two confirm controls the resting pill's full width between them", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+
+    const safe = screen.getByRole("button", { name: "Never mind" })
+    const destructive = screen.getByRole("button", { name: "Yes, call it off" })
+    const row = safe.parentElement!
+    expect(row).toBe(destructive.parentElement)
+    expect(row.style.display).toBe("flex")
+    for (const el of [safe, destructive]) {
+      expect(el.style.flexGrow).toBe("1")
+      expect(el.style.flexBasis).toBe("0px")
+      expect(el.style.borderRadius).toBe("24px")
+    }
+  })
+})
+
+// The event page is a server component that reads the database, so this suite
+// cannot render it and cannot assert the placement from the DOM. This reads
+// the source instead, which is an honest but weaker instrument: it proves the
+// control is not written inside the details card's JSX, not that it renders
+// outside it. It is worth having because "inside the card's footer band" is
+// the exact mistake the owner's three complaints all came from, and nothing
+// else in this repo would notice it coming back.
+describe("event page places the control outside the details card", () => {
+  const source = readFileSync(join(process.cwd(), "src/app/events/[id]/page.tsx"), "utf8")
+
+  it("has the details card, then the calendar button, then the cancel control", () => {
+    const cardStart = source.indexOf("── Event details card ──")
+    const calendar = source.indexOf("── Add to calendar ──")
+    const control = source.indexOf("<CancelControls")
+    expect(cardStart).toBeGreaterThan(-1)
+    expect(calendar).toBeGreaterThan(-1)
+    expect(control).toBeGreaterThan(-1)
+    expect(control).toBeGreaterThan(calendar)
+  })
+
+  it("writes no cancel control inside the details card's own block", () => {
+    const cardStart = source.indexOf("── Event details card ──")
+    const calendar = source.indexOf("── Add to calendar ──")
+    const card = source.slice(cardStart, calendar)
+    expect(card).toContain("<RsvpControls")
+    expect(card).not.toContain("<CancelControls")
   })
 })

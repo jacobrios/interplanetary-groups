@@ -262,8 +262,19 @@ export default async function EventPage({ params }: Props) {
               too, matching the home-card caller (EventCard.tsx): a member
               who RSVPs here and taps back should see the card's need label
               already settled, not the pre-tap "Needs your RSVP" from a
-              stale render. */}
-          {viewer && (
+              stale render.
+
+              This band holds the RSVP pair and nothing else, as of 2 Sept
+              2026 (QA feedback round, spec §13). The cancel and restore
+              controls briefly lived in here too and that was a mistake with
+              three visible symptoms on the owner's phone: this band already
+              means "answer this question", so a control sharing it read as a
+              box inside a box, sat narrower than the pair above it, and its
+              confirm step looked like two more options for the RSVP. Both
+              controls moved out below the card; see the region under "Add to
+              calendar". A called-off plan has no RSVP pair, so the band
+              itself does not render there at all. */}
+          {viewer && !isCancelled && (
             <div
               style={{
                 borderTop: "1.6px solid var(--hairline)",
@@ -271,29 +282,11 @@ export default async function EventPage({ params }: Props) {
                 backgroundColor: "transparent",
               }}
             >
-              {isCancelled ? (
-                <CancelControls eventId={event.id} groupId={event.group.id} isCancelled />
-              ) : (
-                <>
-                  <RsvpControls
-                    eventId={event.id}
-                    currentStatus={viewerStatus}
-                    groupId={event.group.id}
-                  />
-                  {/* Below the RSVP pair on purpose: the screen's primary ask
-                      is still the RSVP, and calling the plan off is the rarer
-                      move. No such control on the home card (decision 5): the
-                      card region's height budget was won by a whole slice and
-                      a control there spends it. */}
-                  <div style={{ marginTop: "13px" }}>
-                    <CancelControls
-                      eventId={event.id}
-                      groupId={event.group.id}
-                      isCancelled={false}
-                    />
-                  </div>
-                </>
-              )}
+              <RsvpControls
+                eventId={event.id}
+                currentStatus={viewerStatus}
+                groupId={event.group.id}
+              />
             </div>
           )}
         </div>
@@ -314,7 +307,17 @@ export default async function EventPage({ params }: Props) {
             it actually saves, and the vote reads as its own matter below.
             (Putting the button inside the details card was the stronger
             semantic answer and was deliberately not taken; the owner's
-            call, 14 Aug QA.) */}
+            call, 14 Aug QA.)
+
+            Extended 2 Sept 2026 (QA feedback round, spec §13): this is a
+            region of full-width pills now, not a single button, so the
+            ordering rule above has a third element to cover. The order is
+            "Add to calendar" then "Call this off", and it follows the same
+            logic that put the calendar button here in the first place: both
+            pills act on the plan the details card describes, and the quieter,
+            rarer, heavier action goes last. On a called-off plan neither of
+            those is true of the calendar button, so the region holds one pill
+            only, "Put this back on", which is then the screen's sole teal. */}
         {/* Hidden on a called-off plan: there is nothing to save. The honest
             gap this leaves is registered as debt in the spec, and it is real:
             a member who already saved the plan still gets buzzed, and there
@@ -323,6 +326,27 @@ export default async function EventPage({ params }: Props) {
         {!isCancelled && (
           <div style={{ marginBottom: "16px" }}>
             <AddToCalendarButton eventId={event.id} />
+          </div>
+        )}
+
+        {/* ── Call this off / Put this back on ───────────────────────────── */}
+        {/* Outside the details card on purpose (spec §13): inside its footer
+            band the control inherited a container that means "answer this
+            question", which is what made it read as a fourth RSVP option.
+            Out here it is its own pill in its own region, the same width and
+            the same shape as the calendar button above it, and its confirm
+            step is unmistakably about it alone.
+
+            Members only, like every write on this screen. No such control on
+            the group home card (decision 5): the card region's height budget
+            was won by a whole slice and a control there spends it. */}
+        {viewer && (
+          <div style={{ marginBottom: "16px" }}>
+            <CancelControls
+              eventId={event.id}
+              groupId={event.group.id}
+              isCancelled={isCancelled}
+            />
           </div>
         )}
 

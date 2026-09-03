@@ -16,9 +16,29 @@
 // "Never mind" sits FIRST, where the resting button was, so an accidental
 // double-tap lands on the safe control rather than on the destructive one.
 //
-// Neither control is teal: teal marks an action that genuinely matters and
-// never a destructive or secondary one. Neither is red either: status and
-// action are never carried by hue in this product.
+// ── Placement and shape, amended 2 Sept 2026 (QA feedback round, spec §13) ──
+// This control used to live inside the details card's RSVP footer band. That
+// was the single cause of three separate complaints from the owner's phone
+// pass: a box inside a box, a "Call this off" narrower than the RSVP pair
+// above it, and a confirm step whose two buttons sat inside the same border
+// as "I'm in" and "Can't make it", reading as four options for one question.
+// It now renders BELOW the details card as a full-width pill, in the exact
+// geometry AddToCalendarButton already uses on this screen, so it is plainly
+// its own thing rather than a fourth answer to the RSVP question. The confirm
+// step travels with it, which is what dissolves the four-options problem
+// without a separate fix.
+//
+// Restore is teal, cancel is not, and that asymmetry is deliberate rather
+// than an inconsistency to tidy away. Teal marks an action that genuinely
+// matters. On a called-off plan, putting it back on IS the screen's primary
+// action and the only teal on the screen (there is no RSVP pair and no
+// "Add to calendar" there). On a live plan the primary ask is still the
+// RSVP, and calling the plan off is the rarer, heavier move, so it stays
+// outlined and quiet.
+//
+// Neither confirm control is teal, in either state: teal never leans an open
+// question. Neither is red either: status and action are never carried by hue
+// in this product.
 
 import { useState, useTransition } from "react"
 import { cancelEventAction, restoreEventAction } from "@/app/actions/cancel-event"
@@ -30,17 +50,54 @@ interface Props {
   isCancelled: boolean
 }
 
-const quietButton: React.CSSProperties = {
-  fontSize: "var(--type-label)",
-  fontWeight: 700,
-  lineHeight: "var(--leading-normal)",
-  color: "var(--text-secondary)",
-  background: "transparent",
-  border: "1.5px solid var(--hairline)",
-  borderRadius: "0.5rem",
-  padding: "0.625rem 1rem",
+// Geometry read from AddToCalendarButton and reproduced exactly, so the two
+// controls stack as one column of pills rather than as two different ideas.
+// minHeight is a floor, never a fixed height, per the layout-grows rule.
+const pill: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  width: "100%",
   minHeight: "44px",
+  padding: "0.75rem 1.5rem",
+  borderRadius: "24px",
+  fontSize: "var(--type-label)",
+  fontWeight: 600,
+  lineHeight: "var(--leading-normal)",
   cursor: "pointer",
+}
+
+const outlinedPill: React.CSSProperties = {
+  ...pill,
+  background: "transparent",
+  border: "1px solid var(--hairline)",
+  color: "var(--text-secondary)",
+}
+
+const tealPill: React.CSSProperties = {
+  ...pill,
+  backgroundColor: "var(--action)",
+  color: "var(--action-ink)",
+  border: "1px solid var(--action)",
+}
+
+// The two confirm controls share the pill's full width, so together they
+// occupy exactly the footprint the resting control just vacated. Their
+// horizontal padding drops from 1.5rem to 0.75rem because two pills side by
+// side on a 375px phone cannot each carry 1.5rem of side padding and still
+// hold "Yes, call it off" on one line; the text wraps rather than clips if it
+// ever does not fit, since minHeight is a floor.
+const confirmPill: React.CSSProperties = {
+  ...outlinedPill,
+  // Longhands rather than the `flex` shorthand: identical in a browser, and
+  // jsdom drops `flex: 1 1 0` outright, so the shorthand would leave the
+  // shared-width rule untestable.
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  minWidth: 0,
+  padding: "0.75rem",
 }
 
 export default function CancelControls({ eventId, groupId, isCancelled }: Props) {
@@ -72,7 +129,11 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
   if (!confirming) {
     return (
       <div>
-        <button type="button" style={quietButton} onClick={() => setConfirming(true)}>
+        <button
+          type="button"
+          style={isCancelled ? tealPill : outlinedPill}
+          onClick={() => setConfirming(true)}
+        >
           {restText}
         </button>
         <ErrorLine msg={errorMsg} />
@@ -88,15 +149,26 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
           lineHeight: "var(--leading-normal)",
           color: "var(--text-secondary)",
           marginBottom: "0.625rem",
+          textAlign: "center",
         }}
       >
         {consequence}
       </p>
-      <div style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}>
-        {/* Safe control first, in the resting button's own position. */}
+      <div style={{ display: "flex", gap: "0.625rem" }}>
+        {/* Safe control first, in the resting button's own position, and
+            brighter than the other one. The brightness used to run the other
+            way, which made the destructive option the louder of the two; the
+            owner called that backwards on 2 Sept 2026 and he is right. Both
+            stay outlined and hue-free, so the only thing separating them is
+            ink weight, which is exactly the "brightness plus label, never
+            hue" rule this product already runs on. */}
         <button
           type="button"
-          style={{ ...quietButton, opacity: isPending ? 0.65 : 1 }}
+          style={{
+            ...confirmPill,
+            color: "var(--text-primary)",
+            opacity: isPending ? 0.65 : 1,
+          }}
           disabled={isPending}
           onClick={() => setConfirming(false)}
         >
@@ -104,11 +176,7 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
         </button>
         <button
           type="button"
-          style={{
-            ...quietButton,
-            color: "var(--text-primary)",
-            opacity: isPending ? 0.65 : 1,
-          }}
+          style={{ ...confirmPill, opacity: isPending ? 0.65 : 1 }}
           disabled={isPending}
           onClick={submit}
         >
