@@ -77,8 +77,10 @@ body {
    the color, which would otherwise dim the token a second time. */
 input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
 
-/* A third thing inline styles cannot express, here for exactly the reason the
-   two above are: :active is a pseudo-class.
+/* A third thing inline styles cannot express, for a reason close to the one
+   the two above give: :active is a pseudo-class. (Only close, and worth
+   saying rather than glossing: .tap-card-ask below is here to sit beside its
+   own pair, not because an inline style could not have carried it.)
 
    The problem it answers (double-tap fix, 2 Sept 2026): tapping an event card
    on the group home did nothing visible for a measured 1000ms, warm and
@@ -94,8 +96,19 @@ input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 
    invisible on a card that is already #262b37 on a #15161e page, so this
    replaces it with a light one. The :active rule is the half that covers
    everywhere else, lighting the card's tap overlay (EventCard's
-   data-tap-overlay span), which is why the flash covers exactly the area
-   that is tappable.
+   data-tap-overlay span), so THAT half flashes exactly the area that is
+   tappable.
+
+   The two halves do not flash the same area, and the difference is worth
+   knowing before anyone reads a phone screenshot as a bug. WebKit paints the
+   tap highlight over the anchor's OWN rects and does not pick up an
+   absolutely positioned descendant, so on iOS a tap in the card's newly live
+   lower band most likely lights the upper part of the card instead of the
+   spot under the finger. Feedback still arrives inside the same frame, which
+   is the whole of what this fix needs; it is just not congruent with the
+   touch. Unobserved either way: no iOS device was available and no synthetic
+   tap could be driven in the browser pane, so the iOS half of this rests on
+   how WebKit is documented to behave rather than on anything anyone saw.
 
    COLOUR ONLY, and that is a constraint rather than a preference: the card
    region's height budget was won by an entire slice, so a pressed state built

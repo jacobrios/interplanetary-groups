@@ -337,8 +337,17 @@ describe("the card's pressed state stays wired and stays free", () => {
 
   it("costs no height: colour only, no transform and no box metrics", () => {
     // The card region's height budget was won by a whole slice. A pressed
-    // state built from transform, padding or border-width would spend it.
+    // state built from box metrics would spend it, and one built from a
+    // transform would fake movement the layout never agreed to.
+    //
+    // Two holes closed in review: `border-width` alone missed the `border`
+    // shorthand, and `transform` alone missed the standalone `scale`,
+    // `translate` and `rotate` properties, which do the same job under
+    // different names. Word-bounded so `border` also catches `border-width`
+    // and `border-radius`.
     expect(rules.length).toBeGreaterThan(0)
-    expect(block).not.toMatch(/transform|padding|border-width|font-size|margin|\bwidth\b|\bheight\b/)
+    expect(block).not.toMatch(
+      /\bborder\b|\bpadding\b|\bmargin\b|\bwidth\b|\bheight\b|\bfont-size\b|\btransform\b|\bscale\b|\btranslate\b|\brotate\b|\binset\b/
+    )
   })
 })

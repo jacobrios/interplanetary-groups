@@ -134,8 +134,10 @@ export default function EventCard({
               add a row, and the card region's height budget was won by a
               whole slice. As written it costs zero height, zero width and no
               layout participation. It doubles as the pressed-state surface
-              (see .tap-card in globals.css), which is why the flash covers
-              exactly the area that is now tappable. */}
+              (see .tap-card in globals.css): the :active half lights this
+              span, so on every browser that honours :active the flash covers
+              exactly the area that is now tappable. The iOS half does not
+              match it, and the comment in globals.css says why. */}
           <span data-tap-overlay aria-hidden="true" className="tap-card-veil" style={{ position: "absolute", inset: 0 }} />
           {/* Called-off status, above the title (QA feedback round, spec
               §13). It used to share the counts row below, right-aligned,

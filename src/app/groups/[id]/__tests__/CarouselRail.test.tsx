@@ -56,6 +56,7 @@ describe("CarouselRail", () => {
   // tap, which is the configuration iOS Safari is known to spend a first touch
   // on. Declaring pan-x says the rail only ever pans horizontally, so a
   // stationary touch has nothing to disambiguate and can go straight through.
+  // pinch-zoom rides along with it deliberately; see the assertion below.
   //
   // WHAT THIS DOES NOT PROVE, and it is most of the claim: that any of this
   // eats a tap. That is an iOS Safari touch behaviour, jsdom implements
@@ -63,7 +64,7 @@ describe("CarouselRail", () => {
   // only instrument is a real phone. The hypothesis was never observed, only
   // reasoned from the computed styles. This case holds the mitigation in
   // place; it does not hold that the mitigation was needed.
-  it("claims only the horizontal gesture, so a tap is not held for disambiguation", () => {
+  it("claims the horizontal pan and pinch-zoom, so a tap is not held for disambiguation", () => {
     const { container } = render(
       <CarouselRail peek>
         <div>a</div>
@@ -71,7 +72,13 @@ describe("CarouselRail", () => {
       </CarouselRail>
     )
     const rail = container.firstElementChild as HTMLElement
-    expect(rail.style.touchAction).toBe("pan-x")
+    // pan-x AND pinch-zoom, never pan-x alone: pan-x on its own excludes
+    // pinch-zoom, which would refuse a two-finger zoom over the top third of
+    // the group home. The mitigation this belongs to is unproven, so it must
+    // not cost an accessibility affordance that works today. This assertion is
+    // exact rather than a substring match on purpose, so "simplifying" it back
+    // to "pan-x" reddens here.
+    expect(rail.style.touchAction).toBe("pan-x pinch-zoom")
     // The second axis stated rather than inherited from a blockification rule
     // nobody wrote down. Layout-neutral: the rail does not overflow
     // vertically (scrollHeight === clientHeight, measured), so this changes
