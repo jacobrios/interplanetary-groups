@@ -7326,3 +7326,65 @@ re-fetch an `.ics` carrying `STATUS:CANCELLED`. The subscribable feed in §6 is 
 the digest fires at 8pm group-local, so a Tuesday-morning cancellation of a Tuesday-evening game
 reaches the inbox after the game, and the date phrasing has no past tense, so it reads "Called off:
 Tennis this Tue" about a Tuesday already gone. Low frequency, and the owner's call.
+
+### Postscript: the QA feedback round (2 September 2026)
+
+The owner ran the merged-but-unmerged branch on his own phone and gave one round of feedback. Nine
+commits came out of it. Suite 1631 to 1656 across 144 files. The reason this postscript exists rather
+than a second entry: nothing here changed a decision, it changed what shipped against them.
+
+**He found a bug none of us did, and it was pre-existing.** `planChange` declined a day-change before
+it checked whether any plan existed, so in a group whose plans were all called off, "can we move it
+to Thursday?" got "I can't move it to another day yet. I can change the time if that helps." Orbit
+offered to change the time of nothing. It fires in a brand new empty group too, so cancellation did
+not cause it; cancellation made it common, because a group can now have plans that are all off. The
+fix is a reorder: "is there anything to move" outranks "what kind of change is this". Fixed here
+rather than queued because it is five lines in the same pure function as the copy change beside it,
+and shipping cancellation without it hands the tennis group a misleading reply on the exact day they
+need it.
+
+**Three of his complaints were one mistake.** The cancel and restore controls sat inside the details
+card's footer band, which already belongs to the RSVP pair. So the control was a box inside a box,
+narrower than the pair above it, and its confirm step read as two more options for the RSVP question:
+his words, "it's like four options instead of two". Moving both out to full-width pills below the
+card fixed all three at once. Restore is teal because on a called-off plan it is the screen's primary
+action and the only teal there; cancel stays outlined because the RSVP is the primary ask and calling
+a plan off is the heavier, rarer move. The asymmetry is deliberate.
+
+**The height constraint held, and once it actually bit.** He stated twice that the card region could
+not grow by a pixel, because that budget was won by an entire slice and the chat feed pays for any
+growth. The "CALLED OFF" label was repositioned above the title AND given a filled chip; the chip
+measured 4.2px over in the all-cancelled case and was pulled under his advance ruling. Both cases
+came back byte-identical, 186.9921875px and 127.796875px. A later reviewer made the measurements
+almost redundant by showing height neutrality by construction: every property added across the whole
+round is layout-inert. That is the stronger check and it is the one to reach for next time.
+
+**The double-tap had three causes, not one.** He reproduced it on production after first blaming his
+wifi. A read-only diagnosis measured that the tappable link covered only part of the card, leaving
+17% of a live card and 51% of a called-off card inert, with the bottom 43% of a called-off card
+completely dead. It also found the rail is a two-axis scroll container iOS may spend a first touch
+disambiguating, and, the one nobody had named, that **nothing in this product has a pressed state**
+while navigation takes about a second, so a working tap looks like nothing happened. All three were
+fixed; inert area went from 50.6% to 1.1%, hit-tested. **Two of the three target iOS specifically and
+nothing here has touched an iOS device**, so they rest on documented WebKit behaviour. The
+discriminator for the next phone pass: a group showing exactly one card has no scroll container at
+all, so if that still double-taps, the rail was never the problem.
+
+**A reviewer caught an accessibility regression inside the fix.** `touch-action: pan-x` does not
+include `pinch-zoom`, so the first version of the rail fix disabled two-finger zoom over the top third
+of the group home. Its reasoning is worth keeping: an unproven mitigation must not cost a proven
+behaviour.
+
+**The browser pass found what four reviews and a passing test suite did not.** After a successful
+cancel or restore, the control kept its confirm step open, and because the plan's status had flipped,
+it was now the OPPOSITE action's confirmation. A member who had just put a plan back on was one tap
+from calling it off again. The component tests mock the server action and never observe the
+post-success render with a flipped prop, which is exactly the seam a real interaction crosses and a
+mock does not.
+
+**Registered, not fixed:** `hasCalledOffPlans` reads a five-event window, so a group with five
+called-off plans stacked ahead of a live one gets told to bring a plan back while a live plan exists;
+the comment now names the real case rather than its mirror image. An RSVP error line on the group
+home card is click-through to the event page, a consequence of raising the button row above the
+stretched link. And `DetailRow` carries a now-unreachable null-icon branch after the duplicated
+activity row was deleted.
