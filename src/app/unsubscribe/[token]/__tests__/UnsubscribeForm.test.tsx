@@ -91,7 +91,16 @@ describe("UnsubscribeForm", () => {
       fireEvent.click(button)
       await screen.findByText(/nothing has changed yet/)
 
-      expect((button as HTMLButtonElement).disabled).toBe(false)
+      // Same race as the resubscribe control's own retry test below, one
+      // transition earlier: this is the first useTransition (`pending`,
+      // driving this button), not the resubscribe one, but the coupling
+      // is the same and equally unguaranteed. pending clearing and
+      // setFailed(true) committing the failure text are two separate
+      // scheduled updates, so sampling `disabled` synchronously right
+      // after awaiting that text can land in the gap between them. Poll
+      // instead of sampling once. See the "leaves the control usable"
+      // test's own comment for the fuller version of this note.
+      await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false))
 
       // The retry succeeds, and the failure line goes with it.
       unsubscribeAction.mockResolvedValue("ok")
@@ -205,7 +214,16 @@ describe("UnsubscribeForm", () => {
         const control = await screen.findByRole("button", { name: /Turn them back on/ })
         fireEvent.click(control)
         await screen.findByText(/nothing has changed yet/)
-        expect((control as HTMLButtonElement).disabled).toBe(false)
+
+        // resubPending (from useTransition) clears when the transition's own
+        // promise settles; the error text commits from a separate
+        // setResubFailed(true) call inside that same async handler. Those are
+        // two distinct scheduled updates, usually landing in one commit but
+        // never guaranteed to, so sampling `disabled` synchronously right
+        // after awaiting the error text can land in the gap between the two
+        // commits and read the button as still disabled. Poll instead of
+        // sampling once.
+        await waitFor(() => expect((control as HTMLButtonElement).disabled).toBe(false))
 
         resubscribeAction.mockResolvedValue("ok")
         fireEvent.click(control)

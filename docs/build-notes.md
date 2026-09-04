@@ -7575,3 +7575,63 @@ twice by two different agents on the day. Diagnosed as a `disabled` read without
 a `waitFor`, racing a two-commit React update. That is a different mechanism from
 the flake the 2 September cleanup fix closed in the same file, so the class is not
 closed and the record should stop implying it is.
+
+---
+
+## §11 entry: the unsubscribe flake, and a trap in our own safety net (3 September 2026)
+
+Two things came out of one small fix, and the second one matters more than the
+first.
+
+**The flake, and why the investigation nearly went the wrong way.** Two tests in
+`UnsubscribeForm.test.tsx` read a button's `.disabled` on the line right after
+`await screen.findByText(...)`. Both buttons are disabled by a `useTransition`
+pending flag, and both click handlers are async transitions whose last statement
+sets the state that renders the failure message. React schedules that update and
+separately clears the pending flag when the async function settles. Usually one
+commit. Under load, two, and the assertion reads the gap. **The tests asserted a
+coupling React does not guarantee.** The product code was correct and was not
+touched.
+
+**The process note is the useful part.** The diagnosis was inherited from an
+agent who reached it by reading code rather than measuring, and it was passed
+along, honestly labelled as a hypothesis. Trying to confirm it produced evidence
+that looked like a refutation: the file passed 10 of 10 alone, 6 of 6 full-suite
+runs, and 10 of 10 under twelve CPU hogs, and a purpose-built probe sampling the
+DOM tick by tick found no window where the message was on screen while the button
+was still disabled. Twenty-six clean runs and a negative probe is a persuasive
+case for the wrong conclusion.
+
+What settled it was going and finding the actual failure text from the morning's
+run rather than reasoning further: `AssertionError: expected true to be false` at
+that exact line, which is the button reading disabled. **The inherited diagnosis
+was right; the reproduction attempts were simply not powerful enough to trigger a
+rare race.** The lesson is narrow and worth keeping: an unreproduced failure is
+not a disproved one, and recovering the original error text beats another round
+of hypothesis.
+
+**The fix's real risk was not the race.** Wrapping an assertion in `waitFor`
+makes it poll until the condition holds, and a poll around something always true
+passes forever and proves nothing, which is worse than the flake. So the evidence
+is mutation, not run counts: each button was made permanently disabled in turn,
+and each changed assertion was shown failing on its own line, then the mutation
+reverted. A green suite is deliberately not offered as proof here, because the
+suite was green 26 times today with the bug present.
+
+**The second finding, which is about our tooling rather than this bug.** While
+finishing, the safety-net hook reported a red suite: a Prisma "Unable to start a
+transaction in the given time" in `invite-token.test.ts`, a file nothing had
+touched. The cause was concurrency of our own making. A subagent was running the
+full suite as part of its own verification at the same moment the stop hook ran
+the full suite, and **this project has one dev-test database**, so the two runs
+contended for connections until a transaction could not start. Run alone
+immediately afterwards, the suite was 1704 of 1704 across 146 files.
+
+This is the same class CLAUDE.md already records for concurrent worktrees, which
+PR #95 addressed by scoping the runner. What is new is that the collision does
+not need a second worktree: **the safety-net hook and a subagent's own suite run
+are enough, inside a single branch**, and the resulting failure names an innocent
+file and reads exactly like a real defect. Nothing was changed for this today.
+Whoever next touches the safety-net hooks should know that a red suite from that
+gate is worth re-running alone before it is believed, and that the honest fix is
+either a lock so only one suite runs at a time or a per-run database.
