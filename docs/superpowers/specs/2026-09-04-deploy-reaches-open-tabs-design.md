@@ -1,5 +1,25 @@
 # A deployed fix reaches tabs that are already open
 
+> **CORRECTED 4 September 2026, the same day, from production. Read this before anything below it.**
+>
+> **This document's central premise is false.** It says version-skew detection is already live and that
+> `LiveRefresh`'s poll already delivers a new build to an open group home. It does not. **Vercel's Skew
+> Protection pins each tab's framework requests back to the deployment that tab booted from**, so the
+> poll's response always reports the id the tab already holds and the mismatch at
+> `fetch-server-response.js:175` is never taken.
+>
+> The probe that produced the wrong premise used a **bogus** deployment id. A deployment that does not
+> exist cannot be pinned to, so Vercel fell through to the current build, and that 200 is
+> indistinguishable from the 200 you get when pinning is genuinely off. Only a **real, still-existing**
+> previous deployment id can tell the two apart.
+>
+> Still correct below: the traced Next mechanism, and the four-build local experiment, which was sound
+> but ran without Vercel's routing layer in front of it. Still correct and shipped: the composer's
+> parked draft, which earns its place on the poll's dropped-connection reload rather than on a deploy.
+>
+> Full correction in `docs/build-notes.md` §11, "Correction, 4 September 2026, hours later and from
+> production".
+
 Slice branch: `deploy-reaches-open-tabs`, cut from `main` at `7b72e3d`.
 Test-suite baseline on `main` at `7b72e3d`: **1808 passing across 152 files, 0 failing.**
 No pre-existing failures to carry.

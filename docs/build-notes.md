@@ -8012,3 +8012,23 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 **One thing left undecided and named for the owner:** `src/app/privacy/page.tsx` says the app's cookies "keep you signed in, and that is all they do." This slice makes the product store **message content** on the member's device for the first time. Out of lane, not changed here, and it matters because the tennis group is the next thing through the door.
 
 **Two review findings that were code defects, fixed on this branch rather than queued.** The restore effect's `if (parked)` guard was untested and, worse, was the cause of a real leak: on a `groupId` change in place, the previous group's draft was kept and the next keystroke parked it under the new group's key, which is exactly what the key's own comment claimed the design prevented. The set is unconditional now, which is both simpler and correct (on mount there is nothing to clobber; on a group change, clearing is right). And the cross-group test's negative assertion had no power, because the mutation it was supposed to survive killed it by the *other* assertion instead; it now changes `groupId` on a live instance, which is the case that was actually broken.
+
+### Correction, 4 September 2026, hours later and from production: the headline claim of the entry above is FALSE
+
+**A deployed fix does not reach an open group home.** The owner redeployed while sitting with his phone open on the group home, untouched, screen on, and **nothing happened**. Three probes then established why, and they are the record:
+
+| Request carries | Answered by |
+|---|---|
+| The **previous real** deployment id | **That old deployment** (pinned) |
+| A **bogus** id | The current deployment (fallback) |
+| **No** id, which is what a plain `fetch()` sends | The current deployment |
+
+**Vercel's Skew Protection pins each tab's framework-managed requests back to the deployment that tab booted from**, on all three of the `x-deployment-id` header, the `?dpl=` query and the `__vdpl` cookie. That is precisely what it is for: version locking, so an old client keeps working against code it understands. The consequence for this product is that the poll's response always reports the id the tab already holds, `getNavigationBuildId()` matches, and the mismatch branch at `fetch-server-response.js:175` is never taken. `LiveRefresh` cannot deliver a deploy.
+
+**Why the wrong conclusion was reached, which is the part worth carrying to other work.** The probe that "established" no pinning used a **bogus** deployment id, `dpl_0000…`. A deployment that does not exist cannot be pinned to, so Vercel fell through to the latest build and returned 200 from it. That result is identical to the result you get when pinning is genuinely off, and it was read as the second. **Only a real, still-existing previous deployment id can distinguish the two.** Stated generally, and it is the lesson rather than "test more": *a probe has to be capable of returning the answer you are afraid of.* This one structurally could not.
+
+**A second failure sits behind the first, and it is a process one.** The entry above said in as many words that local `next start` is not Vercel and that the honest proof was deploying twice. It then led with the confident half anyway and wrote "already reaches" into `CLAUDE.md`, the file that loads every session. **A caveat recorded beside a claim does not weaken the claim in the reader's memory; only the claim's own wording does.** The corrected paragraph now carries the limit in its first sentence rather than in a later one.
+
+**What survives, precisely.** The traced Next mechanism is correct: the chain from `fetch-server-response.js:175` to `app-router.js:221`'s `location.replace()` is real, was verified twice, and fires exactly as described **when a mismatch occurs**. The local four-build experiment was sound and its control and negative control were meaningful; it ran without Vercel's routing layer in front of it, which is the entire gap. And **the composer's parked draft keeps its full value on a better reason than the one it shipped with**: the poll's failure path hard-navigates on a dropped connection, pinning or not, which is the ordinary case on a phone and far more common than a deploy.
+
+**What was decided.** The owner ranked building our own detection: an endpoint returning the current deployment id, and a plain `fetch()` to compare against, since an unpinned request demonstrably reaches the current build (row three of the table). Turning Skew Protection off in the dashboard and shortening its max age were both weighed and declined, the first because it discards version locking wholesale and the second because a day is still a day.
