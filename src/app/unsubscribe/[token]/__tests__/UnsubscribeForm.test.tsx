@@ -205,7 +205,16 @@ describe("UnsubscribeForm", () => {
         const control = await screen.findByRole("button", { name: /Turn them back on/ })
         fireEvent.click(control)
         await screen.findByText(/nothing has changed yet/)
-        expect((control as HTMLButtonElement).disabled).toBe(false)
+
+        // resubPending (from useTransition) clears when the transition's own
+        // promise settles; the error text commits from a separate
+        // setResubFailed(true) call inside that same async handler. Those are
+        // two distinct scheduled updates, usually landing in one commit but
+        // never guaranteed to, so sampling `disabled` synchronously right
+        // after awaiting the error text can land in the gap between the two
+        // commits and read the button as still disabled. Poll instead of
+        // sampling once.
+        await waitFor(() => expect((control as HTMLButtonElement).disabled).toBe(false))
 
         resubscribeAction.mockResolvedValue("ok")
         fireEvent.click(control)
