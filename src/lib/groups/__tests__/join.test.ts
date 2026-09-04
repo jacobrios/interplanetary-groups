@@ -419,4 +419,51 @@ describe("joinGroupByInvite", () => {
     })
     expect(membership).not.toBeNull()
   })
+
+  // Every other collision test above seeds the founder with no Membership
+  // row, so none of them would notice if provisionFounderGroup ever stopped
+  // giving the founder one (src/lib/groups/provision.ts:69,
+  // `memberships: { create: { userId: user.id } }`). But "somebody joins
+  // and shares the founder's name" is the commonest real collision there
+  // is, so this test seeds the founder the way provisionFounderGroup
+  // actually does — via the same nested-create shape, not a separate
+  // Membership.create call — and checks the collision fires against them
+  // specifically.
+  it("rejects a brand-new joiner whose name collides with the founder, who has a Membership row like any other member", async () => {
+    const founderAuthId = `test-founder-dup-founder-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Priya", supabaseAuthId: founderAuthId },
+    })
+    userIds.push(founder.id)
+    const group = await prisma.group.create({
+      data: {
+        name: "[TEST] Group Dup Founder",
+        founderId: founder.id,
+        memberships: { create: { userId: founder.id } },
+      },
+    })
+    groupIds.push(group.id)
+
+    const joinerAuthId = `test-joiner-dup-founder-${Date.now()}`
+
+    let caught: unknown
+    try {
+      await joinGroupByInvite({
+        supabaseAuthId: joinerAuthId,
+        memberName: "[TEST] Founder Priya",
+        inviteToken: group.inviteToken,
+      })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(DuplicateNameError)
+    expect((caught as DuplicateNameError).existingName).toBe("[TEST] Founder Priya")
+
+    const user = await prisma.user.findUnique({ where: { supabaseAuthId: joinerAuthId } })
+    expect(user).toBeNull()
+
+    const memberships = await prisma.membership.findMany({ where: { groupId: group.id } })
+    expect(memberships).toHaveLength(1)
+  })
 })

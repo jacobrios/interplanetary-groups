@@ -172,16 +172,33 @@ describe("JoinForm, the door for somebody who has been here before", () => {
 // Errors are driven the same way the rest of this file drives them: the
 // mocked action's next resolution, followed by a submit.
 describe("JoinForm, the duplicate-name collision", () => {
+  // The error paragraph deliberately does not carry role="alert" (fix wave,
+  // 4 Sept 2026 — see the comment at its wiring in JoinForm.tsx), so these
+  // tests find it the way a screen reader actually reaches it: by following
+  // the input's own aria-describedby to the paragraph's id, via
+  // document.getElementById. That is also a stronger check than
+  // findByRole("alert") ever was, since it proves the description
+  // *resolves*, not merely that some alert-shaped node exists somewhere.
+  function errorParagraphFor(input: HTMLInputElement): HTMLElement {
+    const describedBy = input.getAttribute("aria-describedby")
+    expect(describedBy).toBeTruthy()
+    const el = document.getElementById(describedBy as string)
+    expect(el).not.toBeNull()
+    return el as HTMLElement
+  }
+
   it("renders the owner's sentence verbatim with the stored name in it", async () => {
     joinMock.mockResolvedValueOnce({
       errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
     })
     renderForm()
-    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Mike" } })
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    fireEvent.change(name, { target: { value: "Mike" } })
     fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
 
-    const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toBe(
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
+    const error = errorParagraphFor(name)
+    expect(error.textContent).toBe(
       "There's already a Mike in this group. If that's you, sign in instead. If not, add a last initial so people can tell you apart."
     )
   })
@@ -191,9 +208,10 @@ describe("JoinForm, the duplicate-name collision", () => {
       errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
     })
     renderForm()
-    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Mike" } })
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    fireEvent.change(name, { target: { value: "Mike" } })
     fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
-    await screen.findByRole("alert")
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
 
     fireEvent.click(screen.getByRole("button", { name: "sign in" }))
 
@@ -211,8 +229,8 @@ describe("JoinForm, the duplicate-name collision", () => {
     renderForm()
     fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
 
-    const alert = await screen.findByRole("alert")
-    expect(alert.textContent).toBe("Your name is required.")
+    const error = await screen.findByText("Your name is required.")
+    expect(error.textContent).toBe("Your name is required.")
   })
 
   it("marks the input invalid and ties it to the error paragraph's id, and marks neither when there is no error", async () => {
@@ -228,11 +246,12 @@ describe("JoinForm, the duplicate-name collision", () => {
     fireEvent.change(name, { target: { value: "Mike" } })
     fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
 
-    const alert = await screen.findByRole("alert")
-    expect(name.getAttribute("aria-invalid")).toBe("true")
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
     const describedBy = name.getAttribute("aria-describedby")
     expect(describedBy).toBeTruthy()
     // Resolves to the actual error paragraph's id, not merely present.
-    expect(alert.id).toBe(describedBy)
+    const error = document.getElementById(describedBy as string)
+    expect(error).not.toBeNull()
+    expect(error?.id).toBe(describedBy)
   })
 })

@@ -187,9 +187,17 @@ const inlineSignInStyle: CSSProperties = {
 // The claim-to-fact boundary for this one field: JoinNameError is a union
 // from the server (join-group.ts), and this switch is exhaustive on
 // purpose. An unhandled `kind` is a compile error via the `never` check in
-// the default branch, not a generic fallback string — a new variant here
-// should fail the build, not render a blank line to somebody who cannot
-// proceed.
+// the default branch (`const exhaustive: never = error`), so a new variant
+// added to the union fails the *build*, not this render. But the `never`
+// assignment only proves the check ran at compile time; it says nothing
+// about what a stale client does at runtime if server and client versions
+// ever skew mid-deploy and an unmodelled `kind` actually arrives here. That
+// value is not a valid ReactNode, so returning it would throw ("Objects are
+// not valid as a React child") and take the whole join screen down with it,
+// which is strictly worse than a blank line. So the fallback renders
+// nothing rather than the offending object, while the `never` assignment
+// above it keeps failing the build on a real unhandled variant exactly as
+// before.
 //
 // The "duplicate" copy is the owner's, verbatim, with only the existing
 // member's stored name interpolated. Nothing beyond the sentence itself is
@@ -218,7 +226,7 @@ function nameErrorMessage(error: JoinNameError, onSignIn: () => void): ReactNode
       )
     default: {
       const exhaustive: never = error
-      return exhaustive
+      return null
     }
   }
 }
@@ -388,14 +396,30 @@ export default function JoinForm({
                     // This is the first input in the product to carry
                     // aria-invalid/aria-describedby (task brief); it is
                     // scoped to this one field on purpose, not swept across
-                    // the codebase. undefined rather than false so the
+                    // the codebase, and it is the precedent other screens
+                    // will copy. undefined rather than false so the
                     // attributes are absent entirely when there is no
                     // error, not merely false.
+                    //
+                    // The error paragraph this points at deliberately does
+                    // NOT also carry role="alert" (whole-branch review,
+                    // fix wave, 4 Sept 2026). An assertive live region
+                    // containing an interactive control (the inline "sign
+                    // in" button) is a known accessibility weak spot, and as
+                    // a description the paragraph is already announced when
+                    // focus reaches this input, without needing to also be a
+                    // live region. The tradeoff, stated rather than hidden:
+                    // without role="alert", the error may not be announced
+                    // at the instant it appears right after submit, only
+                    // when focus returns to this input. None of this
+                    // reasoning has been checked against a real screen
+                    // reader. A future session should not "restore" the
+                    // role without knowing why it went.
                     aria-invalid={state.errors?.memberName ? true : undefined}
                     aria-describedby={state.errors?.memberName ? NAME_ERROR_ID : undefined}
                   />
                   {state.errors?.memberName && (
-                    <p id={NAME_ERROR_ID} role="alert" style={fieldErrorStyle}>
+                    <p id={NAME_ERROR_ID} style={fieldErrorStyle}>
                       {nameErrorMessage(state.errors.memberName, () => setSigningIn(true))}
                     </p>
                   )}
