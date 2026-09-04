@@ -54,6 +54,7 @@ import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import SeenMarker from "./SeenMarker"
 import LiveRefresh from "./LiveRefresh"
+import DeployWatch from "./DeployWatch"
 import { applySettledSends, type SettledSend } from "@/lib/messages/optimistic-display"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
@@ -106,32 +107,59 @@ function withDeadline(
 /**
  * Where a half-typed message is parked so it survives a full page reload.
  *
- * WHY A COMPOSER NEEDS THIS AT ALL, because without the reason this reads as a
- * nicety and gets deleted. Next's version-skew protection is already live in
- * production: Vercel supplies a deployment id at build time with no
- * configuration from us, and LiveRefresh's 10s poll is what reaches it. When a
- * poll's RSC response reports a deployment id that differs from the one this
- * document booted with, Next calls `location.replace()` from inside its own
- * render (`fetch-server-response.js` -> `app-router.js`), with no user
- * interaction, no confirmation, no visibility guard and no callback we could
- * hang state off. That is a genuine full page load and it discards every piece
- * of React state, the member's typed message included.
+ * CORRECTED 4 SEPT 2026 (own-deploy-detection slice), AND THE CORRECTION IS
+ * THE FIRST THING TO READ, because the paragraph under it is what a previous
+ * slice believed and it is wrong. Next's version-skew reload CANNOT fire on
+ * this product. Vercel's Skew Protection pins every framework-managed request,
+ * LiveRefresh's router.refresh() included, back to the deployment the tab
+ * booted from, so the id in a poll's response is always the id the tab already
+ * holds and the mismatch Next reacts to never happens. Proven in production
+ * with a redeploy watched on a phone; the earlier probe that said otherwise
+ * used a deployment id that did not exist, and nothing can be pinned to a
+ * deployment that is not there.
  *
- * The reload cannot be intercepted, and deferring it is worse than the bug:
- * the only lever on it is whether the poll fires at all, so "don't reload while
- * they're typing" necessarily means "stop syncing chat while they're typing",
- * which regresses the chat-sync slice. So the reload is left alone and made
- * harmless instead. A useful side effect, not the reason: the draft now also
- * survives a manual reload, a crash, and an iOS tab eviction.
+ * This behaviour is still needed, for a reload we now cause ourselves:
+ * DeployWatch.tsx notices a newer build through a hand-written fetch (the one
+ * request Vercel does not pin) and calls window.location.reload(). That is
+ * still a genuine full page load that discards every piece of React state. The
+ * one thing that did change is urgency: our own reload waits until the
+ * composer is empty, so the draft is no longer the thing standing between a
+ * member and a lost message. It is kept because it is right anyway, and
+ * because it also survives a manual reload, a crash, and an iOS tab eviction.
+ *
+ * The superseded reasoning, kept because it explains the shape of what is
+ * here: Next's version-skew protection is already live in production, Vercel
+ * supplies a deployment id at build time with no configuration from us, and
+ * LiveRefresh's 10s poll is what reaches it. When a poll's RSC response
+ * reports a deployment id that differs from the one this document booted with,
+ * Next calls `location.replace()` from inside its own render
+ * (`fetch-server-response.js` -> `app-router.js`), with no user interaction,
+ * no confirmation, no visibility guard and no callback we could hang state
+ * off. The reload cannot be intercepted, and deferring it is worse than the
+ * bug: the only lever on it is whether the poll fires at all, so "don't reload
+ * while they're typing" necessarily means "stop syncing chat while they're
+ * typing", which regresses the chat-sync slice. So the reload was left alone
+ * and made harmless instead.
  *
  * WHY sessionStorage AND NOT localStorage. A draft belongs to the tab it is
  * being typed in. localStorage is shared across every tab on the origin, so a
  * member with this group open twice would watch one tab's half-typed message
  * appear in the other, and the draft would outlive the browsing session
  * entirely, resurfacing days later. sessionStorage is per tab and per session,
- * and — the property this slice actually needs — it survives
- * `location.replace()` of the same document, which is exactly the event it
- * exists for.
+ * and — the property this actually needs — it survives a full page load of the
+ * same document.
+ *
+ * WHICH FULL PAGE LOADS THOSE ARE, corrected 4 Sept 2026 with the block above.
+ * This line used to name `location.replace()`, "which is exactly the event it
+ * exists for", and that event cannot happen here: it is Next's version-skew
+ * reload, which the CORRECTED paragraph above establishes never fires on this
+ * product. The two loads that do happen are DeployWatch.tsx's own
+ * `window.location.reload()` onto a newer build, and the hard browser
+ * navigation Next falls back to when a poll's RSC fetch drops mid-flight
+ * (fetch-server-response.js logs "Falling back to browser navigation" and
+ * hands the caller a plain URL). A manual reload, a crash and an iOS tab
+ * eviction are all covered by the same property, and were always the honest
+ * everyday case.
  *
  * WHY THE KEY CARRIES THE GROUP ID. A member in two groups must not carry a
  * draft between them: the same tab navigating from one group home to another
@@ -211,6 +239,10 @@ interface Props {
    * to ask. Whether it is actually shown is EmailAskNote's own call, not this
    * component's and not the page's. */
   emailAsk: EmailAskNoteProps | null
+  /** The deployment that server-rendered this document, for DeployWatch to
+   * compare against what is live. Null off Vercel, which means detection is
+   * off. Passed down rather than read here because only the server has it. */
+  bootedDeploymentId: string | null
 }
 
 export default function GroupHome({
@@ -224,6 +256,7 @@ export default function GroupHome({
   groupProposals,
   viewerIsMember,
   emailAsk,
+  bootedDeploymentId,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
   // then either stays (revalidatePath confirms) or reverts (action failed).
@@ -578,6 +611,32 @@ export default function GroupHome({
           sendsInFlight's own comment for why the unbounded signal would
           reintroduce a frozen screen after one dropped connection. */}
       <LiveRefresh paused={sendsInFlight > 0} />
+      {/* Notices that a newer build of the product is live and reloads onto
+          it, but only when it will not interrupt anybody. These two props are
+          the chat's half of that: they come from state this component already
+          owns, and DeployWatch is deliberately not allowed to reach into
+          either.
+
+          THEY ARE NOT THE WHOLE OF "BUSY", and this note was wrong about that
+          until 4 Sept 2026. It claimed waiting protected "scroll position, an
+          open sheet and the keyboard" while checking the chat composer alone,
+          so an open sheet was in fact the one thing it did NOT protect: a
+          member returning from their mail app with a one-time code met a
+          reload that took the sheet, its step and their typed address with it.
+          DeployWatch now also treats an open [role="dialog"] and a caret in
+          any text field as busy, read from the DOM at decision time rather
+          than threaded through here — see its header for why a DOM query
+          rather than another prop.
+
+          composerHasText is TRIMMED, so whitespace alone is not a member being
+          busy. The chat draft itself survives a reload regardless (see
+          draftKey above); what these two protect is the send in progress and
+          the member's train of thought. */}
+      <DeployWatch
+        bootedId={bootedDeploymentId}
+        composerHasText={inputValue.trim().length > 0}
+        sendInFlight={sendsInFlight > 0}
+      />
 
       {/* Scrollable feed */}
       <MessageFeed

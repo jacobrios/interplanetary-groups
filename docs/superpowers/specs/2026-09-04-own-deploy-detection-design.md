@@ -14,8 +14,11 @@ the poll's response always reports the id the tab already holds. Proven in produ
 redeploy watched on a phone and a three-way probe. **A `fetch()` we write ourselves is not
 framework-managed and is therefore not pinned** (proven the same way), which is the entire opening
 this slice uses. The trigger is the owner's: **check on tab return and about once a minute while the
-tab is visible, and reload only when it is safe** (composer empty, no send in flight), so a member
-who is mid-message gets the fix the moment they stop. Group home only.
+tab is visible, and reload only when it is safe**, so a member who is mid-message gets the fix the
+moment they stop. Group home only. *(Widened after review: "safe" was first written as composer empty
+plus no send in flight, which is the chat only. It now also covers an open modal and focus sitting in
+any text field, because the email sign-in sheet holds a typed address and a code step in memory, and
+returning from the mail app is exactly when a check fires.)*
 
 **Non-goals.** Screens other than the group home (belongs to whichever slice gives them polling).
 Restoring scroll position across the reload (its own problem, unsolved either way). Turning Skew
@@ -99,10 +102,16 @@ decideReload({ bootedId, currentId, composerHasText, sendInFlight, alreadyReload
 
 1. **Either id missing or equal → do nothing.** Covers local development, a failed fetch, and the
    ordinary case.
-2. **Composer has text, or a send is in flight → wait.** This is the owner's chosen behaviour: a
-   member mid-message is not interrupted, and gets the fix the moment they stop. Note the draft would
-   survive a reload anyway since the previous slice; the reason to wait is the *rest* of the state
-   (scroll position, an open sheet), not the text.
+2. **Composer has text, a send is in flight, a modal is open, or focus is in a text field → wait.**
+   The owner's chosen behaviour: a member mid-message is not interrupted and gets the fix the moment
+   they stop. Note the draft itself would survive a reload anyway since the previous slice; the reason
+   to wait is the *rest* of the state, which nothing parks. *(The modal and focus halves were added
+   after review found the first version reloaded a member out of the half-completed email sign-in
+   sheet, destroying a typed address and a pending code step. The modal check is a DOM query for
+   `[role="dialog"]` rather than a threaded prop, deliberately: it covers every modal nobody has
+   written yet, and a new one earns the protection by being accessible rather than by remembering a
+   rule. Known and accepted limit: the chip components dispatch server actions neither signal sees, and
+   a reload mid-tap loses far less, since the vote either landed or it did not.)*
 3. **`alreadyReloadedFor === currentId` → never again, permanently for this tab.** The critical guard.
    If a reload lands on a build that still reports a different id, nothing in the browser would stop
    this from firing every minute forever, which is worse than the bug. Persist the id we reloaded
@@ -111,6 +120,15 @@ decideReload({ bootedId, currentId, composerHasText, sendInFlight, alreadyReload
    as ids that keep changing because something upstream is misconfigured. Reaching the cap is
    registered debt, not an error to surface: a member who hits it is exactly where they were before
    this slice existed.
+
+**Corrected after review, and this is the honest shape of the safety story: rules 3 and 4 are not two
+independent guards, they are one.** Both the reloaded-for record and the count live in the same
+`sessionStorage`, so they fail together. A read that throws is safe, because the component then does
+nothing at all (fail-closed, verified). The one route to a loop that remains is a browsing context
+whose writes appear to succeed but do not survive the navigation: every guard would then read empty on
+every load, and the tab would reload once a minute for its life. Nothing in the suite can test that,
+because jsdom cannot navigate, so the only instrument is Task 4's step 7 below. Presenting this as
+three guards would have been the more comfortable sentence and the wrong one.
 
 **Tests:** one per rule, plus the two-ids-equal case and the missing-id case, each mutation-proved.
 Rule 3's test must prove the *negative* properly — that a second reload for the same id does not
@@ -164,6 +182,14 @@ No code. This is the task the previous slice got wrong and it is the reason this
 5. Clear the composer. **Expected: within about a minute, the tab reloads by itself.**
 6. Confirm afterwards that the tab is on the new deployment, not merely that something flickered.
    Reading `data-dpl-id` from the served HTML is not enough; check something the tab itself reports.
+
+7. **Then redeploy a SECOND time and confirm the tab reloads exactly once more, not repeatedly.** Added
+   after review, and it is the only check anywhere that can catch the single point of failure named
+   above: if the tab's record of what it already reloaded for does not survive a real navigation, the
+   tab reloads every minute forever, and steps 1-6 pass identically whether it survives or not. Watch
+   the tab for a further two minutes after that second reload settles. **Nothing further should
+   happen.** If it reloads again unprompted, stop and report; that is the failure this whole guard
+   exists for.
 
 **If any step fails, the slice reports it and stops rather than working around it.** In particular, if
 step 5 does not happen, the likeliest cause is that our own fetch is being pinned after all, and the

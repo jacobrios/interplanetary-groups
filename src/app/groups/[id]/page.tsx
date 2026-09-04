@@ -304,6 +304,16 @@ export default async function GroupPage({ params }: Props) {
         }
       : null
 
+  // ── Which build rendered this document ────────────────────────────────────
+  // Threaded down to DeployWatch, which compares it against what
+  // /api/deployment says is live and reloads the tab when the two differ. It
+  // has to be read HERE rather than in the client: process.env is a server
+  // thing, and the honest answer to "which build is this member looking at"
+  // is the build that produced this very HTML. Null off Vercel (local
+  // development), which turns detection off entirely rather than reading as
+  // "something changed".
+  const bootedDeploymentId = process.env.VERCEL_DEPLOYMENT_ID ?? null
+
   const messages: FeedMessage[] = rawMessages.map((msg) => ({
     id: msg.id,
     authorType: msg.authorType,
@@ -396,6 +406,7 @@ export default async function GroupPage({ params }: Props) {
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
           emailAsk={emailAsk}
+          bootedDeploymentId={bootedDeploymentId}
         />
       </FeedSeam>
     </div>

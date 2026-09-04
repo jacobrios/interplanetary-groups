@@ -46,5 +46,16 @@
     // entry once the template's own copy typechecks.
     //
     // The file is still RUN by vitest. Only its types go unchecked.
-    ".claude/hooks/suite-lock.test.ts","node_modules"]
+    ".claude/hooks/suite-lock.test.ts",
+    // Concurrent work in this project gets a git worktree under
+    // .claude/worktrees/, and "**/*.ts" above sweeps those in, so `next build`
+    // in THIS checkout typechecks ANOTHER branch's files and fails with errors
+    // that belong to it. Gitignored, so Vercel never sees them; the damage is
+    // that the mandated pre-PR production build becomes unrunnable exactly when
+    // concurrent work is in flight. Same class as PR #95's vitest fix, which
+    // scoped the test runner and never reached tsc. Scoped to worktrees/ rather
+    // than all of .claude/ on purpose: the tracked hook tests in .claude/hooks/
+    // must stay checked.
+    ".claude/worktrees/**",
+    "node_modules"]
 }
