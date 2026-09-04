@@ -325,7 +325,17 @@ export default function JoinForm({
                     style={inputStyle}
                   />
                   {state.errors?.memberName && (
-                    <p style={fieldErrorStyle}>{state.errors.memberName}</p>
+                    // PLACEHOLDER — task 2 of the duplicate-name-join-check
+                    // slice. memberName became a discriminated union
+                    // (JoinNameError) so the collision copy can carry a real
+                    // sign-in control; this is the minimum that compiles and
+                    // renders, not the real copy. Task 3 owns the wording and
+                    // the sign-in control for the "duplicate" case.
+                    <p style={fieldErrorStyle}>
+                      {state.errors.memberName.kind === "duplicate"
+                        ? `Someone named ${state.errors.memberName.existingName} is already in this group.`
+                        : "Your name is required."}
+                    </p>
                   )}
                 </>
               ) : (
