@@ -4,10 +4,23 @@
 // All four onboarding beats (describe → playback → confirm → share) live at
 // this route in client state; the wizard now owns the top of the screen via
 // WizardHeader, so this shell carries only the page frame.
+//
+// Reads the session here, once, so the wizard can tell a returning founder
+// from a first-time one. `getCurrentUser()` returns null for both "no
+// session" and "session with no User row yet", which is exactly the same
+// "we don't know this person's name" case Step1Describe already needs to
+// treat as first-time (onboarding-nav slice,
+// docs/superpowers/specs/2026-09-04-onboarding-nav-design.md). Debt: this
+// name is fetched purely to display it; if the wizard ever needs a second
+// thing from the session, this wants a small viewer object rather than a
+// second scalar prop threaded the same way.
 
 import OnboardingWizard from "./OnboardingWizard"
+import { getCurrentUser } from "@/lib/auth/current-user"
 
-export default function CreateGroupPage() {
+export default async function CreateGroupPage() {
+  const viewer = await getCurrentUser()
+
   return (
     <main
       style={{
@@ -29,7 +42,7 @@ export default function CreateGroupPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "28rem" }}>
-        <OnboardingWizard />
+        <OnboardingWizard knownName={viewer?.name ?? null} />
       </div>
     </main>
   )

@@ -47,6 +47,18 @@ const fieldLabelStyle: React.CSSProperties = {
 interface Props {
   founderName: string
   onFounderNameChange: (v: string) => void
+  /** The signed-in founder's stored `User.name`, or null for a first-time
+   * founder (no session, or a session with no User row yet). Non-null means
+   * we already know who this is: the name renders as fact, never an input,
+   * because `provisionFounderGroup` reuses the existing User row and only
+   * writes `name` on the create branch — anything typed into an editable
+   * field here would be silently discarded at confirm while the playback
+   * card had already shown it back as confirmed. Editable-and-saved was
+   * considered and declined by the owner: `name` lives on `User`, not
+   * `Membership`, so an edit here would rename the person in every group
+   * they belong to, retroactively, from a screen about starting a
+   * *different* group (spec: docs/superpowers/specs/2026-09-04-onboarding-nav-design.md). */
+  knownName: string | null
   description: string
   onDescriptionChange: (v: string) => void
   formAction: (formData: FormData) => void
@@ -60,6 +72,7 @@ interface Props {
 export default function Step1Describe({
   founderName,
   onFounderNameChange,
+  knownName,
   description,
   onDescriptionChange,
   formAction,
@@ -83,7 +96,12 @@ export default function Step1Describe({
             ? ERROR_COPY
             : INTRO_COPY)
 
-  const canSubmit = founderName.trim().length > 0 && description.trim().length > 0
+  // A known name is a fact, not an input, so it never gates: gating on a
+  // value the founder cannot change would just be a second, silent way to
+  // strand them on this screen. A first-time founder still needs to type
+  // one, so the name half of the gate only applies when knownName is null.
+  const canSubmit =
+    (knownName !== null || founderName.trim().length > 0) && description.trim().length > 0
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -118,33 +136,71 @@ export default function Step1Describe({
       <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
         <div>
           <label
-            htmlFor="founderName"
+            id="founderNameLabel"
+            htmlFor={knownName === null ? "founderName" : undefined}
             style={fieldLabelStyle}
           >
             Your name
           </label>
-          <input
-            id="founderName"
-            name="founderName"
-            type="text"
-            autoComplete="given-name"
-            placeholder="e.g. Taylor"
-            value={founderName}
-            onChange={(e) => onFounderNameChange(e.target.value)}
-            disabled={isExtracting}
-            style={{
-              width: "100%",
-              padding: "11px 14px",
-              backgroundColor: "var(--surface-raised)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "12px",
-              color: "var(--text-primary)",
-              fontSize: "var(--type-body)",
-              fontWeight: 500,
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
+          {knownName === null ? (
+            <input
+              id="founderName"
+              name="founderName"
+              type="text"
+              autoComplete="given-name"
+              placeholder="e.g. Taylor"
+              value={founderName}
+              onChange={(e) => onFounderNameChange(e.target.value)}
+              disabled={isExtracting}
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                backgroundColor: "var(--surface-raised)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "12px",
+                color: "var(--text-primary)",
+                fontSize: "var(--type-body)",
+                fontWeight: 500,
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          ) : (
+            // A known founder's name is a fact, not a field: rendered in the
+            // same box the input would occupy (so the layout above and below
+            // it is untouched) but as plain text, never a disabled <input>.
+            // A disabled input reads as "editable, just not now" and sends a
+            // founder hunting for how to turn it back on; this has no such
+            // affordance because it has no such capability. Nobody drew this
+            // treatment — it is invented, matching the input's own type
+            // scale and colors rather than a new one (spec: nothing here has
+            // been seen rendered by a design).
+            //
+            // aria-labelledby, not htmlFor: a plain <div> is not a labelable
+            // element per the HTML spec, so a label's `for` attribute cannot
+            // reach it — that gap is what code review caught (2026-09-04
+            // fix-on-review). Pointing this div at the label's own id gives
+            // the read-only path the same accessible-name announcement a
+            // returning founder's screen reader gets on the editable path:
+            // "Your name, Jacob" either way.
+            <div
+              id="founderName"
+              aria-labelledby="founderNameLabel"
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                backgroundColor: "var(--surface-raised)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "12px",
+                color: "var(--text-primary)",
+                fontSize: "var(--type-body)",
+                fontWeight: 500,
+                boxSizing: "border-box",
+              }}
+            >
+              {founderName}
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: "12px" }}>
@@ -319,9 +375,20 @@ export default function Step1Describe({
           Bottom-anchored underlined text, matching this flow's own idiom
           for backwards controls, rather than a bar at the top: the top of
           /create is spoken for by Orbit's avatar and "STEP N OF 3", which
-          the onboarding-share-moment slice has to build. */}
+          the onboarding-share-moment slice has to build.
+
+          Goes to /groups, the fixed parent, never "/": "/" is the
+          session-aware front door (resolveFrontDoor), which sends a member
+          of exactly one group straight INTO that group. /create is only
+          ever reached from /groups (a member starting a second group) or
+          from "/" (nobody with a group yet), and /groups itself redirects a
+          zero-group visitor back to "/" on its own — so /groups is correct
+          in every reachable case, while "/" would guess, and guess wrong,
+          for the member who actually got here by tapping "Start a new
+          group" and is now backing out
+          (docs/superpowers/specs/2026-09-04-onboarding-nav-design.md). */}
       <Link
-        href="/"
+        href="/groups"
         style={{
           display: "block",
           width: "fit-content",

@@ -7819,3 +7819,38 @@ Every visible tab costs a full server render every ten seconds: roughly eight se
 **The digest now drifts the other way, and it is new.** `lastSeenAt` is written on mount only. Before this slice, seeing new messages *required* a reload, which advanced the read position. Now it does not, so a member who keeps the group home open across the digest cutoff has a read position frozen at the moment they opened the tab, and the digest will tell them they missed messages they sat and watched arrive. Bounded, since the next digest's own timestamp re-advances the watermark. Not fixed here; recorded so it is not discovered later as a mystery.
 
 No backpressure: if a server render ever exceeds ten seconds, ticks keep firing and refreshes overlap. Not a defect at eight members, and it belongs beside the connection-pool note above.
+## §11 entry: onboarding's exit guessed, and its name field lied (4 September 2026)
+
+*Micro-slice. Both defects reported by the owner from production with screenshots, on the same night as the chat-sync bug.*
+
+### The exit
+
+`Step1Describe.tsx`'s "Never mind, take me back" pointed at `/`. That is not a neutral home: it is the session-aware front door, and `resolveFrontDoor` sends a member of **exactly one group** straight into that group. So the exit guessed, and for the person most likely to use it, it guessed wrong. The owner tapped "Start a new group" from the group list, backed out, and was deposited inside his existing group.
+
+Now `/groups`, which is correct in every reachable case rather than merely usually: `/create` is reachable only from `/groups` (a member) or from `/` (someone with no group), and `/groups` redirects a zero-membership visitor to `/` on its own, where the landing screen still offers "Start your group". No loop, no dead end. Browser history was never a candidate; this product uses fixed parent links everywhere for the same reason it always has, that somebody can arrive from a shared link.
+
+### The name field, which is the more interesting half
+
+Step 1 asked every founder for their name, gated Continue on it, and for a founder we already know **silently discarded what they typed**. `provisionFounderGroup` reuses the existing `User` row and only writes `name` on the create branch. Meanwhile `Step2Playback` renders that typed name back as YOUR NAME. So a returning founder could type Bob, watch Orbit's playback card confirm Bob, tap confirm, and create the group as Jacob. A screen promising something the write throws away is worse than a screen that never asked.
+
+Now: prefilled from the session and rendered as **text, not a disabled input**, with Continue gated on the description alone. A first-time founder sees exactly what they saw before.
+
+**Editable-and-saved was considered and declined by the owner, and the reason is blast radius rather than effort.** `name` lives on `User`, not `Membership`, so an edit here would rename the person in **every group they belong to**, retroactively, on every past message, from inside a screen about starting a *different* group. No confirmation, widest possible reach, in a product already bitten once by identity going quietly wrong (the rejoin-as-a-second-person hole). The cost accepted knowingly: a returning founder whose stored name is wrong sees it here and cannot fix it, because **name editing exists nowhere in this product**. It belongs on the group info page or in the queued "founder can fix group details after creation" slice.
+
+### What review caught
+
+Spec ✅ on both defects, with one accessibility finding worth recording because of its shape rather than its size. With the name read-only, the "Your name" `<label>` was no longer programmatically tied to its value, so a returning founder using a screen reader got a bare label and a bare string. **The test asserted that absence as the expected behaviour**, which means it would have passed forever while the accessibility stayed broken. The component now carries `aria-labelledby` (a plain `<div>` cannot be reached by `htmlFor`), and the test was inverted to assert the association and mutation-proven in that direction.
+
+That is the same failure shape as the confidently-wrong comments elsewhere in this codebase: an artefact that looks like verification, pointing the wrong way.
+
+### Evidence
+
+Baseline on `12ebe2d`: 1730 passed, 146 files. After: 1737 / 147, zero failures.
+
+Verified in a browser at 375x812 against dev-test: the name renders as `Riley` with no input element and no disabled input anywhere on the page; Continue enables on the description alone; the exit lands on `/groups`. **Scope limit, stated because the session used had three groups:** that session does not reproduce the original one-group symptom, since `/` would have sent it to `/groups` anyway. What was proven is that the link is now a fixed parent that cannot guess. The one-group path is the owner's to confirm on a phone.
+
+Nothing was migrated and no deploy obligation is created.
+
+### Debt
+
+The known name is fetched in the `/create` server shell and threaded through the wizard purely to display it. If the wizard ever needs a second thing from the session, that thread wants a small viewer object rather than a second scalar prop.

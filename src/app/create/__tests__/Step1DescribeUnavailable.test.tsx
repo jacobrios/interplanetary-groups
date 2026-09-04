@@ -13,6 +13,7 @@ function renderWithState(extractState: Parameters<typeof Step1Describe>[0]["extr
     <Step1Describe
       founderName="Taylor"
       onFounderNameChange={() => {}}
+      knownName={null}
       description="we climb sundays"
       onDescriptionChange={() => {}}
       formAction={() => {}}
