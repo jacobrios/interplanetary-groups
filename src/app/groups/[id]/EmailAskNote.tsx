@@ -403,12 +403,20 @@ export default function EmailAskNote({
   // the sheet was open, not the moment it first appeared, and the 24 hours runs
   // from there.
   //
-  // Accepted, not guarded, and the reason is the sheet's own modality: it
-  // covers the screen and blocks the composer, so a member cannot do anything
-  // that would revalidate while it is up. That bounds this to the one or two
-  // renders already in flight from their own last send, seconds apart, which
-  // moves the deadline by seconds. A guard here would buy nothing and would add
-  // a second thing that has to agree with the write.
+  // Accepted, not guarded, and the reasoning changed once already: this used
+  // to say the sheet's own modality bounded the rewrite count, because a
+  // member cannot do anything that would revalidate while it is up. That is
+  // no longer true. LiveRefresh.tsx now polls router.refresh() every 10
+  // seconds regardless of what the member does, sheet up or not, so this
+  // effect refires on that cadence for as long as the sheet stays open — a
+  // member who leaves it up for a minute rewrites the cookie roughly six
+  // times, not once or twice. The write is still accepted rather than
+  // guarded: each rewrite pushes the stored instant forward by about 10
+  // seconds, so the practical effect is that the 24-hour cooldown starts
+  // counting from whenever the member actually closes the sheet, not from
+  // whenever it first appeared, which is the sheet's own intent anyway. A
+  // guard here would buy nothing and would add a second thing that has to
+  // agree with the write.
   //
   // What is genuinely pinned is that a single appearance writes ONCE, not once
   // per render, and a test asserts that count rather than just the value.

@@ -53,6 +53,7 @@ import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import SeenMarker from "./SeenMarker"
+import LiveRefresh from "./LiveRefresh"
 import { applySettledSends, type SettledSend } from "@/lib/messages/optimistic-display"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
@@ -226,13 +227,50 @@ export default function GroupHome({
   const [settledSends, setSettledSends] = useState<SettledSend[]>([])
   const displayMessages = applySettledSends(optimisticMessages, settledSends)
 
+  // Whether React is still holding at least one optimistic entry it has not
+  // yet reconciled away. Used ONLY by the cleanup effect immediately below,
+  // to decide when settledSends' ids are dead weight — it is NOT what feeds
+  // LiveRefresh's `paused` prop (see sendsInFlight further down), and that
+  // split is deliberate, not an oversight: this tracks the raw useOptimistic
+  // list, where an entry's isPending only clears when React actually
+  // releases it, which per this file's header is not until every
+  // router-level transition in flight has settled, Orbit's read included —
+  // and on a send whose request hangs forever (SEND_DEADLINE_MS's whole
+  // reason to exist), React never settles that transition at all. Fine for
+  // this cleanup (an unbounded wait just means the dead ids linger a little
+  // longer), fatal for `paused` (an unbounded wait means refresh never comes
+  // back). Do not reuse this constant for the LiveRefresh binding.
+  const hasUnreconciledSend = optimisticMessages.some((m) => m.isPending)
+
   // Nothing is in flight any more, so the ids are dead weight. Cleared rather
   // than left to grow for the life of the tab.
   useEffect(() => {
-    if (settledSends.length > 0 && !optimisticMessages.some((m) => m.isPending)) {
+    if (settledSends.length > 0 && !hasUnreconciledSend) {
       setSettledSends([])
     }
-  }, [optimisticMessages, settledSends])
+  }, [hasUnreconciledSend, settledSends])
+
+  // How many sends are still waiting on their OWN guarded promise (the
+  // `sending` binding below, built by withDeadline) to settle. This is what
+  // LiveRefresh's `paused` prop reads, and it is bounded on purpose, in a way
+  // hasUnreconciledSend above is not: withDeadline's whole job is to make
+  // `sending` resolve — never reject, and never hang — within
+  // SEND_DEADLINE_MS even when the real network request never answers. So
+  // this counter cannot get stuck at a nonzero value for longer than that
+  // deadline, however long React goes on holding the underlying transition.
+  //
+  // Reviewed and corrected once already: the first version of this file fed
+  // `paused` from hasUnreconciledSend, which reads React's own release timing
+  // and has no upper bound. A dropped connection mid-send (the exact,
+  // phone-verified scenario SEND_DEADLINE_MS exists for: "still dim and still
+  // silent after 25 seconds") leaves that transition pending for the rest of
+  // the tab's life, which would have paused LiveRefresh forever after one bad
+  // WiFi moment — silently reintroducing the frozen-screen bug this slice
+  // exists to fix, for every later tick and every tab-return refresh. The
+  // property this counter holds instead: once the member has been told the
+  // send failed (or it actually landed), there is nothing left to protect,
+  // so refresh must resume, whatever React is still doing internally.
+  const [sendsInFlight, setSendsInFlight] = useState(0)
 
   // Messages waiting to be handed to Orbit.
   //
@@ -306,13 +344,26 @@ export default function GroupHome({
     setInputValue("")
     setErrorMsg(null)
 
-    // Started outside the transition so the same promise can be observed twice:
-    // once by the transition that owns the optimistic entry, and once by the
-    // plain callback below that decides when the entry stops LOOKING unsent.
-    // Guarded once, consumed twice: the transition below decides what the
-    // member is told, and the .then decides whether the bubble stops looking
-    // unsent. Both must agree, so both read the same guarded promise.
+    // Started outside the transition so the same promise can be observed
+    // three times: once by the transition that owns the optimistic entry,
+    // once by the plain callback below that decides when the entry stops
+    // LOOKING unsent, and once by the counter that bounds LiveRefresh's
+    // `paused` prop. Guarded once, consumed three times: the transition below
+    // decides what the member is told, the first .then decides whether the
+    // bubble stops looking unsent, and the .finally below decides when this
+    // send stops holding refresh back. All three read the same guarded
+    // promise so they can never disagree about when a send is "done".
     const sending = withDeadline(sendMessageAction({}, formData))
+
+    // sendsInFlight is what makes `sending`'s bound (SEND_DEADLINE_MS) reach
+    // LiveRefresh: withDeadline guarantees `sending` settles no matter what
+    // the real request does, so this decrement is guaranteed to run, and
+    // guaranteed to run within that deadline. Counted rather than a single
+    // boolean because the input is never disabled (this slice's own rule):
+    // a second send can start before the first settles, and the count must
+    // not hit zero, and un-pause refresh, while the first is still unresolved.
+    setSendsInFlight((n) => n + 1)
+    void sending.finally(() => setSendsInFlight((n) => n - 1))
 
     startTransition(async () => {
       addOptimisticMessage(optimistic)
@@ -378,6 +429,12 @@ export default function GroupHome({
       }}
     >
       <SeenMarker groupId={groupId} viewerId={viewerId} />
+      {/* Renders for any viewer, member or not; the page-level members-only
+          wall already decided who reaches this screen. `paused` is bound to
+          sendsInFlight, deliberately NOT hasUnreconciledSend: see
+          sendsInFlight's own comment for why the unbounded signal would
+          reintroduce a frozen screen after one dropped connection. */}
+      <LiveRefresh paused={sendsInFlight > 0} />
 
       {/* Scrollable feed */}
       <MessageFeed

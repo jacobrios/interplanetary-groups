@@ -17,13 +17,18 @@
 // - Chat body stays at --type-body (17px), never shrunk (§7 firm rule).
 
 import { MessageAuthor } from "@prisma/client"
-import { Fragment, useRef, useEffect } from "react"
+import { Fragment, useRef, useEffect, useCallback } from "react"
 import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
 import GroupProposalChips, { type FeedGroupProposal } from "./GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { groupMessagesByDay } from "@/lib/messages/day-groups"
 import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
+
+// A viewer this close to the bottom of the scroll region is treated as
+// "reading the live edge" and gets auto-scrolled to a newly arrived message;
+// conventional chat-client threshold.
+const NEAR_BOTTOM_THRESHOLD_PX = 100
 
 export interface FeedMessage {
   id: string
@@ -86,6 +91,23 @@ export default function MessageFeed({
   )
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Tracks whether the viewer is currently within NEAR_BOTTOM_THRESHOLD_PX of
+  // the bottom of the scroll region. Updated only by a real scroll event, so
+  // appending a new message below the fold (which grows scrollHeight but
+  // does not itself fire "scroll") never changes it — the value the
+  // length-change effect below reads always reflects where the viewer was
+  // sitting BEFORE the new message arrived, which is the question that
+  // matters. Starts true: a feed nobody has scrolled yet counts as "at the
+  // bottom" (and the first-mount branch below scrolls unconditionally
+  // regardless of this ref anyway).
+  const isNearBottomRef = useRef(true)
+  const hasMountedRef = useRef(false)
+
+  // Holds the current scroll listener's own teardown, so the callback ref
+  // below can detach a prior element's listener before attaching to a new
+  // one (or on final unmount, when React calls the callback ref with null).
+  const scrollCleanupRef = useRef<(() => void) | null>(null)
+
   // Day dividers group in the GROUP's own timezone, never the viewer's (Task
   // 7, CLAUDE.md time rules): the feed is a shared surface, so "Today" must
   // mean the same calendar day to everyone reading it. `now` is only the
@@ -94,15 +116,65 @@ export default function MessageFeed({
   // timeZone, never a local-zone Date method.
   const dayGroups = groupMessagesByDay(messages, timeZone, new Date())
 
+  // A CALLBACK ref rather than useRef()+useEffect(..., []), and this is a
+  // correction after review, not a style preference. This component renders
+  // an entirely different subtree (no scroll container at all) while
+  // messages.length === 0, and a brand-new group's home genuinely starts
+  // there: provisionFounderGroup creates no messages, and a founder who set
+  // no recurring rhythm gets no first-event reconcile either. A useRef
+  // container ref paired with a `[]`-deps effect only ever runs that effect
+  // once, at this component instance's first mount — if the scrollable div
+  // does not exist yet at that moment, the effect reads a null ref, bails,
+  // and NEVER runs again for the life of the instance, because nothing
+  // about messages arriving later re-triggers a `[]` effect. The listener
+  // would then simply never attach, isNearBottomRef would stay stuck at its
+  // initial `true` forever, and every later message-count change would
+  // scroll unconditionally regardless of where the viewer actually was —
+  // the exact hijack this file exists to prevent, silently reintroduced for
+  // any group that starts empty. A callback ref does not have this failure
+  // mode: React invokes it with the real node every time the underlying DOM
+  // element is created or destroyed, empty-to-populated transition included,
+  // so the listener attaches whenever there is something to attach it to.
+  const setContainerRef = useCallback((el: HTMLDivElement | null) => {
+    scrollCleanupRef.current?.()
+    scrollCleanupRef.current = null
+    if (!el) return
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      isNearBottomRef.current = distanceFromBottom < NEAR_BOTTOM_THRESHOLD_PX
+    }
+    el.addEventListener("scroll", handleScroll)
+    scrollCleanupRef.current = () => el.removeEventListener("scroll", handleScroll)
+  }, [])
+
   // Scroll to the bottom sentinel on mount (so the feed opens at the most
-  // recent messages) and whenever the message count changes (so the viewer's
-  // just-sent optimistic message is immediately visible).
+  // recent messages), and on every later message-count change only when the
+  // viewer was already near the bottom or the newest message is their own.
+  //
+  // Before LiveRefresh, messages.length only changed because the VIEWER did
+  // something (sent a message, or the page reloaded with more history), so
+  // scrolling unconditionally was correct: the change was always something
+  // they were waiting to see. Now the group home polls in the background,
+  // so this effect can fire because a DIFFERENT member posted while this
+  // viewer had scrolled up to reread something earlier in the feed. Snapping
+  // them back to the bottom mid-read is the exact hazard this guards
+  // against: a chat client only follows the tail when the reader is already
+  // at it, or when the new line is the reader's own.
+  //
   // Dependency is messages.length (a primitive) not messages (new array ref
   // every render), so the effect only fires when messages are added/removed.
   // When the feed is empty the sentinel is not rendered, bottomRef.current is
   // null, and the optional-chain makes this a no-op.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView()
+    const lastMessage = messages[messages.length - 1]
+    const isOwnNewMessage =
+      lastMessage !== undefined && viewerId !== null && lastMessage.authorId === viewerId
+    const shouldScroll = !hasMountedRef.current || isNearBottomRef.current || isOwnNewMessage
+    hasMountedRef.current = true
+    if (shouldScroll) {
+      bottomRef.current?.scrollIntoView()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above: only messages.length, deliberately.
   }, [messages.length])
 
   if (messages.length === 0) {
@@ -132,6 +204,7 @@ export default function MessageFeed({
 
   return (
     <div
+      ref={setContainerRef}
       style={{
         flex: 1,
         overflowY: "auto",

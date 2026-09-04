@@ -1,7 +1,13 @@
 // src/lib/groups/seen.ts
 //
-// When a member last opened a group. Written on every group-home render,
-// read by nothing yet: the digest slice is what consumes it.
+// When a member last opened a group. Written once per mount by
+// SeenMarker.tsx (guarded there by a lastFiredGroupId ref so a given groupId
+// fires exactly once), read by nothing yet: the digest slice is what
+// consumes it. Not written on every render: LiveRefresh.tsx now re-renders
+// the group home roughly six times a minute via router.refresh(), but that
+// refetches the RSC payload into the same mounted client tree rather than
+// remounting SeenMarker, so its once-per-groupId guard still holds and this
+// stays a single write per visit.
 //
 // The membership check here is not one of the four forms listed in
 // src/lib/auth/membership.ts: it folds the (userId, groupId) predicate

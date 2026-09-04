@@ -55,6 +55,27 @@ vi.mock("@/app/actions/detect-intent", () => ({
 vi.mock("@/app/actions/group-seen", () => ({
   markGroupSeenAction: (...args: unknown[]) => seenMock(...(args as [])),
 }))
+// GroupHome now mounts LiveRefresh, which calls next/navigation's useRouter;
+// that throws outside a real app-router tree. LiveRefresh's own polling
+// mechanics (the interval, the visibility/focus listeners, coalescing) are
+// LiveRefresh.test.tsx's job, not this file's. What IS this file's job, in
+// the "resumes after a hung send" test below, is what GroupHome feeds
+// LiveRefresh's `paused` prop with — so refreshMock is hoisted and the mock
+// returns the SAME object on every call, matching real next/navigation's own
+// stable reference. An object literal rebuilt per call (as this used to read)
+// would give LiveRefresh's own polling effect a new `router` identity on
+// every GroupHome re-render, tearing down and restarting its interval each
+// time, which is a test-mock artifact rather than anything real Next.js does.
+const refreshMock = vi.fn()
+const routerMock = { refresh: refreshMock }
+vi.mock("next/navigation", () => ({ useRouter: () => routerMock }))
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    value: state,
+    configurable: true,
+  })
+}
 
 /** A promise the test resolves when it chooses, standing in for Orbit thinking. */
 function deferred<T>() {
@@ -109,6 +130,8 @@ afterEach(() => {
   sendMock.mockReset()
   detectMock.mockReset()
   seenMock.mockReset()
+  refreshMock.mockClear()
+  setVisibility("visible")
 })
 
 describe("GroupHome: the send interaction", () => {
@@ -219,6 +242,107 @@ describe("GroupHome: the send interaction", () => {
       // error is shown AND the message is still present at 0.65 opacity. Third
       // time this file has had to say "the browser is the instrument"; that is
       // the pattern, not a coincidence.
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("resumes LiveRefresh's polling once a hung send's deadline passes, even though the request itself never settles", async () => {
+    // The bug this guards against, found in review of an earlier version of
+    // this wiring: `paused` was bound to hasUnreconciledSend, which reads
+    // React's own optimistic-entry release timing. That has NO upper bound —
+    // per this file's header, React does not release an entry until every
+    // router-level transition around it settles, and a hung send (this exact
+    // scenario: dropped connection, request never resolves) leaves that
+    // transition pending forever. Bound to that signal, `paused` would stick
+    // true for the rest of the tab's life after one bad connection moment,
+    // silently reintroducing the frozen screen this whole slice exists to
+    // fix. sendsInFlight exists instead because withDeadline GUARANTEES
+    // `sending` settles within SEND_DEADLINE_MS no matter what sendMock's
+    // promise below does, so this test never lets that promise resolve at
+    // all and still expects refresh to resume on schedule.
+    //
+    // What this test does and does not cover, stated plainly after a false
+    // claim shipped here once already (this codebase's own recurring
+    // failure is a comment asserting a mechanism that is not real; this is
+    // not another one). It guards the counter's OWN wiring: deleting the
+    // `.finally` decrement that drops sendsInFlight back to 0 turns this
+    // red, because refreshMock would then never fire at T=30000 either.
+    //
+    // It CANNOT distinguish `paused={sendsInFlight > 0}` from the rejected
+    // `paused={hasUnreconciledSend}` binding, and reverting the binding does
+    // NOT turn this red: sendMock's mocked promise here is a plain async
+    // function with no router-level transition around it, so when
+    // withDeadline's timer resolves `sending` at T=20500, React releases the
+    // optimistic entry in the very same tick — there is no real transition
+    // left pending for it to wait on. hasUnreconciledSend and sendsInFlight
+    // therefore clear at the same instant in this mocked environment, and
+    // both bindings pass this test identically. Mocking the action is what
+    // removes the real Next router transition that makes hasUnreconciledSend
+    // unbounded in production; a test that mocks it away cannot then prove
+    // the two bindings differ.
+    //
+    // The correctness of choosing sendsInFlight rests on the promise-
+    // semantics argument in GroupHome.tsx's own comment at that binding
+    // (withDeadline's guarantee that `sending` settles within
+    // SEND_DEADLINE_MS regardless of the real request), not on this test.
+    vi.useFakeTimers()
+    try {
+      setVisibility("visible")
+      // Never resolves. Standing in for a dropped connection: the request
+      // just hangs, exactly like the existing hung-send test above.
+      sendMock.mockImplementation(() => new Promise(() => {}))
+
+      renderHome()
+
+      // Offset the send by 500ms so its 20s deadline (target: T=20500) lands
+      // between LiveRefresh's 10s tick boundaries (10000, 20000, 30000, ...)
+      // rather than exactly on one. Colliding the two would leave the test
+      // dependent on which of two same-instant fake timers fires first,
+      // which is exactly the kind of flake this file's own header warns
+      // against manufacturing.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      const field = input()
+      fireEvent.change(field, { target: { value: "no signal here" } })
+      await act(async () => {
+        fireEvent.submit(field.closest("form")!)
+      })
+
+      // T=10000: first tick. Still well inside the hang; sendsInFlight is
+      // still 1, so `paused` is true and this tick must no-op.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9_500)
+      })
+      expect(refreshMock).not.toHaveBeenCalled()
+
+      // T=20000: second tick. The deadline (T=20500) has not fired yet
+      // either, so sendsInFlight is still 1 and this tick must ALSO no-op.
+      // This is the assertion that would catch a fix that only widens the
+      // window rather than truly bounding it.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000)
+      })
+      expect(refreshMock).not.toHaveBeenCalled()
+
+      // T=20500: withDeadline's own timer fires. sendMock's promise is still
+      // pending and always will be; sendsInFlight must drop to 0 anyway,
+      // because it is driven by `sending` (the guarded promise), not by the
+      // real request.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+      expect(refreshMock).not.toHaveBeenCalled() // no tick has landed yet
+
+      // T=30000: third tick, the first one to land AFTER the deadline. If
+      // `paused` is correctly bounded, refresh fires here for the first
+      // time.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9_500)
+      })
+      expect(refreshMock).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
