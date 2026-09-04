@@ -50,12 +50,36 @@
 // against the suite it was written for, and it deadlocked on contact.
 //
 // A run that takes the lock records the lock path in an environment variable.
-// A child process inherits that variable (spawn inherits the environment by
-// default, so no call site changes), sees this project's own path, and skips
-// acquiring. The guarantee is unchanged, one suite per checkout, because a
-// process that inherited the marker is provably inside the run that holds it.
-// Keying on the path rather than a bare flag matters: a nested run against a
-// DIFFERENT project still locks that project normally.
+// A nested run sees this project's own path and skips acquiring. Keying on the
+// path rather than a bare flag matters: a nested run against a DIFFERENT project
+// still locks that project normally.
+//
+// HOW THE MARKER REACHES THE CHILD, stated precisely because the obvious answer
+// is wrong and would misdirect whoever debugs this next. globalSetup runs in the
+// vitest main process; the nested spawn happens in a pool worker, whose
+// environment is rebuilt from process.env when the worker starts its tests,
+// after global setup has run. So it depends on that ordering inside vitest, not
+// on plain parent-to-child inheritance. (Reported by the reviewing session on
+// 4 September 2026 from reading vitest's own code; not independently confirmed
+// here.) If a future vitest snapshots worker environments earlier, the deadlock
+// returns, and the symptom is a nested run waiting out WAIT_MS.
+//
+// WHAT THE GUARANTEE ACTUALLY IS, since the first version of this comment
+// overclaimed it in exactly the shape of the incident it was written for. This
+// delivers one LOCK-TAKING suite per checkout, not one suite per checkout. A
+// nested run skips the lock by design and can still do real database work
+// alongside its parent: in interplanetary-groups the nested `vitest related`
+// reaches a route test that creates users, groups and events through Prisma
+// while the parent suite runs. That predates this file and is not made worse by
+// it, but a comment claiming the hole is closed is worse than the hole.
+//
+// WATCH MODE HOLDS THE LOCK, and that is correct. `vitest --watch` runs
+// globalSetup once and tears it down only on close, so a watcher owns the lock
+// for as long as it runs. It keeps beating while it does, so it reads as running
+// rather than stuck and is never stolen from. Every other run in that checkout
+// waits and then throws, which is honest: something really is using the database.
+// Worth knowing before leaving a watcher running next to an agent that runs
+// suites, because the agent will be told to wait rather than told why.
 //
 // WIRING (per project, in vitest.config.ts):
 //   globalSetup: ["./.claude/hooks/suite-lock.mjs"]
@@ -67,10 +91,36 @@ import { join, resolve } from "node:path"
 
 const LOCK_DIR = join(tmpdir(), "claude-suite-locks")
 
-// Longer than any suite this is meant to guard. A lock older than this is
-// assumed abandoned by a killed process, because a stuck lock nobody can clear
-// would take the suite down permanently, which is worse than a rare collision.
-const STALE_MS = 600_000
+// A holder must prove it is WORKING, not merely existing. It touches its lock
+// file every BEAT_MS while it runs, and a lock goes stale when its holder is
+// gone or has been silent for SILENT_MS.
+//
+// Three states, and every one of them resolves without a human. That last part
+// is Jacob's ruling on 4 September 2026: he does not want to be a gate on code
+// execution, so no design that ends in "until somebody notices" is acceptable.
+//   - alive and touching:        running, so wait
+//   - alive and long silent:     stuck, so steal
+//   - gone:                      steal
+//
+// Two earlier versions each collapsed a pair of those. Stealing any lock older
+// than ten minutes treated a healthy `vitest --watch` as abandoned and silently
+// put two suites back on one database. Liveness alone then treated a wedged run
+// as healthy: an overnight suite here held the lock for 308 minutes, alive and
+// idle, confirmed with ps, and blocked every run after it until a human killed
+// it. Silence separates the two; neither age nor liveness can.
+//
+// The numbers are picked against measurements rather than roundness. The suite
+// this guards runs 71 to 84 seconds, WAIT_MS is 300s, and the stop hook's budget
+// is 600s. BEAT_MS at 5s means SILENT_MS at 120s is twenty-four missed beats, so
+// a wrongly stolen lock needs a two-minute event-loop stall in a run whose whole
+// length is under 90 seconds. And 120s sits well inside WAIT_MS, so a waiting run
+// reclaims a stuck lock rather than waiting out its timeout and failing.
+//
+// Stated as silence, not as age, deliberately: age is a property of the run and
+// varies per project, while silence is a property of the holder being stuck and
+// does not.
+const BEAT_MS = 5_000
+const SILENT_MS = 120_000
 
 // Shorter than the stop hook's own 600s budget, so a wait cannot silently
 // consume it and turn into an invisible timeout on the hook instead.
@@ -112,8 +162,12 @@ function alive(pid, isAlive) {
 
 function stale(holder, now, isAlive) {
   if (!holder || typeof holder.pid !== "number") return true
-  if (now - Number(holder.at || 0) > STALE_MS) return true
-  return !alive(holder.pid, isAlive)
+  if (!alive(holder.pid, isAlive)) return true
+  // `beat` falls back to `at` so a lock written by an older version, which never
+  // touched itself, is judged by when it was taken rather than read as silent
+  // from birth.
+  const lastHeard = Number(holder.beat ?? holder.at ?? 0)
+  return now - lastHeard > SILENT_MS
 }
 
 /**
@@ -131,6 +185,18 @@ export async function acquire({
   isAlive,
   waitMs = WAIT_MS,
   env = process.env,
+  // Injectable so tests can drive the heartbeat by hand instead of waiting on a
+  // real timer, and so a test can assert that a silent holder is reclaimed.
+  startBeat = (touch) => {
+    const timer = setInterval(() => {
+      if (!touch()) clearInterval(timer)
+    }, BEAT_MS)
+    if (typeof timer.unref === "function") timer.unref()
+    return { stop: () => clearInterval(timer) }
+  },
+  // Injectable so a test can force a non-EEXIST failure, which is the path that
+  // used to spin forever and cannot be provoked from a normal filesystem.
+  write = (p, data) => writeFileSync(p, data, { flag: "wx" }),
 } = {}) {
   const path = lockPath(root)
 
@@ -145,28 +211,59 @@ export async function acquire({
     try {
       // 'wx' fails when the file exists, which is what makes this atomic
       // between two processes racing to create it.
-      writeFileSync(path, JSON.stringify({ pid, at: now() }), { flag: "wx" })
+      const takenAt = now()
+      write(path, JSON.stringify({ pid, at: takenAt, beat: takenAt }))
+
+      // Prove we are still working, rather than merely still existing. Rewrites
+      // only our own lock: if ours went stale and someone else took it, beating
+      // on would resurrect a lock we no longer hold. unref'd so a forgotten
+      // interval can never be the thing keeping a process alive.
+      const beat = startBeat(() => {
+        const held = readHolder(path)
+        if (!held || held.pid !== pid) return false
+        try {
+          writeFileSync(path, JSON.stringify({ ...held, beat: now() }))
+        } catch {
+          // A failed touch is not worth taking the suite down for. Miss enough
+          // of them and this holder reads as stuck, which is the right answer.
+        }
+        return true
+      })
+
       // Set before returning, so anything this run spawns inherits the marker.
       env[HELD_ENV] = path
       return () => {
+        beat.stop()
         // Release only our own lock. If ours went stale and someone else took
         // it, deleting would hand a third run a lock nobody holds.
         const held = readHolder(path)
         if (held && held.pid === pid) rmSync(path, { force: true })
         if (env[HELD_ENV] === path) delete env[HELD_ENV]
       }
-    } catch {
+    } catch (err) {
+      // Only "the file already exists" means someone else holds the lock. Every
+      // other failure (read-only lock dir, disk full, EACCES, EMFILE) used to
+      // fall through readHolder -> null -> stale -> a no-op remove -> continue,
+      // with no sleep and no elapsed check, which is a tight 100% CPU spin that
+      // never times out: a silent permanent hang inside the file whose job is
+      // making failures legible. Found by review on 4 September 2026.
+      if (err && err.code && err.code !== "EEXIST") throw err
+
+      // Above the stale branch on purpose. When it sat below, any path that
+      // reached `continue` skipped it entirely, which is what made the spin
+      // unbounded rather than merely wasteful.
       const holder = readHolder(path)
-      if (stale(holder, now(), isAlive)) {
-        rmSync(path, { force: true })
-        continue
-      }
       if (now() - startedWaiting >= waitMs) {
         throw new Error(
           `suite-lock: waited ${Math.round(waitMs / 1000)}s for another test run ` +
             `(pid ${holder && holder.pid}) and gave up. No test failed; the suite ` +
             `never started. Check whether a suite is stuck, then re-run.`
         )
+      }
+
+      if (stale(holder, now(), isAlive)) {
+        rmSync(path, { force: true })
+        continue
       }
       await sleep(POLL_MS)
     }

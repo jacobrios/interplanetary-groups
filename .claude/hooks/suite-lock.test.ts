@@ -10,6 +10,19 @@ import { rmSync, writeFileSync, existsSync, readFileSync, mkdirSync } from "node
 import { dirname } from "node:path"
 import { acquire, lockPath, HELD_ENV } from "./suite-lock.mjs"
 
+// Every test injects its own `env`. `acquire` defaults to `process.env` and
+// short-circuits when it sees this project's own lock path there, so a test that
+// takes the default is reading ambient state left by whatever ran before it,
+// including this file's own earlier tests. Injecting makes each one independent.
+//
+// And every test that waits advances the clock. A frozen `now` with a sleep that
+// only yields a microtask spins forever and starves timers, so the test hangs
+// instead of failing, which is far worse than a red result.
+const advancing = (from: number, step = 250) => {
+  let t = from
+  return () => (t += step)
+}
+
 const ROOT = "/tmp/suite-lock-test-project"
 const PATH = lockPath(ROOT)
 
@@ -21,7 +34,7 @@ afterEach(() => rmSync(PATH, { force: true }))
 
 describe("acquire", () => {
   it("takes a free lock and records the holder", async () => {
-    const release = await acquire({ root: ROOT, pid: 111 })
+    const release = await acquire({ root: ROOT, env: {}, pid: 111 })
     expect(existsSync(PATH)).toBe(true)
     expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
     release()
@@ -33,6 +46,7 @@ describe("acquire", () => {
     let polls = 0
     const promise = acquire({
       root: ROOT,
+      env: {},
       pid: 111,
       isAlive: (pid) => pid === 222 && polls < 3,
       sleep: async () => {
@@ -47,27 +61,49 @@ describe("acquire", () => {
 
   it("steals a lock whose holder is gone", async () => {
     writeFileSync(PATH, JSON.stringify({ pid: 999, at: Date.now() }))
-    const release = await acquire({ root: ROOT, pid: 111, isAlive: () => false })
+    const release = await acquire({ root: ROOT, env: {}, pid: 111, isAlive: () => false })
     expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
     release()
   })
 
-  it("steals a lock older than the stale window even if the pid looks alive", async () => {
+  // Inverted on 4 September 2026. An earlier version stole any lock older than
+  // ten minutes even from a live holder, which silently defeated the lock in
+  // watch mode: a watcher holds it for hours, so every other run stole it and
+  // two suites went back on one database with no symptom.
+  it("never steals from a live holder, however old the lock", async () => {
     const t0 = 1_000_000_000_000
     writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0 }))
-    const release = await acquire({
-      root: ROOT,
-      pid: 111,
-      now: () => t0 + 600_001,
-      isAlive: () => true,
-    })
-    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
-    release()
+    await expect(
+      acquire({
+        root: ROOT,
+        env: {},
+        pid: 111,
+        waitMs: 1000,
+        // The clock MUST advance. A frozen `now` plus a sleep that only yields a
+        // microtask starves the elapsed check forever, and the loop cannot even
+        // be broken by a timer. That is how the first version of this test hung
+        // rather than failing, and it is why every test here advances time.
+        now: advancing(t0),
+        isAlive: () => true,
+        sleep: async () => {},
+      })
+    ).rejects.toThrow(/waited/)
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(222)
+  })
+
+  it("gives up rather than spinning when the lock cannot be written at all", async () => {
+    // A non-EEXIST failure used to fall through to the stale branch and re-loop
+    // with no sleep and no elapsed check: a tight spin that never timed out.
+    const err: NodeJS.ErrnoException = new Error("read-only file system")
+    err.code = "EROFS"
+    await expect(
+      acquire({ root: ROOT, env: {}, pid: 111, write: () => { throw err } })
+    ).rejects.toThrow(/read-only file system/)
   })
 
   it("steals an unreadable lock rather than blocking on it forever", async () => {
     writeFileSync(PATH, "half-written garbage")
-    const release = await acquire({ root: ROOT, pid: 111, isAlive: () => true })
+    const release = await acquire({ root: ROOT, env: {}, pid: 111, isAlive: () => true })
     expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
     release()
   })
@@ -79,6 +115,7 @@ describe("acquire", () => {
     await expect(
       acquire({
         root: ROOT,
+        env: {},
         pid: 111,
         waitMs: 1000,
         now: () => t,
@@ -93,7 +130,7 @@ describe("acquire", () => {
   })
 
   it("release does not remove a lock that has been taken over", async () => {
-    const release = await acquire({ root: ROOT, pid: 111 })
+    const release = await acquire({ root: ROOT, env: {}, pid: 111 })
     writeFileSync(PATH, JSON.stringify({ pid: 333, at: Date.now() }))
     release()
     expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(333)
@@ -101,6 +138,103 @@ describe("acquire", () => {
 
   it("keys the lock per project, so two projects never block each other", () => {
     expect(lockPath("/tmp/project-a")).not.toBe(lockPath("/tmp/project-b"))
+  })
+})
+
+// A holder must prove it is working, not merely existing. These cover the three
+// states the lock has to tell apart, and all three resolve with no human: alive
+// and beating is running, alive and long silent is stuck, gone is gone. Both
+// earlier versions collapsed a pair of them, and each collapse had an incident.
+describe("stuck versus working", () => {
+  const noBeat = () => ({ stop() {} })
+  const t0 = 1_000_000_000_000
+
+  it("reclaims a holder that is alive but has gone silent for hours", async () => {
+    // The real case: an overnight run held this 308 minutes, alive and idle,
+    // confirmed with ps, and blocked every later run until a human killed it.
+    writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0, beat: t0 }))
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      waitMs: 2000,
+      isAlive: () => true,
+      startBeat: noBeat,
+      now: advancing(t0 + 308 * 60 * 1000),
+      sleep: async () => {},
+    })
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
+    release()
+  })
+
+  it("never reclaims a watcher that is still beating, however long it has held", async () => {
+    const eightHours = t0 + 8 * 3600 * 1000
+    writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0, beat: eightHours }))
+    await expect(
+      acquire({
+        root: ROOT,
+        env: {},
+        pid: 111,
+        waitMs: 2000,
+        isAlive: () => true,
+        startBeat: noBeat,
+        now: advancing(eightHours),
+        sleep: async () => {},
+      })
+    ).rejects.toThrow(/waited/)
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(222)
+  })
+
+  it("judges a lock written before beats existed by when it was taken", async () => {
+    writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0 })) // no beat field
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      waitMs: 2000,
+      isAlive: () => true,
+      startBeat: noBeat,
+      now: advancing(t0 + 200_000),
+      sleep: async () => {},
+    })
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(111)
+    release()
+  })
+
+  it("moves beat forward when it touches", async () => {
+    let touch: (() => boolean) | null = null
+    let clock = t0
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      now: () => clock,
+      startBeat: (t: () => boolean) => {
+        touch = t
+        return { stop() {} }
+      },
+    })
+    clock = t0 + 60_000
+    touch!()
+    expect(JSON.parse(readFileSync(PATH, "utf8")).beat).toBe(t0 + 60_000)
+    release()
+  })
+
+  it("refuses to beat on a lock someone else has taken, and stops itself", async () => {
+    let touch: (() => boolean) | null = null
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      startBeat: (t: () => boolean) => {
+        touch = t
+        return { stop() {} }
+      },
+    })
+    writeFileSync(PATH, JSON.stringify({ pid: 333, at: Date.now(), beat: Date.now() }))
+    expect(touch!()).toBe(false) // and returning false clears its own interval
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(333)
+    release()
   })
 })
 
