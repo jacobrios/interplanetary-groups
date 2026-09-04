@@ -58,10 +58,11 @@ describe("the your-groups route", () => {
     getCurrentUser.mockResolvedValue(null)
 
     // Not .rejects.toThrow(string): that assertion is a substring match, and
-    // "NEXT_REDIRECT:/" is a prefix of EVERY redirect message this mock can
-    // produce, so it passed for a redirect to "/groups/whatever" just as
-    // happily as for the front door. Catching the signal and checking its
-    // `to` with exact equality is what pins the destination.
+    // "NEXT_REDIRECT:/" is a prefix of the message for every root-relative
+    // path, which is every destination this product actually redirects to. So
+    // it passed for a redirect to "/groups/whatever" just as happily as for
+    // the front door. Catching the signal and checking its `to` with exact
+    // equality is what pins the destination.
     const signal: unknown = await GroupsPage().catch((e) => e)
     expect(signal).toBeInstanceOf(RedirectSignal)
     expect((signal as RedirectSignal).to).toBe("/")
