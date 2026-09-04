@@ -92,17 +92,22 @@ describe("EmailStatusRow, collapsed states", () => {
     expect(address.parentElement!.style.flexDirection).toBe("column")
   })
 
-  // Fix round 1: the info page's wrapper is a flex column with no
-  // alignItems, which defaults to stretch, and this repo has no button
-  // reset. Without alignSelf: "flex-start" (which ManageMembers and
-  // ResetInviteLink already set on this same page, for this same reason) a
-  // bare <button> stretches to the column's full width and the user-agent
-  // stylesheet centers its text. This is the state every member is in today,
-  // since nobody has an email attached yet.
-  it("keeps the add link from stretching full width and centering, like its peers on this page", () => {
+  // Superseded 3 Sept 2026, owner's phone QA: "Add your email" used to be a
+  // quiet text link that had to be kept from stretching (the assertion this
+  // replaced). It is a full-width outlined pill now, on the owner's explicit
+  // request, because it is the state every member without an attached
+  // address is in today, and that is the population most exposed to coming
+  // back as a duplicate person after a lost session. Full width is the
+  // point this time, so the assertion checks for it directly rather than
+  // guarding against it. minHeight is 46px, matched to LeaveGroupButton's own
+  // "Leave group" pill on this same page rather than to CancelControls on the
+  // event screen (corrected same day, second pass of the owner's QA); it
+  // remains a floor, never a fixed height, per CLAUDE.md's layout-grows rule.
+  it("renders the add control as a full-width pill, easy to find on a phone", () => {
     render(<EmailStatusRow emailAddress={null} />)
-    const link = screen.getByRole("button", { name: "Add your email" })
-    expect(link.style.alignSelf).toBe("flex-start")
+    const control = screen.getByRole("button", { name: "Add your email" })
+    expect(control.style.width).toBe("100%")
+    expect(control.style.minHeight).toBe("46px")
   })
 })
 

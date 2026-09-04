@@ -41,6 +41,24 @@
 // founder-specific problem, and "everyone can lose a session" is exactly the
 // finding that made this slice a priority (CLAUDE.md, "Identity, auth, and
 // known gaps").
+//
+// Amended 3 Sept 2026, owner's phone QA: "Add your email" was a quiet
+// underlined text link and he found it too hard to see. That matters more
+// here than it would on a merely convenient control, because a member with
+// no address attached is the one who comes back as a duplicate person after
+// losing a session, which is the exact failure this whole row exists to
+// prevent. It is now a full-width outlined pill; the expanded flow lost the
+// hairline box it used to sit inside so a tap reads as text-then-two-controls
+// appearing in place, the way CancelControls' own confirm step on the event
+// screen already does. "Change email" is deliberately untouched; see the
+// note beside it below for why the two controls are no longer meant to look
+// alike.
+//
+// Corrected the same day, second pass of the owner's QA: the pill's shape
+// (full width, rounded ends) still nods at CancelControls, but its label
+// color and border weight are matched to LeaveGroupButton's own "Leave
+// group" pill on this same page instead, not to CancelControls. See the
+// comment beside the pill style below for why.
 
 import { useState } from "react"
 import EmailAttachFlow from "../EmailAttachFlow"
@@ -103,6 +121,18 @@ const REQUEST_ERROR_MESSAGES = {
 // width and the user-agent stylesheet centers its text, which is exactly
 // what ManageMembers and ResetInviteLink already set this same property to
 // avoid on this same page.
+//
+// As of 3 Sept 2026 this style is used for "Change email" alone. "Add your
+// email" moved to the full-width pill below it, by the owner's explicit
+// choice on his phone QA, and this is not an oversight left half-finished:
+// prominence follows what is at stake, not what the control does. A member
+// with no address attached risks coming back as a stranger the next time
+// their session drops, so that control has to be easy to find. A member
+// changing an address already has one on file and is already protected, so
+// "Change email" stays exactly this quiet link, along with "Manage members"
+// and "Reset link" below on this same page, which the owner confirmed should
+// stay quiet links for the identical reason: nothing is at risk if they go
+// unnoticed a little longer.
 const LINK_STYLE = {
   background: "none",
   border: "none",
@@ -113,6 +143,60 @@ const LINK_STYLE = {
   textDecoration: "underline",
   cursor: "pointer",
 } as const
+
+// Geometry matched to LeaveGroupButton's own collapsed-state button
+// (src/app/groups/[id]/info/LeaveGroupButton.tsx, the "Leave group" pill),
+// not to CancelControls on the event screen, corrected 3 Sept 2026 after the
+// owner's phone QA. LeaveGroupButton is this page's own drawn control: its
+// comment says its minHeight is "46px per .gi-leave at default text", meaning
+// its values trace to the design handoff for this screen, which makes it the
+// right sibling to match here rather than a control borrowed from a different
+// screen with a different reason for looking the way it does.
+//
+// The event screen's outlinedPill is deliberately NOT the reference any
+// more. There, "Call this off" sits directly under the RSVP pair, and that
+// context is what earns the dimmer --text-secondary label color: cancelling
+// is meant to read as the quieter option next to the primary RSVP ask sitting
+// right above it. Nothing on the group info page plays that role next to
+// "Add your email". Reusing the event screen's dimmed text here just because
+// the two pills share a shape carried a hierarchy decision that belonged to a
+// different screen's layout, and it produced the exact thing the owner
+// flagged: "Add your email" reading dimmer than "Leave group" directly below
+// it, when adding an email is the more important control of the two. It is
+// what stops a member coming back after a lost session as a duplicate person
+// and silently corrupting every attendance count in the group; leaving a
+// group is rare and destructive by comparison. The brighter, full-strength
+// text color is carrying that hierarchy on purpose, matching LeaveGroupButton
+// rather than sitting a shade behind it.
+//
+// minHeight is a floor, never a fixed height, per the layout-grows rule: it
+// has to survive enlarged device text without clipping. Outlined rather than
+// teal, on purpose: this is still one control among several on the page
+// ("Leave group", "Manage members", "Reset link"), and CLAUDE.md's colour
+// rule reserves teal for an action that genuinely matters, never a default
+// weight for "important enough to be a button." Brightness, not colour, is
+// what carries this control's own relative importance.
+const pill: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+  width: "100%",
+  minHeight: "46px",
+  padding: "0.75rem 1.5rem",
+  borderRadius: "24px",
+  fontSize: "var(--type-label)",
+  fontWeight: 600,
+  lineHeight: "var(--leading-normal)",
+  cursor: "pointer",
+}
+
+const outlinedPill: React.CSSProperties = {
+  ...pill,
+  background: "transparent",
+  border: "1.7px solid var(--hairline)",
+  color: "var(--text-primary)",
+}
 
 export default function EmailStatusRow({ emailAddress }: Props) {
   const [expanded, setExpanded] = useState(false)
@@ -156,21 +240,29 @@ export default function EmailStatusRow({ emailAddress }: Props) {
         </button>
       </span>
     ) : (
-      <button type="button" onClick={() => setExpanded(true)} style={LINK_STYLE}>
+      <button type="button" onClick={() => setExpanded(true)} style={outlinedPill}>
         Add your email
       </button>
     )
   }
 
   return (
-    // The quiet expand-box pattern already used by ManageMembers' remove
-    // confirm and ResetInviteLink's confirm: a hairline border, no fill, so it
-    // reads as an inline state change rather than a card of its own.
+    // This used to be the quiet expand-box pattern ManageMembers' remove
+    // confirm and ResetInviteLink's confirm both still use: a hairline
+    // border, no fill, reading as an inline state change rather than a card
+    // of its own. The owner asked this row to depart from that, in his own
+    // words: "similar to what it already looks like, just without the little
+    // box border. Kind of like what happens when you click the Call this off
+    // button and text and two new buttons appear." A boxed flow sitting right
+    // under a real pill button read as a control nested inside a control,
+    // where CancelControls' own confirm step on the event screen just lets
+    // its text and buttons appear in place with nothing drawn around them.
+    // flexDirection: column and the gap survive the border's removal because
+    // they are doing real layout work independent of it, spacing the flow's
+    // message paragraph from its form; the padding that existed only to hold
+    // content off the border is gone with the border it was measured against.
     <div
       style={{
-        border: "1px solid var(--hairline)",
-        borderRadius: "0.5rem",
-        padding: "0.75rem",
         display: "flex",
         flexDirection: "column",
         gap: "0.5rem",
