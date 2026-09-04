@@ -14,6 +14,7 @@
 
 "use client"
 
+import { useEffect, useRef } from "react"
 import type { GapPayload } from "@/app/actions/extract-group"
 import { GAP_HINT_EXAMPLES, gapBubbleLine } from "@/lib/orbit/gap"
 import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
@@ -34,6 +35,35 @@ const MERGE_PAUSE_COPY = "One sec, I'm updating your schedule."
 
 // Same soft-retry contract and copy as Step 1's extraction error.
 const MERGE_ERROR_COPY = "Hmm, that didn't go through. Give it another try in a moment."
+
+// The composer wraps rather than scrolling sideways (spec:
+// docs/superpowers/specs/2026-09-04-chat-input-wrap-design.md), the same fix
+// as the group chat's ChatInput. Built from the CSS variable rather than a
+// literal 7.5em for the reason ChatInput.tsx's copy of this constant states
+// at length: a value copied by eye instead of read live is exactly how this
+// project shipped the --ink-faint / --text-faint mixup (polish slice two).
+// Not shared with ChatInput.tsx: the two composers differ in fill, border
+// and radius by design (spec's own debt note), so a shared component isn't
+// obviously right yet; if a third composer appears, extract then.
+const MAX_LINES = 5
+const LINE_HEIGHT = "var(--leading-normal)"
+const MAX_HEIGHT = `calc(${LINE_HEIGHT} * ${MAX_LINES} * 1em)`
+
+// Same auto-grow-then-shrink logic as ChatInput.tsx's autoGrow: resize to
+// content on every value change, which covers both a founder typing past one
+// line and the field being cleared out from under it (a merge round starting
+// fresh, or the wizard advancing past this step). The border compensation
+// matters here specifically: this composer's border (1px solid on every
+// side) is what surfaced the bug in the first place, a real browser
+// measurement 1.5px short of the input it replaced, because `scrollHeight`
+// excludes border while `style.height` on this border-box element does not.
+// ChatInput.tsx's own copy carries the full explanation.
+function autoGrow(el: HTMLTextAreaElement) {
+  el.style.height = "auto"
+  const cs = getComputedStyle(el)
+  const border = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
+  el.style.height = `${el.scrollHeight + border}px`
+}
 
 /** Which flavor of failure the last merge attempt hit. "generic" keeps the
  * old one-size retry line; the other two carry the honest reason. */
@@ -68,6 +98,15 @@ export default function StepGapAsk({
   const gapRow = formatGapRhythmRow(gap.rhythms[0], gap.missing, gap.candidateTimeLocal)
   const hasText = answer.trim().length > 0
   const bubbleLine = gapBubbleLine(gap.question, round, stalled)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Runs on every value change, whichever direction: growing while the
+  // founder types past one line, shrinking back when the answer is cleared
+  // (a fresh merge round, or the wizard moving on).
+  useEffect(() => {
+    const el = textareaRef.current
+    if (el) autoGrow(el)
+  }, [answer])
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -158,14 +197,15 @@ export default function StepGapAsk({
         <label htmlFor="gapAnswer" style={{ display: "none" }}>
           Message Orbit
         </label>
-        <input
+        <textarea
+          ref={textareaRef}
           id="gapAnswer"
-          type="text"
           autoComplete="off"
           placeholder="Message Orbit"
           value={answer}
           onChange={(e) => onAnswerChange(e.target.value)}
           disabled={isMerging}
+          rows={1}
           style={{
             flex: 1,
             padding: "0.5rem 0.75rem",
@@ -174,8 +214,12 @@ export default function StepGapAsk({
             borderRadius: 26,
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
+            lineHeight: LINE_HEIGHT,
             outline: "none",
             caretColor: "var(--action)",
+            resize: "none",
+            maxHeight: MAX_HEIGHT,
+            overflowY: "auto",
           }}
         />
 

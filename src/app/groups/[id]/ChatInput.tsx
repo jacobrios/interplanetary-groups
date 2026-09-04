@@ -23,8 +23,52 @@
 // because a contextual action (only live while composing) is not a second
 // persistent primary — it does not violate one-primary-action-per-screen.
 
-import { useId } from "react"
+import { useId, useEffect, useRef } from "react"
 import SendCircleButton from "@/components/SendCircleButton"
+
+// The composer wraps rather than scrolling sideways (spec:
+// docs/superpowers/specs/2026-09-04-chat-input-wrap-design.md). It grows with
+// content up to a cap and then scrolls internally, because this project has a
+// measured height budget for the group home (the card region and the feed
+// each earned their share the hard way, card-region-height slice, 14 Aug
+// 2026) and an unbounded composer would take it back silently. The cap is
+// expressed in em, not px, so it tracks --type-body 1:1: a member reading at
+// a larger device text size gets a taller cap rather than one that stops
+// scaling with the font the moment it's written as a fixed pixel value.
+// Built from the CSS variable rather than a literal 7.5em: this project has
+// already shipped one bug from a token copied by eyeballed value instead of
+// read live (the --ink-faint / --text-faint mixup, polish slice two, 18-19
+// Aug 2026), and calc() can multiply --leading-normal's number straight
+// through without us re-typing what it currently equals.
+const MAX_LINES = 5
+const LINE_HEIGHT = "var(--leading-normal)"
+const MAX_HEIGHT = `calc(${LINE_HEIGHT} * ${MAX_LINES} * 1em)`
+
+// Resizes the textarea to fit its content, and is also what shrinks it back
+// down the moment GroupHome clears `value` after a send: this file has no
+// separate "reset" path, because running the same grow logic on every value
+// change already covers both directions. Resetting height to "auto" first is
+// what makes shrinking work — without it, scrollHeight keeps reporting the
+// old, taller box's content height instead of what the current (now
+// shorter) text actually needs.
+//
+// The border compensation is not a defensive nicety, it was caught wrong: a
+// first cut of this function set `style.height` straight from `scrollHeight`,
+// and StepGapAsk.tsx's textarea (which has a 1px border on every side, unlike
+// this one) rendered 1.5px short of the input it replaced, measured in a
+// real browser, not assumed. `scrollHeight` is specified to exclude border
+// even on a border-box element, while the `height` style this element is
+// given is interpreted as the full border-box size, so on a bordered
+// element the two disagree by exactly the border width and the box comes
+// out that much too short. Adding the border back in is what makes
+// scrollHeight and style.height agree again regardless of whether a given
+// composer has a border; here, with border:none, the correction is zero.
+function autoGrow(el: HTMLTextAreaElement) {
+  el.style.height = "auto"
+  const cs = getComputedStyle(el)
+  const border = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
+  el.style.height = `${el.scrollHeight + border}px`
+}
 
 // The input is never disabled, and there is deliberately no `isPending` prop to
 // disable it with (message-send-latency slice, 31 Aug 2026). It used to take
@@ -62,6 +106,15 @@ export default function ChatInput({
 }: Props) {
   const inputId = useId()
   const hasText = value.trim().length > 0
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Runs on every value change, whichever direction: a member typing past one
+  // line grows the box, and GroupHome clearing `value` after a send shrinks
+  // it back to `rows={1}` rather than leaving it tall and empty.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (el) autoGrow(el)
+  }, [value])
 
   return (
     <div
@@ -105,23 +158,29 @@ export default function ChatInput({
         <label htmlFor={inputId} style={{ display: "none" }}>
           Send a message
         </label>
-        <input
+        <textarea
+          ref={textareaRef}
           id={inputId}
           name="body"
-          type="text"
           autoComplete="off"
           placeholder="Send a message…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          rows={1}
           style={{
             flex: 1,
             padding: 0,
+            margin: 0,
             backgroundColor: "transparent",
             border: "none",
             color: "var(--text-primary)",
             fontSize: "var(--type-body)",
+            lineHeight: LINE_HEIGHT,
             outline: "none",
             caretColor: "var(--text-primary)",
+            resize: "none",
+            maxHeight: MAX_HEIGHT,
+            overflowY: "auto",
           }}
         />
 
