@@ -64,4 +64,21 @@ afterEach(async () => {
   await act(async () => {
     await new Promise((resolve) => realSetImmediate(resolve))
   })
+  // AND THE THIRD MOVE, added with the first browser-storage use in the app
+  // (the composer's parked draft, deploy-reaches-open-tabs slice). jsdom keeps
+  // one sessionStorage for a whole file, so a test that TYPES WITHOUT SENDING
+  // leaves its draft parked and seeds the composer of every later test in that
+  // file. GroupHome.test.tsx stays green today only because every one of its
+  // tests happens to submit, and submitting is what clears the key — an
+  // accident, not a property, and the next test written there without a send
+  // would break its neighbours rather than itself.
+  //
+  // Wrapped because the property lookup itself throws where the browser blocks
+  // site data (same reason as readDraft in GroupHome.tsx), and a teardown hook
+  // that throws reddens a test that had already passed.
+  try {
+    window.sessionStorage.clear()
+  } catch {
+    // Nothing to clear, or nothing that can be. Either way the test is over.
+  }
 })
