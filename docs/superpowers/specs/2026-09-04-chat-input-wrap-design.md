@@ -14,13 +14,18 @@ files, one cause.
 1. **Both become auto-growing `<textarea>`s.** `src/app/groups/[id]/ChatInput.tsx`
    and `src/app/create/StepGapAsk.tsx`. A textarea wraps by default; that alone
    fixes the reported bug.
-2. **Interaction does not change.** Enter still submits, exactly as it does
-   today, so there is no regression for anyone on any platform. Shift+Enter
-   inserts a newline, which is new and free. *This is a decision made in the
-   owner's absence: the alternative, Enter inserting a newline with only the
-   send button submitting, is arguably better for a mobile-first product but is
-   a behaviour change nobody asked for, and the reported bug is about wrapping,
-   not about authoring multiple paragraphs. Overrulable.*
+2. ~~**Interaction does not change.** Enter still submits, exactly as it does
+   today. Shift+Enter inserts a newline. This is a decision made in the owner's
+   absence and is overrulable.~~ **OVERRULED BY THE OWNER, 4 Sept 2026, before
+   any code was written. Enter inserts a newline and does NOT submit; the send
+   button is the only way to send**, matching iMessage and WhatsApp on a phone,
+   in a product that is mobile-first. It also made the fix simpler: a
+   `<textarea>` does this natively, so no key handler exists in either file. The
+   struck text is left visible because a slice document that quietly rewrites
+   its own settled decisions is worth less than one that shows where it was
+   wrong. **Consequence, and it is why this is not a free change: the send
+   button is now the only exit from both composers**, load-bearing in a way it
+   was not before.
 3. **Growth is capped, then it scrolls.** The composer must never eat the
    screen. This project has a measured height budget for the group home (the
    card region takes 34% and the feed 43.8%), and an unbounded composer would
@@ -33,14 +38,23 @@ files, one cause.
 ## Non-goals
 
 The standalone-web-app blank screen, which is a viewport problem in home-screen
-mode and is queued separately. The venue field's zoom trap (above). Any change
-to how or when a message is sent.
+mode and is queued separately. The venue field's zoom trap (above). ~~Any change
+to how or when a message is sent.~~ (Struck the same day: the overrule above
+changes exactly that, so this non-goal did not survive its own slice.)
 
 ## How this is verified
 
 **Tested in vitest:** a long value wraps rather than overflowing on one line;
-Enter submits; Shift+Enter does not submit; the element grows with content and
-stops at the cap. Each proven by mutation, not by a green run.
+Enter does NOT submit; the element grows with content and stops at the cap. Each
+proven by mutation, not by a green run.
+
+**A limit of that, found in review and worth stating rather than implying
+coverage that does not exist:** jsdom implements no implicit submit-on-Enter for
+any form control, so an "Enter does not submit" test would pass against the old
+`<input>` too. On its own it only guards against somebody re-adding an explicit
+key handler. What actually covers the requirement is that test *together with*
+its sibling asserting the element is a `<textarea>`, since a real browser never
+implicitly submits one.
 
 **Proven in a browser at 375x812:** a long message visibly occupying more than
 one line in both composers, which is the reported bug and fails today.
