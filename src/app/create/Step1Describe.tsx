@@ -136,6 +136,7 @@ export default function Step1Describe({
       <form action={formAction} style={{ display: "flex", flexDirection: "column" }}>
         <div>
           <label
+            id="founderNameLabel"
             htmlFor={knownName === null ? "founderName" : undefined}
             style={fieldLabelStyle}
           >
@@ -174,7 +175,17 @@ export default function Step1Describe({
             // treatment — it is invented, matching the input's own type
             // scale and colors rather than a new one (spec: nothing here has
             // been seen rendered by a design).
+            //
+            // aria-labelledby, not htmlFor: a plain <div> is not a labelable
+            // element per the HTML spec, so a label's `for` attribute cannot
+            // reach it — that gap is what code review caught (2026-09-04
+            // fix-on-review). Pointing this div at the label's own id gives
+            // the read-only path the same accessible-name announcement a
+            // returning founder's screen reader gets on the editable path:
+            // "Your name, Jacob" either way.
             <div
+              id="founderName"
+              aria-labelledby="founderNameLabel"
               style={{
                 width: "100%",
                 padding: "11px 14px",

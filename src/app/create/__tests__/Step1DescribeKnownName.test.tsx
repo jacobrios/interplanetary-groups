@@ -48,13 +48,26 @@ describe("Step1Describe — known vs. unknown founder name", () => {
     expect(input.disabled).toBe(false)
   })
 
-  it("renders the known name as text, not an input, for a returning founder", () => {
+  it("renders the known name as text, associated with the Your name label, not an input", () => {
     renderStep1({ knownName: "Jacob", founderName: "Jacob" })
 
     // The name must be on screen as plain fact...
     expect(screen.getByText("Jacob")).toBeTruthy()
-    // ...and there must be no input a founder could type into to override it.
-    expect(screen.queryByLabelText(/your name/i)).toBeNull()
+    // ...programmatically associated with the "Your name" label via
+    // aria-labelledby, so a screen reader announces "Your name, Jacob" on
+    // this path exactly as it does on the editable one (code review finding,
+    // 2026-09-04: the first cut of this component gave the label
+    // `htmlFor={undefined}` here and nothing else picked up the
+    // association, leaving a returning founder's screen reader with a bare
+    // label and a bare string). getByLabelText throws if no element is
+    // associated with a "Your name" label, so this line alone is the
+    // regression guard; the tagName check below only adds "and it isn't an
+    // input" on top of "and it exists".
+    const labelledValue = screen.getByLabelText(/your name/i)
+    expect(labelledValue.textContent).toBe("Jacob")
+    // ...and it must not be an editable form control a founder could type
+    // into to override it.
+    expect(labelledValue.tagName).not.toBe("INPUT")
   })
 
   it("does not render a disabled input for a known name (a disabled input invites hunting for how to enable it)", () => {
