@@ -1493,15 +1493,62 @@ accepted: 5/5 runs, 1/1 cases clean  (no bar; a known gap the owner accepted, wa
 
 **Comparison against the baseline, in the brief's order.**
 
-1. *Did anything green go red?* No. `must-stay-quiet` (65/65, 13/13) and `accepted` (5/5, 1/1) are byte-identical to the baseline. `ambiguous` is identical too, down to the same two failing case names at the same 0/5 (`might-be-late-implies-move`, `group-grumble`); nothing in this slice touched change-request copy. `must-recognize` grew from 15 to 22 cases (task 7's seven new spark cases) and every one of the eight original 15 that carried over from the baseline stayed clean; all six failing runs land on the seven brand-new spark cases, which had no baseline reading to regress from. No pre-existing case regressed.
+1. *Did anything green go red?* No. `must-stay-quiet` (65/65, 13/13) and `accepted` (5/5, 1/1) are byte-identical to the baseline. `ambiguous` is identical too, down to the same two failing case names at the same 0/5 (`might-be-late-implies-move`, `group-grumble`); nothing in this slice touched change-request copy. `must-recognize` grew from 15 to 22 cases (task 7's seven new spark cases) and every one of the original 15 that carried over from the baseline stayed clean; all six failing runs land on the seven brand-new spark cases, which had no baseline reading to regress from. No pre-existing case regressed.
 
-2. *Are the three null-trap cases clean?* Two of three, not all three. `spark-this-weekend-null-horizon` is 5/5. `spark-two-weeks-null-horizon` and `spark-next-month-null-horizon` are each 4/5, missing one run apiece. But the miss is not the dangerous direction: both failing runs read `expected spark, got none`, meaning the model did not classify the message as a spark at all that run (kind mismatch, not a horizon value), not `got horizon nextWeek`. **Zero runs, across all 40 cases and 200 calls, returned `horizon: nextWeek` for a phrase that does not mean next week.** The specific failure the null traps exist to catch, a wrong invented date, did not happen once.
+2. *Are the three null-trap cases clean?* **No, not as the rule is literally worded, and that is stated plainly rather than reframed as a pass.** This step's own text sets the bar: "These must be 5/5. A miss here invents a wrong date and blocks the merge." Two of the three are 4/5, not 5/5: `spark-this-weekend-null-horizon` is 5/5, but `spark-two-weeks-null-horizon` and `spark-next-month-null-horizon` each miss one run. **The bar as worded is not met.**
+
+   What is also true, and does not repair the sentence above so much as sit beside it: both misses read `expected spark, got none`, meaning the model did not classify the message as a spark at all that run, and stayed silent, which is this product's documented default for anything it does not recognise. Neither miss reads `got horizon nextWeek`. Across all 40 cases and 200 calls in this run, zero returned `horizon: nextWeek` for a phrase that does not mean next week, so the specific harm the rule's reason names, a wrongly invented date reaching a member, did not occur once.
+
+   The rule bundled a bar (5/5) with a reason (a miss invents a wrong date), and here the two came apart: the bar assumed the only way to miss was to return `nextWeek`, and it turned out there is a second way to miss that the rule did not anticipate. **Deciding that the rule was written too narrowly, and proceeding on that basis, is the coordinator's call, not this report's to make on its own** — recorded here as the coordinator's disclosed reasoning, to go to Jacob rather than be resolved silently in this document.
 
 3. *Are the two nextWeek cases clean?* Yes. `spark-next-week-bare` and `spark-next-weekday` are both 5/5, not present in the failures list at all. The two production bugs this slice targets are fixed 5/5 on the first bench run after the prompt change.
 
 **No tuning was performed.** The stop rule in Task 8's brief gates tuning on "the dangerous direction is failing" (a case reading `nextWeek` for a phrase that does not mean next week); it did not fail anywhere in this run, so zero of the two allowed rounds were spent. The two remaining failure shapes are recorded rather than chased:
 
 - `spark-plain-weekday` (2/5 clean, 3/5 `got thisWeek` instead of `horizon null`) is the behaviourally inert case named in Task 7's report: a stated weekday plus `thisWeek` reaches the exact same date-arithmetic branch as a stated weekday plus `null`, so this case's failures change nothing a member would see. It is bucketed `must-recognize`, which scores it red on a distinction the product cannot act on; flagged as possibly mis-barred (candidate: `ambiguous`, or a horizon-specific no-bar note) rather than changed here, per the instruction not to alter a case's bucket while tuning.
-- `spark-this-weekday`, `spark-two-weeks-null-horizon`, and `spark-next-month-null-horizon` each missed one run with `got none`, a plain spark-recognition miss unrelated to the horizon field. These are the first bench cases in this repo's history to exercise spark recognition at all (`grep` confirms no prior `must-recognize` case had `kind: "spark"`), so there is no baseline reading for whether ~90% single-run spark recognition is a change or the pre-existing rate. Recorded as new information for the owner, not a regression.
+- `spark-this-weekday`, `spark-two-weeks-null-horizon`, and `spark-next-month-null-horizon` each missed one run with `got none`, a plain spark-recognition miss unrelated to the horizon field. These are the first bench cases in this repo's history to exercise spark recognition at all (`grep` confirms no prior `must-recognize` case had `kind: "spark"`), so there was no baseline reading for whether ~90% single-run spark recognition is a change or the pre-existing rate. Answered by the control run directly below.
 
-Reasoning and the flagged bucket question are Task 10's to carry into build-notes §11.
+### Control: the same cases against the pre-change prompt
+
+Requested by the coordinator to answer the open question just above: is the `got none` spark-recognition miss pre-existing, or did the prompt change introduce it? Run on commit `7412d770...` (HEAD at the time), with `src/lib/orbit/spark.ts` temporarily edited to reverse exactly the two lines commit `67c5895` added to `INTENT_SYSTEM_PROMPT` (the `statedDayOfWeek` sentence about "next Friday"/"this Friday", and the whole `- horizon:` line). Nothing else changed: the schema (`INTENT_SCHEMA`), the normalizer, the arithmetic, and all seven bench cases are untouched, and the edit was never committed. `git status --short` was empty again before anything in this task was committed.
+
+Command: `npm run eval:detect -- 5 spark-` (7 cases x 5 runs = 35 model calls). Full output, verbatim:
+
+```
+7 cases x 5 runs = 35 model calls
+
+  ...5/7
+  ...7/7
+
+=== SCOREBOARD ===
+must-recognize: 23/35 runs, 3/7 cases clean
+
+=== FAILURES (4) ===
+
+[must-recognize] spark-this-weekday  3/5
+  The mirror of the case above. 'This Thursday' names a day and pins it to the current week, and reading it as nextWeek would push the plan a week past what was asked for.
+  x2 expected spark with horizon thisWeek, got null
+
+[must-recognize] spark-plain-weekday  2/5
+  A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets.
+  x3 expected spark with horizon null, got thisWeek
+
+[must-recognize] spark-this-weekend-null-horizon  3/5
+  The hardest of the three null traps, because the phrase literally starts with 'this'. A weekend is not a week: reading it as thisWeek would suppress the notice buffer for an idea that never asked for that.
+  x1 expected spark with horizon null, got thisWeek
+  x1 expected spark with horizon null, got nextWeek
+
+[must-recognize] spark-two-weeks-null-horizon  0/5
+  The scope line, as a graded case. 'In two weeks' carries real information that this product deliberately cannot hold, and the only safe place to put it is nowhere: reading it as nextWeek would be a wrong date that nobody asked for.
+  x5 expected spark with horizon null, got nextWeek
+```
+
+**A necessary caveat before reading this: the horizon field was not fully absent from what the model saw.** `INTENT_SCHEMA` was left untouched per instruction, and its `horizon` property still requires an enum of `"thisWeek" | "nextWeek" | null` with no natural-language description attached (confirmed by reading the schema: it carries only `{ anyOf: [{ type: "string", enum: [...] }, { type: "null" }] }`, no `description` key). So the control removed the prose that explains what `horizon` means, but the model still had to emit *something* for a field literally named `horizon`, and it plainly used the field name itself as a cue: every one of the 35 calls returned a `spark` kind with some horizon value, several of them `thisWeek` or `nextWeek`. **This means the horizon-value assertions in this control are not a clean measurement of "the old prompt" and should not be read as one** — `spark-two-weeks-null-horizon` failing 0/5 here does not mean the old prompt was worse at that phrase than the new one; it means the field name alone was enough to make the model guess wrong on that case even with no guidance text, which is a different fact than the new prompt's own tuning.
+
+**What this control does cleanly measure, and the only thing it should be read for: the `got none` rate, a kind mismatch, independent of any horizon value.** Scanning all four failure entries above, none reads `got none` — every failure is `expected spark with horizon X, got Y`, meaning the model recognised every single one of these 35 messages as a spark. **The `got none` rate against the old prompt is 0/35. The `got none` rate against the new prompt, on these same seven cases, is 4/35** (`spark-this-weekday` 2/5, `spark-two-weeks-null-horizon` 1/5, `spark-next-month-null-horizon` 1/5, all reported earlier in this document's after-numbers).
+
+**Conclusion: the `got none` spark-recognition misses are not pre-existing. They do not appear at all under the old prompt and appear at an 11% rate (4/35) under the new one, so the prompt change introduced them.** This was not tuned against here, per the coordinator's instruction to run the control only, not to touch the prompt again.
+
+After the control run, `src/lib/orbit/spark.ts` was restored with `git checkout -- src/lib/orbit/spark.ts` and `git status --short` confirmed empty before this section was committed.
+
+Reasoning, the flagged bucket question, and this control's finding (a real, newly-introduced recognition cost, separate from the horizon-invention bug this slice targets) are Task 10's to carry into build-notes §11.
