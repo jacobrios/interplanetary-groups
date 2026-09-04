@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { MessageAuthor } from "@prisma/client"
-import { joinGroupByInvite } from "../join"
+import { joinGroupByInvite, DuplicateNameError } from "../join"
 
 describe("joinGroupByInvite", () => {
   // Track all created IDs for cleanup
@@ -237,5 +237,233 @@ describe("joinGroupByInvite", () => {
     })
     expect(announcements).toHaveLength(1)
     expect(announcements[0].body).toBe("[TEST] Stored Name joined")
+  })
+
+  it("rejects a brand-new joiner whose name exactly matches an existing member's stored name, and rolls back", async () => {
+    const founderAuthId = `test-founder-dup-exact-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Dup Exact", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Dup Exact", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    // A member already on the roster, seeded directly via Membership so
+    // this test is about the check rather than about join mechanics.
+    const existingMemberAuthId = `test-member-dup-exact-${Date.now()}`
+    const existingMember = await prisma.user.create({
+      data: { name: "[TEST] Mike", supabaseAuthId: existingMemberAuthId },
+    })
+    userIds.push(existingMember.id)
+    await prisma.membership.create({
+      data: { userId: existingMember.id, groupId: group.id },
+    })
+
+    const joinerAuthId = `test-joiner-dup-exact-${Date.now()}`
+
+    let caught: unknown
+    try {
+      await joinGroupByInvite({
+        supabaseAuthId: joinerAuthId,
+        memberName: "[TEST] Mike",
+        inviteToken: group.inviteToken,
+      })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(DuplicateNameError)
+    expect((caught as DuplicateNameError).existingName).toBe("[TEST] Mike")
+
+    // Rollback proof, not an assumption: no User row for the rejected
+    // joiner, the group's membership count is unchanged (the seeded
+    // existing member only), and no SYSTEM message was written.
+    const user = await prisma.user.findUnique({ where: { supabaseAuthId: joinerAuthId } })
+    expect(user).toBeNull()
+
+    const memberships = await prisma.membership.findMany({ where: { groupId: group.id } })
+    expect(memberships).toHaveLength(1)
+
+    const announcements = await prisma.message.findMany({
+      where: { groupId: group.id, authorType: MessageAuthor.SYSTEM },
+    })
+    expect(announcements).toHaveLength(0)
+  })
+
+  it("rejects on a trimmed, case-insensitive match and carries the stored casing, not the submitted casing", async () => {
+    const founderAuthId = `test-founder-dup-case-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Dup Case", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Dup Case", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    const existingMemberAuthId = `test-member-dup-case-${Date.now()}`
+    const existingMember = await prisma.user.create({
+      data: { name: "[TEST] Mike", supabaseAuthId: existingMemberAuthId },
+    })
+    userIds.push(existingMember.id)
+    await prisma.membership.create({
+      data: { userId: existingMember.id, groupId: group.id },
+    })
+
+    const joinerAuthId = `test-joiner-dup-case-${Date.now()}`
+
+    let caught: unknown
+    try {
+      await joinGroupByInvite({
+        supabaseAuthId: joinerAuthId,
+        memberName: "  [test] mike  ",
+        inviteToken: group.inviteToken,
+      })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(DuplicateNameError)
+    // The stored casing ("[TEST] Mike"), not the submitted casing/whitespace.
+    expect((caught as DuplicateNameError).existingName).toBe("[TEST] Mike")
+
+    const user = await prisma.user.findUnique({ where: { supabaseAuthId: joinerAuthId } })
+    expect(user).toBeNull()
+  })
+
+  it("lets a non-colliding name join normally alongside an existing member", async () => {
+    const founderAuthId = `test-founder-dup-ok-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Dup Ok", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Dup Ok", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    const existingMemberAuthId = `test-member-dup-ok-${Date.now()}`
+    const existingMember = await prisma.user.create({
+      data: { name: "[TEST] Mike", supabaseAuthId: existingMemberAuthId },
+    })
+    userIds.push(existingMember.id)
+    await prisma.membership.create({
+      data: { userId: existingMember.id, groupId: group.id },
+    })
+
+    const joinerAuthId = `test-joiner-dup-ok-${Date.now()}`
+    const { user } = await joinGroupByInvite({
+      supabaseAuthId: joinerAuthId,
+      memberName: "[TEST] Priya",
+      inviteToken: group.inviteToken,
+    })
+    userIds.push(user.id)
+
+    expect(user.name).toBe("[TEST] Priya")
+
+    const membership = await prisma.membership.findUnique({
+      where: { userId_groupId: { userId: user.id, groupId: group.id } },
+    })
+    expect(membership).not.toBeNull()
+
+    const announcements = await prisma.message.findMany({
+      where: { groupId: group.id, authorType: MessageAuthor.SYSTEM },
+    })
+    expect(announcements).toHaveLength(1)
+    expect(announcements[0].body).toBe("[TEST] Priya joined")
+  })
+
+  it("does not block an existing User whose stored name matches a member of the target group (the sign-in path)", async () => {
+    const founderAuthId = `test-founder-dup-signin-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Dup Signin", supabaseAuthId: founderAuthId },
+    })
+    const group = await prisma.group.create({
+      data: { name: "[TEST] Group Dup Signin", founderId: founder.id },
+    })
+    groupIds.push(group.id)
+    userIds.push(founder.id)
+
+    // A member already in the group, sharing the exact stored name that
+    // the signing-in user also carries.
+    const memberAuthId = `test-member-dup-signin-${Date.now()}`
+    const member = await prisma.user.create({
+      data: { name: "[TEST] Mike", supabaseAuthId: memberAuthId },
+    })
+    userIds.push(member.id)
+    await prisma.membership.create({ data: { userId: member.id, groupId: group.id } })
+
+    // The existing User signing back in: same stored name, not yet a
+    // member of this particular group. Mirrors confirmJoinSignInAction,
+    // which calls joinGroupByInvite with memberName: "" on an existing
+    // User. The duplicate-name guard must never reach this branch.
+    const existingAuthId = `test-existing-dup-signin-${Date.now()}`
+    const existingUser = await prisma.user.create({
+      data: { name: "[TEST] Mike", supabaseAuthId: existingAuthId },
+    })
+    userIds.push(existingUser.id)
+
+    const { user } = await joinGroupByInvite({
+      supabaseAuthId: existingAuthId,
+      memberName: "",
+      inviteToken: group.inviteToken,
+    })
+
+    expect(user.id).toBe(existingUser.id)
+    expect(user.name).toBe("[TEST] Mike")
+
+    const membership = await prisma.membership.findUnique({
+      where: { userId_groupId: { userId: user.id, groupId: group.id } },
+    })
+    expect(membership).not.toBeNull()
+  })
+
+  // Every other collision test above seeds the founder with no Membership
+  // row, so none of them would notice if provisionFounderGroup ever stopped
+  // giving the founder one (src/lib/groups/provision.ts:69,
+  // `memberships: { create: { userId: user.id } }`). But "somebody joins
+  // and shares the founder's name" is the commonest real collision there
+  // is, so this test seeds the founder the way provisionFounderGroup
+  // actually does — via the same nested-create shape, not a separate
+  // Membership.create call — and checks the collision fires against them
+  // specifically.
+  it("rejects a brand-new joiner whose name collides with the founder, who has a Membership row like any other member", async () => {
+    const founderAuthId = `test-founder-dup-founder-${Date.now()}`
+    const founder = await prisma.user.create({
+      data: { name: "[TEST] Founder Priya", supabaseAuthId: founderAuthId },
+    })
+    userIds.push(founder.id)
+    const group = await prisma.group.create({
+      data: {
+        name: "[TEST] Group Dup Founder",
+        founderId: founder.id,
+        memberships: { create: { userId: founder.id } },
+      },
+    })
+    groupIds.push(group.id)
+
+    const joinerAuthId = `test-joiner-dup-founder-${Date.now()}`
+
+    let caught: unknown
+    try {
+      await joinGroupByInvite({
+        supabaseAuthId: joinerAuthId,
+        memberName: "[TEST] Founder Priya",
+        inviteToken: group.inviteToken,
+      })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(DuplicateNameError)
+    expect((caught as DuplicateNameError).existingName).toBe("[TEST] Founder Priya")
+
+    const user = await prisma.user.findUnique({ where: { supabaseAuthId: joinerAuthId } })
+    expect(user).toBeNull()
+
+    const memberships = await prisma.membership.findMany({ where: { groupId: group.id } })
+    expect(memberships).toHaveLength(1)
   })
 })

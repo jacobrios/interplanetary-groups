@@ -23,8 +23,8 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import type { CSSProperties } from "react"
-import { joinGroupAction, type JoinGroupState } from "@/app/actions/join-group"
+import type { CSSProperties, ReactNode } from "react"
+import { joinGroupAction, type JoinGroupState, type JoinNameError } from "@/app/actions/join-group"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
@@ -159,6 +159,88 @@ const fieldErrorStyle: CSSProperties = {
   marginTop: "0.375rem",
   fontSize: "var(--type-meta)",
   color: "var(--danger)",
+}
+
+const NAME_ERROR_ID = "memberName-error"
+
+// The "sign in" control that lives inside the duplicate-name sentence, not
+// beside it. It is prose wearing a control, not a standalone one, so the
+// 44px tap-target floor the card-region-height slice set does not apply
+// here: that floor is for controls that stand alone, and forcing a box
+// around two words inside a run of text would break the line it sits on.
+// Reset to plain text (padding 0, no background/border, font/color
+// inherited) so it sits on the sentence's own baseline, then styled back in
+// with only an underline for affordance. Colour is inherited rather than
+// restated because the parent paragraph is already --danger
+// (fieldErrorStyle): teal is a weight, and the weight on this screen
+// belongs to joining, so this control must never carry it.
+const inlineSignInStyle: CSSProperties = {
+  padding: 0,
+  background: "none",
+  border: "none",
+  font: "inherit",
+  color: "inherit",
+  textDecoration: "underline",
+  cursor: "pointer",
+}
+
+// The claim-to-fact boundary for this one field: JoinNameError is a union
+// from the server (join-group.ts), and this switch is exhaustive on
+// purpose. An unhandled `kind` is a compile error via the `never` check in
+// the default branch (`const exhaustive: never = error`), so a new variant
+// added to the union fails the *build*, not this render. But the `never`
+// assignment only proves the check ran at compile time; it says nothing
+// about what a stale client does at runtime if server and client versions
+// ever skew mid-deploy and an unmodelled `kind` actually arrives here. That
+// value is not a valid ReactNode, so returning it would throw ("Objects are
+// not valid as a React child") and take the whole join screen down with it,
+// which is strictly worse than a blank line. So the fallback renders
+// nothing rather than the offending object, while the `never` assignment
+// above it keeps failing the build on a real unhandled variant exactly as
+// before.
+//
+// The "duplicate" copy is the owner's, verbatim, with only the existing
+// member's stored name interpolated. Nothing beyond the sentence itself is
+// added: no bold, no extra clause. "SIGN IN" is the one part of it that is
+// a real control, wired to the same `signingIn` state the "I've been here
+// before" link below already flips, so there is exactly one mechanism for
+// opening that panel rather than two.
+//
+// TIGHTENED AND CAPITALISED 4 Sept 2026, the owner's phone QA of PR #129,
+// and both halves were his call. He could read the sentence but kept
+// sliding past the control inside it, so the fix works from both ends at
+// once: the control shouts (caps are the only lever available, since teal
+// is a weight this screen spends on joining and the sentence is already
+// --danger red), and the sentence around it gets shorter so there is less
+// competing with it. "in this group" went because the card directly above
+// names the group, and "so people can tell you apart" went because the
+// first sentence has already said there is another one of you. Caps here
+// are NOT the uppercase eyebrow style: this is two words inside a running
+// sentence, at the sentence's own size.
+function nameErrorMessage(error: JoinNameError, onSignIn: () => void): ReactNode {
+  switch (error.kind) {
+    case "required":
+      return "Your name is required."
+    case "duplicate":
+      // Built from explicit string segments rather than raw multi-line JSX
+      // text, so JSX's own whitespace-collapsing rules (which trim and
+      // condense text that wraps across lines) can never quietly reflow
+      // the owner's sentence. Each segment is written on one line and the
+      // spaces the sentence needs are inside the strings themselves.
+      return (
+        <>
+          {`There's already a ${error.existingName} here. If that's you, `}
+          <button type="button" onClick={onSignIn} style={inlineSignInStyle}>
+            SIGN IN
+          </button>
+          {" instead. If not, add a last initial."}
+        </>
+      )
+    default: {
+      const exhaustive: never = error
+      return null
+    }
+  }
 }
 
 // The reassurance line, and the consent line under it, are ONE BLOCK as of
@@ -323,9 +405,35 @@ export default function JoinForm({
                     autoComplete="given-name"
                     placeholder="What should the crew call you?"
                     style={inputStyle}
+                    // This is the first input in the product to carry
+                    // aria-invalid/aria-describedby (task brief); it is
+                    // scoped to this one field on purpose, not swept across
+                    // the codebase, and it is the precedent other screens
+                    // will copy. undefined rather than false so the
+                    // attributes are absent entirely when there is no
+                    // error, not merely false.
+                    //
+                    // The error paragraph this points at deliberately does
+                    // NOT also carry role="alert" (whole-branch review,
+                    // fix wave, 4 Sept 2026). An assertive live region
+                    // containing an interactive control (the inline "sign
+                    // in" button) is a known accessibility weak spot, and as
+                    // a description the paragraph is already announced when
+                    // focus reaches this input, without needing to also be a
+                    // live region. The tradeoff, stated rather than hidden:
+                    // without role="alert", the error may not be announced
+                    // at the instant it appears right after submit, only
+                    // when focus returns to this input. None of this
+                    // reasoning has been checked against a real screen
+                    // reader. A future session should not "restore" the
+                    // role without knowing why it went.
+                    aria-invalid={state.errors?.memberName ? true : undefined}
+                    aria-describedby={state.errors?.memberName ? NAME_ERROR_ID : undefined}
                   />
                   {state.errors?.memberName && (
-                    <p style={fieldErrorStyle}>{state.errors.memberName}</p>
+                    <p id={NAME_ERROR_ID} style={fieldErrorStyle}>
+                      {nameErrorMessage(state.errors.memberName, () => setSigningIn(true))}
+                    </p>
                   )}
                 </>
               ) : (

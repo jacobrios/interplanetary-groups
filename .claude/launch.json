@@ -14,6 +14,12 @@
       "port": 3000
     },
     {
+      "name": "dev-webpack-3100",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--webpack", "--port", "3100"],
+      "port": 3100
+    },
+    {
       "name": "prod-local",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start"],

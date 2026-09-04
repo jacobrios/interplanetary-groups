@@ -166,3 +166,92 @@ describe("JoinForm, the door for somebody who has been here before", () => {
     expect(screen.queryByLabelText("Your email address")).toBeNull()
   })
 })
+
+// Task 3 of the duplicate-name-join-check slice: the collision copy and its
+// inline "sign in" control replace task 2's typecheck-only placeholder.
+// Errors are driven the same way the rest of this file drives them: the
+// mocked action's next resolution, followed by a submit.
+describe("JoinForm, the duplicate-name collision", () => {
+  // The error paragraph deliberately does not carry role="alert" (fix wave,
+  // 4 Sept 2026 — see the comment at its wiring in JoinForm.tsx), so these
+  // tests find it the way a screen reader actually reaches it: by following
+  // the input's own aria-describedby to the paragraph's id, via
+  // document.getElementById. That is also a stronger check than
+  // findByRole("alert") ever was, since it proves the description
+  // *resolves*, not merely that some alert-shaped node exists somewhere.
+  function errorParagraphFor(input: HTMLInputElement): HTMLElement {
+    const describedBy = input.getAttribute("aria-describedby")
+    expect(describedBy).toBeTruthy()
+    const el = document.getElementById(describedBy as string)
+    expect(el).not.toBeNull()
+    return el as HTMLElement
+  }
+
+  it("renders the owner's sentence verbatim with the stored name in it", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    renderForm()
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    fireEvent.change(name, { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
+    const error = errorParagraphFor(name)
+    expect(error.textContent).toBe(
+      "There's already a Mike here. If that's you, SIGN IN instead. If not, add a last initial."
+    )
+  })
+
+  it("opens the sign-in panel from its inline \"sign in\" control", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    renderForm()
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    fireEvent.change(name, { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
+
+    fireEvent.click(screen.getByRole("button", { name: "SIGN IN" }))
+
+    // Same assertion the existing second-door test makes: the join controls
+    // are gone and JoinSignIn's own panel is present.
+    expect(screen.queryByLabelText("Your name")).toBeNull()
+    expect(screen.queryByRole("button", { name: /Join Tuesday Climbers/ })).toBeNull()
+    expect(screen.getByLabelText("Your email address")).toBeDefined()
+  })
+
+  it("still renders the required-field message unchanged", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "required" } },
+    })
+    renderForm()
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    const error = await screen.findByText("Your name is required.")
+    expect(error.textContent).toBe("Your name is required.")
+  })
+
+  it("marks the input invalid and ties it to the error paragraph's id, and marks neither when there is no error", async () => {
+    renderForm()
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    // No error yet: neither attribute is present at all.
+    expect(name.hasAttribute("aria-invalid")).toBe(false)
+    expect(name.hasAttribute("aria-describedby")).toBe(false)
+
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    fireEvent.change(name, { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
+    const describedBy = name.getAttribute("aria-describedby")
+    expect(describedBy).toBeTruthy()
+    // Resolves to the actual error paragraph's id, not merely present.
+    const error = document.getElementById(describedBy as string)
+    expect(error).not.toBeNull()
+    expect(error?.id).toBe(describedBy)
+  })
+})

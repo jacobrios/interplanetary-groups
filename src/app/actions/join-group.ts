@@ -3,11 +3,22 @@
 
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { joinGroupByInvite } from "@/lib/groups/join"
+import { joinGroupByInvite, DuplicateNameError } from "@/lib/groups/join"
+
+// Discriminated union, following the mechanism CLAUDE.md names as the
+// product's stronger error pattern (src/lib/auth/email.ts): a service or
+// library outcome is a claim, normalized to a fixed result set exactly once,
+// here, so a new variant is a compile error at every call site rather than a
+// screen reading a blank line. "required" carries nothing because there is
+// nothing to say beyond the fact; "duplicate" carries the collided member's
+// stored name because the collision copy has to reference it.
+export type JoinNameError =
+  | { kind: "required" }
+  | { kind: "duplicate"; existingName: string }
 
 export interface JoinGroupState {
   errors?: {
-    memberName?: string
+    memberName?: JoinNameError
     general?: string
   }
 }
@@ -24,7 +35,7 @@ export async function joinGroupAction(
 
   // Validate required fields — name is only required for first-time visitors
   if (!hasSession && !memberName) {
-    return { errors: { memberName: "Your name is required." } }
+    return { errors: { memberName: { kind: "required" } } }
   }
 
   const supabase = await createClient()
@@ -55,7 +66,18 @@ export async function joinGroupAction(
       inviteToken,
     })
     group = result.group
-  } catch {
+  } catch (err) {
+    // DuplicateNameError is a name collision on the group's roster, not a
+    // failure — it must return a field-anchored error, never fall into
+    // `general`, so a database outage can never masquerade as a taken name
+    // and a taken name can never masquerade as "something went wrong."
+    if (err instanceof DuplicateNameError) {
+      return {
+        errors: {
+          memberName: { kind: "duplicate", existingName: err.existingName },
+        },
+      }
+    }
     return {
       errors: {
         general: "Something went wrong joining this group. Please try again.",
