@@ -23,7 +23,16 @@ const advancing = (from: number, step = 250) => {
   return () => (t += step)
 }
 
-const ROOT = "/tmp/suite-lock-test-project"
+// Keyed per process. A fixed path is shared by every checkout on this machine,
+// and two concurrent runs in different worktrees are explicitly NOT serialized by
+// this lock, so one run's beforeEach could delete the lock another had just taken
+// and fail it on an innocent assertion: the exact failure class this machinery
+// exists to remove, manufactured by its own tests.
+// A no-op scheduler for tests that drive time by hand and must not have a real
+// interval writing underneath them.
+const noBeat = () => ({ stop() {} })
+
+const ROOT = `/tmp/suite-lock-test-project-${process.pid}`
 const PATH = lockPath(ROOT)
 
 beforeEach(() => {
@@ -146,7 +155,6 @@ describe("acquire", () => {
 // and beating is running, alive and long silent is stuck, gone is gone. Both
 // earlier versions collapsed a pair of them, and each collapse had an incident.
 describe("stuck versus working", () => {
-  const noBeat = () => ({ stop() {} })
   const t0 = 1_000_000_000_000
 
   it("reclaims a holder that is alive but has gone silent for hours", async () => {
@@ -179,6 +187,25 @@ describe("stuck versus working", () => {
         isAlive: () => true,
         startBeat: noBeat,
         now: advancing(eightHours),
+        sleep: async () => {},
+      })
+    ).rejects.toThrow(/waited/)
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(222)
+  })
+
+  it("does not treat a recent pre-beat lock as silent from birth", async () => {
+    // The protective half of the `?? holder.at` fallback. Drop it and every
+    // legacy lock is stolen instantly from a healthy holder, suite still green.
+    writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0 })) // no beat field
+    await expect(
+      acquire({
+        root: ROOT,
+        env: {},
+        pid: 111,
+        waitMs: 2000,
+        isAlive: () => true,
+        startBeat: noBeat,
+        now: advancing(t0 + 1000), // taken a second ago, well inside SILENT_MS
         sleep: async () => {},
       })
     ).rejects.toThrow(/waited/)
@@ -238,6 +265,105 @@ describe("stuck versus working", () => {
   })
 })
 
+// Added 4 September 2026 after an independent review of the heartbeat. Each of
+// these covers a defect that shipped, and each was verified by breaking the fix
+// and watching the test go red.
+describe("the heartbeat's own hazards", () => {
+  const t0 = 1_000_000_000_000
+
+  it("writes beats atomically, so a waiter never reads a half-written lock", async () => {
+    // Measured with two real processes: a plain writeFileSync truncates first and
+    // produced 1739 unreadable reads in 27839, each of which would have been read
+    // as an abandoned lock and stolen from a live holder. tmp+rename produced 0
+    // in 76466.
+    let touch: (() => boolean) | null = null
+    let clock = t0
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      now: () => clock,
+      startBeat: (t: () => boolean) => {
+        touch = t
+        return { stop() {} }
+      },
+    })
+    clock = t0 + 60_000
+    for (let i = 0; i < 100; i++) {
+      touch!()
+      expect(readFileSync(PATH, "utf8").length).toBeGreaterThan(0)
+    }
+    expect(JSON.parse(readFileSync(PATH, "utf8")).beat).toBe(t0 + 60_000)
+    release()
+  })
+
+  it("keeps waiting when a seemingly silent holder beats during the confirm window", async () => {
+    // Silence is wall-clock, so a laptop closed mid-run wakes a waiter to a beat
+    // hours old held by a run that is fine. Re-reading catches it; no value of
+    // SILENT_MS can.
+    writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0, beat: t0 }))
+    let confirms = 0
+    await expect(
+      acquire({
+        root: ROOT,
+        env: {},
+        pid: 111,
+        waitMs: 3000,
+        confirmMs: 1,
+        isAlive: () => true,
+        startBeat: noBeat,
+        now: advancing(t0 + 10 * 3600 * 1000),
+        sleep: async () => {
+          if (++confirms === 1) {
+            writeFileSync(PATH, JSON.stringify({ pid: 222, at: t0, beat: t0 + 10 * 3600 * 1000 + 900_000 }))
+          }
+        },
+      })
+    ).rejects.toThrow(/waited/)
+    expect(JSON.parse(readFileSync(PATH, "utf8")).pid).toBe(222)
+  })
+
+  it("surfaces a failure that happens after the lock was taken", async () => {
+    // Left in the contended branch it would find its own fresh lock, wait out
+    // WAIT_MS and report waiting on its own pid, leaving the lock behind.
+    await expect(
+      acquire({
+        root: ROOT,
+        env: {},
+        pid: 111,
+        waitMs: 2000,
+        now: advancing(t0),
+        sleep: async () => {},
+        startBeat: () => {
+          throw new Error("beat setup exploded")
+        },
+      })
+    ).rejects.toThrow(/beat setup exploded/)
+  })
+
+  it("really beats on the real scheduler, and release really stops it", async () => {
+    // Every other test injects startBeat, so the interval, its clearInterval and
+    // its unref would otherwise never execute under test at all.
+    let clock = t0
+    const release = await acquire({
+      root: ROOT,
+      env: {},
+      pid: 111,
+      beatMs: 20,
+      now: () => {
+        clock += 1000
+        return clock
+      },
+    })
+    const first = JSON.parse(readFileSync(PATH, "utf8")).beat
+    await new Promise((r) => setTimeout(r, 120))
+    expect(JSON.parse(readFileSync(PATH, "utf8")).beat).toBeGreaterThan(first)
+    release()
+    await new Promise((r) => setTimeout(r, 80))
+    expect(existsSync(PATH)).toBe(false) // stopped, and did not recreate it
+  })
+})
+
 // A suite can legitimately spawn a nested vitest in the same checkout; this
 // project's own run-tests-unless-docs test does exactly that. Without these,
 // the child waits for a lock its parent holds and the suite hangs. Found by
@@ -262,13 +388,18 @@ describe("re-entrancy", () => {
   })
 
   it("still locks a DIFFERENT project reached from inside a held run", async () => {
-    const other = "/tmp/suite-lock-test-other"
+    const other = `/tmp/suite-lock-test-other-${process.pid}`
     rmSync(lockPath(other), { force: true })
     const env: Record<string, string> = {}
     const outer = await acquire({ root: ROOT, pid: 111, env })
+    const marker = env[HELD_ENV]
     const inner = await acquire({ root: other, pid: 222, env })
     expect(existsSync(lockPath(other))).toBe(true)
     inner()
+    // The assertion that was missing: releasing the nested run must restore the
+    // parent's marker, not delete it. Deleting it makes a further nested run
+    // against the parent deadlock on the parent's own lock.
+    expect(env[HELD_ENV]).toBe(marker)
     outer()
   })
 

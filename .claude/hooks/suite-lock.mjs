@@ -85,29 +85,44 @@
 //   globalSetup: ["./.claude/hooks/suite-lock.mjs"]
 
 import { createHash } from "node:crypto"
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
 const LOCK_DIR = join(tmpdir(), "claude-suite-locks")
 
-// A holder must prove it is WORKING, not merely existing. It touches its lock
-// file every BEAT_MS while it runs, and a lock goes stale when its holder is
-// gone or has been silent for SILENT_MS.
+// A holder touches its lock file every BEAT_MS. A lock goes stale when its
+// holder is gone, or when it has been silent for SILENT_MS.
 //
-// Three states, and every one of them resolves without a human. That last part
-// is Jacob's ruling on 4 September 2026: he does not want to be a gate on code
-// execution, so no design that ends in "until somebody notices" is acceptable.
-//   - alive and touching:        running, so wait
-//   - alive and long silent:     stuck, so steal
-//   - gone:                      steal
+// WHAT THAT ACTUALLY RECLAIMS, stated narrowly because the first version of this
+// comment claimed far more. A beat is a `setInterval` on the vitest MAIN process,
+// so it stops only when that process is killed, stopped, or blocked inside a
+// synchronous call. It therefore reclaims:
+//   - a holder whose process is gone
+//   - a holder whose main event loop has been blocked for SILENT_MS
+// and it does NOT reclaim the ordinary ways a run wedges, because every one of
+// them leaves that loop turning: an await that never settles, a hung globalSetup
+// or teardown (vitest applies no timeout to either), a database disconnect that
+// never returns, or a stuck pool worker. This repo contains a concrete instance:
+// `run-tests-unless-docs.test.ts` calls spawnSync with no timeout, which blocks
+// that worker's thread outright while the main process beats along happily.
 //
-// Two earlier versions each collapsed a pair of those. Stealing any lock older
+// So the honest guarantee is weaker than "proves it is working". It is strictly
+// better than liveness alone, and it is not a solution to a wedged run.
+//
+// AND THE INCIDENT BEHIND IT WAS NEVER DIAGNOSED. The overnight run that held
+// this lock for 308 minutes was reported as hung on the strength of `ps` showing
+// it idle, which is equally consistent with a healthy event loop. Neither the
+// session that reported it nor the one that designed this established what that
+// process was actually doing. Designing against an undiagnosed failure is the
+// mistake this repo's own notes warn about, and it was made here. If it recurs,
+// diagnose it first: get a stack, find out whether the main loop is turning and
+// whether a worker is blocked. Do not tune SILENT_MS at it.
+//
+// Two earlier versions each collapsed a pair of states. Stealing any lock older
 // than ten minutes treated a healthy `vitest --watch` as abandoned and silently
-// put two suites back on one database. Liveness alone then treated a wedged run
-// as healthy: an overnight suite here held the lock for 308 minutes, alive and
-// idle, confirmed with ps, and blocked every run after it until a human killed
-// it. Silence separates the two; neither age nor liveness can.
+// put two suites back on one database. Liveness alone never reclaimed anything
+// that was still running, whatever it was doing.
 //
 // The numbers are picked against measurements rather than roundness. The suite
 // this guards runs 71 to 84 seconds, WAIT_MS is 300s, and the stop hook's budget
@@ -120,6 +135,10 @@ const LOCK_DIR = join(tmpdir(), "claude-suite-locks")
 // varies per project, while silence is a property of the holder being stuck and
 // does not.
 const BEAT_MS = 5_000
+
+// How long to re-watch a silent-looking holder before taking its lock. Longer
+// than one beat so a running holder always gets a chance to speak up.
+const CONFIRM_MS = 15_000
 const SILENT_MS = 120_000
 
 // Shorter than the stop hook's own 600s budget, so a wait cannot silently
@@ -187,10 +206,12 @@ export async function acquire({
   env = process.env,
   // Injectable so tests can drive the heartbeat by hand instead of waiting on a
   // real timer, and so a test can assert that a silent holder is reclaimed.
+  beatMs = BEAT_MS,
+  confirmMs = CONFIRM_MS,
   startBeat = (touch) => {
     const timer = setInterval(() => {
       if (!touch()) clearInterval(timer)
-    }, BEAT_MS)
+    }, beatMs)
     if (typeof timer.unref === "function") timer.unref()
     return { stop: () => clearInterval(timer) }
   },
@@ -208,11 +229,13 @@ export async function acquire({
   const startedWaiting = now()
 
   for (;;) {
+    let took = false
     try {
       // 'wx' fails when the file exists, which is what makes this atomic
       // between two processes racing to create it.
       const takenAt = now()
       write(path, JSON.stringify({ pid, at: takenAt, beat: takenAt }))
+      took = true
 
       // Prove we are still working, rather than merely still existing. Rewrites
       // only our own lock: if ours went stale and someone else took it, beating
@@ -222,7 +245,15 @@ export async function acquire({
         const held = readHolder(path)
         if (!held || held.pid !== pid) return false
         try {
-          writeFileSync(path, JSON.stringify({ ...held, beat: now() }))
+          // Atomic. A plain writeFileSync truncates first, so a waiter polling
+          // at 250ms can read a zero-byte file, fail to parse it, call it
+          // abandoned and steal from a live healthy holder: two suites on one
+          // database, silently, which is the incident this file exists to
+          // prevent. v1 and v2 never rewrote the file, so this arrived with the
+          // heartbeat rather than being inherited.
+          const tmp = `${path}.${pid}.tmp`
+          writeFileSync(tmp, JSON.stringify({ ...held, beat: now() }))
+          renameSync(tmp, path)
         } catch {
           // A failed touch is not worth taking the suite down for. Miss enough
           // of them and this holder reads as stuck, which is the right answer.
@@ -231,6 +262,11 @@ export async function acquire({
       })
 
       // Set before returning, so anything this run spawns inherits the marker.
+      // The previous value is restored rather than deleted on release: a nested
+      // run against a DIFFERENT project would otherwise erase its parent's
+      // marker, and a further nested run against the parent would then deadlock
+      // on the parent's own lock, which is the v1 bug arriving by a side door.
+      const previousMarker = env[HELD_ENV]
       env[HELD_ENV] = path
       return () => {
         beat.stop()
@@ -238,9 +274,17 @@ export async function acquire({
         // it, deleting would hand a third run a lock nobody holds.
         const held = readHolder(path)
         if (held && held.pid === pid) rmSync(path, { force: true })
-        if (env[HELD_ENV] === path) delete env[HELD_ENV]
+        if (env[HELD_ENV] === path) {
+          if (previousMarker === undefined) delete env[HELD_ENV]
+          else env[HELD_ENV] = previousMarker
+        }
       }
     } catch (err) {
+      // Anything thrown AFTER the write succeeded is ours, not contention. Left
+      // in the contended branch it would find its own fresh lock, wait out
+      // WAIT_MS and report waiting on its own pid, leaving the lock behind.
+      if (took) throw err
+
       // Only "the file already exists" means someone else holds the lock. Every
       // other failure (read-only lock dir, disk full, EACCES, EMFILE) used to
       // fall through readHolder -> null -> stale -> a no-op remove -> continue,
@@ -262,6 +306,21 @@ export async function acquire({
       }
 
       if (stale(holder, now(), isAlive)) {
+        // A holder that is GONE is stolen from at once. A holder that is merely
+        // SILENT gets a second look, because silence is measured on the wall
+        // clock: close a laptop mid-run and a waiter wakes to a beat hours old
+        // held by a run that is perfectly fine. No value of SILENT_MS fixes
+        // that, since the measured quantity is wrong; re-reading does, because a
+        // live holder beats again inside the window and a stuck one does not.
+        const gone = !holder || typeof holder.pid !== "number" || !alive(holder.pid, isAlive)
+        if (!gone) {
+          const before = Number(holder.beat ?? holder.at ?? 0)
+          await sleep(confirmMs)
+          const again = readHolder(path)
+          if (!again) continue // vanished under us: retry the create
+          const after = Number(again.beat ?? again.at ?? 0)
+          if (after > before) continue // it beat, so it is running: keep waiting
+        }
         rmSync(path, { force: true })
         continue
       }

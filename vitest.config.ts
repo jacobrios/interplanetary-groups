@@ -53,12 +53,25 @@ export default defineConfig({
     // worktrees share one dev-test database and do NOT block each other, so
     // the concurrent-worktree collision documented in CLAUDE.md survives this.
     //
-    // Two more limits found by review, both in the template rather than here,
-    // both reported upstream and neither fixed in this copy: a non-EEXIST
-    // write failure (read-only tmp, disk full, EACCES) spins without a sleep
-    // or a timeout check rather than failing; and `npm run test:watch` holds
-    // the lock for the whole session, blocking others for 600s and then
-    // having its lock stolen as stale while still live.
+    // WHAT THIS DOES AND DOES NOT RECLAIM, because the earlier version of this
+    // comment claimed more than the mechanism delivers and that is this repo's
+    // recurring sin. A holder writes a heartbeat every few seconds, and its lock
+    // is taken only when the holder is GONE or its main event loop has been
+    // blocked for the silence window. It does NOT reclaim the ordinary ways a
+    // run wedges: an await that never settles, a hung setup or teardown, a
+    // database disconnect that never returns. Every one of those leaves the
+    // event loop turning, so the heartbeat keeps beating and the lock keeps
+    // reading as healthy. The concrete in-repo instance is
+    // run-tests-unless-docs.test.ts's spawnSync with no timeout, which blocks a
+    // pool worker outright while this process beats on.
+    //
+    // A run on this checkout was once blocked for 308 minutes behind a holder
+    // that ps showed alive and idle. Nobody ever established whether that
+    // holder's loop was turning, so nobody knows whether a heartbeat would have
+    // freed it. If it happens again, get a stack from the holder and find out
+    // BEFORE touching the silence window; tuning that number against an
+    // undiagnosed incident is how the last two versions of this file were
+    // designed.
     globalSetup: ["./.claude/hooks/suite-lock.mjs"],
     setupFiles: ["./vitest.setup.ts"],
     // Most of this suite drives sequential Prisma round-trips against the
