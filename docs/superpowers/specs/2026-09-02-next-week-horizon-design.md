@@ -1407,3 +1407,37 @@ Expected: 146 files, zero failures, and a passing count at or above the 1704 bas
 The PR body is written for an engineer skimming the repo later, near 300 words, four things only: what changed; how it was verified, with the test numbers before and after, the bench numbers before and after, what was checked by hand, and what could not be checked; what the review found and what was deliberately not fixed; and a pointer to the build-notes entry. Name the `planSparkGauge` extraction explicitly, since it touches already-shipped code the spec's task list is the only record of.
 
 **Open the PR and stop.** Do not merge. The chat message announcing it carries the manual QA script, per `~/.claude/checklists/pr-handoff.md`.
+
+---
+
+## Bench baseline (pre-change)
+
+Taken 3 September 2026, on commit `f34f29a5cb50a91d939036b03db49656977f0ff` (untouched tree, `git status --short` empty before the run). Command: `npm run eval:detect`, default 5 runs. Full output below, verbatim, from `npm run eval:detect 2>&1 | tee /tmp/bench-baseline.txt`.
+
+```
+33 cases x 5 runs = 165 model calls
+
+  ...5/33
+  ...10/33
+  ...15/33
+  ...20/33
+  ...25/33
+  ...30/33
+  ...33/33
+
+=== SCOREBOARD ===
+must-recognize: 75/75 runs, 15/15 cases clean
+must-stay-quiet: 65/65 runs, 13/13 cases clean
+ambiguous: 10/20 runs, 2/4 cases clean  (no bar, watched for drift)
+accepted: 5/5 runs, 1/1 cases clean  (no bar; a known gap the owner accepted, watched for drift)
+
+=== FAILURES (2) ===
+
+[ambiguous] might-be-late-implies-move  0/5
+  Reads as availability and as a hint that the time should move. No right answer; recorded to watch which way the dial drifts.
+  x5 expected change, got none
+
+[ambiguous] group-grumble  0/5
+  Commentary on behalf of the group that stops just short of asking. Watched, not barred.
+  x5 expected change, got none
+```
