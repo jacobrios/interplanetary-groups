@@ -1547,8 +1547,44 @@ must-recognize: 23/35 runs, 3/7 cases clean
 
 **What this control does cleanly measure, and the only thing it should be read for: the `got none` rate, a kind mismatch, independent of any horizon value.** Scanning all four failure entries above, none reads `got none` — every failure is `expected spark with horizon X, got Y`, meaning the model recognised every single one of these 35 messages as a spark. **The `got none` rate against the old prompt is 0/35. The `got none` rate against the new prompt, on these same seven cases, is 4/35** (`spark-this-weekday` 2/5, `spark-two-weeks-null-horizon` 1/5, `spark-next-month-null-horizon` 1/5, all reported earlier in this document's after-numbers).
 
-**Conclusion: the `got none` spark-recognition misses are not pre-existing. They do not appear at all under the old prompt and appear at an 11% rate (4/35) under the new one, so the prompt change introduced them.** This was not tuned against here, per the coordinator's instruction to run the control only, not to touch the prompt again.
-
 After the control run, `src/lib/orbit/spark.ts` was restored with `git checkout -- src/lib/orbit/spark.ts` and `git status --short` confirmed empty before this section was committed.
 
-Reasoning, the flagged bucket question, and this control's finding (a real, newly-introduced recognition cost, separate from the horizon-invention bug this slice targets) are Task 10's to carry into build-notes §11.
+**The conclusion originally written here claimed the prompt change caused the `got none` misses, on a single sample of each condition (0/35 vs 4/35).** That is a causal claim resting on n=1 per condition, and a Fisher's exact test on 0/35 vs 4/35 comes out around p=0.11: suggestive, not demonstrated. This project has specifically been burned before by a record that claimed a proof that never happened, so that sentence was withdrawn rather than left standing, and a second independent sample of the new prompt was run to check it. See the replication directly below; the conclusion is restated after it, in light of both samples.
+
+### Replication: the new prompt, same seven cases, second sample
+
+Run on the tree exactly as committed (the new `INTENT_SYSTEM_PROMPT` unmodified, no temporary edit this time). `git status --short` confirmed empty and the two Task 6 prompt lines confirmed present before running. Command: `npm run eval:detect -- 5 spark-` (same 7 cases x 5 runs = 35 calls). Full output, verbatim:
+
+```
+7 cases x 5 runs = 35 model calls
+
+  ...5/7
+  ...7/7
+
+=== SCOREBOARD ===
+must-recognize: 29/35 runs, 5/7 cases clean
+
+=== FAILURES (2) ===
+
+[must-recognize] spark-plain-weekday  0/5
+  A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets.
+  x5 expected spark with horizon null, got thisWeek
+
+[must-recognize] spark-two-weeks-null-horizon  4/5
+  The scope line, as a graded case. 'In two weeks' carries real information that this product deliberately cannot hold, and the only safe place to put it is nowhere: reading it as nextWeek would be a wrong date that nobody asked for.
+  x1 expected spark, got none
+```
+
+Scanning for `got none`: only one entry, `spark-two-weeks-null-horizon`'s single miss. `spark-plain-weekday`'s five misses are all `got thisWeek`, a horizon-value mismatch (and the same behaviourally-inert shape recorded earlier in this document), not a kind mismatch. **`got none` count in this second sample: 1/35.**
+
+**Three samples, one condition each:**
+
+| Sample | Prompt | `got none` / calls |
+|---|---|---|
+| Control | old (Task 6 lines reversed) | 0/35 |
+| First sample | new | 4/35 |
+| Second sample | new | 1/35 |
+
+**Rewritten conclusion.** The first new-prompt sample's 4/35 did not reproduce: the second independent sample of the identical prompt reads 1/35, well inside the range two draws from the same low-rate process can differ by, and much closer to the control's 0/35 than to the first sample's 4/35. The apparent gap between the new prompt and the control sits within run-to-run variance rather than outside it. **No recognition cost has been demonstrated.** This claim rests on 35 calls for the control and 70 calls total (two samples of 35) for the new prompt; nobody has run enough calls to put a confidence interval on the true `got none` rate under either prompt, and this should be read as an observation from small samples, not a measured rate. The horizon-value caveat two paragraphs up still holds independently: the control's horizon values are confounded by the unmodified schema and are not read as a comparison at all, only the `got none` counts are.
+
+Reasoning, the flagged bucket question, and this open (not demonstrated, not ruled out) recognition-cost question are Task 10's to carry into build-notes §11.
