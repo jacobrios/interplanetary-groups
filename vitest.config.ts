@@ -21,8 +21,18 @@ export default defineConfig({
     // for a `globals` key above; there has never been one. vitest.setup.ts
     // registers cleanup by hand, and the reasoning, along with the failure it
     // was leaving behind, is in that file's header.
-    // Serializes suite runs for this checkout so two of them never contend
-    // for the single dev-test database. Adopted from
+    // Serializes LOCK-TAKING suite runs for this checkout, so two independent
+    // runs never contend for the single dev-test database. That wording is
+    // exact and the weaker claim is the true one: it is NOT "two vitest
+    // processes never overlap here". run-tests-unless-docs.test.ts:248 spawns
+    // a nested `vitest related` that skips the lock by design (see the
+    // re-entrancy note below), and what that child selects reaches
+    // calendar.ics/route.test.ts, which does real Prisma work against this
+    // same database while the parent suite runs. So one nested run overlaps
+    // on EVERY full-suite run. That predates this lock and is unchanged by
+    // it; it is written down because the incident below has exactly that
+    // shape, and a reader who believed the stronger claim would rule it out
+    // wrongly. Adopted from
     // ~/.claude/templates/project-safety-nets/suite-lock.mjs on 3 Sept 2026,
     // after a subagent's own `npm test` ran at the moment the stop hook ran
     // the suite: connections ran out, a Prisma transaction could not start,
@@ -42,6 +52,13 @@ export default defineConfig({
     // process.cwd(), so it serializes runs within THIS checkout only. Two git
     // worktrees share one dev-test database and do NOT block each other, so
     // the concurrent-worktree collision documented in CLAUDE.md survives this.
+    //
+    // Two more limits found by review, both in the template rather than here,
+    // both reported upstream and neither fixed in this copy: a non-EEXIST
+    // write failure (read-only tmp, disk full, EACCES) spins without a sleep
+    // or a timeout check rather than failing; and `npm run test:watch` holds
+    // the lock for the whole session, blocking others for 600s and then
+    // having its lock stolen as stale while still live.
     globalSetup: ["./.claude/hooks/suite-lock.mjs"],
     setupFiles: ["./vitest.setup.ts"],
     // Most of this suite drives sequential Prisma round-trips against the
