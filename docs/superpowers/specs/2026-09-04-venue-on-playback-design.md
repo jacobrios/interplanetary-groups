@@ -39,6 +39,40 @@ telling Orbit. A founder who misses this link cannot fix it later.
    existing ones would have served, and the owner named that as the thing to
    avoid here.
 
+## Amended 4 September 2026, after the owner tested it rendered
+
+Three changes, all settled with him, none relitigable.
+
+**7. The box spans the whole card, not the value column.** The first build made it
+full-width *within* the rhythm row's value column, which is indented past the
+activity label, so it did not line up with the group-name field above it. It must
+match that field's width exactly.
+
+**8. The venue is REQUIRED on the primary rhythm.** Confirm does not enable until
+it has something, the same way it already refuses an empty group name. **This
+amends the standing rule "venue never gates anything"**, and the amendment is
+narrower than a reversal: *the model still never blocks anyone; only the
+founder's own empty box does.* That rule exists so a bad extraction cannot trap a
+founder, and that protection is untouched. **It reverts when the editable event
+card ships**, the owner's stated trigger, because the gate exists only because
+there is no way to add a venue later.
+
+**Secondary rhythms stay optional, and the reason is not effort** (it is one word
+in the check). A secondary activity like a monthly beers often has no fixed
+place. Gate it and the founder types "idk" to get past, and that string does not
+stay in onboarding: venue inheritance attaches a matching rhythm's venue to real
+events Orbit creates later, so a junk answer becomes the meeting place on a real
+plan. This project already prefers no venue over a wrong guess about where a
+group drinks. **Blank is honest; "idk" is a wrong answer that propagates.**
+
+**9. The gap-ask card must show a captured venue.** This is the defect the owner
+originally reported, and it is narrower than it first appeared: extraction
+captures the venue, carry-over preserves it, and step 2 displays it correctly.
+What drops it is the **gap-ask** card, because `StepGapAsk` renders through
+`PlaybackCard`, and `PlaybackCard` contains no venue rendering at all. A card
+whose heading reads "Here's what I got" omitting something Orbit did get is a
+silent drop of the same class this project has a standing rule about.
+
 ## Non-goals
 
 Adding a venue after creation, which is the real gap and its own slice. The
