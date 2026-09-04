@@ -47,7 +47,7 @@ vi.mock("react", async (importOriginal) => {
   }
 })
 
-import LiveRefresh from "../LiveRefresh"
+import LiveRefresh, { REFRESH_IN_FLIGHT_TIMEOUT_MS } from "../LiveRefresh"
 
 function setVisibility(state: DocumentVisibilityState) {
   Object.defineProperty(document, "visibilityState", {
@@ -362,24 +362,58 @@ describe("LiveRefresh", () => {
     expect(refresh).toHaveBeenCalledTimes(2)
   })
 
-  // The reported case: a tab sleeps through many missed ticks while a
-  // refresh never settles. It owes exactly one refresh once that refresh
-  // finally does, not one per missed tick in between.
-  it("yields exactly one refresh, not a burst, after a long stall while a refresh stays in flight", () => {
+  // The reported case, updated for the expiry bound added after review: a
+  // tab sleeps through many missed ticks while a refresh never settles.
+  // Before the in-flight guard existed, that was one refresh per missed
+  // tick (a burst). With the guard but no expiry bound, it would be stuck
+  // at exactly one forever, however long the stall — which is itself a
+  // bug (see LiveRefresh.tsx's header, "BOUNDING THE IN-FLIGHT FLAG"): a
+  // refresh that never settles must not disable this component for the
+  // rest of the tab's life. The correct middle ground, proven by an exact
+  // count rather than a range: roughly one retry per
+  // REFRESH_IN_FLIGHT_TIMEOUT_MS, not one per REFRESH_INTERVAL_MS tick and
+  // not zero more ever.
+  it("retries roughly once per expiry window during a long stall, neither a burst nor stuck forever", () => {
     const { rerender } = render(<LiveRefresh paused={false} />)
 
     vi.advanceTimersByTime(10_000)
     expect(refresh).toHaveBeenCalledTimes(1)
     rerender(<LiveRefresh paused={false} />)
 
-    // Fifty missed ticks' worth of elapsed time, all while the one refresh
-    // above never settles.
+    // Fifty missed ticks' worth of elapsed time (500,000ms), all while
+    // mockRefreshPending stays true the entire time — this refresh never
+    // settles. Ticks land every 10,000ms; a fresh attempt is let through
+    // every REFRESH_IN_FLIGHT_TIMEOUT_MS (30,000ms) starting from when the
+    // previous one began: t=10k, 40k, 70k, ... up to and including 490k
+    // (the next would be 520k, past this window). That is 17 attempts
+    // total, a small fraction of the 50 ticks that land — proof this is
+    // neither the pre-guard burst (50) nor the un-bounded guard's silent
+    // stall (1).
     vi.advanceTimersByTime(10_000 * 50)
-    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenCalledTimes(17)
 
     mockRefreshPending = false
     rerender(<LiveRefresh paused={false} />)
 
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(18)
+  })
+
+  it("stops treating a hung refresh as in flight once REFRESH_IN_FLIGHT_TIMEOUT_MS has passed, letting a fresh attempt through", () => {
+    const { rerender } = render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    rerender(<LiveRefresh paused={false} />)
+
+    // Right up to, but not past, the expiry window: still blocked no
+    // matter how many ticks land in between, because the mock's refresh
+    // never settles on its own.
+    vi.advanceTimersByTime(REFRESH_IN_FLIGHT_TIMEOUT_MS - 10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    // The next tick lands at/after the expiry boundary: the guard stops
+    // trusting isPending's stale true value and lets this one through.
     vi.advanceTimersByTime(10_000)
     expect(refresh).toHaveBeenCalledTimes(2)
   })
