@@ -166,3 +166,73 @@ describe("JoinForm, the door for somebody who has been here before", () => {
     expect(screen.queryByLabelText("Your email address")).toBeNull()
   })
 })
+
+// Task 3 of the duplicate-name-join-check slice: the collision copy and its
+// inline "sign in" control replace task 2's typecheck-only placeholder.
+// Errors are driven the same way the rest of this file drives them: the
+// mocked action's next resolution, followed by a submit.
+describe("JoinForm, the duplicate-name collision", () => {
+  it("renders the owner's sentence verbatim with the stored name in it", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    renderForm()
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe(
+      "There's already a Mike in this group. If that's you, sign in instead. If not, add a last initial so people can tell you apart."
+    )
+  })
+
+  it("opens the sign-in panel from its inline \"sign in\" control", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    renderForm()
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+    await screen.findByRole("alert")
+
+    fireEvent.click(screen.getByRole("button", { name: "sign in" }))
+
+    // Same assertion the existing second-door test makes: the join controls
+    // are gone and JoinSignIn's own panel is present.
+    expect(screen.queryByLabelText("Your name")).toBeNull()
+    expect(screen.queryByRole("button", { name: /Join Tuesday Climbers/ })).toBeNull()
+    expect(screen.getByLabelText("Your email address")).toBeDefined()
+  })
+
+  it("still renders the required-field message unchanged", async () => {
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "required" } },
+    })
+    renderForm()
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert.textContent).toBe("Your name is required.")
+  })
+
+  it("marks the input invalid and ties it to the error paragraph's id, and marks neither when there is no error", async () => {
+    renderForm()
+    const name = screen.getByLabelText("Your name") as HTMLInputElement
+    // No error yet: neither attribute is present at all.
+    expect(name.hasAttribute("aria-invalid")).toBe(false)
+    expect(name.hasAttribute("aria-describedby")).toBe(false)
+
+    joinMock.mockResolvedValueOnce({
+      errors: { memberName: { kind: "duplicate", existingName: "Mike" } },
+    })
+    fireEvent.change(name, { target: { value: "Mike" } })
+    fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
+
+    const alert = await screen.findByRole("alert")
+    expect(name.getAttribute("aria-invalid")).toBe("true")
+    const describedBy = name.getAttribute("aria-describedby")
+    expect(describedBy).toBeTruthy()
+    // Resolves to the actual error paragraph's id, not merely present.
+    expect(alert.id).toBe(describedBy)
+  })
+})

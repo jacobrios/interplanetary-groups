@@ -23,8 +23,8 @@
 "use client"
 
 import { useActionState, useState } from "react"
-import type { CSSProperties } from "react"
-import { joinGroupAction, type JoinGroupState } from "@/app/actions/join-group"
+import type { CSSProperties, ReactNode } from "react"
+import { joinGroupAction, type JoinGroupState, type JoinNameError } from "@/app/actions/join-group"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import { ArrowRight } from "@/components/glyphs"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
@@ -159,6 +159,68 @@ const fieldErrorStyle: CSSProperties = {
   marginTop: "0.375rem",
   fontSize: "var(--type-meta)",
   color: "var(--danger)",
+}
+
+const NAME_ERROR_ID = "memberName-error"
+
+// The "sign in" control that lives inside the duplicate-name sentence, not
+// beside it. It is prose wearing a control, not a standalone one, so the
+// 44px tap-target floor the card-region-height slice set does not apply
+// here: that floor is for controls that stand alone, and forcing a box
+// around two words inside a run of text would break the line it sits on.
+// Reset to plain text (padding 0, no background/border, font/color
+// inherited) so it sits on the sentence's own baseline, then styled back in
+// with only an underline for affordance. Colour is inherited rather than
+// restated because the parent paragraph is already --danger
+// (fieldErrorStyle): teal is a weight, and the weight on this screen
+// belongs to joining, so this control must never carry it.
+const inlineSignInStyle: CSSProperties = {
+  padding: 0,
+  background: "none",
+  border: "none",
+  font: "inherit",
+  color: "inherit",
+  textDecoration: "underline",
+  cursor: "pointer",
+}
+
+// The claim-to-fact boundary for this one field: JoinNameError is a union
+// from the server (join-group.ts), and this switch is exhaustive on
+// purpose. An unhandled `kind` is a compile error via the `never` check in
+// the default branch, not a generic fallback string — a new variant here
+// should fail the build, not render a blank line to somebody who cannot
+// proceed.
+//
+// The "duplicate" copy is the owner's, verbatim, with only the existing
+// member's stored name interpolated. Nothing beyond the sentence itself is
+// added: no bold, no extra clause. "sign in" is the one part of it that is
+// a real control, wired to the same `signingIn` state the "I've been here
+// before" link below already flips, so there is exactly one mechanism for
+// opening that panel rather than two.
+function nameErrorMessage(error: JoinNameError, onSignIn: () => void): ReactNode {
+  switch (error.kind) {
+    case "required":
+      return "Your name is required."
+    case "duplicate":
+      // Built from explicit string segments rather than raw multi-line JSX
+      // text, so JSX's own whitespace-collapsing rules (which trim and
+      // condense text that wraps across lines) can never quietly reflow
+      // the owner's sentence. Each segment is written on one line and the
+      // spaces the sentence needs are inside the strings themselves.
+      return (
+        <>
+          {`There's already a ${error.existingName} in this group. If that's you, `}
+          <button type="button" onClick={onSignIn} style={inlineSignInStyle}>
+            sign in
+          </button>
+          {" instead. If not, add a last initial so people can tell you apart."}
+        </>
+      )
+    default: {
+      const exhaustive: never = error
+      return exhaustive
+    }
+  }
 }
 
 // The reassurance line, and the consent line under it, are ONE BLOCK as of
@@ -323,18 +385,18 @@ export default function JoinForm({
                     autoComplete="given-name"
                     placeholder="What should the crew call you?"
                     style={inputStyle}
+                    // This is the first input in the product to carry
+                    // aria-invalid/aria-describedby (task brief); it is
+                    // scoped to this one field on purpose, not swept across
+                    // the codebase. undefined rather than false so the
+                    // attributes are absent entirely when there is no
+                    // error, not merely false.
+                    aria-invalid={state.errors?.memberName ? true : undefined}
+                    aria-describedby={state.errors?.memberName ? NAME_ERROR_ID : undefined}
                   />
                   {state.errors?.memberName && (
-                    // PLACEHOLDER — task 2 of the duplicate-name-join-check
-                    // slice. memberName became a discriminated union
-                    // (JoinNameError) so the collision copy can carry a real
-                    // sign-in control; this is the minimum that compiles and
-                    // renders, not the real copy. Task 3 owns the wording and
-                    // the sign-in control for the "duplicate" case.
-                    <p style={fieldErrorStyle}>
-                      {state.errors.memberName.kind === "duplicate"
-                        ? `Someone named ${state.errors.memberName.existingName} is already in this group.`
-                        : "Your name is required."}
+                    <p id={NAME_ERROR_ID} role="alert" style={fieldErrorStyle}>
+                      {nameErrorMessage(state.errors.memberName, () => setSigningIn(true))}
                     </p>
                   )}
                 </>
