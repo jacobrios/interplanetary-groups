@@ -36,9 +36,19 @@ const initialExtractState: ExtractGroupState = { status: "idle" }
 const EXHAUSTED_COPY =
   "I'm still missing a few details. Add the day and time to your description and I'll take another look."
 
-export default function OnboardingWizard() {
+interface Props {
+  /** The signed-in founder's stored `User.name`, or null for a first-time
+   * founder. Threaded straight into `founderName` state so every downstream
+   * consumer (the playback card, the gap-ask, createGroupAction) sees the
+   * true name with no other change, and into Step1Describe separately so it
+   * knows to render that name as read-only fact rather than an editable
+   * field (spec: docs/superpowers/specs/2026-09-04-onboarding-nav-design.md). */
+  knownName: string | null
+}
+
+export default function OnboardingWizard({ knownName }: Props) {
   const [step, setStep] = useState<"describe" | "gap" | "playback" | "share">("describe")
-  const [founderName, setFounderName] = useState("")
+  const [founderName, setFounderName] = useState(knownName ?? "")
   const [description, setDescription] = useState("")
   const [groupName, setGroupName] = useState("")
   const [rhythms, setRhythms] = useState<StoredRhythm[] | null>(null)
@@ -249,6 +259,7 @@ export default function OnboardingWizard() {
       <Step1Describe
         founderName={founderName}
         onFounderNameChange={setFounderName}
+        knownName={knownName}
         description={description}
         onDescriptionChange={setDescription}
         formAction={extractFormActionClearingExhausted}
