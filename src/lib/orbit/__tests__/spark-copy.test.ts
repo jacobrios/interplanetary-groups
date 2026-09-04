@@ -19,6 +19,7 @@ import {
   horizonDisclosure,
   localWeekday,
   planAnswerGauge,
+  planSparkGauge,
   resolveAnswerTime,
   resolveSparkTime,
   sparkStartInstant,
@@ -709,5 +710,66 @@ describe("buildGaugeMessage, dated form", () => {
     expect(msg).toBe(
       "Love it. Beers on Friday, Aug 28? You said next Friday, so I'm taking that as the one after this week. If three are in, I'll set it up."
     )
+  })
+})
+
+describe("planSparkGauge", () => {
+  const TZ = "UTC"
+  const WED = new Date("2026-08-26T12:00:00Z")
+  const bare = { statedDayOfWeek: null, statedTime: null, timeAmbiguous: false, partOfDay: "evening" as const, horizon: null }
+
+  it("plans the production bug's message the way it should always have", () => {
+    // "we should grab beers next week", Wednesday 26 Aug 2026.
+    const p = planSparkGauge({ ...bare, horizon: "nextWeek" }, TZ, WED)
+    expect(p).not.toBeNull()
+    expect(p!.proposedDate.toISOString()).toBe("2026-09-04T00:00:00.000Z")
+    expect(p!.timeLocal).toBe("19:00")
+    // No day was named, so nothing of theirs was reinterpreted.
+    expect(p!.disclosure).toBeNull()
+    expect(p!.datedWhen).toBe(false)
+  })
+
+  it("discloses and dates a named day read the far way", () => {
+    const p = planSparkGauge({ ...bare, statedDayOfWeek: 5, horizon: "nextWeek" }, TZ, WED)
+    expect(p!.proposedDate.toISOString()).toBe("2026-09-04T00:00:00.000Z")
+    expect(p!.disclosure).toBe(
+      "You said next Friday, so I'm taking that as the one after this week."
+    )
+    expect(p!.datedWhen).toBe(true)
+  })
+
+  it("keeps both disclosures when Orbit guessed twice", () => {
+    // "meet at 8 next Friday": an ambiguous clock number and a week to read.
+    // Suppressing either would be Orbit hiding a guess it made.
+    const p = planSparkGauge(
+      { ...bare, statedDayOfWeek: 5, statedTime: "08:00", timeAmbiguous: true, horizon: "nextWeek" },
+      TZ,
+      WED
+    )
+    expect(p!.timeLocal).toBe("20:00")
+    expect(p!.disclosure).toBe(
+      "You said 8, so I'm taking that as 8pm. You said next Friday, so I'm taking that as the one after this week."
+    )
+  })
+
+  it("changes nothing at all when no horizon was said", () => {
+    const p = planSparkGauge(bare, TZ, WED)
+    expect(p!.proposedDate.toISOString()).toBe("2026-08-28T00:00:00.000Z")
+    expect(p!.disclosure).toBeNull()
+    expect(p!.datedWhen).toBe(false)
+    expect(p!.bornLate).toBe(false)
+  })
+
+  it("refuses a plan whose start has already gone", () => {
+    // Friday 8pm, asked for Friday 7pm. Mirrors planAnswerGauge's own guard.
+    const fridayLate = new Date("2026-08-28T20:00:00Z")
+    expect(planSparkGauge({ ...bare, statedDayOfWeek: 5 }, TZ, fridayLate)).toBeNull()
+  })
+
+  it("flags a gauge born inside its own close window", () => {
+    // Friday 6pm for a Friday 7pm plan: one hour, inside the two-hour close.
+    const fridayEarly = new Date("2026-08-28T18:00:00Z")
+    const p = planSparkGauge({ ...bare, statedDayOfWeek: 5 }, TZ, fridayEarly)
+    expect(p!.bornLate).toBe(true)
   })
 })

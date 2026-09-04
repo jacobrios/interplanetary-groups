@@ -415,6 +415,69 @@ export function resolveAnswerTime({
   return answerTime
 }
 
+export interface PlannedSparkGauge {
+  proposedDate: Date
+  timeLocal: string
+  /** Every guess Orbit made, joined, or null when it made none. */
+  disclosure: string | null
+  /** Force the dated form, because a next-week reading can land inside the week. */
+  datedWhen: boolean
+  /** Born inside its own close window; caller appends the urgency clause. */
+  bornLate: boolean
+}
+
+/**
+ * Turns a normalized spark into a gauge's shape: the day, the hour, whatever
+ * Orbit has to own up to, and whether the gauge is already up against its own
+ * close.
+ *
+ * Returns null when the resolved start has already passed, so a gauge is never
+ * opened for a plan the group could not attend. Same guard, same reason, as
+ * planAnswerGauge below.
+ *
+ * The two disclosures are joined here rather than inside buildGaugeMessage
+ * because this is the only place that holds both. Time first, then week, which
+ * is the order the member said them in.
+ */
+export function planSparkGauge(
+  spark: {
+    statedDayOfWeek: number | null
+    statedTime: string | null
+    timeAmbiguous: boolean
+    partOfDay: PartOfDay | null
+    horizon: Horizon | null
+  },
+  timeZone: string,
+  now: Date
+): PlannedSparkGauge | null {
+  const proposedDate = chooseProposedDate(
+    spark.statedDayOfWeek,
+    spark.partOfDay,
+    timeZone,
+    now,
+    spark.horizon
+  )
+  const { timeLocal, disclosure: timeDisclosure } = resolveSparkTime({
+    statedTime: spark.statedTime,
+    timeAmbiguous: spark.timeAmbiguous,
+    partOfDay: spark.partOfDay,
+  })
+  const start = sparkStartInstant(proposedDate, timeLocal, timeZone)
+  if (start <= now) return null
+
+  const weekDisclosure = horizonDisclosure(spark.statedDayOfWeek, spark.horizon)
+  const disclosure =
+    [timeDisclosure, weekDisclosure].filter((d): d is string => d !== null).join(" ") || null
+
+  return {
+    proposedDate,
+    timeLocal,
+    disclosure,
+    datedWhen: weekDisclosure !== null,
+    bornLate: now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000,
+  }
+}
+
 export interface PlannedAnswerGauge {
   proposedDate: Date
   timeLocal: string
