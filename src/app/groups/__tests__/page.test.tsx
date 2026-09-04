@@ -57,7 +57,14 @@ describe("the your-groups route", () => {
   it("redirects to the front door when there is no session at all", async () => {
     getCurrentUser.mockResolvedValue(null)
 
-    await expect(GroupsPage()).rejects.toThrow("NEXT_REDIRECT:/")
+    // Not .rejects.toThrow(string): that assertion is a substring match, and
+    // "NEXT_REDIRECT:/" is a prefix of EVERY redirect message this mock can
+    // produce, so it passed for a redirect to "/groups/whatever" just as
+    // happily as for the front door. Catching the signal and checking its
+    // `to` with exact equality is what pins the destination.
+    const signal: unknown = await GroupsPage().catch((e) => e)
+    expect(signal).toBeInstanceOf(RedirectSignal)
+    expect((signal as RedirectSignal).to).toBe("/")
     // No session means no viewer.id to query with; the page must not even
     // attempt the lookup.
     expect(findMany).not.toHaveBeenCalled()
@@ -67,7 +74,11 @@ describe("the your-groups route", () => {
     getCurrentUser.mockResolvedValue({ id: "user-1" })
     findMany.mockResolvedValue([])
 
-    await expect(GroupsPage()).rejects.toThrow("NEXT_REDIRECT:/")
+    // Exact equality on the signal's `to`, for the reason spelled out on the
+    // test above.
+    const signal: unknown = await GroupsPage().catch((e) => e)
+    expect(signal).toBeInstanceOf(RedirectSignal)
+    expect((signal as RedirectSignal).to).toBe("/")
   })
 
   it("does NOT redirect for exactly one membership: the list renders instead", async () => {

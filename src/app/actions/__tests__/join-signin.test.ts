@@ -187,9 +187,19 @@ describe("confirmJoinSignInAction, the branch the slice exists for", () => {
   it("joins this group as the identity the code proved and lands them in it", async () => {
     confirmSignInCode.mockResolvedValue({ result: "ok", userId: "user-1" })
 
-    await expect(
-      confirmJoinSignInAction("sam@example.com", "12345678", "tok")
-    ).rejects.toThrow("NEXT_REDIRECT:/groups/group-1")
+    // Not .rejects.toThrow(string): that assertion is a substring match, so
+    // it would still pass if the code redirected to "/groups/group-1-oops"
+    // (which contains "/groups/group-1" as a prefix). Catching the signal and
+    // checking its `to` field with exact equality is what a genuinely wrong
+    // path would actually fail.
+    const signal: unknown = await confirmJoinSignInAction(
+      "sam@example.com",
+      "12345678",
+      "tok"
+    ).catch((e) => e)
+
+    expect(signal).toBeInstanceOf(RedirectSignal)
+    expect((signal as RedirectSignal).to).toBe("/groups/group-1")
 
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: "user-1" },
@@ -211,9 +221,17 @@ describe("confirmJoinSignInAction, the branch the slice exists for", () => {
   it("never submits a name, so signing in cannot rename anyone", async () => {
     confirmSignInCode.mockResolvedValue({ result: "ok", userId: "user-1" })
 
-    await expect(
-      confirmJoinSignInAction("sam@example.com", "12345678", "tok")
-    ).rejects.toThrow("NEXT_REDIRECT:/groups/group-1")
+    // Exact equality on the signal's `to`, for the reason spelled out on the
+    // test above: the substring form of this assertion cannot tell
+    // "/groups/group-1" from "/groups/group-1-oops".
+    const signal: unknown = await confirmJoinSignInAction(
+      "sam@example.com",
+      "12345678",
+      "tok"
+    ).catch((e) => e)
+
+    expect(signal).toBeInstanceOf(RedirectSignal)
+    expect((signal as RedirectSignal).to).toBe("/groups/group-1")
 
     expect(joinGroupByInvite).toHaveBeenCalledWith(
       expect.objectContaining({ memberName: "" })
