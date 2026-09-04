@@ -104,6 +104,82 @@ function withDeadline(
 }
 
 /**
+ * Where a half-typed message is parked so it survives a full page reload.
+ *
+ * WHY A COMPOSER NEEDS THIS AT ALL, because without the reason this reads as a
+ * nicety and gets deleted. Next's version-skew protection is already live in
+ * production: Vercel supplies a deployment id at build time with no
+ * configuration from us, and LiveRefresh's 10s poll is what reaches it. When a
+ * poll's RSC response reports a deployment id that differs from the one this
+ * document booted with, Next calls `location.replace()` from inside its own
+ * render (`fetch-server-response.js` -> `app-router.js`), with no user
+ * interaction, no confirmation, no visibility guard and no callback we could
+ * hang state off. That is a genuine full page load and it discards every piece
+ * of React state, the member's typed message included.
+ *
+ * The reload cannot be intercepted, and deferring it is worse than the bug:
+ * the only lever on it is whether the poll fires at all, so "don't reload while
+ * they're typing" necessarily means "stop syncing chat while they're typing",
+ * which regresses the chat-sync slice. So the reload is left alone and made
+ * harmless instead. A useful side effect, not the reason: the draft now also
+ * survives a manual reload, a crash, and an iOS tab eviction.
+ *
+ * WHY sessionStorage AND NOT localStorage. A draft belongs to the tab it is
+ * being typed in. localStorage is shared across every tab on the origin, so a
+ * member with this group open twice would watch one tab's half-typed message
+ * appear in the other, and the draft would outlive the browsing session
+ * entirely, resurfacing days later. sessionStorage is per tab and per session,
+ * and — the property this slice actually needs — it survives
+ * `location.replace()` of the same document, which is exactly the event it
+ * exists for.
+ *
+ * WHY THE KEY CARRIES THE GROUP ID. A member in two groups must not carry a
+ * draft between them: the same tab navigating from one group home to another
+ * would otherwise hand the second group a message written for the first.
+ */
+const draftKey = (groupId: string) => `ipg:draft:${groupId}`
+
+/**
+ * This group's parked draft, or "" when there is none.
+ *
+ * THE TRY BEGINS BEFORE `window.sessionStorage`, NOT AROUND `getItem` ALONE,
+ * and that is the load-bearing part rather than defensive habit: reading the
+ * property itself throws outright in a private window and wherever the browser
+ * is set to block site data, before any method is called. Wrapping only the
+ * method call would leave the page dying on the property lookup, in exactly
+ * the browsers a member is most likely to be running.
+ *
+ * Every failure resolves to "no draft" and nothing else. A composer that cannot
+ * park a draft must still be a working composer; the member loses a
+ * convenience, never the screen.
+ */
+function readDraft(groupId: string): string {
+  try {
+    return window.sessionStorage.getItem(draftKey(groupId)) ?? ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * Parks the current text, or removes the key when the member has emptied the
+ * box. Same wrapping and the same reason as readDraft: a blocked or full store
+ * costs the member their draft on the next reload, never their composer.
+ *
+ * Empty clears rather than storing "", so an emptied composer leaves nothing
+ * behind and `readDraft` has one shape of "nothing" to answer with rather than
+ * two.
+ */
+function writeDraft(groupId: string, value: string): void {
+  try {
+    if (value === "") window.sessionStorage.removeItem(draftKey(groupId))
+    else window.sessionStorage.setItem(draftKey(groupId), value)
+  } catch {
+    // Deliberately silent. See readDraft.
+  }
+}
+
+/**
  * Whether a send result carries ANY error, rather than specifically
  * `errors.general`.
  *
@@ -159,6 +235,44 @@ export default function GroupHome({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [inputValue, setInputValue] = useState("")
   const [, startTransition] = useTransition()
+
+  // RESTORED IN AN EFFECT, NEVER DURING RENDER, AND THE COST OF THAT IS
+  // DELIBERATE. This screen is server-rendered: the server has no session
+  // storage, so its HTML always carries an empty composer. Seeding useState
+  // from storage — or reading it anywhere else during render — would make the
+  // client's first render disagree with that HTML, which is a hydration
+  // mismatch: React discards the server tree, warns, and re-renders the whole
+  // island on the client. The visible cost of doing it here instead is one
+  // frame with an empty textarea before the draft appears. A one-frame empty
+  // box is not a bug and a hydration mismatch is, so this stays an effect. Do
+  // not "simplify" it into a useState initialiser or a lazy initialiser
+  // callback; both run during render.
+  //
+  // Keyed on groupId so a tab moving between two group homes picks up the
+  // right draft, and only ever SETS when there is something parked: an empty
+  // read must not clobber text the member has already begun typing.
+  //
+  // This trips react-hooks/set-state-in-effect, knowingly, and it is the third
+  // hit of that rule in this file rather than the first (the settledSends
+  // cleanup and the detect-queue drain below are the other two, both accepted
+  // on their own merits). The rule's advice — derive it during render instead —
+  // is exactly what cannot be done here, because the value being derived comes
+  // from a browser API the server does not have. The cost the rule is warning
+  // about is one extra render on mount. That is the same one-frame cost the
+  // paragraph above already accepts, priced twice rather than a second problem.
+  useEffect(() => {
+    const parked = readDraft(groupId)
+    if (parked) setInputValue(parked)
+  }, [groupId])
+
+  // Parks the draft as it is typed. The composer's own state is updated first
+  // and storage second, in that order on purpose: writeDraft swallows its own
+  // failures, so the member keeps typing whatever the browser's storage is
+  // doing, and nothing about the composer's behaviour waits on a write.
+  function handleInputChange(value: string) {
+    setInputValue(value)
+    writeDraft(groupId, value)
+  }
 
   // ORBIT'S READ RUNS WITH NO TRANSITION OF ITS OWN, AND THAT IS NOT WHAT FIXED
   // THE SLOW SEND. Both halves matter. (message-send-latency slice, 31 Aug 2026.)
@@ -342,6 +456,17 @@ export default function GroupHome({
     }
 
     setInputValue("")
+    // Cleared AT DISPATCH, not at settle, so it stays in step with the line
+    // above: the composer is emptied optimistically, and the parked copy goes
+    // with it. Clearing later would leave a window in which a reload put a
+    // message the member has already sent back into the box, reading as a send
+    // that failed. The cost of clearing here is that a failed send loses the
+    // draft, which is exactly what it does today with no storage involved at
+    // all; this slice is not changing that behaviour, only not making it
+    // worse. Note this cannot be folded into handleInputChange: setInputValue
+    // is called directly here, and React does not fire onChange for a
+    // programmatic value change on a controlled field.
+    writeDraft(groupId, "")
     setErrorMsg(null)
 
     // Started outside the transition so the same promise can be observed
@@ -464,10 +589,14 @@ export default function GroupHome({
               shares with OrbitDownNote above is unchanged: per viewer,
               rendered, never posted to the feed. */}
           {emailAsk && <EmailAskNote {...emailAsk} />}
+          {/* onChange is handleInputChange, not setInputValue: it parks the
+              draft as well as holding it. ChatInput is fully controlled and
+              knows nothing about any of this, which is why it needed no
+              change and must not be given one. */}
           <ChatInput
             groupId={groupId}
             value={inputValue}
-            onChange={setInputValue}
+            onChange={handleInputChange}
             onSubmit={handleSubmit}
             errorMsg={errorMsg}
           />
