@@ -201,10 +201,22 @@ const inlineSignInStyle: CSSProperties = {
 //
 // The "duplicate" copy is the owner's, verbatim, with only the existing
 // member's stored name interpolated. Nothing beyond the sentence itself is
-// added: no bold, no extra clause. "sign in" is the one part of it that is
+// added: no bold, no extra clause. "SIGN IN" is the one part of it that is
 // a real control, wired to the same `signingIn` state the "I've been here
 // before" link below already flips, so there is exactly one mechanism for
 // opening that panel rather than two.
+//
+// TIGHTENED AND CAPITALISED 4 Sept 2026, the owner's phone QA of PR #129,
+// and both halves were his call. He could read the sentence but kept
+// sliding past the control inside it, so the fix works from both ends at
+// once: the control shouts (caps are the only lever available, since teal
+// is a weight this screen spends on joining and the sentence is already
+// --danger red), and the sentence around it gets shorter so there is less
+// competing with it. "in this group" went because the card directly above
+// names the group, and "so people can tell you apart" went because the
+// first sentence has already said there is another one of you. Caps here
+// are NOT the uppercase eyebrow style: this is two words inside a running
+// sentence, at the sentence's own size.
 function nameErrorMessage(error: JoinNameError, onSignIn: () => void): ReactNode {
   switch (error.kind) {
     case "required":
@@ -217,11 +229,11 @@ function nameErrorMessage(error: JoinNameError, onSignIn: () => void): ReactNode
       // spaces the sentence needs are inside the strings themselves.
       return (
         <>
-          {`There's already a ${error.existingName} in this group. If that's you, `}
+          {`There's already a ${error.existingName} here. If that's you, `}
           <button type="button" onClick={onSignIn} style={inlineSignInStyle}>
-            sign in
+            SIGN IN
           </button>
-          {" instead. If not, add a last initial so people can tell you apart."}
+          {" instead. If not, add a last initial."}
         </>
       )
     default: {

@@ -199,7 +199,7 @@ describe("JoinForm, the duplicate-name collision", () => {
     await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
     const error = errorParagraphFor(name)
     expect(error.textContent).toBe(
-      "There's already a Mike in this group. If that's you, sign in instead. If not, add a last initial so people can tell you apart."
+      "There's already a Mike here. If that's you, SIGN IN instead. If not, add a last initial."
     )
   })
 
@@ -213,7 +213,7 @@ describe("JoinForm, the duplicate-name collision", () => {
     fireEvent.click(screen.getByRole("button", { name: /Join Tuesday Climbers/ }))
     await vi.waitFor(() => expect(name.getAttribute("aria-invalid")).toBe("true"))
 
-    fireEvent.click(screen.getByRole("button", { name: "sign in" }))
+    fireEvent.click(screen.getByRole("button", { name: "SIGN IN" }))
 
     // Same assertion the existing second-door test makes: the join controls
     // are gone and JoinSignIn's own panel is present.

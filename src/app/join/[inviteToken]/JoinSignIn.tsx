@@ -251,11 +251,20 @@ export default function JoinSignIn({ inviteToken, onCancel }: Props) {
       </form>
 
       {/* Wraps rather than squeezing: at an enlarged device text size the way
-          out and the resend stack instead of sharing a cramped row. */}
+          out and the resend stack instead of sharing a cramped row.
+
+          Centred as of 4 Sept 2026 (owner's phone QA of PR #129, declared out
+          of this slice's lane). Left-aligned it was the only thing on this
+          panel not centred, since the eyebrow, the bubble's card, the field
+          and the button all are, so it read as misplaced rather than quiet.
+          justifyContent rather than textAlign because this is a flex row: on
+          the code step it also carries the resend control, and the pair
+          centres together. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
+          justifyContent: "center",
           gap: 12,
           flexWrap: "wrap",
           marginTop: 4,
