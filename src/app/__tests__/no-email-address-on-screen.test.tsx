@@ -131,6 +131,13 @@ import RsvpControls from "@/components/RsvpControls"
 import type { IdeaItem } from "@/lib/pending/derive"
 import type { AttachRequestResult, ConfirmAttachResult } from "@/lib/auth/email"
 
+// GroupHome now mounts LiveRefresh, which calls next/navigation's useRouter.
+// That hook throws outside a real app-router tree ("invariant expected app
+// router to be mounted"), which every render in this file otherwise is. Not
+// under test here: LiveRefresh's own polling behavior is LiveRefresh.test.tsx's
+// job, this mock exists only so GroupHome can mount at all.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+
 // Every server action any of these trees reaches. Mocked so the render is a
 // render and nothing here touches the database.
 vi.mock("@/app/actions/send-message", () => ({ sendMessageAction: vi.fn(async () => ({})) }))

@@ -53,6 +53,7 @@ import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
 import SeenMarker from "./SeenMarker"
+import LiveRefresh from "./LiveRefresh"
 import { applySettledSends, type SettledSend } from "@/lib/messages/optimistic-display"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 
@@ -226,13 +227,27 @@ export default function GroupHome({
   const [settledSends, setSettledSends] = useState<SettledSend[]>([])
   const displayMessages = applySettledSends(optimisticMessages, settledSends)
 
+  // Whether React is still holding at least one optimistic entry it has not
+  // yet reconciled away. This is NOT "is the send visually still greyed out"
+  // (that question is settledSends' alone, above) and it is deliberately not
+  // scoped to our own handleSubmit transition either: it tracks the raw
+  // useOptimistic list, where an entry's isPending only clears when React
+  // actually releases it, which per this file's header is not until every
+  // router-level transition in flight has settled, Orbit's read included.
+  // That is exactly the window LiveRefresh's own header names as the hazard:
+  // a poll landing here can only make React wait on ONE MORE transition
+  // before it reconciles, stretching the hold rather than shortening it. Feed
+  // it to LiveRefresh as `paused` below so a periodic poll cannot pile onto a
+  // hold that is already in progress.
+  const hasUnreconciledSend = optimisticMessages.some((m) => m.isPending)
+
   // Nothing is in flight any more, so the ids are dead weight. Cleared rather
   // than left to grow for the life of the tab.
   useEffect(() => {
-    if (settledSends.length > 0 && !optimisticMessages.some((m) => m.isPending)) {
+    if (settledSends.length > 0 && !hasUnreconciledSend) {
       setSettledSends([])
     }
-  }, [optimisticMessages, settledSends])
+  }, [hasUnreconciledSend, settledSends])
 
   // Messages waiting to be handed to Orbit.
   //
@@ -378,6 +393,11 @@ export default function GroupHome({
       }}
     >
       <SeenMarker groupId={groupId} viewerId={viewerId} />
+      {/* Renders for any viewer, member or not; the page-level members-only
+          wall already decided who reaches this screen. `paused` is bound to
+          hasUnreconciledSend above, not to the ChatInput-adjacent "is this
+          screen busy" feeling: see that constant's comment for why. */}
+      <LiveRefresh paused={hasUnreconciledSend} />
 
       {/* Scrollable feed */}
       <MessageFeed

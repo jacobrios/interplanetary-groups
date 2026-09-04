@@ -55,6 +55,10 @@ vi.mock("@/app/actions/detect-intent", () => ({
 vi.mock("@/app/actions/group-seen", () => ({
   markGroupSeenAction: (...args: unknown[]) => seenMock(...(args as [])),
 }))
+// GroupHome now mounts LiveRefresh, which calls next/navigation's useRouter;
+// that throws outside a real app-router tree. LiveRefresh's own polling
+// behavior belongs to LiveRefresh.test.tsx, not here.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 /** A promise the test resolves when it chooses, standing in for Orbit thinking. */
 function deferred<T>() {
