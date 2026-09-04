@@ -271,31 +271,13 @@ describe("stuck versus working", () => {
 describe("the heartbeat's own hazards", () => {
   const t0 = 1_000_000_000_000
 
-  it("writes beats atomically, so a waiter never reads a half-written lock", async () => {
-    // Measured with two real processes: a plain writeFileSync truncates first and
-    // produced 1739 unreadable reads in 27839, each of which would have been read
-    // as an abandoned lock and stolen from a live holder. tmp+rename produced 0
-    // in 76466.
-    let touch: (() => boolean) | null = null
-    let clock = t0
-    const release = await acquire({
-      root: ROOT,
-      env: {},
-      pid: 111,
-      now: () => clock,
-      startBeat: (t: () => boolean) => {
-        touch = t
-        return { stop() {} }
-      },
-    })
-    clock = t0 + 60_000
-    for (let i = 0; i < 100; i++) {
-      touch!()
-      expect(readFileSync(PATH, "utf8").length).toBeGreaterThan(0)
-    }
-    expect(JSON.parse(readFileSync(PATH, "utf8")).beat).toBe(t0 + 60_000)
-    release()
-  })
+  // A test named "writes beats atomically" lived here and was DELETED on
+  // 4 September 2026: it called touch() and read the file in the same process,
+  // and writeFileSync blocks, so it could never observe the zero-byte window a
+  // non-atomic write leaves for an external reader. Reverting the fix left it
+  // green. The property is real and is checked by
+  // `checks/suite-lock-atomicity.mjs`, two real processes, deliberately outside
+  // the runner. A test that cannot fail reports coverage that does not exist.
 
   it("keeps waiting when a seemingly silent holder beats during the confirm window", async () => {
     // Silence is wall-clock, so a laptop closed mid-run wakes a waiter to a beat

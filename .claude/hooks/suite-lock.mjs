@@ -99,10 +99,12 @@ const LOCK_DIR = join(tmpdir(), "claude-suite-locks")
 // so it stops only when that process is killed, stopped, or blocked inside a
 // synchronous call. It therefore reclaims:
 //   - a holder whose process is gone
-//   - a holder whose main event loop has been blocked for SILENT_MS
+//   - a holder whose main event loop has been blocked for SILENT_MS, reclaimed
+//     after SILENT_MS + CONFIRM_MS since a silent-looking holder is re-read once
+//     before its lock is taken
 // and it does NOT reclaim the ordinary ways a run wedges, because every one of
 // them leaves that loop turning: an await that never settles, a hung globalSetup
-// or teardown (vitest applies no timeout to either), a database disconnect that
+// or teardown ((not 100% sure, verify) vitest appears to apply no timeout to either), a database disconnect that
 // never returns, or a stuck pool worker. This repo contains a concrete instance:
 // `run-tests-unless-docs.test.ts` calls spawnSync with no timeout, which blocks
 // that worker's thread outright while the main process beats along happily.
