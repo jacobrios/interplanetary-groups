@@ -138,8 +138,87 @@
 // triggers landing within REFRESH_COALESCE_WINDOW_MS of each other collapse
 // into one; it is a plain timestamp rather than React state, since nothing
 // here needs to re-render on it.
+//
+// WHY REFRESHES NEED THEIR OWN IN-FLIGHT GUARD, NOT JUST THE INTERVAL
+//
+// Production regression, 4 Sept 2026: a tab left open through several
+// missed messages went completely dead — no card taps, no navigation, no
+// sends reaching the server; reloading fixed it. The cause: Next dispatches
+// every server action AND every refresh through one strictly serial queue
+// (node_modules/next/dist/client/components/app-router-instance.js's
+// dispatchAction keeps a linked list, actionQueue.pending / actionQueue.last,
+// and starts the next action only once the current one resolves). Before
+// this guard, a tick landing while the previous refresh's RSC render was
+// still outstanding called router.refresh() again anyway, queueing a second
+// ACTION_REFRESH behind the first. If a render ever takes longer than
+// REFRESH_INTERVAL_MS, every later tick adds another queued action, and
+// because a send is a server action too, an RSVP tap or a chat message
+// queues behind all of them and never reaches the server while the page
+// still looks alive (the optimistic layer keeps drawing). Full incident in
+// docs/superpowers/specs/2026-09-04-refresh-backpressure-design.md.
+//
+// The property this file now holds: at most one refresh in flight, and a
+// tick or event landing while one is outstanding does NOTHING — dropped,
+// not queued, no scheduled catch-up. A tab that slept through fifty ticks
+// owes exactly one refresh on waking, not fifty.
+//
+// THE MECHANISM, AND WHY IT IS TRUSTWORTHY HERE
+//
+// router.refresh() returns void, so there is nothing to await. The signal
+// used instead is useTransition()'s own isPending, read via
+// refreshPendingRef the same way `paused` is read via pausedRef: mirrored by
+// a small effect rather than closed over directly, so the long-lived
+// interval and listeners never need tearing down just because a refresh
+// started or settled.
+//
+// Verified against Next 16.3.2's own source rather than assumed: refresh()
+// is `startTransition(() => dispatchAppRouterAction({type: ACTION_REFRESH}))`,
+// and that dispatch itself does a SECOND, nested `startTransition(() =>
+// setState(deferredPromise))`, setting the router's own rendered state to a
+// promise that the AppRouter component reads with `use()`. A transition
+// that suspends holds its own isPending true until the suspending promise
+// resolves — and, reproduced in a throwaway test rather than taken on
+// faith, a SEPARATE, unrelated useTransition() whose startTransition call
+// happens to run in the same synchronous window as that nested one stays
+// pending too, because React renders every lane scheduled in that window
+// together and a suspense anywhere in the render holds the whole batch
+// back. That is what makes wrapping router.refresh() in this component's
+// own useTransition() an honest signal of when the real RSC fetch has
+// actually landed, not just of when this component's own callback (which
+// does nothing but call a void function) happened to return.
+//
+// Two things checked against this codebase's own history before trusting
+// it, per the design doc:
+//
+// 1. GroupHome.tsx's header warns against re-adding a useTransition
+//    believing it fixes a timing problem — but that warning is about the
+//    SEND path's server-action dispatch, where the transition itself was
+//    what held useOptimistic's entry open. This component owns no
+//    useOptimistic entry and sends nothing; it only reads isPending, which
+//    changes nothing about how long any OTHER component's own transition
+//    takes to settle.
+// 2. Does wrapping refresh() here ever lengthen the hold that used to grey
+//    out a member's own message? No, for two independent reasons. First,
+//    `paused` already blocks every refresh for the whole life of a send
+//    (see GroupHome's sendsInFlight binding), so a refresh's transition and
+//    a send's transition are never both active at once by construction.
+//    Second, even if they somehow overlapped, MessageFeed no longer draws a
+//    message's "sending" look from the raw useOptimistic isPending flag at
+//    all — src/lib/messages/optimistic-display.ts's applySettledSends
+//    decides that from the send's own promise, and a longer-held raw
+//    transition is explicitly "fine for cleanup, fatal for paused"
+//    (GroupHome's own words) but invisible on screen either way.
+//
+// The try/catch below stays exactly where it was: INSIDE the transition's
+// callback, wrapping the raw router.refresh() call, not wrapping
+// startRefreshTransition itself. React's own startTransition has its own
+// internal catch that swallows a synchronous throw differently (into a
+// rejected result this component never reads), and relying on that instead
+// would change what the existing, already-verified "swallows a synchronous
+// throw" test actually proves. Catching it here first keeps that test's
+// meaning untouched by this slice.
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 
 const REFRESH_INTERVAL_MS = 10_000
@@ -164,22 +243,45 @@ export default function LiveRefresh({ paused }: Props) {
     pausedRef.current = paused
   }, [paused])
 
+  // isRefreshPending is the in-flight signal itself; see this file's header,
+  // "THE MECHANISM, AND WHY IT IS TRUSTWORTHY HERE", for why useTransition's
+  // own isPending is an honest read of whether the last-started refresh has
+  // actually landed. Mirrored into a ref for the same reason pausedRef
+  // exists: the interval/listener closures below are set up once and must
+  // see the latest value without tearing themselves down every time a
+  // refresh starts or settles.
+  const [isRefreshPending, startRefreshTransition] = useTransition()
+  const refreshPendingRef = useRef(isRefreshPending)
+  useEffect(() => {
+    refreshPendingRef.current = isRefreshPending
+  }, [isRefreshPending])
+
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined
     let lastRefreshAt = 0
 
     const refresh = () => {
       if (pausedRef.current) return
+      // The whole slice: a trigger landing while a refresh is still
+      // outstanding does nothing at all. Checked before the coalesce
+      // window (not after and not merged with it) because this is the
+      // primary guard now, and because updating lastRefreshAt here would
+      // needlessly delay the very next tick once the in-flight one clears.
+      if (refreshPendingRef.current) return
       const now = Date.now()
       if (now - lastRefreshAt < REFRESH_COALESCE_WINDOW_MS) return
       lastRefreshAt = now
-      try {
-        router.refresh()
-      } catch {
-        // Swallow a synchronous throw at the call site (e.g. dispatched
-        // before router initialization). See this file's header for what
-        // this does and does not defend against.
-      }
+      startRefreshTransition(() => {
+        try {
+          router.refresh()
+        } catch {
+          // Swallow a synchronous throw at the call site (e.g. dispatched
+          // before router initialization). See this file's header for what
+          // this does and does not defend against, and for why this catch
+          // stays inside the transition's callback rather than around
+          // startRefreshTransition itself.
+        }
+      })
     }
 
     // The interval's own gate on top of start/stop-by-event; see header.

@@ -20,6 +20,33 @@ vi.mock("next/navigation", () => ({
   useRouter: () => routerMock,
 }))
 
+// react's own useTransition is mocked for the in-flight tests below, and
+// ONLY for those: LiveRefresh.tsx's header explains why real isPending
+// timing (verified separately, against real Next internals, in a throwaway
+// probe rather than assumed) needs a genuinely suspending nested transition
+// to stay pending, and this component has no Suspense-reading sibling in
+// its own tree to produce one — there is nothing here for a bare
+// router.refresh mock to suspend against. mockRefreshPending is a plain
+// module-level variable, not React state, on purpose: startTransitionMock
+// flips it to true the moment a transition starts (matching real React,
+// where isPending goes true synchronously before the callback runs) and the
+// tests flip it back to false themselves to say "the refresh has now
+// settled" — then call `rerender` so LiveRefresh's mirroring effect (see
+// refreshPendingRef in the component) actually notices the new value, the
+// same way a real isPending change would trigger a real re-render.
+let mockRefreshPending = false
+const startTransitionMock = vi.fn((callback: () => void) => {
+  mockRefreshPending = true
+  callback()
+})
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>()
+  return {
+    ...actual,
+    useTransition: () => [mockRefreshPending, startTransitionMock],
+  }
+})
+
 import LiveRefresh from "../LiveRefresh"
 
 function setVisibility(state: DocumentVisibilityState) {
@@ -32,10 +59,16 @@ function setVisibility(state: DocumentVisibilityState) {
 beforeEach(() => {
   vi.useFakeTimers()
   setVisibility("visible")
+  // Every test starts with no refresh outstanding. Without this reset, a
+  // test that leaves mockRefreshPending at true (any in-flight test that
+  // does not explicitly settle it) would leak into every later test's
+  // FIRST render, since the component reads it once at mount.
+  mockRefreshPending = false
 })
 
 afterEach(() => {
   refresh.mockClear()
+  startTransitionMock.mockClear()
   vi.restoreAllMocks()
   vi.useRealTimers()
   setVisibility("visible")
@@ -281,6 +314,71 @@ describe("LiveRefresh", () => {
     document.dispatchEvent(new Event("visibilitychange"))
     expect(setIntervalSpy).toHaveBeenCalledTimes(1)
     expect(refresh).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(2)
+  })
+
+  // The three tests below model the in-flight guard itself (see the mock
+  // comment above the useTransition mock for why a real, suspense-driven
+  // isPending cannot be produced from a bare router.refresh mock in this
+  // component's own test tree). `rerender` stands in for the re-render a
+  // real isPending flip would trigger.
+  it("fires no second refresh when a tick lands while the previous one is still in flight", () => {
+    const { rerender } = render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    // startTransitionMock set mockRefreshPending true the instant that
+    // refresh started (see the mock: this mirrors real React setting
+    // isPending true synchronously, before the wrapped callback runs).
+    // Re-rendering is what lets LiveRefresh's own mirroring effect notice
+    // it, the same way a real isPending change would force a re-render.
+    expect(mockRefreshPending).toBe(true)
+    rerender(<LiveRefresh paused={false} />)
+
+    // A whole extra interval period passes with the refresh still (per the
+    // mock) unsettled. Not a single further call reaches router.refresh().
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("fires again on the next tick once the in-flight refresh settles", () => {
+    const { rerender } = render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    rerender(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1) // still blocked, in flight
+
+    // The refresh has now landed: isPending goes back to false, and a
+    // render is needed for LiveRefresh to notice, same as above.
+    mockRefreshPending = false
+    rerender(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(2)
+  })
+
+  // The reported case: a tab sleeps through many missed ticks while a
+  // refresh never settles. It owes exactly one refresh once that refresh
+  // finally does, not one per missed tick in between.
+  it("yields exactly one refresh, not a burst, after a long stall while a refresh stays in flight", () => {
+    const { rerender } = render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    rerender(<LiveRefresh paused={false} />)
+
+    // Fifty missed ticks' worth of elapsed time, all while the one refresh
+    // above never settles.
+    vi.advanceTimersByTime(10_000 * 50)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    mockRefreshPending = false
+    rerender(<LiveRefresh paused={false} />)
 
     vi.advanceTimersByTime(10_000)
     expect(refresh).toHaveBeenCalledTimes(2)
