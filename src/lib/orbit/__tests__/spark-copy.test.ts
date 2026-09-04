@@ -155,6 +155,18 @@ describe("chooseProposedDate, horizons", () => {
   it("reads a week as Monday to Sunday, so a weekend ask does not overshoot", () => {
     // Saturday: next week's Friday is six days out, not thirteen. This is the
     // cell that rejected the simpler always-add-seven rule.
+    //
+    // Both assertions below are no-ops against the OLD (pre-horizon) code,
+    // and deliberately so: don't "fix" that by changing the expected value.
+    // For a stated weekday, "nextWeek" only changes the answer when the named
+    // day still lies ahead in the current Monday-start week. On a Saturday or
+    // Sunday the named Friday has already passed, so its next occurrence and
+    // next week's occurrence are the same calendar date, and the horizon is
+    // correctly a no-op on this cell. What this test actually pins is that
+    // the Monday-week convention doesn't overshoot on a weekend anchor, which
+    // is a real behavior even though it happens to coincide with the old
+    // result here. (Reviewed 2026-09-03: confirmed by hand against both the
+    // old and new arithmetic.)
     expect(chooseProposedDate(5, "evening", TZ, SAT, "nextWeek").toISOString()).toBe(
       "2026-09-04T00:00:00.000Z"
     )
@@ -222,6 +234,14 @@ describe("chooseProposedDate, horizons", () => {
     // Pacific/Midway is UTC-11 year round, so this instant is still Saturday
     // there while it is already Sunday in UTC. Both resolve to Fri 4 Sep here,
     // so the assertion that earns its keep is the Monday case below it.
+    //
+    // Same no-op coincidence as the weekend test above: the anchor reads as
+    // Saturday locally, and a stated Monday has already passed by then within
+    // its own week, so next-occurrence and next-week's-occurrence agree. This
+    // assertion is also a no-op against the old code; what it actually proves
+    // is that the horizon arithmetic reads "today" in the group's zone rather
+    // than the server's, which the value it lands on (not which branch
+    // produced it) can't tell apart from the old fallback in this cell.
     const MIDWAY = "Pacific/Midway"
     // 2026-08-30T02:00Z is Sat 29 Aug 15:00 in Midway.
     const acrossMidnight = new Date("2026-08-30T02:00:00Z")
