@@ -290,7 +290,8 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
         spark.statedDayOfWeek,
         spark.partOfDay,
         group.timeZone,
-        now
+        now,
+        null
       )
       const { timeLocal, disclosure } = resolveSparkTime({
         statedTime: spark.statedTime,

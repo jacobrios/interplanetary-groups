@@ -21,7 +21,7 @@ import {
 } from "@/lib/events/format"
 import { getLocalParts, zonedWallTimeToUtc } from "./occurrence"
 // Type-only, so it erases at compile time and cannot pull the model SDK back in.
-import type { PartOfDay } from "./spark"
+import type { Horizon, PartOfDay } from "./spark"
 
 /**
  * The activity is one or two words in the member's own words and lands inside
@@ -34,6 +34,23 @@ export const ACTIVITY_MAX = 40
 
 const FRIDAY = 5
 const SATURDAY = 6
+const MONDAY = 1
+
+/**
+ * Days from today to the Monday that starts NEXT week.
+ *
+ * A week runs Monday to Sunday, and "next week" is the week after the one
+ * today sits in. That convention is the whole reason a Saturday "next Friday"
+ * is six days out rather than thirteen; the simpler always-add-seven rule was
+ * rejected because it is wrong for every weekday named on a weekend. Never
+ * zero: a Monday's own next week is seven days out, not today.
+ *
+ * Placeholder in the same sense as the Friday and Saturday fallbacks above,
+ * and replaced with them by the override-learning behavior in build-notes §5.
+ */
+function daysToNextWeekStart(todayDow: number): number {
+  return ((MONDAY - todayDow + 7) % 7) || 7
+}
 
 /**
  * Where an unstated time lands, and how a gauge's own clock runs: how much
@@ -181,26 +198,43 @@ function weekdayOf(year: number, month: number, day: number): number {
  * 23 July 2026, Saturday 24 July 2026), and they live in one place beside the
  * time defaults so all four stay cheap to replace with the override-learning
  * behavior in build-notes §5.
+ *
+ * Horizon, added 3 September 2026: "next week" puts the day inside the week
+ * after the one today sits in, and "this week" suppresses the notice buffer.
+ * Null is every other phrase and behaves exactly as this function did before,
+ * which is what keeps a confused model harmless. (Spec: next-week-horizon.)
  */
 export function chooseProposedDate(
   statedDayOfWeek: number | null,
   partOfDay: PartOfDay | null,
   timeZone: string,
-  now: Date
+  now: Date,
+  horizon: Horizon | null
 ): Date {
   const today = getLocalParts(now, timeZone)
   const todayDow = weekdayOf(today.year, today.month, today.day)
 
+  // Friday was chosen on end-of-the-week social logic, which is about
+  // evenings. A morning idea inherits Saturday instead: "breakfast sometime"
+  // proposed for Friday 7pm would be wrong twice over.
+  const fallbackDay = partOfDay === "morning" ? SATURDAY : FRIDAY
+
   let offsetDays: number
-  if (statedDayOfWeek !== null) {
+  if (horizon === "nextWeek") {
+    // The day they named, or Orbit's own fallback, taken inside next week
+    // rather than this one. The buffer is reused rather than replaced: it is
+    // what stops a Sunday "next Monday" landing on tomorrow, which would be an
+    // undershoot of exactly the kind this whole change exists to fix.
+    const day = statedDayOfWeek ?? fallbackDay
+    offsetDays = daysToNextWeekStart(todayDow) + ((day - MONDAY + 7) % 7)
+    if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
+  } else if (statedDayOfWeek !== null) {
     offsetDays = (statedDayOfWeek - todayDow + 7) % 7
   } else {
-    // Friday was chosen on end-of-the-week social logic, which is about
-    // evenings. A morning idea inherits Saturday instead: "breakfast sometime"
-    // proposed for Friday 7pm would be wrong twice over.
-    const fallbackDay = partOfDay === "morning" ? SATURDAY : FRIDAY
     offsetDays = (fallbackDay - todayDow + 7) % 7
-    if (offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
+    // "this week" is the member ruling out the push. Thursday's "beers this
+    // week" otherwise lands on next Friday, contradicting the word they used.
+    if (horizon !== "thisWeek" && offsetDays < FALLBACK_BUFFER_DAYS) offsetDays += 7
   }
 
   // Date.UTC absorbs the day overflow, so month and year ends need no special case.
@@ -387,7 +421,7 @@ export function planAnswerGauge(
 ): PlannedAnswerGauge | null {
   const proposedDate =
     answer.dayOfWeek !== null
-      ? chooseProposedDate(answer.dayOfWeek, null, timeZone, now)
+      ? chooseProposedDate(answer.dayOfWeek, null, timeZone, now, null)
       : chooseRetryGuessDate(ask.proposedDate, timeZone)
   const timeLocal = resolveAnswerTime({
     answerTime: answer.time,

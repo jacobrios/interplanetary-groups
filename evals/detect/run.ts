@@ -105,7 +105,7 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
     ? [
         buildLiveGaugeLine(
           c.liveGauge.activity,
-          chooseProposedDate(c.liveGauge.proposedDayOfWeek, null, TIME_ZONE, now),
+          chooseProposedDate(c.liveGauge.proposedDayOfWeek, null, TIME_ZONE, now, null),
           TIME_ZONE
         ),
       ]

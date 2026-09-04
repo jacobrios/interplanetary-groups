@@ -169,7 +169,7 @@ async function main() {
   // the same transaction; nobody else votes, and the not-yet-existing viewer
   // obviously has not either. ─────────────────────────────────────────────
   const boulderSrc = await memberMsg(theo.id, "we should try bouldering at the new east side gym sometime")
-  const boulderDate = chooseProposedDate(6 /* Saturday */, null, TZ, now)
+  const boulderDate = chooseProposedDate(6 /* Saturday */, null, TZ, now, null)
   const boulderBody = buildGaugeMessage("bouldering at the new east side gym", boulderDate, TZ, now, null)
   const boulder = await createGauge({
     groupId: group.id,
@@ -209,7 +209,7 @@ async function main() {
   // ── The standing-yes candidate: floated, nobody votes yet. Its only vote
   // is added later by --seed-viewer, once a real session exists to cast it.
   const standingSrc = await memberMsg(founder.id, "yoga recovery session sunday morning, anyone?")
-  const standingDate = chooseProposedDate(0 /* Sunday */, "morning", TZ, now)
+  const standingDate = chooseProposedDate(0 /* Sunday */, "morning", TZ, now, null)
   const standingBody = buildGaugeMessage(STANDING_ACTIVITY, standingDate, TZ, now, null)
   const standing = await createGauge({
     groupId: group.id,
