@@ -7877,3 +7877,45 @@ The template was made re-entrant rather than this copy being patched, which woul
 **Known limit, left alone on purpose.** The lock keys on the resolved working directory, so it serializes runs within one checkout and **not** two git worktrees sharing one dev-test database. The concurrent-worktree collision in CLAUDE.md survives this change. Closing it would trade this failure for a worse one: a stale lock file from a killed run in some other worktree blocking every checkout on the machine. Asking the other session before taking the database remains the real protection there, and it worked all evening.
 
 **Supporting observation, not proof, from the concurrent horizon session:** roughly 400 eval-bench model calls, which are network-only and never open a database connection, produced zero failures of this kind. That is evidence heavy concurrent non-database work does not reproduce it, and is silent on what does. Both sightings of the actual bug happened during overlapping *suite* runs.
+
+---
+
+## §11 entry: the refresher stops piling up (4 September 2026)
+
+*Production regression, caused by the chat-sync slice that shipped the same morning, reported by the owner within hours of it landing.*
+
+**What he saw.** His wife sent five or six messages. He opened his phone to a Safari tab that had been sitting on the group home. Nothing arrived, **and the whole app was dead**: no card taps, no navigation, no group info, and messages he typed never reached the server. Reloading fixed it. The same app open as a standalone home-screen instance was fine, being a separate browser instance with its own state.
+
+**Worse than the bug it replaced.** A stale room is annoying. An app that looks alive, accepts typing, draws the message, and silently swallows it is not.
+
+### The mechanism, and it was written down before it happened
+
+The whole-branch review of the chat-sync slice recorded exactly this as debt: *"No in-flight backpressure. If a server render ever exceeds 10s, ticks keep firing and overlapping RSC requests accumulate."* The same review established the other half: **Next dispatches every server action and every refresh through one strictly serial queue.** Refreshes outlasting their own interval stack in that queue, and every tap, navigation and send queues behind them forever. The optimistic layer keeps drawing, so the page looks alive. A reload discards the queue.
+
+**The finding was named, ranked as debt, and shipped anyway.** It is recorded here because the argument for treating a named risk as a blocker is only ever made credible by a case where it was not.
+
+### What shipped
+
+At most one refresh in flight. A trigger arriving while one is outstanding **does nothing**: it does not queue and it does not schedule a catch-up, so a tab that slept through fifty ticks owes exactly one refresh rather than fifty. That second half is what the reported case needed.
+
+**The signal is `useTransition`'s pending flag, and whether it is real was the crux of the slice.** `router.refresh()` returns void, so there is nothing to await. Two independent readings of Next 16.3.2 and React 19.2.4 source established that it holds: `router.refresh()` dispatches inside a transition, `dispatchAction` sets state to a deferred promise the AppRouter component suspends on via `use()`, and the `isPending = false` update is an optimistic update scheduled on the same transition lane as the suspending one, so it cannot commit until the RSC payload has been reduced into router state. There is no Suspense boundary between them. Had it cleared at dispatch, the guard would have been a placebo and the pile-up would have survived unchanged.
+
+### What review caught, and the pattern in it
+
+**An unbounded flag, for the second time in one day.** The in-flight flag had exactly one exit, the RSC promise settling, and nothing bounded it. A fetch that neither answers nor errors would leave it true for the life of the tab, with every trigger behind it, so the member could not even force recovery by returning to the tab: polling silently dead, reload only. `GroupHome.tsx` already documents that exact hang as phone-verified, and the review of *that* slice called an unbounded wait "fatal" for the same reason and bounded it with a deadline. **The morning's other slice had a pause flag with the identical defect.** Now bounded at three intervals, with the honest counterweight in the comment: a hung refresh means the queue's head is stuck, so this is insurance rather than a cure.
+
+**Two header comments asserting mechanisms that are not real**, both corrected. One claimed a refresh's transition and a send's transition can never both be active, which is false: `paused` stops a refresh *starting* during a send but not a send starting during a refresh. The conclusion survived for a better reason, now written down: **the suspending update is Next's, not ours**, created inside `dispatchAction` whether or not this component wraps the call, so `useOptimistic`'s hold is unchanged either way. The other had React's rejection handling backwards.
+
+### Evidence
+
+Baseline on `7cfe9cd`: 1777 passed, 149 files. After: **1781 / 149**, zero failures.
+
+**The mutation evidence is the strongest of any slice this week, because it fails in two directions.** The long-stall test yields **50 calls with no guard, 1 with an unbounded guard, and 17 with the correct bounded one.** A test that distinguishes three states cannot pass by accident, and the 50 is arithmetically exactly one dispatch per missed tick, which is the production mechanism rather than a generic off-by-one.
+
+**Not verified by anyone:** that a real hung refresh recovers on this schedule in a real browser. That is the owner's phone.
+
+### Debt, and one sentence that matters more than the rest
+
+The tests mock `react` wholesale, so **the `useTransition` semantics this entire fix rests on are asserted nowhere**: swap in a mechanism that clears at dispatch and all seventeen stay green. Correctness rests on the source readings above, not on anything CI will catch when Next next changes its nesting. No test covers a `focus` or `visibilitychange` trigger being dropped mid-refresh, even though the incident arrived through a tab return. The three-interval expiry is a judgment call, not a measurement.
+
+**And the sentence a future reader needs first: this slice stops refreshes piling up. A single refresh that hangs still wedges the serial queue and the tab.** If the dead-app symptom recurs, the assumption to re-examine is not the guard, it is that pile-up was the only way the queue got stuck.
