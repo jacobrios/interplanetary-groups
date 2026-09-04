@@ -127,6 +127,28 @@ export function resolveSparkTime({
 }
 
 /**
+ * Orbit owning up to the week it picked, in one clause.
+ *
+ * Fires on exactly one condition: they named a weekday AND said "next". That
+ * is the am/pm rule's own shape, which discloses a reading of an hour the
+ * member stated and stays silent when nothing was stated, because there is
+ * nothing of theirs to misread. So "beers next week" gets no clause: Friday is
+ * Orbit's own fallback pick and has never been disclosed.
+ *
+ * People genuinely disagree about "next Friday" and some do mean the upcoming
+ * one, so Orbit picks a reading and says so rather than asking. Asking would
+ * break the concrete-first guardrail, which is to propose a specific day and
+ * absorb overrides. (Spec: next-week-horizon, §3.)
+ */
+export function horizonDisclosure(
+  statedDayOfWeek: number | null,
+  horizon: Horizon | null
+): string | null {
+  if (horizon !== "nextWeek" || statedDayOfWeek === null) return null
+  return `You said next ${weekdayLongName(statedDayOfWeek)}, so I'm taking that as the one after this week.`
+}
+
+/**
  * The instant a gauge's proposed day and time actually start, in the group's
  * zone. One implementation, shared by detection (which refuses to open a gauge
  * whose start has already gone) and promotion (which refuses to create an event
@@ -496,7 +518,15 @@ export function buildGaugeMessage(
   proposedDate: Date,
   timeZone: string,
   now: Date,
-  disclosure: string | null
+  disclosure: string | null,
+  /**
+   * Force the dated form. A "next Friday" reading can land inside the week (six
+   * days out on a Saturday), where "this Friday" would contradict the very
+   * clause disclosing it. Optional, unlike chooseProposedDate's horizon,
+   * because this is presentation derived from a decision already made upstream
+   * and the one caller that sets it is pinned by a test.
+   */
+  datedWhen = false
 ): string {
   const weekday = formatWeekdayLong(proposedDate, timeZone)
 
@@ -506,7 +536,7 @@ export function buildGaugeMessage(
     (proposedDate.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
   )
   const when =
-    daysAway >= THIS_WEEK_DAYS
+    datedWhen || daysAway >= THIS_WEEK_DAYS
       ? `on ${weekday}, ${formatMonthDay(proposedDate, timeZone)}`
       : `this ${weekday}`
 

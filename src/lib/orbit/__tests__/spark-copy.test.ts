@@ -16,6 +16,7 @@ import {
   chooseRetryGuessDate,
   chooseSuggestedRetryDate,
   formatTimeLocalLabel,
+  horizonDisclosure,
   localWeekday,
   planAnswerGauge,
   resolveAnswerTime,
@@ -656,6 +657,57 @@ describe("day-comment helpers", () => {
   it("buildLiveGaugeLine is model-facing context, not member copy", () => {
     expect(buildLiveGaugeLine("beers", failedSaturday, "UTC")).toBe(
       "Orbit is currently gauging interest in beers for this Saturday; the group answers with the chips under that message."
+    )
+  })
+})
+
+describe("horizonDisclosure", () => {
+  it("owns up only when the member named a day and Orbit read it the far way", () => {
+    expect(horizonDisclosure(5, "nextWeek")).toBe(
+      "You said next Friday, so I'm taking that as the one after this week."
+    )
+    expect(horizonDisclosure(1, "nextWeek")).toBe(
+      "You said next Monday, so I'm taking that as the one after this week."
+    )
+  })
+
+  it("stays quiet when there was nothing of theirs to misread", () => {
+    // "beers next week" names no day, so Friday is Orbit's own fallback pick,
+    // which is undisclosed today and stays undisclosed. This is the am/pm rule
+    // exactly: disclose a reading of what they said, never a guess they left open.
+    expect(horizonDisclosure(null, "nextWeek")).toBeNull()
+    expect(horizonDisclosure(5, "thisWeek")).toBeNull()
+    expect(horizonDisclosure(5, null)).toBeNull()
+    expect(horizonDisclosure(null, null)).toBeNull()
+  })
+
+  it("carries no em-dash, per the product-voice rule", () => {
+    expect(horizonDisclosure(5, "nextWeek")).not.toMatch(/[—–]/)
+  })
+})
+
+describe("buildGaugeMessage, dated form", () => {
+  const TZ = "UTC"
+  const WED = new Date("2026-08-26T12:00:00Z")
+  const SOON = new Date("2026-08-28T00:00:00Z") // Fri, two days out
+
+  it("still says 'this Friday' for a nearby day by default", () => {
+    expect(buildGaugeMessage("beers", SOON, TZ, WED, null)).toContain("Beers this Friday?")
+  })
+
+  it("names the date when asked to, however near the day is", () => {
+    // Without this, a Saturday "next Friday" resolves six days out and Orbit
+    // answers "Beers this Friday? You said next Friday..." , the message
+    // contradicting its own next sentence.
+    const msg = buildGaugeMessage("beers", SOON, TZ, WED, null, true)
+    expect(msg).toContain("Beers on Friday, Aug 28?")
+    expect(msg).not.toContain("this Friday")
+  })
+
+  it("carries the horizon clause between the question and the promise", () => {
+    const msg = buildGaugeMessage("beers", SOON, TZ, WED, horizonDisclosure(5, "nextWeek"), true)
+    expect(msg).toBe(
+      "Love it. Beers on Friday, Aug 28? You said next Friday, so I'm taking that as the one after this week. If three are in, I'll set it up."
     )
   })
 })
