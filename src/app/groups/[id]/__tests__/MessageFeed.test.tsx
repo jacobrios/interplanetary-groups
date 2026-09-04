@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { MessageAuthor } from "@prisma/client"
-import MessageFeed from "../MessageFeed"
+import MessageFeed, { type FeedMessage } from "../MessageFeed"
 
 describe("MessageFeed system messages", () => {
   it("renders a SYSTEM message as a quiet centered line, never as a member bubble", () => {
@@ -117,5 +117,116 @@ describe("MessageFeed former-member label", () => {
 
     expect(screen.getByText("Former member")).toBeTruthy()
     expect(screen.queryByText("Member")).toBeNull()
+  })
+})
+
+describe("MessageFeed auto-scroll does not hijack a scrolled-up reader (LiveRefresh polling fix)", () => {
+  // jsdom's layout metrics are always 0, so "near the bottom" has to be
+  // faked on the actual scroll container node rather than produced by real
+  // layout. The scroll container is the component's single top-level
+  // element, so RTL's own wrapper div's first child is it.
+  function setScrollMetrics(
+    el: HTMLElement,
+    metrics: { scrollTop: number; scrollHeight: number; clientHeight: number }
+  ) {
+    Object.defineProperty(el, "scrollTop", { value: metrics.scrollTop, configurable: true })
+    Object.defineProperty(el, "scrollHeight", { value: metrics.scrollHeight, configurable: true })
+    Object.defineProperty(el, "clientHeight", { value: metrics.clientHeight, configurable: true })
+  }
+
+  function memberMessage(id: string, authorId: string): FeedMessage {
+    return {
+      id,
+      authorType: MessageAuthor.MEMBER,
+      authorId,
+      authorName: "Someone",
+      body: `body ${id}`,
+      createdAt: new Date(),
+    }
+  }
+
+  it("before this slice, every message-count change scrolled unconditionally: now a scrolled-up reader is left alone when someone else posts", () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    const initial = [memberMessage("m1", "u-other")]
+
+    const { container, rerender } = render(
+      <MessageFeed viewerId="v-viewer" timeZone="America/Chicago" messages={initial} />
+    )
+    const scrollEl = container.firstElementChild as HTMLElement
+
+    // The mount always scrolls (first-mount branch); clear that call so the
+    // assertion below is about the SECOND change only.
+    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+
+    // Simulate the viewer having scrolled up to reread earlier history: 1500px
+    // of unread content sits below them, well past the near-bottom threshold.
+    setScrollMetrics(scrollEl, { scrollTop: 0, scrollHeight: 2000, clientHeight: 500 })
+    fireEvent.scroll(scrollEl)
+
+    rerender(
+      <MessageFeed
+        viewerId="v-viewer"
+        timeZone="America/Chicago"
+        messages={[...initial, memberMessage("m2", "u-other")]}
+      />
+    )
+
+    // Mutation-proven: deleting the isNearBottomRef/isOwnNewMessage guard and
+    // scrolling unconditionally on every messages.length change (the
+    // pre-fix behavior) turns this assertion red.
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it("still follows the tail when the viewer is already at the bottom", () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    const initial = [memberMessage("m1", "u-other")]
+
+    const { container, rerender } = render(
+      <MessageFeed viewerId="v-viewer" timeZone="America/Chicago" messages={initial} />
+    )
+    const scrollEl = container.firstElementChild as HTMLElement
+    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+
+    // At the live edge: scrollTop already sits at scrollHeight - clientHeight.
+    setScrollMetrics(scrollEl, { scrollTop: 1500, scrollHeight: 2000, clientHeight: 500 })
+    fireEvent.scroll(scrollEl)
+
+    rerender(
+      <MessageFeed
+        viewerId="v-viewer"
+        timeZone="America/Chicago"
+        messages={[...initial, memberMessage("m2", "u-other")]}
+      />
+    )
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+
+  it("still scrolls for the viewer's own new message even while scrolled up", () => {
+    Element.prototype.scrollIntoView = vi.fn()
+    const initial = [memberMessage("m1", "u-other")]
+
+    const { container, rerender } = render(
+      <MessageFeed viewerId="v-viewer" timeZone="America/Chicago" messages={initial} />
+    )
+    const scrollEl = container.firstElementChild as HTMLElement
+    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+
+    // Scrolled up, same as the first test in this block.
+    setScrollMetrics(scrollEl, { scrollTop: 0, scrollHeight: 2000, clientHeight: 500 })
+    fireEvent.scroll(scrollEl)
+
+    // But this time the new message is the viewer's own send, which must
+    // scroll regardless of scroll position — a member who just sent a
+    // message expects to see it land.
+    rerender(
+      <MessageFeed
+        viewerId="v-viewer"
+        timeZone="America/Chicago"
+        messages={[...initial, memberMessage("m2", "v-viewer")]}
+      />
+    )
+
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
   })
 })

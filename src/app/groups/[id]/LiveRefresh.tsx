@@ -45,14 +45,40 @@
 // event this member needs, gating focus on the same property it is meant to
 // stand in for would silently reintroduce the gap.
 //
-// WHY `paused` EXISTS HERE WITH NOTHING WIRING IT
+// Focus also has to restart the interval, not just fire one refresh, and a
+// review caught this file shipping without it. The scenario the header above
+// already names is the proof: on a platform where `visibilitychange` fired on
+// the way OUT (hiding, which stops the interval) but not on the way back IN,
+// a focus handler that only calls refresh() once leaves the member with that
+// single refresh and then a frozen screen again, which is the original bug,
+// reintroduced on exactly the platform this listener exists for. The same
+// gap exists for a member who opens the tab while it is backgrounded (so the
+// interval never started) and then focuses it without the tab itself ever
+// reporting hidden-to-visible. startInterval() is idempotent (it no-ops if
+// intervalId is already set), so calling it here is free on every ordinary
+// focus and only matters on the platforms and orderings it exists for.
 //
-// Task 2 gives GroupHome a way to hold this true for the moment a member's
-// own message is in flight, so a poll cannot land mid-send and show a member
-// their own optimistic bubble getting silently reconciled out from under
-// them. That wiring is Task 2's job. This file only has to honor the prop
-// once it exists: while true, no path here calls router.refresh(), including
+
+// WHAT `paused` GUARDS, STATED ACCURATELY AFTER REVIEW
+//
+// GroupHome binds this to sendsInFlight > 0 (see GroupHome.tsx's own
+// comments at that binding for the full reasoning and why it is
+// sendsInFlight rather than hasUnreconciledSend). This file only has to
+// honor the prop: while true, no path here calls router.refresh(), including
 // the immediate refresh on becoming visible again.
+//
+// An earlier version of this comment justified `paused` by a hazard that no
+// longer exists in this codebase: a poll landing mid-send silently
+// reconciling a member's own optimistic bubble out from under them. That was
+// the real symptom before src/lib/messages/optimistic-display.ts's
+// applySettledSends, which already decoupled "drawn as sending" from
+// useOptimistic's own release timing — a message now stops being drawn as
+// pending the moment the server actually has it, not whenever React gets
+// around to releasing the transition, so a poll landing mid-send no longer
+// has a stale optimistic entry to disrupt. `paused` is kept anyway, not to
+// prevent that (already-fixed) symptom, but because it is bounded, costs
+// nothing, and the spec mandates it: the honest reason to keep a guard is
+// not always the reason it was first written for.
 //
 // WHAT THE TRY/CATCH ACTUALLY DEFENDS, CORRECTED AFTER REVIEW
 //
@@ -174,10 +200,11 @@ export default function LiveRefresh({ paused }: Props) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
+        // refresh() is synchronous, so visibility cannot have changed
+        // between these two lines; no re-check needed before starting the
+        // interval back up.
         refresh()
-        if (document.visibilityState === "visible") {
-      startInterval()
-    }
+        startInterval()
       } else {
         stopInterval()
       }
@@ -185,6 +212,16 @@ export default function LiveRefresh({ paused }: Props) {
 
     const handleFocus = () => {
       refresh()
+      // See header, "focus also has to restart the interval": a platform
+      // that stopped the interval on the way to hidden but does not fire
+      // visibilitychange on the way back (iOS Safari returning from another
+      // app) would otherwise get exactly one refresh here and then a
+      // permanently frozen screen. startInterval() is idempotent, so this
+      // is a no-op on every ordinary focus where the interval is already
+      // running.
+      if (document.visibilityState === "visible") {
+        startInterval()
+      }
     }
 
     if (document.visibilityState === "visible") {

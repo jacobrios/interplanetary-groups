@@ -8,9 +8,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render } from "@testing-library/react"
 
+// Mock returns the SAME object on every call, matching real next/navigation's
+// own stable reference (see GroupHome.test.tsx's routerMock comment for the
+// full reasoning). An object literal rebuilt per call would give this
+// component's effect a new `router` identity on every re-render, tearing
+// down and restarting the interval and listeners each time, which is a test
+// artifact this file must not introduce.
 const refresh = vi.fn()
+const routerMock = { refresh }
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh }),
+  useRouter: () => routerMock,
 }))
 
 import LiveRefresh from "../LiveRefresh"
@@ -192,6 +199,65 @@ describe("LiveRefresh", () => {
     // No time advance between these: this is what makes it "together".
     window.dispatchEvent(new Event("focus"))
 
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  // Blocker found in review: handleFocus called refresh() but never
+  // startInterval(). On a platform where visibilitychange fires on the way
+  // OUT (hiding, which stops the interval) but not reliably on the way back
+  // IN — iOS Safari returning from another app, the exact case this
+  // listener's header names — that left the member with one refresh from
+  // the focus event and then a permanently frozen screen: the original bug,
+  // reintroduced on the one platform this listener exists to cover.
+  it("resumes polling on focus alone when the platform never fires visibilitychange on return", () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval")
+    render(<LiveRefresh paused={false} />)
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+
+    // Hidden via visibilitychange, which DOES fire on the way out and stops
+    // the interval.
+    setVisibility("hidden")
+    document.dispatchEvent(new Event("visibilitychange"))
+    refresh.mockClear()
+
+    // Returning to visible with ONLY a focus event — no visibilitychange —
+    // is the gap this listener exists for.
+    setVisibility("visible")
+    window.dispatchEvent(new Event("focus"))
+
+    // Focus's own immediate refresh still fires either way; it is not what
+    // this test is about.
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    // Mutation-proven: before this fix, handleFocus called refresh() only,
+    // so setInterval was never called a second time here (the interval
+    // stayed dead from the earlier hide), and the later tick below would
+    // never land.
+    expect(setIntervalSpy).toHaveBeenCalledTimes(2)
+
+    refresh.mockClear()
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  // Same gap, different entry point: mounting while already hidden never
+  // starts the interval at all (covered separately above), so a focus that
+  // arrives with no prior visibilitychange has nothing running to fall back
+  // on either.
+  it("starts the interval on focus when mounted while hidden and no visibilitychange ever fires", () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval")
+    setVisibility("hidden")
+    render(<LiveRefresh paused={false} />)
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+
+    setVisibility("visible")
+    window.dispatchEvent(new Event("focus"))
+
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+
+    refresh.mockClear()
+    vi.advanceTimersByTime(10_000)
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 

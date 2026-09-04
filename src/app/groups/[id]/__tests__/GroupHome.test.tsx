@@ -262,10 +262,30 @@ describe("GroupHome: the send interaction", () => {
     // promise below does, so this test never lets that promise resolve at
     // all and still expects refresh to resume on schedule.
     //
-    // Mutation-proven: reverting GroupHome's LiveRefresh binding to
-    // `paused={hasUnreconciledSend}` turns this red, because sendMock's
-    // promise here never settles and hasUnreconciledSend has nothing else to
-    // fall back on.
+    // What this test does and does not cover, stated plainly after a false
+    // claim shipped here once already (this codebase's own recurring
+    // failure is a comment asserting a mechanism that is not real; this is
+    // not another one). It guards the counter's OWN wiring: deleting the
+    // `.finally` decrement that drops sendsInFlight back to 0 turns this
+    // red, because refreshMock would then never fire at T=30000 either.
+    //
+    // It CANNOT distinguish `paused={sendsInFlight > 0}` from the rejected
+    // `paused={hasUnreconciledSend}` binding, and reverting the binding does
+    // NOT turn this red: sendMock's mocked promise here is a plain async
+    // function with no router-level transition around it, so when
+    // withDeadline's timer resolves `sending` at T=20500, React releases the
+    // optimistic entry in the very same tick — there is no real transition
+    // left pending for it to wait on. hasUnreconciledSend and sendsInFlight
+    // therefore clear at the same instant in this mocked environment, and
+    // both bindings pass this test identically. Mocking the action is what
+    // removes the real Next router transition that makes hasUnreconciledSend
+    // unbounded in production; a test that mocks it away cannot then prove
+    // the two bindings differ.
+    //
+    // The correctness of choosing sendsInFlight rests on the promise-
+    // semantics argument in GroupHome.tsx's own comment at that binding
+    // (withDeadline's guarantee that `sending` settles within
+    // SEND_DEADLINE_MS regardless of the real request), not on this test.
     vi.useFakeTimers()
     try {
       setVisibility("visible")

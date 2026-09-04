@@ -18,6 +18,15 @@
 //       Posts that line into the most recently staged group AS ANOTHER MEMBER.
 //       Run it while the group home is open and untouched in a browser.
 //
+// The same commit that adds this script also adds an npm alias,
+// `qa:stage-chatsync`, wired to the same tsx invocation (see package.json).
+// It runs identically:
+//
+//   npm run qa:stage-chatsync
+//   npm run qa:stage-chatsync -- --say "hello"
+//       The `--` is required: without it, npm swallows `--say "hello"` as
+//       its own flag rather than forwarding it to this script's argv.
+//
 // WHAT TO WATCH: with the page open and NOT touched, run --say. Before this
 // slice nothing appears, ever, until a reload. After it, the line appears
 // within about ten seconds. That is the entire test, and it is one nobody in
