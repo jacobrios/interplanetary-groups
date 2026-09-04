@@ -40,7 +40,7 @@ production evidence, gathered before any design work:
 
 1. `curl https://interplanetarygroups.com/ | grep data-dpl-id` returns
    `data-dpl-id="dpl_4ifCNzig3vgp6zVZDqEuBgPQ83wu"`. Next only emits that attribute when a deployment
-   id is configured (`server/app-render/stream-ops.node.js:411-427`), so one is configured — by the
+   id is configured (the transform is `server/app-render/stream-ops.node.js:411`; the conditional that makes it apply only when a deployment id is set is `server/stream-utils/node-web-streams-helper.js:769`), so one is configured — by the
    platform, at build time, via `NEXT_DEPLOYMENT_ID`. Vercel's docs match: projects created after
    19 Nov 2024 on Next.js 14.1.4+ get Skew Protection with zero configuration.
 2. Every RSC response carries `x-nextjs-deployment-id: dpl_4ifC…`. That header is
@@ -66,7 +66,7 @@ second was launched specifically to try to falsify the first. `router.refresh()`
 app-router-instance.js  refresh() -> dispatchAppRouterAction({type: ACTION_REFRESH})
   -> router-reducer/reducers/refresh-reducer.js  refreshDynamicData()
   -> segment-cache/navigation.js  navigateToKnownRoute()
-  -> router-reducer/ppr-navigations.js:1114  fetchMissingDynamicData() -> fetchServerResponse()
+  -> router-reducer/ppr-navigations.js:1111  fetchMissingDynamicData() -> fetchServerResponse()
 ```
 
 and inside `fetchServerResponse`, at `router-reducer/fetch-server-response.js:175-178`:
@@ -96,7 +96,7 @@ if (pushRef.mpaNavigation) {
 }
 ```
 
-For a timer-driven refresh `navigateType` is `'replace'` (`refresh-reducer.js:73`, because
+For a timer-driven refresh `navigateType` is `'replace'` (`refresh-reducer.js:75`, because
 `pushRef.pendingPush` is false when idle), so it is `location.replace(sameUrl)` — a genuine full page
 load. It fires **render-phase, not in an effect**, with no user interaction, no click, no guard for tab
 visibility, and no guard for unsaved state. AppRouter then throws `unresolvedThenable` so nothing
@@ -105,10 +105,19 @@ page reloads. No error boundary, no Suspense fallback, no console error.
 
 One branch was checked specifically because it could have silently swallowed all of the above:
 `segment-cache/cache.js:2250` catches the same mismatch, comments "Treat as a 404," and merely returns
-`null`. It is **not on the refresh path**. All five of its call sites are in the prefetch subsystem or
-gated behind `routeCacheEntry !== null`, and `refreshDynamicData` passes `routeCacheEntry = null`
-(`refresh-reducer.js:81`). On a refresh the mismatch is intercepted a hundred lines earlier, in
-`fetchServerResponse`, before any cache write is attempted.
+`null`. It is **not on the refresh path**, and the proof is short: on a refresh the mismatch is caught
+inside `fetchServerResponse` at `:175`, which returns a plain string, so `ppr-navigations.js:1117`
+short-circuits to the MPA path **before any cache write is attempted at all**.
+
+*(Corrected after independent review, before merge, because the first version of this paragraph offered
+a proof that does not hold. It said "all five of its call sites are in the prefetch subsystem or gated
+behind `routeCacheEntry !== null`." There are **six** call sites, not five: `cache.js:2155`, `:2231`,
+`:2610`, `segment-cache/navigation.js:311`, `router-reducer/create-initial-router-state.js:106`, and
+`ppr-navigations.js:1152` -- and only the last is `routeCacheEntry`-gated, while `navigation.js:311` is
+a navigation rather than a prefetch and `create-initial-router-state.js:106` is a hydration write. The
+conclusion survives on the short-circuit above, which was always the argument that carried it. Recorded
+rather than quietly rewritten: this project treats a claimed proof that is not the proof that holds as
+a defect equal to a code bug.)*
 
 ### Therefore
 
@@ -186,9 +195,13 @@ home mounts, and removed when a send is dispatched.
   and the client's restored text. The cost is that the textarea is briefly empty before the draft
   appears. Accept it and say so in a comment: a hydration error is a real bug and a one-frame empty
   box is not.
-- **Every read and write wrapped in `try/catch`**, per this project's standing rule that storage
-  accessors can throw outright (private windows, blocked site data). A failure must leave the composer
-  working with an empty draft, never break the page.
+- **Every read and write wrapped in `try/catch`, and the `try` must begin before the
+  `window.sessionStorage` property access**, not merely around `getItem`: the property lookup itself
+  throws in a private window and wherever the browser blocks site data. A failure must leave the
+  composer working with an empty draft, never break the page. *(Corrected after review: an earlier
+  draft of this line justified the wrapping "per this project's standing rule". There is no such rule
+  and no precedent to appeal to -- this slice is the first use of browser storage anywhere in the app.
+  The practice is right on its own merits and now stands on them.)*
 - **Cleared at dispatch, not at settle.** The existing send path already clears `inputValue`
   optimistically; clearing storage at the same point keeps the two in step. If a send fails the member
   loses the draft exactly as they do today, which is pre-existing behaviour this slice is not changing.
