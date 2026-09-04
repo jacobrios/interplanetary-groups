@@ -61,9 +61,17 @@ export default function Step2Playback({
   // always-on treatment was tried and seen): a captured venue gets the inline
   // input because that is editing something Orbit understood, matching the
   // group-name row precedent. An empty venue is not something Orbit
-  // understood, so it gets a quiet tap-to-reveal link instead of a persistent
-  // placeholder — two stacked placeholders read as a form on a card whose
-  // thesis is "setup is a conversation, not a form."
+  // understood, so it renders as a `<button>` rather than a persistent
+  // `<input>` on a card whose thesis is "setup is a conversation, not a
+  // form." That distinction still holds and is why this stays a button.
+  //
+  // What changed 4 Sept 2026 (venue-on-playback slice): the button used to
+  // be a small underlined text link, easy to miss, and there is nowhere
+  // after group creation to add a venue if a founder misses it — so the
+  // button now fills the group-name row's own visual language (full width,
+  // bordered box) instead of reading as an afterthought. It is still a
+  // button, not an input: tapping it focuses nothing, which is also what
+  // keeps iOS from force-zooming a control that was never a text field.
   //
   // Seeded indexes are computed once at mount so clearing a captured venue
   // mid-edit never collapses the input under the founder's cursor; tapped
@@ -205,11 +213,13 @@ export default function Step2Playback({
             understood-but-not-scheduled. Beneath each value line: a captured
             venue renders the inline standing-place input (editing, the
             group-name precedent, but quieter: label scale, subtle border);
-            an empty venue renders a tap-to-reveal link that expands into
-            the same input (collecting; see the editing-vs-collecting note
-            above). Neutral colors on purpose, never lime; venue is
-            optional and never blocks Continue, so it must not borrow the
-            gap marker's "Orbit needs this" cue. */}
+            an empty venue renders a full-width button styled like an empty
+            field (collecting; see the editing-vs-collecting note above),
+            which expands into the same input on tap. Neutral colors on
+            purpose, never lime; venue is never called "optional" (it can
+            never be added after creation, so the word underclaims what a
+            missed tap costs) and never blocks Continue, so it must not
+            borrow the gap marker's "Orbit needs this" cue either. */}
         {rhythms.map((r, i) => {
           const row = formatRhythmRow(r)
           const venueRevealed = seededVenueIdx.has(i) || tappedVenueIdx.has(i)
@@ -224,7 +234,7 @@ export default function Step2Playback({
                   onChange={(e) => onVenueNameChange(i, e.target.value)}
                   disabled={isCreating}
                   maxLength={VENUE_NAME_MAX}
-                  placeholder="Where do you usually meet? (optional)"
+                  placeholder="Where do you meet?"
                   aria-label={`Where you usually meet for ${r.activity}`}
                   // Focus only the tap-revealed input; seeded inputs must
                   // not steal focus from the card on mount.
@@ -237,32 +247,54 @@ export default function Step2Playback({
                     border: "1px solid var(--hairline)",
                     borderRadius: "0.375rem",
                     color: "var(--text-primary)",
-                    fontSize: "var(--type-label)",
+                    // 16px, not --type-label (14px): iOS Safari force-zooms
+                    // the whole page on focusing any input under 16px and
+                    // never zooms back out, which is the bug this slice
+                    // exists to close. Raised here (not just kept off the
+                    // button below) so the trap cannot return by tapping
+                    // into the revealed input either.
+                    fontSize: "16px",
                     lineHeight: "var(--leading-normal)",
                     outline: "none",
                     boxSizing: "border-box",
                   }}
                 />
               ) : (
+                // Full-width button styled in the group-name input's own
+                // visual language (padding, border, radius, background,
+                // box-sizing lifted from that input above), so a missable
+                // venue prompt becomes a box impossible to miss. Reusing
+                // rather than inventing per the owner's standing note that a
+                // prior slice designed new elements where existing ones
+                // already served. Text-only, not left/right layout, because
+                // this reads as an empty field rather than a call to action:
+                // the label sits in --placeholder color at the input's own
+                // size, the way empty-field text reads everywhere else in
+                // the product (the ::placeholder rule in globals.css), even
+                // though a <button> has no real placeholder pseudo-element
+                // to hook.
                 <button
                   type="button"
                   onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
                   disabled={isCreating}
                   aria-label={`Add where you meet for ${r.activity}`}
                   style={{
-                    display: "block",
-                    background: "none",
-                    border: "none",
-                    padding: 0,
+                    width: "100%",
                     marginTop: "0.25rem",
-                    color: "var(--text-secondary)",
-                    fontSize: "var(--type-label)",
+                    padding: "0.375rem 0.5rem",
+                    backgroundColor: "var(--surface-base)",
+                    border: "1px solid var(--hairline)",
+                    borderRadius: "0.375rem",
+                    boxSizing: "border-box",
+                    display: "block",
+                    textAlign: "left",
+                    color: "var(--placeholder)",
+                    fontSize: "16px",
                     lineHeight: "var(--leading-normal)",
-                    textDecoration: "underline",
                     cursor: isCreating ? "not-allowed" : "pointer",
                   }}
                 >
-                  Add where you meet
+                  Where do you meet?
                 </button>
               )}
             </PlaybackRow>
