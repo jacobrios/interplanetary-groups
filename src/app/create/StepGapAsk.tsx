@@ -138,11 +138,21 @@ export default function StepGapAsk({
           </PlaybackRow>
 
           {/* The gapped row: known part plus the lime-underlined marker Orbit
-              is pointing at. Lime here is the gap-prompt cue, not an action. */}
+              is pointing at. Lime here is the gap-prompt cue, not an action.
+              A captured venue (extraction can capture one alongside a gapped
+              day/time — the two are independent fields) is appended inline
+              as " · venue", the same suffix the join screen and group info
+              page already use for a rhythm's venue (join/[inviteToken]/
+              page.tsx, groups/[id]/info/page.tsx). This is read-only: the
+              founder edits it on Step 2, not here. Without this, a venue
+              Orbit had already captured silently vanished on this card
+              (venue-on-playback slice, task 9) — a card headed "Here's what
+              I got" must not omit something Orbit got. */}
           <PlaybackRow label={gapRow.label} pending isLast={gap.rhythms.length === 1}>
             <p style={rowValueTextStyle}>
               {gapRow.known !== null && <>{gapRow.known} </>}
               <PlaybackGapMarker>{gapRow.marker}</PlaybackGapMarker>
+              {gap.rhythms[0].venueName && <> · {gap.rhythms[0].venueName}</>}
             </p>
           </PlaybackRow>
 
@@ -150,7 +160,10 @@ export default function StepGapAsk({
             const row = formatRhythmRow(r)
             return (
               <PlaybackRow key={i} label={row.label} isLast={i === gap.rhythms.length - 2}>
-                <p style={rowValueTextStyle}>{row.value}</p>
+                <p style={rowValueTextStyle}>
+                  {row.value}
+                  {r.venueName && <> · {r.venueName}</>}
+                </p>
               </PlaybackRow>
             )
           })}

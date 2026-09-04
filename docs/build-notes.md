@@ -7936,3 +7936,39 @@ The overrule left the spec document stale, and review caught it: it still read "
 **Evidence.** Baseline on `7cfe9cd`: 1777 passed, 149 files. After: **1791 / 151**, zero failures. Fourteen new tests, each proven by mutation. Not verified by anyone: how it feels on a real phone keyboard, which is the only place the Enter decision can really be judged.
 
 **Debt.** Two composers now share a shape and still do not share a component. They differ in fill, border and radius by design, so extracting one is not obviously right; if a third appears, extract then.
+
+---
+
+## Queue notes, 4 September 2026
+
+*Decisions settled in conversation and landing here so they are not carried in anyone's head. Declared out of lane on the venue slice's branch, which is simply the branch that was open when they were made.*
+
+**Two members with the same name are indistinguishable, and nothing breaks.** An investigation mapped every render site. Every vote, RSVP, tally and digest keys off the member id, never a name, so two Mikes are counted correctly everywhere; they only *render* as the same word. The correction matters because an earlier reading of this had implied counts could go wrong.
+
+What is genuinely wrong, in order: **`deletion-plan.ts` matches join announcements by literal body text** (`"Mike joined"`) across the whole product rather than scoped to the person, so deleting one Mike surfaces the other's line as a high-confidence candidate the runbook says is safe to confirm — a wrong write the tooling invites, already recorded at build-notes 6852 and still open. Then the founder's **Manage members** screen, which shows two identical rows with nothing to tell them apart. Then **permanently ambiguous stored text**: join lines and cancellation announcements bake a name at write time with no id, so no later display fix can repair them. Everything else is cosmetic.
+
+**There is nothing to disambiguate with.** Only a first name is collected. Roster avatars deliberately lost their per-name hue in polish slice three, correctly, because colour must not carry identity on a screen where status must not be read from hue.
+
+**The settled fix is to catch it at the door rather than at every screen**, since ten render sites share no seam and stored text cannot be retrofitted. When someone joins a group whose members already include their name, case-insensitively and trimmed, they are asked to differentiate before joining, and **they cannot decline** (the owner's call: two Mikes forever is a worse outcome for the group than one moment of friction). The copy offers both doors, because a collision is the strongest signal in this product that someone is a returning member who lost their session: *"There's already a Mike in this group. If that's you, sign in instead. If not, add a last initial so people can tell you apart."* Short, because vertical space on that screen is contested. Not built yet.
+
+**The standalone web app is queued as "not broken", not as "a real app".** Adding the site to an iOS home screen launches it chrome-less, and the group home renders almost empty because it is one of only two screens that lock a bounded viewport height and hide overflow; every other screen uses a minimum height and degrades gracefully. **Nothing opts into this**: there is no manifest and no `apple-mobile-web-app-capable`, so it is an untested mode rather than a regression. The fix is a few hours (measure the real viewport rather than trusting the viewport unit) and **cannot be confirmed without a device**, since the failing quantity is a runtime value. The owner's decision: make it not-broken now, and consider making it a genuine installable app (manifest, safe-area padding so the composer clears the home indicator) only if the tennis group sticks. **Until then, do not tell anyone to add it to their home screen.**
+
+---
+
+## §11 entry: three deploys failed and every suite stayed green (4 September 2026)
+
+*Recorded at the request of the session that maintains the user-level config, which fixed its half. Landing on whichever branch was open, declared.*
+
+**What happened.** `suite-lock.test.ts`, adopted from the safety-net template that morning, carried 24 TypeScript errors under this project's compiler settings: it passes `{}` where the `.mjs`'s `env = process.env` default makes TypeScript infer `ProcessEnv`, and its `isAlive` callbacks take an untyped `pid`.
+
+**Why nothing caught it.** **Vercel runs `tsc` during the build. Vitest does not typecheck.** So four consecutive green suites said nothing while three production deploys failed (#118, #121, #123), and production served three-hour-old code, including that morning's fix for a live regression that had frozen the app for members.
+
+**How it was found: by the owner idly clicking into the Vercel dashboard.** Vercel had emailed on each failure, so the notification layer worked and he simply had not read the mail. The missing thing was never notification. **It was any gate before the merge.** Every guard in this repo runs the suite; nothing ran the build.
+
+**The fix here** was one entry in `tsconfig.json`'s `exclude`, not a patch to the adopted file, which is byte-identical to the template on purpose and whose problem belongs upstream. The file is still run by vitest; only its types go unchecked. Verified with a real `next build` rather than `tsc` alone, on the reasoning that assuming the typecheck was the only failing step is how it shipped in the first place.
+
+**The durable fix is user-level and is already in:** `~/.claude/checklists/pr-handoff.md` now requires a production build before a PR is opened, and the PR-body rule names the build result alongside the test numbers. Placed per-PR rather than per-task deliberately: a build on every task finish would add 20-30s to a gate already costing 71s, to catch a rare failure class.
+
+**Worktree caveat, learned the same day:** the build must run with webpack in a worktree. Turbopack refuses a symlinked `node_modules` and dies with "Symlink [project]/node_modules is invalid, it points out of the filesystem root". `npm run build` there fails for that reason alone and says nothing about the code.
+
+**The lesson, stated as the general form:** a green suite is evidence about the tests, not about the build. This project already knew that a passing test is only evidence if it could have failed; the same scepticism applies one level up, to which gate was actually exercised.
