@@ -68,6 +68,23 @@ The suite still cannot reproduce the failure this slice exists to prevent, only
 the guard against it. That limit is the same one the chat-sync slice carried and
 it is not closed here.
 
+**Two further limits, both raised in review and both left as follow-ups.** The
+tests mock `react` wholesale, so the `useTransition` semantics this whole fix
+rests on are asserted **nowhere**: swap the mechanism for one that clears at
+dispatch and all 17 tests stay green. Correctness there rests on two independent
+readings of Next 16.3.2 and React 19.2.4 source, not on anything CI will catch
+if a future upgrade changes the nesting. And no test covers a `focus` or
+`visibilitychange` trigger being dropped while a refresh is in flight; every one
+drives the interval, even though the incident arrived through a tab return.
+
+**The expiry window is a judgment call, not a measurement.** Three intervals,
+chosen against the guidance "a few", not against any observed hang.
+
+**And the sentence a future reader most needs:** this slice stops refreshes
+*piling up*. A single refresh that hangs still wedges Next's serial queue and
+the tab. If the dead-app symptom recurs after this, the assumption to re-examine
+is not the guard — it is that pile-up was the only way the queue got stuck.
+
 ---
 
 # Tasks
