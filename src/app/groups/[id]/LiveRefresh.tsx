@@ -54,28 +54,73 @@
 // once it exists: while true, no path here calls router.refresh(), including
 // the immediate refresh on becoming visible again.
 //
-// THE CATCH IS LOAD-BEARING, AND IT IS THIS FILE'S JOB
+// WHAT THE TRY/CATCH ACTUALLY DEFENDS, CORRECTED AFTER REVIEW
 //
-// router.refresh() already wraps its own work in React's startTransition
+// The first version of this file claimed the try/catch here defended against
+// the same hazard SeenMarker's header describes: a rejected promise inside a
+// transition reaching src/app/error.tsx. That claim does not hold, and it
+// matters that the record says so plainly rather than carry an overclaiming
+// comment forward.
+//
+// router.refresh() returns void, not a promise, so a synchronous try/catch
+// around the call can only ever catch a throw that happens synchronously,
+// before the call returns. It structurally cannot catch a rejection raised
+// later, inside the transition Next kicks off internally
 // (node_modules/next/dist/client/components/app-router-instance.js: `refresh:
-// () => { startTransition(() => { dispatchAppRouterAction(...) }) }`), the
-// same mechanism SeenMarker's header and GroupHome's detectIntentAction call
-// both document: a failure surfacing there reaches the nearest error
-// boundary, which for this screen is src/app/error.tsx, and replaces the
-// whole group home with "Something broke on our end." A member on a lift with
-// no signal must see a slightly stale room instead, which is exactly what
-// decision 5 of this slice's design calls for. The try/catch around every
-// call site here is what stands between a dropped connection and that crash;
-// it is not decorative.
+// () => { startTransition(() => { dispatchAppRouterAction(...) }) }`) — that
+// transition belongs to Next's router, not to this component, so there is no
+// promise here to attach a .catch() to. This is the real difference from
+// SeenMarker: SeenMarker owns its own useTransition() and awaits and catches
+// a promise inside it. This component owns neither.
+//
+// Having established that, the next question is whether it matters: does a
+// genuinely dropped connection during a refresh ever reach an error boundary
+// at all, by some path this component cannot see? Read from
+// node_modules/next/dist/client/components/router-reducer/fetch-server-response.js:
+// the entire fetch-and-decode sequence is already wrapped in Next's own
+// try/catch, and a network failure there does not rethrow. It logs
+// ("Failed to fetch RSC payload... Falling back to browser navigation.") and
+// returns the request's own URL as a plain string, which the caller reads as
+// an instruction to fall back to a full browser navigation. The catch
+// rethrows in exactly one case: `options.signal?.aborted`, meaning a newer
+// refresh superseded this one, which is an ordinary in-app race, not a
+// dropped connection, and is not the hazard this component exists for.
+// Next's router already fails soft on a network failure, before the failure
+// ever becomes a promise this component could observe rejecting.
+//
+// So: a dropped connection during router.refresh() cannot reach
+// src/app/error.tsx through this component, with or without the try/catch.
+// The try/catch is kept anyway, for a narrower and more honest reason: it is
+// free, and it still catches a genuine synchronous throw at the call site,
+// which Next's own source shows is a real (if unlikely here) case —
+// dispatchAppRouterAction throws synchronously if a refresh is dispatched
+// before the router has finished initializing. That is what
+// LiveRefresh.test.tsx's swallow test actually proves; it does not, and
+// cannot, exercise the network-failure path, and its name and comment say so.
 //
 // A dangling timer is not a hypothetical concern in this codebase: one left
 // in ShareInviteLink.tsx blocked a safety-net hook on 1 Sept 2026. The
 // interval and both listeners are torn down on unmount without exception.
+//
+// WHY REFRESHES COALESCE WITHIN A SHORT WINDOW
+//
+// Returning to a backgrounded tab commonly fires both `visibilitychange`
+// (hidden to visible) and `focus` for the same one user action, and each
+// independently calls refresh(). Left alone, that is two full server
+// re-renders back to back, in exactly the poor-connectivity moment this
+// component exists to be gentle about. `lastRefreshAt` makes any two refresh
+// triggers landing within REFRESH_COALESCE_WINDOW_MS of each other collapse
+// into one; it is a plain timestamp rather than React state, since nothing
+// here needs to re-render on it.
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
 const REFRESH_INTERVAL_MS = 10_000
+// See header: coalesces a visibilitychange+focus double-fire on tab return
+// into one refresh. Comfortably shorter than REFRESH_INTERVAL_MS so it never
+// swallows a legitimate later tick.
+const REFRESH_COALESCE_WINDOW_MS = 1_000
 
 interface Props {
   /** While true, no refresh fires. Owned and set by Task 2; unwired here. */
@@ -95,14 +140,19 @@ export default function LiveRefresh({ paused }: Props) {
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined
+    let lastRefreshAt = 0
 
     const refresh = () => {
       if (pausedRef.current) return
+      const now = Date.now()
+      if (now - lastRefreshAt < REFRESH_COALESCE_WINDOW_MS) return
+      lastRefreshAt = now
       try {
         router.refresh()
       } catch {
-        // Swallow. See this file's header: a failed trip must leave the
-        // group home standing, not surface an error boundary.
+        // Swallow a synchronous throw at the call site (e.g. dispatched
+        // before router initialization). See this file's header for what
+        // this does and does not defend against.
       }
     }
 
@@ -125,7 +175,9 @@ export default function LiveRefresh({ paused }: Props) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refresh()
-        startInterval()
+        if (document.visibilityState === "visible") {
+      startInterval()
+    }
       } else {
         stopInterval()
       }

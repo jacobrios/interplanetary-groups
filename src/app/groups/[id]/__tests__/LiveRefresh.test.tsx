@@ -157,20 +157,66 @@ describe("LiveRefresh", () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
-  // The action's own concerns end at the server boundary; this covers the
-  // trip. router.refresh() already runs inside its own React transition
-  // (see this file's header pointer to app-router-instance.js), so a dropped
-  // connection surfaces the same way a rejected transition promise would:
-  // by reaching the nearest error boundary unless something here catches it
-  // first.
-  it("swallows a thrown refresh rather than letting it escape the tick", () => {
+  // Deliberately narrow, per LiveRefresh.tsx's header: router.refresh()
+  // returns void, so this try/catch can only ever catch a throw that
+  // happens synchronously, at the call site, before the call returns. It
+  // does NOT and cannot exercise or prove anything about a dropped
+  // connection during the refresh itself, which Next's own
+  // fetch-server-response.js already handles internally without ever
+  // producing a promise this component could observe rejecting. This test
+  // proves only the synchronous case: a throw at the call site (the
+  // documented real instance is dispatching before router initialization)
+  // does not escape the tick and crash the interval.
+  it("swallows a synchronous throw from router.refresh() at the call site", () => {
     refresh.mockImplementationOnce(() => {
-      throw new Error("network dropped")
+      throw new Error("dispatched before router initialization")
     })
     render(<LiveRefresh paused={false} />)
 
     expect(() => {
       vi.advanceTimersByTime(10_000)
     }).not.toThrow()
+  })
+
+  // Realistic tab-return sequence: the tab going from hidden to visible often
+  // fires visibilitychange and focus for the same one user action, each
+  // independently calling refresh(). Without coalescing this is two refreshes
+  // for one return to the tab.
+  it("coalesces a visibilitychange and a focus firing together into one refresh", () => {
+    render(<LiveRefresh paused={false} />)
+
+    setVisibility("hidden")
+    document.dispatchEvent(new Event("visibilitychange"))
+    setVisibility("visible")
+    document.dispatchEvent(new Event("visibilitychange"))
+    // No time advance between these: this is what makes it "together".
+    window.dispatchEvent(new Event("focus"))
+
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not start the interval when mounted while the tab is already hidden", () => {
+    // Asserting on the refresh count alone would not tell "the interval
+    // never started" apart from "it started but every tick no-op'd on the
+    // tick-level visibility check" (covered separately above) — both look
+    // identical from the outside. Spying on setInterval itself is what pins
+    // down which one this is.
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval")
+    setVisibility("hidden")
+    render(<LiveRefresh paused={false} />)
+
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(30_000)
+    expect(refresh).not.toHaveBeenCalled()
+
+    // Confirms it really was "not started yet", not "started and
+    // permanently broken": becoming visible now works normally.
+    setVisibility("visible")
+    document.dispatchEvent(new Event("visibilitychange"))
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(10_000)
+    expect(refresh).toHaveBeenCalledTimes(2)
   })
 })
