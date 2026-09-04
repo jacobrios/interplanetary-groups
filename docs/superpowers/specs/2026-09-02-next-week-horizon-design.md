@@ -1441,3 +1441,67 @@ accepted: 5/5 runs, 1/1 cases clean  (no bar; a known gap the owner accepted, wa
   Commentary on behalf of the group that stops just short of asking. Watched, not barred.
   x5 expected change, got none
 ```
+
+## Bench after-numbers
+
+Taken 3 September 2026, on commit `9e104b14c9714033582f9d18a18bcd99b52745b3` (task 7's commit, `git status --short` empty before the run; no tuning edit was made, so this is also the number on the tree at commit time). Command: `npm run eval:detect`, default 5 runs. Full output below, verbatim, from `npm run eval:detect 2>&1 | tee /tmp/bench-after-round0.txt`.
+
+```
+40 cases x 5 runs = 200 model calls
+
+  ...5/40
+  ...10/40
+  ...15/40
+  ...20/40
+  ...25/40
+  ...30/40
+  ...35/40
+  ...40/40
+
+=== SCOREBOARD ===
+must-recognize: 103/110 runs, 18/22 cases clean
+must-stay-quiet: 65/65 runs, 13/13 cases clean
+ambiguous: 10/20 runs, 2/4 cases clean  (no bar, watched for drift)
+accepted: 5/5 runs, 1/1 cases clean  (no bar; a known gap the owner accepted, watched for drift)
+
+=== FAILURES (6) ===
+
+[ambiguous] might-be-late-implies-move  0/5
+  Reads as availability and as a hint that the time should move. No right answer; recorded to watch which way the dial drifts.
+  x5 expected change, got none
+
+[ambiguous] group-grumble  0/5
+  Commentary on behalf of the group that stops just short of asking. Watched, not barred.
+  x5 expected change, got none
+
+[must-recognize] spark-this-weekday  3/5
+  The mirror of the case above. 'This Thursday' names a day and pins it to the current week, and reading it as nextWeek would push the plan a week past what was asked for.
+  x2 expected spark, got none
+
+[must-recognize] spark-plain-weekday  2/5
+  A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets.
+  x3 expected spark with horizon null, got thisWeek
+
+[must-recognize] spark-two-weeks-null-horizon  4/5
+  The scope line, as a graded case. 'In two weeks' carries real information that this product deliberately cannot hold, and the only safe place to put it is nowhere: reading it as nextWeek would be a wrong date that nobody asked for.
+  x1 expected spark, got none
+
+[must-recognize] spark-next-month-null-horizon  4/5
+  The last null trap, and the one closest to the field's own wording: 'next month' shares the word 'next' with the phrase that does set it. Same reasoning as the case above.
+  x1 expected spark, got none
+```
+
+**Comparison against the baseline, in the brief's order.**
+
+1. *Did anything green go red?* No. `must-stay-quiet` (65/65, 13/13) and `accepted` (5/5, 1/1) are byte-identical to the baseline. `ambiguous` is identical too, down to the same two failing case names at the same 0/5 (`might-be-late-implies-move`, `group-grumble`); nothing in this slice touched change-request copy. `must-recognize` grew from 15 to 22 cases (task 7's seven new spark cases) and every one of the eight original 15 that carried over from the baseline stayed clean; all six failing runs land on the seven brand-new spark cases, which had no baseline reading to regress from. No pre-existing case regressed.
+
+2. *Are the three null-trap cases clean?* Two of three, not all three. `spark-this-weekend-null-horizon` is 5/5. `spark-two-weeks-null-horizon` and `spark-next-month-null-horizon` are each 4/5, missing one run apiece. But the miss is not the dangerous direction: both failing runs read `expected spark, got none`, meaning the model did not classify the message as a spark at all that run (kind mismatch, not a horizon value), not `got horizon nextWeek`. **Zero runs, across all 40 cases and 200 calls, returned `horizon: nextWeek` for a phrase that does not mean next week.** The specific failure the null traps exist to catch, a wrong invented date, did not happen once.
+
+3. *Are the two nextWeek cases clean?* Yes. `spark-next-week-bare` and `spark-next-weekday` are both 5/5, not present in the failures list at all. The two production bugs this slice targets are fixed 5/5 on the first bench run after the prompt change.
+
+**No tuning was performed.** The stop rule in Task 8's brief gates tuning on "the dangerous direction is failing" (a case reading `nextWeek` for a phrase that does not mean next week); it did not fail anywhere in this run, so zero of the two allowed rounds were spent. The two remaining failure shapes are recorded rather than chased:
+
+- `spark-plain-weekday` (2/5 clean, 3/5 `got thisWeek` instead of `horizon null`) is the behaviourally inert case named in Task 7's report: a stated weekday plus `thisWeek` reaches the exact same date-arithmetic branch as a stated weekday plus `null`, so this case's failures change nothing a member would see. It is bucketed `must-recognize`, which scores it red on a distinction the product cannot act on; flagged as possibly mis-barred (candidate: `ambiguous`, or a horizon-specific no-bar note) rather than changed here, per the instruction not to alter a case's bucket while tuning.
+- `spark-this-weekday`, `spark-two-weeks-null-horizon`, and `spark-next-month-null-horizon` each missed one run with `got none`, a plain spark-recognition miss unrelated to the horizon field. These are the first bench cases in this repo's history to exercise spark recognition at all (`grep` confirms no prior `must-recognize` case had `kind: "spark"`), so there is no baseline reading for whether ~90% single-run spark recognition is a change or the pre-existing rate. Recorded as new information for the owner, not a regression.
+
+Reasoning and the flagged bucket question are Task 10's to carry into build-notes §11.
