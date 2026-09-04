@@ -36,6 +36,17 @@ import { ACTIVITY_MAX } from "./spark-copy"
  */
 export type PartOfDay = "morning" | "evening"
 
+/**
+ * Which week the message pushed the idea into, when it said so at all.
+ *
+ * Two values and nothing else, deliberately. "This weekend", "in two weeks"
+ * and "sometime next month" all carry real information too, and every one of
+ * them stays null: modelling them is modelling English, and the fix here is
+ * for the one phrase that was observed producing a wrong date in front of a
+ * person. (Spec: next-week-horizon, scope trap 1.)
+ */
+export type Horizon = "thisWeek" | "nextWeek"
+
 export type NormalizedSpark =
   | { spark: false }
   | {
@@ -47,6 +58,8 @@ export type NormalizedSpark =
       /** A clock number with no am/pm that the activity does not settle. */
       timeAmbiguous: boolean
       partOfDay: PartOfDay | null
+      /** Which week they meant, when they said. Null keeps today's behaviour. */
+      horizon: Horizon | null
     }
 
 /**
@@ -83,7 +96,10 @@ export function normalizeSpark(raw: unknown): NormalizedSpark {
   const partOfDay: PartOfDay | null =
     o.partOfDay === "morning" || o.partOfDay === "evening" ? o.partOfDay : null
 
-  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay }
+  const horizon: Horizon | null =
+    o.horizon === "thisWeek" || o.horizon === "nextWeek" ? o.horizon : null
+
+  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay, horizon }
 }
 
 // ── Three-way intent (change-request slice) ─────────────────────────────────
@@ -98,6 +114,7 @@ export const INTENT_SCHEMA = {
   additionalProperties: false,
   required: [
     "isSpark", "activity", "statedDayOfWeek", "statedTime", "timeAmbiguous", "partOfDay",
+    "horizon",
     "isChangeRequest", "targetEventNumber", "requestedTime", "requestedTimeAmbiguous",
     "requestedFields", "intentClear",
     "isAskAnswer", "answerDayOfWeek", "answerTime", "answerTimeAmbiguous",
@@ -112,6 +129,9 @@ export const INTENT_SCHEMA = {
     timeAmbiguous: { type: "boolean" },
     partOfDay: {
       anyOf: [{ type: "string", enum: ["morning", "evening"] }, { type: "null" }],
+    },
+    horizon: {
+      anyOf: [{ type: "string", enum: ["thisWeek", "nextWeek"] }, { type: "null" }],
     },
     isChangeRequest: { type: "boolean" },
     targetEventNumber: { type: ["integer", "null"] },

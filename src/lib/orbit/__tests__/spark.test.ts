@@ -40,7 +40,7 @@ const MIDWAY = "Pacific/Midway"
 // toEqual on a spark now has to state them. Kept as toEqual rather than
 // relaxed to toMatchObject on purpose: strict equality is what catches a field
 // appearing that nobody intended.
-const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null }
+const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null, horizon: null }
 
 describe("normalizeSpark", () => {
   it("treats a no-spark claim as no spark", () => {
@@ -115,7 +115,7 @@ describe("normalizeSpark, time fields", () => {
     const r = normalizeSpark({ ...base, statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening" })
     expect(r).toEqual({
       spark: true, activity: "beers", statedDayOfWeek: 5,
-      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening",
+      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening", horizon: null,
     })
   })
 
@@ -290,6 +290,34 @@ describe("detectIntentClaim", () => {
   it("the schema carries the four answer fields", () => {
     expect(INTENT_SCHEMA.required).toContain("isAskAnswer")
     expect(INTENT_SCHEMA.properties.answerDayOfWeek).toBeDefined()
+  })
+
+  it("requires the horizon field of the model", () => {
+    expect(INTENT_SCHEMA.required).toContain("horizon")
+    expect(INTENT_SCHEMA.properties.horizon).toBeDefined()
+  })
+})
+
+describe("normalizeSpark, horizon", () => {
+  const base = { isSpark: true, activity: "beers", statedDayOfWeek: null }
+
+  it("keeps both valid horizons", () => {
+    expect(normalizeSpark({ ...base, horizon: "nextWeek" })).toMatchObject({
+      horizon: "nextWeek",
+    })
+    expect(normalizeSpark({ ...base, horizon: "thisWeek" })).toMatchObject({
+      horizon: "thisWeek",
+    })
+  })
+
+  it("degrades anything else to null, which is today's behaviour", () => {
+    // A wrong case, a plausible-but-unlisted value, a non-string, and a
+    // missing key. Every one of them must land on null rather than reaching
+    // the date arithmetic, because null is the reading that changes nothing.
+    for (const bad of ["nextweek", "NEXTWEEK", "next-week", "weekend", "in two weeks", 2, true, null, undefined, {}]) {
+      expect(normalizeSpark({ ...base, horizon: bad })).toMatchObject({ horizon: null })
+    }
+    expect(normalizeSpark(base)).toMatchObject({ horizon: null })
   })
 })
 
