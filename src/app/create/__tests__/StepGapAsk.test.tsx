@@ -181,3 +181,81 @@ describe("StepGapAsk — composer wraps instead of scrolling sideways", () => {
     expect(el.style.height).toBe(expectedHeight(el, 42))
   })
 })
+
+// Task 9 (venue-on-playback slice, 4 Sept 2026): a venue extraction already
+// captured used to vanish on this card, because PlaybackCard had no venue
+// rendering at all and this file never read `venueName`. Read-only display
+// is enough here — the founder edits it on Step 2 — so this is checked as
+// plain text rather than the tappable control Step2Playback gets.
+describe("StepGapAsk — shows a captured venue instead of silently dropping it", () => {
+  it("shows the gapped (primary) rhythm's captured venue inline, next to its marker", () => {
+    render(
+      <StepGapAsk
+        founderName="Riley"
+        gap={{ ...gap, rhythms: [{ ...rhythm, venueName: "Riverside courts" }] }}
+        round={1}
+        stalled={false}
+        answer=""
+        onAnswerChange={() => {}}
+        onSubmit={() => {}}
+        onEditDescription={() => {}}
+        isMerging={false}
+        mergeError={null}
+      />
+    )
+
+    expect(screen.getByText(/riverside courts/i)).toBeTruthy()
+  })
+
+  it("renders no stray separator when the gapped rhythm has no captured venue", () => {
+    render(
+      <StepGapAsk
+        founderName="Riley"
+        gap={gap}
+        round={1}
+        stalled={false}
+        answer=""
+        onAnswerChange={() => {}}
+        onSubmit={() => {}}
+        onEditDescription={() => {}}
+        isMerging={false}
+        mergeError={null}
+      />
+    )
+
+    // Scoped to the gapped row's own value cell (found via its "TENNIS"
+    // label), rather than a page-wide search: the hint line below the
+    // composer ("e.g. "around 9am" · "we start at 7pm"") legitimately
+    // contains a "·" of its own and is not what this guards.
+    const label = screen.getByText("TENNIS")
+    const valueCell = label.parentElement?.children[1] as HTMLElement
+    expect(valueCell.textContent).not.toContain("·")
+  })
+
+  it("shows a secondary rhythm's captured venue inline too", () => {
+    const secondary: StoredRhythm = {
+      activity: "beers",
+      title: "Beers",
+      cadence: "monthly",
+      daysOfWeek: null,
+      timeLocal: null,
+      venueName: "The Tap Room",
+    }
+    render(
+      <StepGapAsk
+        founderName="Riley"
+        gap={{ ...gap, rhythms: [rhythm, secondary] }}
+        round={1}
+        stalled={false}
+        answer=""
+        onAnswerChange={() => {}}
+        onSubmit={() => {}}
+        onEditDescription={() => {}}
+        isMerging={false}
+        mergeError={null}
+      />
+    )
+
+    expect(screen.getByText(/the tap room/i)).toBeTruthy()
+  })
+})

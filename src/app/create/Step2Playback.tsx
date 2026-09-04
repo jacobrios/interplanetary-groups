@@ -81,11 +81,23 @@ export default function Step2Playback({
   )
   const [tappedVenueIdx, setTappedVenueIdx] = useState<ReadonlySet<number>>(new Set())
 
+  // The primary rhythm's venue is required as of 4 Sept 2026
+  // (venue-on-playback slice, task 8): there is nowhere after group
+  // creation to add a venue, so a founder who skips it here can never fix
+  // it. This amends the standing "venue never gates anything" rule
+  // narrowly — the model's own guess still never blocks anyone, only the
+  // founder's own empty box does — and it reverts the day the editable
+  // event card ships, the owner's named trigger. Secondary rhythms stay
+  // optional: gating them would trade a blank (honest) for a founder typing
+  // "idk" to get past, and that string would ride venue inheritance onto a
+  // real event later.
+  const primaryVenueFilled = (rhythms[0]?.venueName ?? "").trim().length > 0
+
   // One source for "can this be pressed", so the disabled attribute and the
   // dimmed appearance can never disagree (they did: the opacity keyed off
   // isCreating alone, so a confirm blocked by an empty group name still
   // rendered as a live teal band).
-  const canConfirm = !isCreating && groupName.trim().length > 0
+  const canConfirm = !isCreating && groupName.trim().length > 0 && primaryVenueFilled
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -210,93 +222,112 @@ export default function Step2Playback({
         </PlaybackRow>
 
         {/* One row per rhythm, primary first; loose rhythms read as
-            understood-but-not-scheduled. Beneath each value line: a captured
-            venue renders the inline standing-place input (editing, the
-            group-name precedent, but quieter: label scale, subtle border);
-            an empty venue renders a full-width button styled like an empty
-            field (collecting; see the editing-vs-collecting note above),
-            which expands into the same input on tap. Neutral colors on
-            purpose, never lime; venue is never called "optional" (it can
-            never be added after creation, so the word underclaims what a
-            missed tap costs) and never blocks Continue, so it must not
-            borrow the gap marker's "Orbit needs this" cue either. */}
+            understood-but-not-scheduled. Below each label/value line: a
+            captured venue renders the inline standing-place input (editing,
+            the group-name precedent, but quieter: label scale, subtle
+            border); an empty venue renders a full-width button styled like
+            an empty field (collecting; see the editing-vs-collecting note
+            above), which expands into the same input on tap. Passed as
+            PlaybackRow's `venue` slot rather than nested inside this row's
+            own value column, so it spans the same width as the group-name
+            input above rather than being offset by the label column
+            (venue-on-playback slice, task 7 — the prior shape did not line
+            up with the group-name field, which the owner caught rendered).
+            Neutral colors on purpose, never lime. As of 4 Sept 2026 the
+            PRIMARY rhythm's venue (index 0) is required — canConfirm above
+            gates on it — because there is nowhere to add one after creation;
+            secondary rhythms stay optional (see primaryVenueFilled's own
+            comment for why gating them would be worse than leaving them
+            blank). Venue is never called "optional" in the empty-state copy
+            either way: for the primary that would now be false, and for a
+            secondary the word was already dropped and just isn't needed to
+            keep the copy honest. */}
         {rhythms.map((r, i) => {
           const row = formatRhythmRow(r)
           const venueRevealed = seededVenueIdx.has(i) || tappedVenueIdx.has(i)
+          const isPrimary = i === 0
+          const venueControl = venueRevealed ? (
+            <input
+              id={`venueName-${i}`}
+              type="text"
+              value={r.venueName ?? ""}
+              onChange={(e) => onVenueNameChange(i, e.target.value)}
+              disabled={isCreating}
+              maxLength={VENUE_NAME_MAX}
+              placeholder="Where do you meet?"
+              aria-label={`Where you usually meet for ${r.activity}`}
+              // Focus only the tap-revealed input; seeded inputs must
+              // not steal focus from the card on mount.
+              autoFocus={tappedVenueIdx.has(i)}
+              style={{
+                width: "100%",
+                marginTop: "0.25rem",
+                padding: "0.25rem 0.5rem",
+                backgroundColor: "var(--surface-base)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "0.375rem",
+                color: "var(--text-primary)",
+                // 16px, not --type-label (14px): iOS Safari force-zooms
+                // the whole page on focusing any input under 16px and
+                // never zooms back out, which is the bug this slice
+                // exists to close. Raised here (not just kept off the
+                // button below) so the trap cannot return by tapping
+                // into the revealed input either.
+                fontSize: "16px",
+                lineHeight: "var(--leading-normal)",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          ) : (
+            // Full-width button styled in the group-name input's own
+            // visual language (padding, border, radius, background,
+            // box-sizing lifted from that input above), so a missable
+            // venue prompt becomes a box impossible to miss. Reusing
+            // rather than inventing per the owner's standing note that a
+            // prior slice designed new elements where existing ones
+            // already served. Text-only, not left/right layout, because
+            // this reads as an empty field rather than a call to action:
+            // the label sits in --placeholder color at the input's own
+            // size, the way empty-field text reads everywhere else in
+            // the product (the ::placeholder rule in globals.css), even
+            // though a <button> has no real placeholder pseudo-element
+            // to hook. The primary's copy names "(required)" — safe now
+            // that the box is full card width rather than the old
+            // indented value column, where the same word was the thing
+            // that truncated ("(op").
+            <button
+              type="button"
+              onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
+              disabled={isCreating}
+              aria-label={`Add where you meet for ${r.activity}`}
+              style={{
+                width: "100%",
+                marginTop: "0.25rem",
+                padding: "0.375rem 0.5rem",
+                backgroundColor: "var(--surface-base)",
+                border: "1px solid var(--hairline)",
+                borderRadius: "0.375rem",
+                boxSizing: "border-box",
+                display: "block",
+                textAlign: "left",
+                color: "var(--placeholder)",
+                fontSize: "16px",
+                lineHeight: "var(--leading-normal)",
+                cursor: isCreating ? "not-allowed" : "pointer",
+              }}
+            >
+              {isPrimary ? "Where do you meet? (required)" : "Where do you meet?"}
+            </button>
+          )
           return (
-            <PlaybackRow key={i} label={row.label} isLast={i === rhythms.length - 1}>
+            <PlaybackRow
+              key={i}
+              label={row.label}
+              isLast={i === rhythms.length - 1}
+              venue={venueControl}
+            >
               <p style={rowValueTextStyle}>{row.value}</p>
-              {venueRevealed ? (
-                <input
-                  id={`venueName-${i}`}
-                  type="text"
-                  value={r.venueName ?? ""}
-                  onChange={(e) => onVenueNameChange(i, e.target.value)}
-                  disabled={isCreating}
-                  maxLength={VENUE_NAME_MAX}
-                  placeholder="Where do you meet?"
-                  aria-label={`Where you usually meet for ${r.activity}`}
-                  // Focus only the tap-revealed input; seeded inputs must
-                  // not steal focus from the card on mount.
-                  autoFocus={tappedVenueIdx.has(i)}
-                  style={{
-                    width: "100%",
-                    marginTop: "0.25rem",
-                    padding: "0.25rem 0.5rem",
-                    backgroundColor: "var(--surface-base)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "0.375rem",
-                    color: "var(--text-primary)",
-                    // 16px, not --type-label (14px): iOS Safari force-zooms
-                    // the whole page on focusing any input under 16px and
-                    // never zooms back out, which is the bug this slice
-                    // exists to close. Raised here (not just kept off the
-                    // button below) so the trap cannot return by tapping
-                    // into the revealed input either.
-                    fontSize: "16px",
-                    lineHeight: "var(--leading-normal)",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                />
-              ) : (
-                // Full-width button styled in the group-name input's own
-                // visual language (padding, border, radius, background,
-                // box-sizing lifted from that input above), so a missable
-                // venue prompt becomes a box impossible to miss. Reusing
-                // rather than inventing per the owner's standing note that a
-                // prior slice designed new elements where existing ones
-                // already served. Text-only, not left/right layout, because
-                // this reads as an empty field rather than a call to action:
-                // the label sits in --placeholder color at the input's own
-                // size, the way empty-field text reads everywhere else in
-                // the product (the ::placeholder rule in globals.css), even
-                // though a <button> has no real placeholder pseudo-element
-                // to hook.
-                <button
-                  type="button"
-                  onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
-                  disabled={isCreating}
-                  aria-label={`Add where you meet for ${r.activity}`}
-                  style={{
-                    width: "100%",
-                    marginTop: "0.25rem",
-                    padding: "0.375rem 0.5rem",
-                    backgroundColor: "var(--surface-base)",
-                    border: "1px solid var(--hairline)",
-                    borderRadius: "0.375rem",
-                    boxSizing: "border-box",
-                    display: "block",
-                    textAlign: "left",
-                    color: "var(--placeholder)",
-                    fontSize: "16px",
-                    lineHeight: "var(--leading-normal)",
-                    cursor: isCreating ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Where do you meet?
-                </button>
-              )}
             </PlaybackRow>
           )
         })}

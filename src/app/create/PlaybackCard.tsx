@@ -70,18 +70,31 @@ export const rowValueTextStyle: React.CSSProperties = {
  * tightens the bottom padding, matching the card's own last-row rule.
  * `htmlForLabel` swaps the key from a `<p>` to a real `<label>` when the
  * value is an input (the group-name row), preserving its accessible name.
+ *
+ * `venue` renders a full-width block below the label/value line, as a
+ * sibling of it rather than a child of the value column's flex div.
+ * Nesting a venue control inside the value column (the original shape)
+ * offsets it by the label column's width — up to 60%, see keyStyle's own
+ * comment below — so it could never line up with the group-name row above
+ * it. Rendering it here, inside this row's own padding/divider but outside
+ * the label/value flex row, gives it the same width as the group-name
+ * input (venue-on-playback slice, 4 Sept 2026, task 7). Omitted entirely
+ * when there is nothing to show, so a row with no venue renders exactly as
+ * it always has.
  */
 export function PlaybackRow({
   label,
   pending = false,
   isLast = false,
   htmlForLabel,
+  venue,
   children,
 }: {
   label: string
   pending?: boolean
   isLast?: boolean
   htmlForLabel?: string
+  venue?: ReactNode
   children: ReactNode
 }) {
   const keyStyle: React.CSSProperties = {
@@ -127,22 +140,22 @@ export function PlaybackRow({
   return (
     <div
       style={{
-        display: "flex",
-        gap: "12px",
-        alignItems: "baseline",
         paddingTop: "9px",
         paddingBottom: isLast ? "2px" : "9px",
         borderBottom: isLast ? "none" : "1.4px solid var(--hairline)",
       }}
     >
-      {htmlForLabel ? (
-        <label htmlFor={htmlForLabel} style={keyStyle}>
-          {label}
-        </label>
-      ) : (
-        <p style={keyStyle}>{label}</p>
-      )}
-      <div style={{ flex: "1 1 auto", minWidth: 0 }}>{children}</div>
+      <div style={{ display: "flex", gap: "12px", alignItems: "baseline" }}>
+        {htmlForLabel ? (
+          <label htmlFor={htmlForLabel} style={keyStyle}>
+            {label}
+          </label>
+        ) : (
+          <p style={keyStyle}>{label}</p>
+        )}
+        <div style={{ flex: "1 1 auto", minWidth: 0 }}>{children}</div>
+      </div>
+      {venue !== undefined && venue}
     </div>
   )
 }

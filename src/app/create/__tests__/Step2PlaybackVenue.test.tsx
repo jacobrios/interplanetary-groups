@@ -92,3 +92,84 @@ describe("Step2Playback — empty venue control", () => {
     expect(screen.getByRole("button", { name: /add where you meet for beers/i })).toBeTruthy()
   })
 })
+
+// Task 7 (4 Sept, amended): the box must span the whole card, matching the
+// group-name field's width exactly, not the rhythm row's indented value
+// column (offset by the label, e.g. "CLIMBING" at up to 60% of the card).
+// jsdom has no layout engine, so this can't assert a pixel width; what it
+// can prove is the DOM shape that produces it — the venue control must sit
+// as a sibling of the row's label/value line (both direct children of the
+// row's own padding/divider wrapper), at the same nesting depth as the
+// group-name row's own wrapper, rather than nested inside the value
+// column's flex div alongside the schedule text.
+describe("Step2Playback — venue control spans the full card width", () => {
+  it("does not nest the venue button inside the schedule value's own column", () => {
+    renderStep2([baseRhythm])
+
+    const scheduleValue = screen.getByText("Mon & Wed at 8am, every week")
+    const venueButton = screen.getByRole("button", { name: /add where you meet for climbing/i })
+
+    // Before the fix, the button was appended right after this paragraph
+    // inside the same flex "value column" div, offset by the label — so
+    // this would have been the same element.
+    expect(venueButton.parentElement).not.toBe(scheduleValue.parentElement)
+  })
+
+  it("does not nest the venue button inside the schedule value's own column for a captured (revealed) venue's input either", () => {
+    renderStep2([{ ...baseRhythm, venueName: "The east wall" }])
+
+    const scheduleValue = screen.getByText("Mon & Wed at 8am, every week")
+    const venueInput = screen.getByLabelText(/where you usually meet for climbing/i)
+
+    expect(venueInput.parentElement).not.toBe(scheduleValue.parentElement)
+  })
+
+  it("sits at the same nesting depth as the group-name row, both direct children of the card's padded content", () => {
+    renderStep2([baseRhythm])
+
+    const groupNameInput = screen.getByLabelText("Group name")
+    // PlaybackNameRow's own outer wrapper div (label stacked above input).
+    const nameRowWrapper = groupNameInput.parentElement
+    const venueButton = screen.getByRole("button", { name: /add where you meet for climbing/i })
+    // PlaybackRow's outer padding/divider shell — the venue button's direct
+    // parent now that it is passed through the `venue` slot rather than
+    // nested in the value column.
+    const rowShell = venueButton.parentElement
+
+    expect(rowShell?.parentElement).toBe(nameRowWrapper?.parentElement)
+  })
+})
+
+// Task 8: the primary rhythm's venue is required to confirm, the same way
+// an empty group name already blocks it. Secondary rhythms stay optional.
+describe("Step2Playback — the primary rhythm's venue is required to confirm", () => {
+  const secondary: StoredRhythm = {
+    activity: "beers",
+    title: "Beers",
+    cadence: "monthly",
+    daysOfWeek: null,
+    timeLocal: null,
+    venueName: null,
+  }
+
+  function confirmButton(): HTMLButtonElement {
+    return screen.getByRole("button", {
+      name: /looks right, set up invites/i,
+    }) as HTMLButtonElement
+  }
+
+  it("disables confirm when the primary rhythm has no venue, even with a valid group name", () => {
+    renderStep2([baseRhythm])
+    expect(confirmButton().disabled).toBe(true)
+  })
+
+  it("disables confirm when the primary rhythm's venue is whitespace only", () => {
+    renderStep2([{ ...baseRhythm, venueName: "   " }])
+    expect(confirmButton().disabled).toBe(true)
+  })
+
+  it("enables confirm once the primary rhythm has a venue, with a secondary rhythm left blank", () => {
+    renderStep2([{ ...baseRhythm, venueName: "The east wall" }, secondary])
+    expect(confirmButton().disabled).toBe(false)
+  })
+})
