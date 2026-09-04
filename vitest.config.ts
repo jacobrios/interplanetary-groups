@@ -21,6 +21,28 @@ export default defineConfig({
     // for a `globals` key above; there has never been one. vitest.setup.ts
     // registers cleanup by hand, and the reasoning, along with the failure it
     // was leaving behind, is in that file's header.
+    // Serializes suite runs for this checkout so two of them never contend
+    // for the single dev-test database. Adopted from
+    // ~/.claude/templates/project-safety-nets/suite-lock.mjs on 3 Sept 2026,
+    // after a subagent's own `npm test` ran at the moment the stop hook ran
+    // the suite: connections ran out, a Prisma transaction could not start,
+    // and the suite went red naming invite-token.test.ts, a file nobody had
+    // touched. Run alone seconds later it was 1704 of 1704. A red suite
+    // pointing at innocent code sends whoever reads it to debug something
+    // that was never broken, which is why this is machinery and not a habit.
+    //
+    // A globalSetup rather than a lock inside the stop hook, and that is the
+    // load-bearing choice rather than an implementation detail: a lock only
+    // works if every party takes it, and one of the two colliding parties is
+    // an agent typing `npm test`, which never calls into a hook. vitest reads
+    // this config at the start of every invocation, whoever started it, so
+    // both parties take it. Do not "simplify" this into the hook.
+    //
+    // Scope, worth knowing before trusting it: the lock is keyed on
+    // process.cwd(), so it serializes runs within THIS checkout only. Two git
+    // worktrees share one dev-test database and do NOT block each other, so
+    // the concurrent-worktree collision documented in CLAUDE.md survives this.
+    globalSetup: ["./.claude/hooks/suite-lock.mjs"],
     setupFiles: ["./vitest.setup.ts"],
     // Most of this suite drives sequential Prisma round-trips against the
     // remote dev-test Supabase, and vitest's 5000ms default is sized for tests
