@@ -7635,3 +7635,113 @@ file and reads exactly like a real defect. Nothing was changed for this today.
 Whoever next touches the safety-net hooks should know that a red suite from that
 gate is worth re-running alone before it is believed, and that the honest fix is
 either a lock so only one suite runs at a time or a per-run database.
+
+---
+
+## §11 entry: what Orbit can hear, and what a floated plan can never get (3 September 2026)
+
+**A discussion session, no code.** Cut from `main` at `b84bde5`. It started with a real
+message in a real group chat and ended with an ordered queue, so it is recorded as a
+decision entry rather than a slice.
+
+**The trigger.** A parent in the owner's daughter's school group wrote a long message: the
+weekly Thursday hang at the cidery is too hot, come to my pool after school today instead.
+The owner asked what Orbit would do with it. Three outcomes are possible and all three are
+wrong. Read as a change request, the ladder declines at rung one because the ask names a
+venue, so the group gets "I can't change the spot yet." Read as both a fresh idea and a
+change, `normalizeIntent` discards it whole and Orbit says nothing, which is the both-true
+bug already queued. Read as a fresh idea, Orbit opens a second card proposing a pool hang
+beside the existing Thursday plan, for something happening in two hours.
+
+**The finding underneath it, and it is the one to carry forward.** Orbit's comprehension is
+not the limit. Its verb list is. It can float an idea, propose a time change, ask a
+question, and decline politely. Venue changes, day changes, cancelling by talking, and
+verbal RSVPs are not on that list, and the message above asks for three of them at once.
+
+**A floated plan can never get a place.** A promoted gauge inherits a venue only when its
+activity matches one of the group's stored rhythms (`promote.ts`, `inheritedVenue`). Tennis
+matches, so tennis gets the court. Beers matches nothing, so the event is created with no
+venue, and both the card and the detail screen simply omit the line rather than saying so.
+Nothing anywhere can add one afterwards. **Venue is not the only thing missing**: the
+title, the day and the time of a floated plan are equally unfixable, since the standing
+guardrail "propose a specific venue at lock time, then absorb overrides" was written and
+never built.
+
+**The owner's reason for wanting a screen rather than only chat, recorded because it is
+sharper than the engineering one.** Sometimes clicking is simply easier than talking to an
+agent, and today the only way to change anything through chat is a group vote. A
+correction is not a group decision and should not cost one. That is the same distinction
+the parked group-details slice reached from the other direction.
+
+**A gap neither of us had seen.** A group time-change vote moves one occurrence, never the
+rhythm. A group voting to move Saturday tennis from 9am to 8am gets 8am this week and 9am
+again next week, forever, with nothing on screen explaining why. It only bites a group
+wanting a permanent change, which the tennis group says never happens, so it stays
+theoretical for now. It is the strongest argument yet for unparking group-details editing.
+
+**What the tennis group needs before launch: nothing.** The Saturday plan appears on its
+own, RSVPs work, anyone can call off a rained-out game and put it back, the group can vote
+to move a time, a floated idea can become real, and email sign-in and the digest both work.
+Everything discussed here serves the second thing a group does, not the first.
+
+**One fact the owner weighed and ranked past, recorded so the ranking is not mistaken for
+an oversight.** The digest sends once a day at 8pm group time, so a Saturday 9am game
+called off any time after 8pm Friday misses it entirely and the next digest lands after the
+game. The owner judged the immediate cancellation email an edge case anyway and put it
+last. His call, made with that fact in hand.
+
+### The order the owner settled, and how the work divides
+
+**Ranked by him, 3 September 2026, product-first.** Everything from item 2 down waits on
+two weeks of watching the tennis group.
+
+1. **The "next week" horizon fix.** First because it is the only item where Orbit says
+   something *wrong* rather than merely incomplete, and a confidently wrong date is what
+   makes a person stop trusting it. Not a one-liner: a new extraction field, a prompt
+   change, and both eval benches.
+2. **The editable event card.** Venue, title, day and time on a single plan. Screens only,
+   no model work. The chat half ("let's meet at Tony's") is deliberately split off into
+   item 5, because it needs the classifier and this does not.
+3. **Group details editing, unparked.** Placed here on engineering grounds, since product
+   had no strong opinion for the tennis group and engineering did.
+4. **Verbal group one: cancel, RSVP, gauge votes.** Grouped because the write paths behind
+   all three already exist; Orbit only has to recognise the words.
+5. **Verbal group two: venue and day changes.** Grouped separately because they need write
+   paths items 2 and 3 build, so they cannot jump ahead.
+6. **Subscribe to calendar.** Also fixes time changes not reaching a saved calendar entry.
+7. **The immediate cancellation email.**
+
+**Why group-details editing is third, which is the piece of reasoning most worth keeping.**
+It and the editable card share a write path. The parked slice's "bring the plan in line"
+step writes a venue, title, day and time onto an event that already exists, which is
+exactly what the editable card is. Building the card first puts that write in the open
+where the parked slice reuses it; building the parked slice first buries the same write
+inside a founder-only confirmation flow and then has to loosen the permission, add a
+screen, and teach it to handle plans with no rhythm behind them. **Adjacent, not merged**:
+merging would couple a ready slice to one carrying nine open decisions that need the owner
+first.
+
+**The trigger that moves it to first, written as a trigger rather than a position.** The
+parked slice is what lets the owner stop being in the room. Onboarding correctness
+currently depends on him supervising group creation in person, which works for one friend.
+The day he decides to hand the link to a founder he will not be sitting beside, this moves
+ahead of everything.
+
+**Three notes for whoever resumes `fix-group-details-after-creation`.** Its scope is
+unchanged and needs no re-brainstorm: the five settled decisions hold and the nine open
+ones still need the owner. What is new since it was parked is that a slice now precedes it
+and builds a write path it should reuse; that the permanent-time-change gap above
+strengthens its case; and that its unpark trigger is now nameable. The parked session
+itself is not the artifact and should be allowed to lapse. The spec on that branch is.
+
+**Verbal work divides by what sits behind it, not by which words Orbit hears.** That is the
+cut that matters, and it is why "verbal cancel" and "verbal venue change" cannot ship in
+the same slice however similar they sound. Also settled while looking: "for both event
+types" is not a second axis of work, since cancel, RSVP and time changes are already
+origin-blind and do not care whether a plan came from the rhythm or from a spark.
+
+**Deliberately left off the ranking:** propose-a-cancel by group vote (anyone can already
+cancel, and nobody debates rain), the Vercel log drain, the unbounded message query, and
+the Supabase auth soft-fail. The last three are maintenance rather than product. The
+both-true bug from the trigger message above is still queued with no home; it belongs in
+item 5 or in a small slice of its own.
