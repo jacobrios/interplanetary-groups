@@ -229,4 +229,56 @@ describe("MessageFeed auto-scroll does not hijack a scrolled-up reader (LiveRefr
 
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1)
   })
+
+  // The gap found in re-review: a brand-new group's home genuinely starts
+  // with messages=[], which renders the placeholder branch above with NO
+  // scroll container and NO bottom sentinel at all. The scroll-metrics
+  // listener has to survive that transition (empty at mount, populated once
+  // the first message lands) or it never attaches for the life of the
+  // component instance, which is exactly what a `useRef` container ref paired
+  // with a `[]`-deps effect does: the effect runs once, reads a null ref
+  // because the scrollable div does not exist yet, and never runs again.
+  it("still leaves a scrolled-up reader alone after the feed starts empty and messages arrive later", () => {
+    Element.prototype.scrollIntoView = vi.fn()
+
+    const { container, rerender } = render(
+      <MessageFeed viewerId="v-viewer" timeZone="America/Chicago" messages={[]} />
+    )
+
+    // First message ever: the empty-state placeholder is replaced by the
+    // real scroll container for the first time. This is also where a buggy
+    // callback ref would fail to attach, so the very next scroll simulation
+    // has to land on a live listener.
+    rerender(
+      <MessageFeed
+        viewerId="v-viewer"
+        timeZone="America/Chicago"
+        messages={[memberMessage("m1", "u-other")]}
+      />
+    )
+
+    const scrollEl = container.firstElementChild as HTMLElement
+    ;(Element.prototype.scrollIntoView as ReturnType<typeof vi.fn>).mockClear()
+
+    // Viewer scrolls up to reread, same as the earlier populated-start test.
+    setScrollMetrics(scrollEl, { scrollTop: 0, scrollHeight: 2000, clientHeight: 500 })
+    fireEvent.scroll(scrollEl)
+
+    // Someone else posts while the viewer is scrolled up.
+    rerender(
+      <MessageFeed
+        viewerId="v-viewer"
+        timeZone="America/Chicago"
+        messages={[memberMessage("m1", "u-other"), memberMessage("m2", "u-other")]}
+      />
+    )
+
+    // Mutation-proven: reverting the callback ref to a `useRef` container ref
+    // plus a `[]`-deps effect turns this red. On that shape the effect's one
+    // run happens while messages=[] (no container in the DOM yet), so it
+    // reads a null ref and never runs again; the scroll listener never
+    // attaches, isNearBottomRef stays stuck at its initial `true`, and this
+    // assertion sees scrollIntoView called instead of skipped.
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
+  })
 })
