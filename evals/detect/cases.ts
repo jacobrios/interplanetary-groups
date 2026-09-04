@@ -6,6 +6,8 @@
 // filename deliberately avoids *.test.ts so Vitest's default glob never
 // collects them into CI, where they would cost money on every run.
 
+import type { Horizon } from "../../src/lib/orbit/spark"
+
 /**
  * `must-recognize` and `must-stay-quiet` carry a bar: every run must land.
  * `ambiguous` carries none, because the input genuinely has no right answer;
@@ -33,7 +35,7 @@ export type Bucket = "must-recognize" | "must-stay-quiet" | "ambiguous" | "accep
  */
 export type Expected =
   | { kind: "none" }
-  | { kind: "spark"; statedDayOfWeek?: number | null }
+  | { kind: "spark"; statedDayOfWeek?: number | null; horizon?: Horizon | null }
   | { kind: "answer"; dayOfWeek?: number | null }
   | {
       kind: "change"
@@ -651,5 +653,99 @@ export const CASES: EvalCase[] = [
     liveGauge: { activity: "beers", proposedDayOfWeek: 6 },
     memberCount: 4,
     expected: { kind: "none" },
+  },
+  {
+    id: "spark-next-week-bare",
+    bucket: "must-recognize",
+    description:
+      "The 26 Aug 2026 production failure, in the member's own words. Orbit answered 'Beers this Friday?' and opened a gauge for two days later, inside the week he had just excluded. No weekday is named, so statedDayOfWeek is rightly null; the horizon is the only field that can carry 'not this week'.",
+    calendar: [],
+    history: [{ author: "Priya", body: "that climb yesterday was brutal", minutesAgo: 90 }],
+    trigger: { author: "Jacob", body: "we should grab beers next week" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: null, horizon: "nextWeek" },
+  },
+  {
+    id: "spark-next-weekday",
+    bucket: "must-recognize",
+    description:
+      "The second broken case, read from the code rather than observed: a named weekday was taken at face value with no buffer, so 'next Friday' on a Wednesday landed on the Friday two days later. Both fields must be set here, which is the thing the amended statedDayOfWeek prompt line exists for.",
+    calendar: [],
+    history: [{ author: "Sam", body: "long week", minutesAgo: 120 }],
+    trigger: { author: "Jesse", body: "beers next friday?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: 5, horizon: "nextWeek" },
+  },
+  {
+    id: "spark-this-weekday",
+    bucket: "must-recognize",
+    description:
+      "The mirror of the case above. 'This Thursday' names a day and pins it to the current week, and reading it as nextWeek would push the plan a week past what was asked for.",
+    calendar: [],
+    history: [{ author: "Priya", body: "anyone free at all this week", minutesAgo: 200 }],
+    trigger: { author: "Sam", body: "climbing this thursday?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: 4, horizon: "thisWeek" },
+  },
+  {
+    id: "spark-plain-weekday",
+    // Moved out of must-recognize 3 Sept 2026, by the owner's decision, during
+    // QA of PR #117. The model answers horizon: "thisWeek" for this trigger in
+    // 8 of 10 runs across two independent bench samples, so this case would be
+    // permanently red rather than measuring real drift.
+    //
+    // The failure is behaviourally inert, verified twice by reading the code
+    // rather than assumed: in chooseProposedDate (src/lib/orbit/spark-copy.ts),
+    // a "thisWeek" horizon with a non-null statedDayOfWeek falls into the same
+    // else-if branch as a null horizon, producing an identical date, and
+    // horizonDisclosure returns null for anything but "nextWeek", so no clause
+    // is added and the message is identical too. No member can tell the
+    // difference between the model answering thisWeek and answering null here.
+    //
+    // Leaving it barred would hold must-recognize at 103/110 permanently,
+    // which is exactly the signal erosion the accepted bucket was created for
+    // on 19 Aug 2026. It stays in the bench, scored and printed, so a further
+    // slide or a recovery is visible.
+    bucket: "accepted",
+    description:
+      "A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets. Measured at 8/10 answering thisWeek instead across two runs; accepted by the owner 3 Sept 2026 because the difference is behaviourally inert (chooseProposedDate and horizonDisclosure both treat thisWeek and null identically here). Watched for further drift.",
+    calendar: [],
+    history: [{ author: "Jo", body: "the new gym is open", minutesAgo: 60 }],
+    trigger: { author: "Priya", body: "anyone want to climb saturday?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: 6, horizon: null },
+  },
+  {
+    id: "spark-this-weekend-null-horizon",
+    bucket: "must-recognize",
+    description:
+      "The hardest of the three null traps, because the phrase literally starts with 'this'. A weekend is not a week: reading it as thisWeek would suppress the notice buffer for an idea that never asked for that.",
+    calendar: [],
+    history: [{ author: "Sam", body: "weather looks good", minutesAgo: 45 }],
+    trigger: { author: "Jesse", body: "beers this weekend?" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: null, horizon: null },
+  },
+  {
+    id: "spark-two-weeks-null-horizon",
+    bucket: "must-recognize",
+    description:
+      "The scope line, as a graded case. 'In two weeks' carries real information that this product deliberately cannot hold, and the only safe place to put it is nowhere: reading it as nextWeek would be a wrong date that nobody asked for.",
+    calendar: [],
+    history: [{ author: "Jo", body: "I'm away till the 10th", minutesAgo: 300 }],
+    trigger: { author: "Priya", body: "we should do a hike in two weeks" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: null, horizon: null },
+  },
+  {
+    id: "spark-next-month-null-horizon",
+    bucket: "must-recognize",
+    description:
+      "The last null trap, and the one closest to the field's own wording: 'next month' shares the word 'next' with the phrase that does set it. Same reasoning as the case above.",
+    calendar: [],
+    history: [{ author: "Jesse", body: "we never do anything nice", minutesAgo: 400 }],
+    trigger: { author: "Sam", body: "we should grab dinner sometime next month" },
+    memberCount: 4,
+    expected: { kind: "spark", statedDayOfWeek: null, horizon: null },
   },
 ]

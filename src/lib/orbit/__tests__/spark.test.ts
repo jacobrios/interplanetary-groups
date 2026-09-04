@@ -40,7 +40,7 @@ const MIDWAY = "Pacific/Midway"
 // toEqual on a spark now has to state them. Kept as toEqual rather than
 // relaxed to toMatchObject on purpose: strict equality is what catches a field
 // appearing that nobody intended.
-const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null }
+const NO_TIME = { statedTime: null, timeAmbiguous: false, partOfDay: null, horizon: null }
 
 describe("normalizeSpark", () => {
   it("treats a no-spark claim as no spark", () => {
@@ -115,7 +115,7 @@ describe("normalizeSpark, time fields", () => {
     const r = normalizeSpark({ ...base, statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening" })
     expect(r).toEqual({
       spark: true, activity: "beers", statedDayOfWeek: 5,
-      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening",
+      statedTime: "20:00", timeAmbiguous: false, partOfDay: "evening", horizon: null,
     })
   })
 
@@ -291,36 +291,64 @@ describe("detectIntentClaim", () => {
     expect(INTENT_SCHEMA.required).toContain("isAskAnswer")
     expect(INTENT_SCHEMA.properties.answerDayOfWeek).toBeDefined()
   })
+
+  it("requires the horizon field of the model", () => {
+    expect(INTENT_SCHEMA.required).toContain("horizon")
+    expect(INTENT_SCHEMA.properties.horizon).toBeDefined()
+  })
+})
+
+describe("normalizeSpark, horizon", () => {
+  const base = { isSpark: true, activity: "beers", statedDayOfWeek: null }
+
+  it("keeps both valid horizons", () => {
+    expect(normalizeSpark({ ...base, horizon: "nextWeek" })).toMatchObject({
+      horizon: "nextWeek",
+    })
+    expect(normalizeSpark({ ...base, horizon: "thisWeek" })).toMatchObject({
+      horizon: "thisWeek",
+    })
+  })
+
+  it("degrades anything else to null, which is today's behaviour", () => {
+    // A wrong case, a plausible-but-unlisted value, a non-string, and a
+    // missing key. Every one of them must land on null rather than reaching
+    // the date arithmetic, because null is the reading that changes nothing.
+    for (const bad of ["nextweek", "NEXTWEEK", "next-week", "weekend", "in two weeks", 2, true, null, undefined, {}]) {
+      expect(normalizeSpark({ ...base, horizon: bad })).toMatchObject({ horizon: null })
+    }
+    expect(normalizeSpark(base)).toMatchObject({ horizon: null })
+  })
 })
 
 describe("chooseProposedDate", () => {
   it("takes a stated weekday at its next occurrence", () => {
-    const d = chooseProposedDate(3, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(3, null, "UTC", new Date("2026-07-20T12:00:00Z"), null) // Mon
     expect(d.toISOString()).toBe("2026-07-22T00:00:00.000Z") // Wed
   })
 
   it("takes a stated day that is today as today, not next week", () => {
     // The two-day buffer is fallback-only. Pushing a stated day out a week
     // would count the person who named it for a day they did not mean.
-    const d = chooseProposedDate(5, null, "UTC", new Date("2026-07-24T12:00:00Z")) // Fri
+    const d = chooseProposedDate(5, null, "UTC", new Date("2026-07-24T12:00:00Z"), null) // Fri
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z") // the same Friday
   })
 
   it("falls back to the coming Friday when nobody named a day", () => {
-    const d = chooseProposedDate(null, null, "UTC", new Date("2026-07-20T12:00:00Z")) // Mon
+    const d = chooseProposedDate(null, null, "UTC", new Date("2026-07-20T12:00:00Z"), null) // Mon
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
   it("pushes the fallback a week when the coming Friday is under two days out", () => {
-    const thu = chooseProposedDate(null, null, "UTC", new Date("2026-07-23T12:00:00Z"))
+    const thu = chooseProposedDate(null, null, "UTC", new Date("2026-07-23T12:00:00Z"), null)
     expect(thu.toISOString()).toBe("2026-07-31T00:00:00.000Z")
 
-    const fri = chooseProposedDate(null, null, "UTC", new Date("2026-07-24T12:00:00Z"))
+    const fri = chooseProposedDate(null, null, "UTC", new Date("2026-07-24T12:00:00Z"), null)
     expect(fri.toISOString()).toBe("2026-07-31T00:00:00.000Z")
   })
 
   it("keeps the coming Friday at exactly two days out", () => {
-    const wed = chooseProposedDate(null, null, "UTC", new Date("2026-07-22T12:00:00Z"))
+    const wed = chooseProposedDate(null, null, "UTC", new Date("2026-07-22T12:00:00Z"), null)
     expect(wed.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
@@ -329,16 +357,16 @@ describe("chooseProposedDate", () => {
     // buffer pushes a week. In Midway it is still Wednesday, so the coming
     // Friday clears the buffer and stands.
     const now = new Date("2026-07-23T02:00:00Z")
-    expect(chooseProposedDate(null, null, "UTC", now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, "UTC", now, null).toISOString()).toBe(
       "2026-07-31T00:00:00.000Z"
     )
-    expect(chooseProposedDate(null, null, MIDWAY, now).toISOString()).toBe(
+    expect(chooseProposedDate(null, null, MIDWAY, now, null).toISOString()).toBe(
       "2026-07-24T11:00:00.000Z" // local midnight Fri 24 Jul in UTC-11
     )
   })
 
   it("returns group-local midnight for a stated day in a far-offset zone", () => {
-    const d = chooseProposedDate(4, null, MIDWAY, new Date("2026-07-23T02:00:00Z")) // local Wed
+    const d = chooseProposedDate(4, null, MIDWAY, new Date("2026-07-23T02:00:00Z"), null) // local Wed
     expect(d.toISOString()).toBe("2026-07-23T11:00:00.000Z") // local midnight Thu 23 Jul
   })
 })

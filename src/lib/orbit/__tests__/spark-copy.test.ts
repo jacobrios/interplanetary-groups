@@ -16,8 +16,10 @@ import {
   chooseRetryGuessDate,
   chooseSuggestedRetryDate,
   formatTimeLocalLabel,
+  horizonDisclosure,
   localWeekday,
   planAnswerGauge,
+  planSparkGauge,
   resolveAnswerTime,
   resolveSparkTime,
   sparkStartInstant,
@@ -94,35 +96,162 @@ describe("chooseProposedDate", () => {
   const WED = new Date("2026-07-22T12:00:00Z")
 
   it("proposes Friday for an evening activity with no stated day", () => {
-    const d = chooseProposedDate(null, "evening", TZ, WED)
+    const d = chooseProposedDate(null, "evening", TZ, WED, null)
     expect(d.toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
   it("proposes Friday when the activity's part of day is unknown", () => {
-    expect(chooseProposedDate(null, null, TZ, WED).toISOString()).toBe("2026-07-24T00:00:00.000Z")
+    expect(chooseProposedDate(null, null, TZ, WED, null).toISOString()).toBe("2026-07-24T00:00:00.000Z")
   })
 
   it("proposes Saturday for a morning activity", () => {
     // Friday was chosen on evening-social logic; breakfast should not inherit it.
-    expect(chooseProposedDate(null, "morning", TZ, WED).toISOString()).toBe("2026-07-25T00:00:00.000Z")
+    expect(chooseProposedDate(null, "morning", TZ, WED, null).toISOString()).toBe("2026-07-25T00:00:00.000Z")
   })
 
   it("still honours a stated day whatever the activity is", () => {
     // Monday, stated. Taken at face value, part of day irrelevant.
-    expect(chooseProposedDate(1, "morning", TZ, WED).toISOString()).toBe("2026-07-27T00:00:00.000Z")
+    expect(chooseProposedDate(1, "morning", TZ, WED, null).toISOString()).toBe("2026-07-27T00:00:00.000Z")
   })
 
   it("still applies the notice buffer to its own guess", () => {
     // Thursday: the coming Friday is one day out, inside the two-day buffer,
     // so it pushes a week. Part one behavior, must not regress.
     const THU = new Date("2026-07-23T12:00:00Z")
-    expect(chooseProposedDate(null, "evening", TZ, THU).toISOString()).toBe("2026-07-31T00:00:00.000Z")
+    expect(chooseProposedDate(null, "evening", TZ, THU, null).toISOString()).toBe("2026-07-31T00:00:00.000Z")
   })
 
   it("applies the buffer to the Saturday guess too", () => {
     // Friday: the coming Saturday is one day out, inside the buffer.
     const FRI = new Date("2026-07-24T12:00:00Z")
-    expect(chooseProposedDate(null, "morning", TZ, FRI).toISOString()).toBe("2026-08-01T00:00:00.000Z")
+    expect(chooseProposedDate(null, "morning", TZ, FRI, null).toISOString()).toBe("2026-08-01T00:00:00.000Z")
+  })
+})
+
+describe("chooseProposedDate, horizons", () => {
+  const TZ = "UTC"
+  // Weekday anchors, verified against Intl before they were written down:
+  // 2026-08-26 Wed · 08-29 Sat · 08-30 Sun · 08-31 Mon · 09-04 Fri · 09-11 Fri.
+  const WED = new Date("2026-08-26T12:00:00Z")
+  const SAT = new Date("2026-08-29T12:00:00Z")
+  const SUN = new Date("2026-08-30T12:00:00Z")
+  const MON = new Date("2026-08-31T12:00:00Z")
+  const THU = new Date("2026-08-27T12:00:00Z")
+
+  it("fixes the bug that was seen in production", () => {
+    // "we should grab beers next week", Wednesday 26 Aug 2026. Orbit answered
+    // Friday the 28th, two days later, inside the week the member excluded.
+    expect(chooseProposedDate(null, "evening", TZ, WED, "nextWeek").toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z"
+    )
+  })
+
+  it("fixes the second case, where the member named their day and was still half-heard", () => {
+    // "beers next Friday" on the same Wednesday. This is the owner's reading,
+    // stated in build-notes: nine days out, not two.
+    expect(chooseProposedDate(5, "evening", TZ, WED, "nextWeek").toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z"
+    )
+  })
+
+  it("reads a week as Monday to Sunday, so a weekend ask does not overshoot", () => {
+    // Saturday: next week's Friday is six days out, not thirteen. This is the
+    // cell that rejected the simpler always-add-seven rule.
+    //
+    // Both assertions below are no-ops against the OLD (pre-horizon) code,
+    // and deliberately so: don't "fix" that by changing the expected value.
+    // For a stated weekday, "nextWeek" only changes the answer when the named
+    // day still lies ahead in the current Monday-start week. On a Saturday or
+    // Sunday the named Friday has already passed, so its next occurrence and
+    // next week's occurrence are the same calendar date, and the horizon is
+    // correctly a no-op on this cell. What this test actually pins is that
+    // the Monday-week convention doesn't overshoot on a weekend anchor, which
+    // is a real behavior even though it happens to coincide with the old
+    // result here. (Reviewed 2026-09-03: confirmed by hand against both the
+    // old and new arithmetic.)
+    expect(chooseProposedDate(5, "evening", TZ, SAT, "nextWeek").toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z"
+    )
+    expect(chooseProposedDate(5, "evening", TZ, SUN, "nextWeek").toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z"
+    )
+  })
+
+  it("never lets next week mean tomorrow", () => {
+    // Sunday saying "next Monday" is the Monday-week rule's one bad cell: it
+    // resolves to +1. The notice buffer that already exists catches it, which
+    // is why no new number was invented for this.
+    expect(chooseProposedDate(1, "evening", TZ, SUN, "nextWeek").toISOString()).toBe(
+      "2026-09-07T00:00:00.000Z"
+    )
+  })
+
+  it("counts from the week today sits in, not from today", () => {
+    // Monday's own next week starts seven days out, so next Friday is eleven.
+    expect(chooseProposedDate(5, "evening", TZ, MON, "nextWeek").toISOString()).toBe(
+      "2026-09-11T00:00:00.000Z"
+    )
+  })
+
+  it("sends a morning idea to next week's Saturday", () => {
+    expect(chooseProposedDate(null, "morning", TZ, WED, "nextWeek").toISOString()).toBe(
+      "2026-09-05T00:00:00.000Z"
+    )
+  })
+
+  it("lets this week override the notice buffer", () => {
+    // Thursday + "beers this week". Without the horizon the buffer pushes this
+    // to 4 Sep, contradicting the member's own word. With it, tomorrow.
+    expect(chooseProposedDate(null, "evening", TZ, THU, "thisWeek").toISOString()).toBe(
+      "2026-08-28T00:00:00.000Z"
+    )
+    expect(chooseProposedDate(null, "evening", TZ, THU, null).toISOString()).toBe(
+      "2026-09-04T00:00:00.000Z"
+    )
+  })
+
+  it("leaves a stated day alone under thisWeek, exactly as under null", () => {
+    expect(chooseProposedDate(5, "evening", TZ, WED, "thisWeek").toISOString()).toBe(
+      chooseProposedDate(5, "evening", TZ, WED, null).toISOString()
+    )
+  })
+
+  it("crosses a month end without a special case", () => {
+    // Wed 30 Sep 2026 + next week's Friday = 9 Oct.
+    const SEP30 = new Date("2026-09-30T12:00:00Z")
+    expect(chooseProposedDate(5, "evening", TZ, SEP30, "nextWeek").toISOString()).toBe(
+      "2026-10-09T00:00:00.000Z"
+    )
+  })
+
+  it("crosses a year end without a special case", () => {
+    // Wed 30 Dec 2026 + next week's Friday = 8 Jan 2027.
+    const DEC30 = new Date("2026-12-30T12:00:00Z")
+    expect(chooseProposedDate(5, "evening", TZ, DEC30, "nextWeek").toISOString()).toBe(
+      "2027-01-08T00:00:00.000Z"
+    )
+  })
+
+  it("reads the week boundary in the group's zone, not the server's", () => {
+    // Pacific/Midway is UTC-11 year round, so this instant is still Saturday
+    // there while it is already Sunday in UTC. Both resolve to Fri 4 Sep here,
+    // so the assertion that earns its keep is the Monday case below it.
+    //
+    // Same no-op coincidence as the weekend test above: the anchor reads as
+    // Saturday locally, and a stated Monday has already passed by then within
+    // its own week, so next-occurrence and next-week's-occurrence agree. This
+    // assertion is also a no-op against the old code; what it actually proves
+    // is that the horizon arithmetic reads "today" in the group's zone rather
+    // than the server's, which the value it lands on (not which branch
+    // produced it) can't tell apart from the old fallback in this cell.
+    const MIDWAY = "Pacific/Midway"
+    // 2026-08-30T02:00Z is Sat 29 Aug 15:00 in Midway.
+    const acrossMidnight = new Date("2026-08-30T02:00:00Z")
+    expect(chooseProposedDate(1, "evening", MIDWAY, acrossMidnight, "nextWeek").toISOString()).toBe(
+      // Sat in Midway: next week's Monday is 31 Aug, two days out, clears the
+      // buffer. Read as Sunday it would have been pushed to 7 Sep.
+      "2026-08-31T11:00:00.000Z"
+    )
   })
 })
 
@@ -530,5 +659,117 @@ describe("day-comment helpers", () => {
     expect(buildLiveGaugeLine("beers", failedSaturday, "UTC")).toBe(
       "Orbit is currently gauging interest in beers for this Saturday; the group answers with the chips under that message."
     )
+  })
+})
+
+describe("horizonDisclosure", () => {
+  it("owns up only when the member named a day and Orbit read it the far way", () => {
+    expect(horizonDisclosure(5, "nextWeek")).toBe(
+      "You said next Friday, so I'm taking that as the one after this week."
+    )
+    expect(horizonDisclosure(1, "nextWeek")).toBe(
+      "You said next Monday, so I'm taking that as the one after this week."
+    )
+  })
+
+  it("stays quiet when there was nothing of theirs to misread", () => {
+    // "beers next week" names no day, so Friday is Orbit's own fallback pick,
+    // which is undisclosed today and stays undisclosed. This is the am/pm rule
+    // exactly: disclose a reading of what they said, never a guess they left open.
+    expect(horizonDisclosure(null, "nextWeek")).toBeNull()
+    expect(horizonDisclosure(5, "thisWeek")).toBeNull()
+    expect(horizonDisclosure(5, null)).toBeNull()
+    expect(horizonDisclosure(null, null)).toBeNull()
+  })
+
+  it("carries no em-dash, per the product-voice rule", () => {
+    expect(horizonDisclosure(5, "nextWeek")).not.toMatch(/[—–]/)
+  })
+})
+
+describe("buildGaugeMessage, dated form", () => {
+  const TZ = "UTC"
+  const WED = new Date("2026-08-26T12:00:00Z")
+  const SOON = new Date("2026-08-28T00:00:00Z") // Fri, two days out
+
+  it("still says 'this Friday' for a nearby day by default", () => {
+    expect(buildGaugeMessage("beers", SOON, TZ, WED, null)).toContain("Beers this Friday?")
+  })
+
+  it("names the date when asked to, however near the day is", () => {
+    // Without this, a Saturday "next Friday" resolves six days out and Orbit
+    // answers "Beers this Friday? You said next Friday..." , the message
+    // contradicting its own next sentence.
+    const msg = buildGaugeMessage("beers", SOON, TZ, WED, null, true)
+    expect(msg).toContain("Beers on Friday, Aug 28?")
+    expect(msg).not.toContain("this Friday")
+  })
+
+  it("carries the horizon clause between the question and the promise", () => {
+    const msg = buildGaugeMessage("beers", SOON, TZ, WED, horizonDisclosure(5, "nextWeek"), true)
+    expect(msg).toBe(
+      "Love it. Beers on Friday, Aug 28? You said next Friday, so I'm taking that as the one after this week. If three are in, I'll set it up."
+    )
+  })
+})
+
+describe("planSparkGauge", () => {
+  const TZ = "UTC"
+  const WED = new Date("2026-08-26T12:00:00Z")
+  const bare = { statedDayOfWeek: null, statedTime: null, timeAmbiguous: false, partOfDay: "evening" as const, horizon: null }
+
+  it("plans the production bug's message the way it should always have", () => {
+    // "we should grab beers next week", Wednesday 26 Aug 2026.
+    const p = planSparkGauge({ ...bare, horizon: "nextWeek" }, TZ, WED)
+    expect(p).not.toBeNull()
+    expect(p!.proposedDate.toISOString()).toBe("2026-09-04T00:00:00.000Z")
+    expect(p!.timeLocal).toBe("19:00")
+    // No day was named, so nothing of theirs was reinterpreted.
+    expect(p!.disclosure).toBeNull()
+    expect(p!.datedWhen).toBe(false)
+  })
+
+  it("discloses and dates a named day read the far way", () => {
+    const p = planSparkGauge({ ...bare, statedDayOfWeek: 5, horizon: "nextWeek" }, TZ, WED)
+    expect(p!.proposedDate.toISOString()).toBe("2026-09-04T00:00:00.000Z")
+    expect(p!.disclosure).toBe(
+      "You said next Friday, so I'm taking that as the one after this week."
+    )
+    expect(p!.datedWhen).toBe(true)
+  })
+
+  it("keeps both disclosures when Orbit guessed twice", () => {
+    // "meet at 8 next Friday": an ambiguous clock number and a week to read.
+    // Suppressing either would be Orbit hiding a guess it made.
+    const p = planSparkGauge(
+      { ...bare, statedDayOfWeek: 5, statedTime: "08:00", timeAmbiguous: true, horizon: "nextWeek" },
+      TZ,
+      WED
+    )
+    expect(p!.timeLocal).toBe("20:00")
+    expect(p!.disclosure).toBe(
+      "You said 8, so I'm taking that as 8pm. You said next Friday, so I'm taking that as the one after this week."
+    )
+  })
+
+  it("changes nothing at all when no horizon was said", () => {
+    const p = planSparkGauge(bare, TZ, WED)
+    expect(p!.proposedDate.toISOString()).toBe("2026-08-28T00:00:00.000Z")
+    expect(p!.disclosure).toBeNull()
+    expect(p!.datedWhen).toBe(false)
+    expect(p!.bornLate).toBe(false)
+  })
+
+  it("refuses a plan whose start has already gone", () => {
+    // Friday 8pm, asked for Friday 7pm. Mirrors planAnswerGauge's own guard.
+    const fridayLate = new Date("2026-08-28T20:00:00Z")
+    expect(planSparkGauge({ ...bare, statedDayOfWeek: 5 }, TZ, fridayLate)).toBeNull()
+  })
+
+  it("flags a gauge born inside its own close window", () => {
+    // Friday 6pm for a Friday 7pm plan: one hour, inside the two-hour close.
+    const fridayEarly = new Date("2026-08-28T18:00:00Z")
+    const p = planSparkGauge({ ...bare, statedDayOfWeek: 5 }, TZ, fridayEarly)
+    expect(p!.bornLate).toBe(true)
   })
 })

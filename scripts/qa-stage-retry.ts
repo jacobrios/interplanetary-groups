@@ -199,7 +199,7 @@ async function main() {
   // (evals/detect) is what covers whether the model hears it, and it currently
   // says the model does not.
   const answerMsg = await memberMsg(sam.id, "sunday works for me", new Date())
-  const sundayDate = chooseProposedDate(0, "morning", TZ, new Date())
+  const sundayDate = chooseProposedDate(0, "morning", TZ, new Date(), null)
   const revival = await createGauge({
     groupId: group.id,
     sourceMessageId: answerMsg.id,

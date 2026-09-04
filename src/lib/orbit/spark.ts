@@ -36,6 +36,17 @@ import { ACTIVITY_MAX } from "./spark-copy"
  */
 export type PartOfDay = "morning" | "evening"
 
+/**
+ * Which week the message pushed the idea into, when it said so at all.
+ *
+ * Two values and nothing else, deliberately. "This weekend", "in two weeks"
+ * and "sometime next month" all carry real information too, and every one of
+ * them stays null: modelling them is modelling English, and the fix here is
+ * for the one phrase that was observed producing a wrong date in front of a
+ * person. (Spec: next-week-horizon, scope trap 1.)
+ */
+export type Horizon = "thisWeek" | "nextWeek"
+
 export type NormalizedSpark =
   | { spark: false }
   | {
@@ -47,6 +58,8 @@ export type NormalizedSpark =
       /** A clock number with no am/pm that the activity does not settle. */
       timeAmbiguous: boolean
       partOfDay: PartOfDay | null
+      /** Which week they meant, when they said. Null keeps today's behaviour. */
+      horizon: Horizon | null
     }
 
 /**
@@ -83,7 +96,10 @@ export function normalizeSpark(raw: unknown): NormalizedSpark {
   const partOfDay: PartOfDay | null =
     o.partOfDay === "morning" || o.partOfDay === "evening" ? o.partOfDay : null
 
-  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay }
+  const horizon: Horizon | null =
+    o.horizon === "thisWeek" || o.horizon === "nextWeek" ? o.horizon : null
+
+  return { spark: true, activity, statedDayOfWeek, statedTime, timeAmbiguous, partOfDay, horizon }
 }
 
 // ── Three-way intent (change-request slice) ─────────────────────────────────
@@ -98,6 +114,7 @@ export const INTENT_SCHEMA = {
   additionalProperties: false,
   required: [
     "isSpark", "activity", "statedDayOfWeek", "statedTime", "timeAmbiguous", "partOfDay",
+    "horizon",
     "isChangeRequest", "targetEventNumber", "requestedTime", "requestedTimeAmbiguous",
     "requestedFields", "intentClear",
     "isAskAnswer", "answerDayOfWeek", "answerTime", "answerTimeAmbiguous",
@@ -112,6 +129,9 @@ export const INTENT_SCHEMA = {
     timeAmbiguous: { type: "boolean" },
     partOfDay: {
       anyOf: [{ type: "string", enum: ["morning", "evening"] }, { type: "null" }],
+    },
+    horizon: {
+      anyOf: [{ type: "string", enum: ["thisWeek", "nextWeek"] }, { type: "null" }],
     },
     isChangeRequest: { type: "boolean" },
     targetEventNumber: { type: ["integer", "null"] },
@@ -154,10 +174,11 @@ Two different kinds of doubt, and they get opposite answers. If the message is a
 
 Spark fields (null, false, or empty when isSpark is false):
 - activity: one or two words in the member's own words naming the activity ("beers", "climbing", "board games"). Drop filler and location words: "grab a beer at Tony's" is just "beers". Never invent an activity.
-- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named.
+- statedDayOfWeek: 0 for Sunday through 6 for Saturday, and ONLY when the message names exactly one specific weekday. "beers Friday" is 5. "beers Friday or Saturday" names two, so it is null. "beers tomorrow" and "beers this weekend" do not name a weekday, so they are null. Null whenever you are not certain a single weekday was named. "beers next Friday" and "beers this Friday" both name Friday, so both are 5, and the "next" or "this" goes in horizon instead.
 - statedTime: 24-hour "HH:MM" only if the message stated a time. Use the activity to read it: "beers at 8" is "20:00", "breakfast at 8" is "08:00". Null when no time was stated.
 - timeAmbiguous: true only when a clock number was given with no am or pm AND the activity does not settle it. "beers at 8" is not ambiguous, because beers do not happen at 8 in the morning. "breakfast at 8" is not ambiguous. "meet at 8" for something that happens at both ends of the day IS ambiguous: set statedTime to your best reading and timeAmbiguous to true. When statedTime is null, timeAmbiguous is false.
 - partOfDay: "morning" for activities that happen in the morning (breakfast, coffee, a sunrise hike), "evening" for activities that happen at night (beers, dinner, drinks, a movie). Null when the activity could genuinely be either, or when you are unsure. This is about the activity itself, not about any time that was stated.
+- horizon: which week the message puts the idea in. "nextWeek" when it pushes the idea past this week ("next week", "next Friday", "the week after this one"). "thisWeek" when it pins the idea to the current week ("this week", "this Friday", "later this week"). Null for absolutely everything else, including "this weekend", "tomorrow", "in two weeks", "at the end of the month", "sometime next month", and any message that says nothing about which week at all. Only these two phrasings have a value; a phrase that is about time but is not one of them is null. Null whenever you are not certain.
 
 Change-request fields (null, false, or empty when isChangeRequest is false):
 - targetEventNumber: the number of the calendar plan the message is about, from the numbered list you were given. Null when you cannot tell which one, or when nothing is on the calendar. Use the conversation to tell which plan a bare follow-up or correction means.

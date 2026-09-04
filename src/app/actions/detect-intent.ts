@@ -29,11 +29,8 @@ import {
   buildLiveGaugeLine,
   buildOpenAskLine,
   buildUrgencyClause,
-  chooseProposedDate,
-  CLOSE_BEFORE_START_HOURS,
   planAnswerGauge,
-  resolveSparkTime,
-  sparkStartInstant,
+  planSparkGauge,
 } from "@/lib/orbit/spark-copy"
 
 /** How many plans the model is asked to choose between. Unchanged from the
@@ -286,36 +283,26 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       )
       if (alreadyOnCalendar) return { status: "quiet" }
 
-      const proposedDate = chooseProposedDate(
-        spark.statedDayOfWeek,
-        spark.partOfDay,
-        group.timeZone,
-        now
-      )
-      const { timeLocal, disclosure } = resolveSparkTime({
-        statedTime: spark.statedTime,
-        timeAmbiguous: spark.timeAmbiguous,
-        partOfDay: spark.partOfDay,
-      })
-      const start = sparkStartInstant(proposedDate, timeLocal, group.timeZone)
-      if (start <= now) {
+      const planned = planSparkGauge(spark, group.timeZone, now)
+      if (planned === null) {
         return { status: "quiet" }
       }
-
-      // A gauge born inside its own close window (a same-evening rally) gets
-      // one extra urgency sentence, since it would otherwise close the moment
-      // it opens.
-      const bornLate = now.getTime() >= start.getTime() - CLOSE_BEFORE_START_HOURS * 60 * 60 * 1000
 
       const result = await createGauge({
         groupId: group.id,
         sourceMessageId: message.id,
         activity: spark.activity,
-        proposedDate,
-        proposedTime: timeLocal,
+        proposedDate: planned.proposedDate,
+        proposedTime: planned.timeLocal,
         body:
-          buildGaugeMessage(spark.activity, proposedDate, group.timeZone, now, disclosure) +
-          (bornLate ? buildUrgencyClause(timeLocal) : ""),
+          buildGaugeMessage(
+            spark.activity,
+            planned.proposedDate,
+            group.timeZone,
+            now,
+            planned.disclosure,
+            planned.datedWhen
+          ) + (planned.bornLate ? buildUrgencyClause(planned.timeLocal) : ""),
         initiatorUserId: spark.statedDayOfWeek !== null ? user.id : null,
       })
       if (result.status !== "created") return { status: "quiet" }

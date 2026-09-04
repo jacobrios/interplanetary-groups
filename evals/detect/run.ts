@@ -9,6 +9,7 @@ import { formatEventDate, formatTime } from "../../src/lib/events/format"
 import { planChange, type ChangeTarget } from "../../src/lib/orbit/change-plan"
 import { getLocalParts } from "../../src/lib/orbit/occurrence"
 import { detectIntentClaim, normalizeIntent } from "../../src/lib/orbit/spark"
+import type { Horizon } from "../../src/lib/orbit/spark"
 import {
   buildLiveGaugeLine,
   buildOpenAskLine,
@@ -38,7 +39,7 @@ export interface CaseResult {
 /** What actually happened on one run, flattened for comparison and printing. */
 type Outcome =
   | { kind: "none" }
-  | { kind: "spark"; statedDayOfWeek: number | null }
+  | { kind: "spark"; statedDayOfWeek: number | null; horizon: Horizon | null }
   | { kind: "answer"; dayOfWeek: number | null }
   | { kind: "change"; action: string; text: string }
   | { kind: "dayComment"; dayOfWeek: number | null }
@@ -46,6 +47,7 @@ type Outcome =
 function describe(o: Outcome): string {
   if (o.kind === "change") return `change / ${o.action}: ${o.text}`
   if (o.kind === "dayComment") return `dayComment / day ${o.dayOfWeek}`
+  if (o.kind === "spark") return `spark / day ${o.statedDayOfWeek} / horizon ${o.horizon}`
   return o.kind
 }
 
@@ -105,7 +107,7 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
     ? [
         buildLiveGaugeLine(
           c.liveGauge.activity,
-          chooseProposedDate(c.liveGauge.proposedDayOfWeek, null, TIME_ZONE, now),
+          chooseProposedDate(c.liveGauge.proposedDayOfWeek, null, TIME_ZONE, now, null),
           TIME_ZONE
         ),
       ]
@@ -121,7 +123,13 @@ async function runOnce(c: EvalCase, now: Date): Promise<Outcome> {
   const intent = normalizeIntent(claim, plans.length, c.openAsk !== undefined, c.liveGauge !== undefined)
 
   if (intent.kind === "none") return { kind: "none" }
-  if (intent.kind === "spark") return { kind: "spark", statedDayOfWeek: intent.spark.statedDayOfWeek }
+  if (intent.kind === "spark") {
+    return {
+      kind: "spark",
+      statedDayOfWeek: intent.spark.statedDayOfWeek,
+      horizon: intent.spark.horizon,
+    }
+  }
   if (intent.kind === "answer") return { kind: "answer", dayOfWeek: intent.answer.dayOfWeek }
   if (intent.kind === "dayComment") {
     return { kind: "dayComment", dayOfWeek: intent.dayComment.dayOfWeek }
@@ -180,6 +188,14 @@ function grade(c: EvalCase, o: Outcome): string | null {
     e.statedDayOfWeek !== graded.statedDayOfWeek
   ) {
     return `expected spark on day ${e.statedDayOfWeek}, got ${graded.statedDayOfWeek}`
+  }
+  if (
+    e.kind === "spark" &&
+    graded.kind === "spark" &&
+    e.horizon !== undefined &&
+    e.horizon !== graded.horizon
+  ) {
+    return `expected spark with horizon ${e.horizon}, got ${graded.horizon}`
   }
   if (
     e.kind === "answer" &&

@@ -279,7 +279,7 @@ async function main() {
   // groupinfo-script precedent) — this is what gives the tally line a name
   // instead of staying empty. ────────────────────────────────────────────
   const gaugeSrc = await memberMsg(theo.id, "we should do a game night sometime, been way too long")
-  const gaugeDate = chooseProposedDate(null, null, TZ, now)
+  const gaugeDate = chooseProposedDate(null, null, TZ, now, null)
   const gaugeBody = buildGaugeMessage(GAUGE_ACTIVITY, gaugeDate, TZ, now, null)
   const gauge = await createGauge({
     groupId: group.id,
