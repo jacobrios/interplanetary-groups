@@ -7182,6 +7182,11 @@ commits to it, and discloses it once in the same message. "Next Friday" is the s
 and disclosing beats asking, because the concrete-first guardrail says propose a specific day and
 absorb overrides rather than poll the group.
 
+**Postscript, 3 September 2026: built.** The horizon field described above as one of two candidate
+fixes is the one that shipped, along with the Monday-to-Sunday week convention and the disclosure
+sentence this entry anticipated. Full record, the bench numbers, the lived QA, and the two questions
+still open for the owner: "The next-week horizon field lands," further down §11.
+
 ---
 
 ### Cancelling one occurrence: decided in planning, before the slice (2 September 2026)
@@ -7745,3 +7750,18 @@ cancel, and nobody debates rain), the Vercel log drain, the unbounded message qu
 the Supabase auth soft-fail. The last three are maintenance rather than product. The
 both-true bug from the trigger message above is still queued with no home; it belongs in
 item 5 or in a small slice of its own.
+
+
+### The next-week horizon field lands (3 September 2026)
+
+Builds what the entry above only diagnosed. Two real cases, one cause. On Wednesday 26 August a member said "we should grab beers next week" and Orbit answered "Beers this Friday?", proposing a Friday two days later, inside the week the member had just ruled out. Reading the code afterward found a second, worse case: "beers next Friday" landed on the same wrong Friday, a stated weekday taken at face value with no buffer, so the member named their day outright and was still half-heard. Neither was a misread. The extraction schema had no field able to hold a horizon, so "next week" or the word "next" was dropped before any date logic ran, this project's signature failure, an input with no data home.
+
+Three decisions, Jacob's, now built. First, a week runs Monday to Sunday, and "next week" is the week after the one today sits in. Chosen over always-add-seven, which is wrong for every weekday Monday through Friday named on a Saturday or Sunday, roughly ten bad cells against this rule's one. That bad cell, a Sunday's "next Monday" landing on tomorrow, needed no new number: the buffer already built for Orbit's own Friday guesses catches it. Second, "this week" earns its place by turning that buffer off: Thursday plus "beers this week" used to propose next Friday, contradicting the member's word; it now proposes tomorrow. Third, Orbit picks a reading and discloses it once rather than asking, reusing its existing am/pm habit; asking would break the concrete-first guardrail, propose a day and absorb the override.
+
+Verification. `eval:detect` before the change, 33 cases x 5: must-recognize 75/75, must-stay-quiet 65/65. After, with seven new spark cases added, 40 cases x 5: must-recognize 103/110 across 18 of 22 clean cases, other buckets byte-identical. No prior case regressed; every failing run lands on a brand-new case. The two production bugs, bare "next week" and stated "next Friday," both scored 5/5. Across all 200 calls, zero returned "nextWeek" for a phrase that does not mean next week, the harm the rule exists to catch. A real dev server today, typing "pizza next friday," produced: "Love it. Pizza on Friday, Sep 11? You said next Friday, so I'm taking that as the one after this week. If three are in, I'll set it up." Nine days out; before this slice it would have said "this Friday" and proposed the 4th.
+
+Two open questions, Jacob's, not settled here. One case, a bare weekday naming no week, fails most runs, but every failure is inert: the model says "thisWeek" where null was wanted, and that value reaches the same date arithmetic null would. It will read permanently red unless moved to a softer bucket, which needs his sign-off. Second, whether the prompt change cost recognition accuracy is unresolved: three small samples of "missed the spark message entirely" read 0/35, 4/35, and 1/35; the first sample's spike did not reproduce, and nobody has run enough calls to know the true rate.
+
+Correction to the queue entry above: item 1 said this slice needs "both eval benches." It needed one, `eval:detect`. `eval:onboarding` was never reached; extraction and merge share no import with the spark path this slice touched.
+
+Debt, none blocking. The Monday-start week is a fifth undated placeholder, the family the Friday and Saturday time fallbacks belong to, waiting on the override-learning successor (§5). The disclosure string is a sixth member of that family. And the bench can only grade what the model extracted, never the date the arithmetic produces; that arithmetic has no model-facing evidence, only the unit suite.
