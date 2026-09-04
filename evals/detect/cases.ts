@@ -689,9 +689,26 @@ export const CASES: EvalCase[] = [
   },
   {
     id: "spark-plain-weekday",
-    bucket: "must-recognize",
+    // Moved out of must-recognize 3 Sept 2026, by the owner's decision, during
+    // QA of PR #117. The model answers horizon: "thisWeek" for this trigger in
+    // 8 of 10 runs across two independent bench samples, so this case would be
+    // permanently red rather than measuring real drift.
+    //
+    // The failure is behaviourally inert, verified twice by reading the code
+    // rather than assumed: in chooseProposedDate (src/lib/orbit/spark-copy.ts),
+    // a "thisWeek" horizon with a non-null statedDayOfWeek falls into the same
+    // else-if branch as a null horizon, producing an identical date, and
+    // horizonDisclosure returns null for anything but "nextWeek", so no clause
+    // is added and the message is identical too. No member can tell the
+    // difference between the model answering thisWeek and answering null here.
+    //
+    // Leaving it barred would hold must-recognize at 103/110 permanently,
+    // which is exactly the signal erosion the accepted bucket was created for
+    // on 19 Aug 2026. It stays in the bench, scored and printed, so a further
+    // slide or a recovery is visible.
+    bucket: "accepted",
     description:
-      "A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets.",
+      "A plain weekday with no week word at all. Guards the common case against over-labelling: this must stay null, because null is what preserves the behaviour every existing group already gets. Measured at 8/10 answering thisWeek instead across two runs; accepted by the owner 3 Sept 2026 because the difference is behaviourally inert (chooseProposedDate and horizonDisclosure both treat thisWeek and null identically here). Watched for further drift.",
     calendar: [],
     history: [{ author: "Jo", body: "the new gym is open", minutesAgo: 60 }],
     trigger: { author: "Priya", body: "anyone want to climb saturday?" },
