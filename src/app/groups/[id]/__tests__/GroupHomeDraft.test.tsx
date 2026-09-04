@@ -55,21 +55,28 @@ vi.mock("next/navigation", () => ({ useRouter: () => routerMock }))
  * imported, so a change to the key has to be made twice and noticed once. */
 const keyFor = (groupId: string) => `ipg:draft:${groupId}`
 
+/** The element, separately from mounting it, so a test can hand the SAME
+ * mounted instance a different groupId via rerender. That is not a stylistic
+ * split: a remount cannot see the bug the cross-group tests below exist for,
+ * because a remount starts from an empty composer no matter what the effect
+ * does. Only a live groupId change can carry the previous group's text. */
+const homeFor = (groupId: string) => (
+  <GroupHome
+    groupId={groupId}
+    initialMessages={[]}
+    viewerId="u1"
+    viewerName="Alex"
+    timeZone="America/New_York"
+    gauges={[]}
+    proposals={[]}
+    groupProposals={[]}
+    viewerIsMember
+    emailAsk={null}
+  />
+)
+
 function renderHome(groupId: string) {
-  return render(
-    <GroupHome
-      groupId={groupId}
-      initialMessages={[]}
-      viewerId="u1"
-      viewerName="Alex"
-      timeZone="America/New_York"
-      gauges={[]}
-      proposals={[]}
-      groupProposals={[]}
-      viewerIsMember
-      emailAsk={null}
-    />
-  )
+  return render(homeFor(groupId))
 }
 
 function composer() {
@@ -116,28 +123,51 @@ describe("GroupHome: the composer draft survives a reload", () => {
     expect(composer().value).toBe("half a thought about climbing")
   })
 
-  it("never carries a draft between two groups", async () => {
-    // The test in this file most likely to pass for the wrong reason: an
-    // implementation that restores NOTHING would satisfy the second half on
-    // its own. So the first half proves restoration is genuinely working in
-    // this exact setup, with the only difference between the two halves being
-    // which group id is in the key.
+  it("does not carry a draft into a second group opened in the same tab", async () => {
+    // THE CASE THIS FILE GOT WRONG THE FIRST TIME, recorded because the wrong
+    // version looked right. It used cleanup() plus a fresh mount, which proves
+    // nothing here: a remount starts from useState's own "" whatever the
+    // restore effect does, so the negative assertion passed under every
+    // mutation worth making. The leak is a groupId change on a LIVE instance,
+    // so that is what this does.
+    //
+    // Nothing is parked for g2 on purpose. The right answer is an empty
+    // composer, because the text on screen was written for the group being
+    // left.
     window.sessionStorage.setItem(keyFor("g1"), "meant for g1")
 
+    let view!: ReturnType<typeof renderHome>
     await act(async () => {
-      renderHome("g1")
+      view = renderHome("g1")
     })
     expect(composer().value).toBe("meant for g1")
 
-    cleanup()
-    window.sessionStorage.clear()
+    await act(async () => {
+      view.rerender(homeFor("g2"))
+    })
 
+    expect(composer().value).toBe("")
+  })
+
+  it("swaps in the second group's own parked draft", async () => {
+    // The sibling above would also pass against an implementation that simply
+    // BLANKS the composer whenever the group changes, which is the tempting
+    // wrong fix for the leak. This one says the effect must genuinely re-read
+    // for the group it has arrived at.
+    window.sessionStorage.setItem(keyFor("g1"), "meant for g1")
     window.sessionStorage.setItem(keyFor("g2"), "meant for g2")
 
+    let view!: ReturnType<typeof renderHome>
     await act(async () => {
-      renderHome("g1")
+      view = renderHome("g1")
     })
-    expect(composer().value).toBe("")
+    expect(composer().value).toBe("meant for g1")
+
+    await act(async () => {
+      view.rerender(homeFor("g2"))
+    })
+
+    expect(composer().value).toBe("meant for g2")
   })
 
   it("clears the parked draft when a send is dispatched", async () => {

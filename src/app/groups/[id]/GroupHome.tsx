@@ -249,8 +249,27 @@ export default function GroupHome({
   // callback; both run during render.
   //
   // Keyed on groupId so a tab moving between two group homes picks up the
-  // right draft, and only ever SETS when there is something parked: an empty
-  // read must not clobber text the member has already begun typing.
+  // right draft, and THE SET IS UNCONDITIONAL, which is the load-bearing part
+  // rather than a shorter way to write the same thing.
+  //
+  // There used to be an `if (parked)` around it, justified as protecting text
+  // the member had already begun typing from an empty read. It protected
+  // nothing and it leaked. Nothing: this effect runs at exactly two moments,
+  // and at the first of them, mount, inputValue is still useState's own "", so
+  // there is no typed text in existence for an empty read to clobber. Leaked:
+  // at the second moment, a groupId change on a live instance, the guard is
+  // what CARRIED the previous group's text across — readDraft on the new group
+  // returns "", the guard skips the set, the box still holds group one's
+  // message, and the next keystroke parks it under group two's key. Clearing
+  // the box on a group change is the correct answer, because that text was
+  // written for the group being left. That is the whole reason the key carries
+  // the group id (see draftKey above), and the guard was quietly defeating it.
+  //
+  // Do not put it back, and do not narrow the dependency array to []. Each is a
+  // mutation that was actually run: restoring the guard reddens "does not carry
+  // a draft into a second group opened in the same tab" in
+  // GroupHomeDraft.test.tsx, and [] reddens that one plus "swaps in the second
+  // group's own parked draft".
   //
   // This trips react-hooks/set-state-in-effect, knowingly, and it is the third
   // hit of that rule in this file rather than the first (the settledSends
@@ -261,8 +280,7 @@ export default function GroupHome({
   // about is one extra render on mount. That is the same one-frame cost the
   // paragraph above already accepts, priced twice rather than a second problem.
   useEffect(() => {
-    const parked = readDraft(groupId)
-    if (parked) setInputValue(parked)
+    setInputValue(readDraft(groupId))
   }, [groupId])
 
   // Parks the draft as it is typed. The composer's own state is updated first
