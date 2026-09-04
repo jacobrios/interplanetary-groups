@@ -3,14 +3,21 @@
 // The composer's half-typed draft survives a full page reload.
 //
 // WHY THIS BEHAVIOUR EXISTS, because a reader will otherwise read draft
-// persistence as a nicety and delete it. Vercel supplies a deployment id
-// automatically, so Next's version-skew check is live in production, and
-// LiveRefresh's 10s poll is what reaches it: on a mismatch Next calls
-// location.replace() from inside its own render, unprompted and
-// uninterceptable. That is a real full page load and it takes every piece of
-// React state with it, the member's typed message included. The reload cannot
-// be deferred without pausing chat sync for as long as somebody has text in the
-// box, so the slice's answer is to make the reload harmless instead.
+// persistence as a nicety and delete it. A reload takes every piece of React
+// state with it, the member's typed message included, and this product does
+// reload an open tab by itself: DeployWatch.tsx calls
+// window.location.reload() when a newer build is live.
+//
+// CORRECTED 4 SEPT 2026 (own-deploy-detection slice): the paragraph this
+// replaced named Next's own version-skew reload as the cause, and that reload
+// cannot fire here at all. Vercel's Skew Protection pins every
+// framework-managed request, LiveRefresh's poll included, back to the
+// deployment the tab booted from, so the mismatch Next reacts to never
+// happens. The reload this file protects against is now our own, it is
+// deliberately deferred while there is text in the composer, and the draft is
+// therefore belt to that braces rather than the only thing standing between a
+// member and a lost message. See GroupHome.tsx's draftKey comment for the
+// full correction.
 //
 // WHAT THIS FILE CANNOT SEE, said here rather than learned again the hard way.
 // It cannot see the reload. No test in this repo can produce two builds with
@@ -72,6 +79,10 @@ const homeFor = (groupId: string) => (
     groupProposals={[]}
     viewerIsMember
     emailAsk={null}
+    /* Detection off: with no booted deployment id, DeployWatch mounts,
+       schedules nothing and requests nothing, so these tests are unaffected
+       by it. */
+    bootedDeploymentId={null}
   />
 )
 

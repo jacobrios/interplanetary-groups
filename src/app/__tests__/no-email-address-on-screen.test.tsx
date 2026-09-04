@@ -340,6 +340,10 @@ function renderGroupHome() {
         lastShownAt: null,
         now: new Date("2026-08-26T18:00:00Z"),
       }}
+      /* Detection off: with no booted deployment id, DeployWatch mounts,
+         schedules nothing and requests nothing, so this fixture is unaffected
+         by it. */
+      bootedDeploymentId={null}
     />
   )
 }
