@@ -21,6 +21,23 @@
 // and whether this component's own auto-grow function sets the style
 // properties it's supposed to.
 //
+// One more limit, caught in code review and worth stating precisely rather
+// than glossing over: jsdom implements no implicit submit-on-Enter for ANY
+// form control, not even a plain <input type="text">. So "pressing Enter
+// does not submit" below would pass unchanged against the pre-fix <input>
+// code too — in isolation it cannot tell you a real browser's implicit
+// submission was ever a risk here. What it DOES prove, on its own, is
+// narrower and still real: nothing in this file's own event wiring calls
+// onSubmit on Enter, which is exactly what an earlier draft of this fix
+// added by mistake (see the mutation evidence in this task's report). The
+// actual requirement — Enter never submits, in a real browser — is covered
+// by this test TOGETHER WITH "renders a textarea rather than a single-line
+// input" above it: a real <textarea> never implicitly submits on Enter,
+// full stop, so element-type plus no-explicit-handler is jointly
+// conclusive even though neither alone is. Nothing was added to chase this
+// in isolation, because there is nothing in jsdom to assert against that a
+// real browser would answer differently.
+//
 // Overrides mid-task: the spec called for Enter-submits/Shift+Enter-inserts;
 // the owner overruled that after the spec was written (Enter never submits,
 // the send button is the only way to send, for consistency with the gap-ask
@@ -110,6 +127,10 @@ describe("ChatInput — composer wraps instead of scrolling sideways", () => {
     expect(el.style.overflowY).toBe("auto")
   })
 
+  // Vacuous alone against jsdom (see the file header): this guards against
+  // an explicit Enter-submits handler being re-added, and only proves the
+  // real requirement jointly with "renders a textarea" above, since a real
+  // browser never implicitly submits a textarea on Enter regardless.
   it("pressing Enter does not submit — the send button is the only way to send", () => {
     const { onSubmit } = renderChatInput({ value: "hello there" })
     fireEvent.keyDown(textarea(), { key: "Enter" })

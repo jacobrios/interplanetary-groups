@@ -170,7 +170,6 @@ export default function ChatInput({
           style={{
             flex: 1,
             padding: 0,
-            margin: 0,
             backgroundColor: "transparent",
             border: "none",
             color: "var(--text-primary)",
