@@ -8,12 +8,13 @@
 # every failure, so the alarm worked; what was missing was any gate before the
 # merge. This is that gate.
 #
-# The test suite is deliberately NOT here. It runs against the shared
-# interplanetary-groups-dev-test Supabase project, which is also what local
-# runs, hook-driven runs, and QA use, so a CI run and a laptop run would collide
-# in one database and produce failures that name innocent files. Adding tests to
-# CI needs a CI-only database first. See docs/build-notes.md, §11 entry for this
-# slice.
+# The test suite is deliberately NOT here, and the accurate reason is narrower
+# than the one first written: about 39 of the 158 test files talk to the shared
+# interplanetary-groups-dev-test Supabase project, which local runs, the hooks
+# and QA also use, so those would collide with a laptop run in one database.
+# THOSE files need a CI-only database. The other ~119 do not, and running them
+# here is a real option that was surfaced to the owner rather than taken, since
+# the ask was the build. See docs/build-notes.md, §11 entry for this slice.
 name: CI
 
 on:
@@ -24,6 +25,11 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# `npm ci` runs postinstall scripts under GITHUB_TOKEN, and without a block here
+# the job inherits whatever the repo default is, which may be read-write.
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -38,12 +44,19 @@ jobs:
       #                 (this repo's postinstall) fails during `npm ci` without it.
       #   DATABASE_URL  src/lib/prisma.ts throws at module scope, and Next loads
       #                 every route module while collecting page data.
-      #   the two NEXT_PUBLIC_SUPABASE_* pair, because the build tries to
-      #                 prerender /create, which reaches getSupabaseEnv().
-      # Proven rather than assumed: every host here is loopback with nothing
-      # listening, and the build passes, so the build makes no outbound call and
-      # touches no database. If it ever needs a reachable one, that is a finding
-      # about the build rather than a secret to add here.
+      #   the NEXT_PUBLIC_SUPABASE_* pair, because the build tries to prerender
+      #                 /create, which reaches getSupabaseEnv().
+      # What passing with these values does and does not prove, corrected in
+      # review before this ever merged. It proves the build reaches no DATABASE:
+      # loopback with nothing listening gives an immediate ECONNREFUSED, and the
+      # build passes anyway. It does NOT prove the build makes no outbound call,
+      # and the build does make one: layout.tsx imports next/font/google, so a
+      # cold build fetches Geist from fonts.googleapis.com and dies hard if that
+      # fetch fails. The Supabase pair is never dialled at all, because every
+      # route that would reach it bails to dynamic at `await cookies()` first, so
+      # their values are presence-checks and nothing more. No secret belongs
+      # here; if the build ever needs a reachable service, that is a finding
+      # about the build rather than a value to add.
       DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
