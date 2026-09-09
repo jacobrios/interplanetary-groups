@@ -292,6 +292,20 @@ describe("LiveRefresh", () => {
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
+  // Blocker found in whole-branch review: handleOnline called refresh() with
+  // no visibility check, the only path in this component that could reach
+  // router.refresh() while the tab is hidden. An `online` event says the
+  // device's network came back, nothing about whether anyone is looking at
+  // the tab, so a locked phone whose wifi drops and reconnects would
+  // otherwise fetch a full server render for a screen nobody is reading.
+  it("does not refresh on an online event while the document is hidden", () => {
+    setVisibility("hidden")
+    render(<LiveRefresh paused={false} />)
+
+    window.dispatchEvent(new Event("online"))
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
   it("clears the online listener on unmount", () => {
     const { unmount } = render(<LiveRefresh paused={false} />)
     unmount()

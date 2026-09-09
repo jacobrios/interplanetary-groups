@@ -331,8 +331,7 @@ export default function LiveRefresh({ paused }: Props) {
       //
       // Not arbitrary ordering. The other three early returns are about this
       // app's own state (a send is in flight, a refresh is in flight, one just
-      // happened). This one is about the platform, is the cheapest read of the
-      // four, and when it is true none of the others can matter, because
+      // happened), and when this one is true none of them can matter, because
       // nothing is going to happen either way. There is no point asking
       // whether we are allowed to refresh when we cannot refresh.
       //
@@ -340,14 +339,22 @@ export default function LiveRefresh({ paused }: Props) {
       // visible from this file. router.refresh() ends in Next's
       // fetchServerResponse, which on a network failure does NOT rethrow: it
       // logs "Failed to fetch RSC payload... Falling back to browser
-      // navigation." and returns the request's own URL as a plain string,
-      // which the caller reads as an instruction to perform a full browser
-      // navigation (doMpaNavigation, then location.replace()). A full browser
-      // navigation with no connectivity lands the member on the browser's own
-      // error page, and the group home they were reading is gone until they
-      // reload by hand. Verified at the catch block in
-      // node_modules/next/dist/client/components/router-reducer/fetch-server-response.js
-      // on Next 16.3.2.
+      // navigation." (fetch-server-response.js:237) and returns the
+      // request's own URL as a plain string (fetch-server-response.js:242),
+      // not a doMpaNavigation call, which is a DIFFERENT branch used for a
+      // build id mismatch or a redirect, not for this one. The string return
+      // is read by fetchMissingDynamicData (ppr-navigations.js:1109), which
+      // turns it into exitStatus 2 (ppr-navigations.js:1123) and, in that
+      // exit status's own case block (ppr-navigations.js:987), dispatches a
+      // retry action with mpa: true. server-patch-reducer.js:22 reads that
+      // flag and calls completeHardNavigation (segment-cache/navigation.js:29
+      // and :340), which sets pushRef.mpaNavigation. app-router.js:214 checks
+      // that flag and calls location.replace() at app-router.js:221. A full
+      // browser navigation with no connectivity lands the member on the
+      // browser's own error page, and the group home they were reading is
+      // gone until they reload by hand. Every line above was read in
+      // node_modules/next/dist/client/components/, Next 16.3.2, not assumed
+      // from an earlier version's trace.
       //
       // THERE IS A RETRY-ON-RECONNECT BRANCH IN THAT SAME CATCH, AND IT IS OFF
       // HERE. It is gated on process.env.__NEXT_USE_OFFLINE, which
@@ -461,7 +468,23 @@ export default function LiveRefresh({ paused }: Props) {
     // and visibilitychange starts it when the member comes back. That is the
     // opposite of handleFocus, which does restart it, because focus is a
     // return-to-the-tab signal and this is not.
+    //
+    // GATED ON VISIBILITY, UNLIKE handleFocus, and the difference is worth
+    // spelling out since the two look alike at a glance. handleFocus is
+    // deliberately NOT gated on document.visibilityState, because focus is a
+    // return-to-the-tab signal that stands in for a visibility event some
+    // platforms do not fire (see above); gating it on the very property it
+    // exists to substitute for would reopen the gap it closes. An `online`
+    // event carries none of that meaning. It says the device's network came
+    // back, nothing about whether anyone is looking at this tab, so a
+    // backgrounded tab whose wifi drops and reconnects would otherwise fetch
+    // a full server render for a screen nobody is reading, and queue that
+    // refresh in front of any send the member makes the moment they unlock
+    // the phone (see "WHY REFRESHES NEED THEIR OWN IN-FLIGHT GUARD" for why a
+    // queued refresh is not a free mistake). The tick already refuses to run
+    // while hidden; this listener now makes the same call itself.
     const handleOnline = () => {
+      if (document.visibilityState !== "visible") return
       refresh()
     }
 
