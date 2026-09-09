@@ -284,11 +284,61 @@ export default function PrivacyPage() {
         </LegalList>
       </LegalSection>
 
-      <LegalSection heading="Cookies">
+      {/* Rewritten 8 Sept 2026. The previous version said cookies "keep you
+          signed in, and that is all they do", which three shipped changes had
+          already falsified: the email-ask snooze cookie
+          (src/lib/auth/email-ask-cooldown.ts:134, 3 Sept), the composer's
+          parked draft (GroupHome.tsx:204, 4 Sept), and the deploy watcher's
+          two version keys (DeployWatch.tsx:207 and :208, 4 Sept). Found by
+          Jacob reading the page, which is the second time in eight days this
+          page has been found stale by a human rather than by any check.
+
+          Two accuracy constraints that shaped this wording, so a future copy
+          pass does not undo them. It deliberately does NOT say the stored
+          things never leave the device: the sign-in cookie is sent to our own
+          server on every request, which is how sessions work, so that
+          comforting sentence would be a new false claim inside a fix for a
+          false claim. And "until you close the tab" is load-bearing and
+          correct, because the draft is in sessionStorage rather than
+          localStorage; GroupHome.tsx's own header explains that choice.
+
+          The first pass at this rewrite was itself incomplete, twice over.
+          It named the snooze cookie and the parked draft but missed the
+          deploy watcher's version note entirely, caught in review on 8 Sept
+          2026. And once that note was added, it still undercounted: the
+          deploy watcher writes TWO keys, not one (RELOADED_FOR_KEY and
+          RELOAD_COUNT_KEY, DeployWatch.tsx:207-208), and "which version of
+          the app this tab loaded" named neither of them precisely. A grep of
+          every device-storage write site in src/ was supposed to settle the
+          real count, and it was wrong too: it reported five writes across
+          four files, when the true count is six writes across five files.
+          In file and line, so the count cannot drift again: the sign-in
+          cookie, written from two places (src/lib/supabase/proxy-session.ts:23,
+          the proxy's refresh path, the write that actually reaches the
+          browser; the same function's request.cookies.set at :19 only
+          mutates this request's own copy and never leaves the server; and
+          src/lib/supabase/server.ts:21, cookieStore.set(name, value,
+          options), written from inside a server action, which also reaches
+          the browser), the email-ask cookie (email-ask-cooldown.ts:134), the
+          deploy watcher's two keys (DeployWatch.tsx:207 and :208), and the
+          composer's draft (GroupHome.tsx:204). This section's inventory has
+          now been found incomplete three times, the third time inside the
+          comment written to prevent exactly that, because a grep pattern
+          that cannot match every write shape, this one never tried
+          cookieStore.set(, reports clean for a reason unrelated to the
+          truth.
+
+          The old body counted 29 words. This one counts 69, on a page
+          shortened by about 90 words on 2 Sept. Jacob approved the growth
+          explicitly as the price of accuracy. */}
+      <LegalSection heading="Cookies and your device">
         <LegalText>
-          The app sets cookies to keep you signed in, and that is all they do.
-          No analytics, no tracking, no advertising, and nothing that follows
-          you around other websites.
+          The app stores a few things on your device: what keeps you signed in,
+          a note that you were asked for your email so it waits a day before
+          asking again, which version of the app this tab has updated itself
+          to and how many times, and an unsent message until you close the
+          tab. No analytics, no tracking, no advertising, and nothing that
+          follows you around other websites.
         </LegalText>
       </LegalSection>
 

@@ -183,6 +183,35 @@ Each one is labeled with how sure it is:
   you can't fix later by hand, but deleting a stranger's join line is itself a
   small privacy mistake against somebody who never asked for anything.
 
+**One case the labels above get wrong, and it is the one where they tell you
+yes.** The label is worked out from whether *the person you are deleting* is
+tied to that group, not from whether that particular line is theirs. So if two
+people with the same name are in the same group, the other person's "joined"
+line in that group is labelled "definitely them" or "probably them" and
+defaults to **yes**. The tier that warns you about a name clash is the only one
+that does not apply here.
+
+**So before accepting any candidate, check the group it is in and the date, and
+ask whether you know of anyone else by that name there.** The product cannot
+tell you: these lines carry no id, only text, and the search runs across the
+whole product. Since 4 Sept 2026 two people with the same name can no longer
+join the same group in the ordinary way, so this mostly matters for lines
+written before that date, and for the one case that check still lets through
+(somebody who already had a session joining a second group).
+
+This is a known bug in the tooling rather than a quirk of the data. The
+text-matching itself has genuinely produced a wrong candidate: during
+development, a concurrent worktree's test data matched by name across group
+boundaries and handed back a stranger's join line from an unrelated group
+(build-notes.md, 4 Sept 2026 postscript). That observed case is the milder,
+cross-group one, which lands in "doubtful" and defaults to no. The same-group
+case described just above, the one that defaults to **yes**, has not been
+seen happening for real; it is established by a test instead
+(`deletion-plan.test.ts`, "lists every join-announcement candidate as
+current-member, including both when two members share a name"), which proves
+the code takes that path without needing a live example of somebody hitting
+it. Scoping the query is its own queued item.
+
 ### Confirming for real
 
 After the join-line questions, it says "This cannot be undone" and asks you to

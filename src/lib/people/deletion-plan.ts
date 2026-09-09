@@ -103,9 +103,19 @@ export interface OpenProposalWarning {
  *   events, a gauge vote, a proposal vote). That is real evidence they were
  *   genuinely there, not a name coincidence.
  * - "name-match-only": no membership and no other trace found anywhere in
- *   that group. Probably a different person who happens to share the name.
- *   This is the only class where confirming the match would delete an
- *   innocent person's join line, so it is the one to treat as doubtful.
+ *   that group. Probably a different person who happens to share the name,
+ *   so it is the one to treat as doubtful.
+ *
+ * This does NOT mean "name-match-only" is the only class that can hand the
+ * operator an innocent person's join line. classify() below decides the tier
+ * from whether the PERSON BEING DELETED has a trace in that group, never
+ * from whose line it actually is. So two people sharing a name in the SAME
+ * group land the OTHER person's join line in "current-member" ("definitely
+ * them"), the tier that defaults to yes, not in "name-match-only". That is
+ * the dangerous case, proven by
+ * src/lib/people/__tests__/deletion-plan.test.ts, "lists every
+ * join-announcement candidate as current-member, including both when two
+ * members share a name."
  *
  * The honest limit, stated rather than hidden: someone who joined a group,
  * never posted, never RSVP'd, never voted, and then left, leaves no trace

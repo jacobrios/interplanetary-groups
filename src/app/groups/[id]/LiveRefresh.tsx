@@ -126,7 +126,7 @@
 //
 // A dangling timer is not a hypothetical concern in this codebase: one left
 // in ShareInviteLink.tsx blocked a safety-net hook on 1 Sept 2026. The
-// interval and both listeners are torn down on unmount without exception.
+// interval and three listeners are torn down on unmount without exception.
 //
 // WHY REFRESHES COALESCE WITHIN A SHORT WINDOW
 //
@@ -327,6 +327,75 @@ export default function LiveRefresh({ paused }: Props) {
     let lastRefreshAt = 0
 
     const refresh = () => {
+      // OFFLINE IS CHECKED FIRST, ABOVE EVERY OTHER GUARD.
+      //
+      // Not arbitrary ordering. The other three early returns are about this
+      // app's own state (a send is in flight, a refresh is in flight, one just
+      // happened), and when this one is true none of them can matter, because
+      // nothing is going to happen either way. There is no point asking
+      // whether we are allowed to refresh when we cannot refresh.
+      //
+      // WHY THIS GUARD EXISTS AT ALL, since the failure it prevents is not
+      // visible from this file. router.refresh() ends in Next's
+      // fetchServerResponse, which on a network failure does NOT rethrow: it
+      // logs "Failed to fetch RSC payload... Falling back to browser
+      // navigation." (fetch-server-response.js:237) and returns the
+      // request's own URL as a plain string (fetch-server-response.js:242),
+      // not a doMpaNavigation call, which is a DIFFERENT branch used for a
+      // build id mismatch or a redirect, not for this one. The string return
+      // is read by fetchMissingDynamicData (ppr-navigations.js:1109), which
+      // turns it into exitStatus 2 (ppr-navigations.js:1123) and, in that
+      // exit status's own case block (ppr-navigations.js:987), dispatches a
+      // retry action with mpa: true. server-patch-reducer.js:22 reads that
+      // flag and calls completeHardNavigation at its own call site,
+      // server-patch-reducer.js:29 (the function itself is defined at
+      // segment-cache/navigation.js:340 and exported at :20-21). Calling it
+      // sets pushRef.mpaNavigation. app-router.js:214 checks that flag and
+      // calls location.replace() at app-router.js:221. A full
+      // browser navigation with no connectivity lands the member on the
+      // browser's own error page, and the group home they were reading is
+      // gone until they reload by hand. Every line above was read in
+      // node_modules/next/dist/client/components/, Next 16.3.2, not assumed
+      // from an earlier version's trace.
+      //
+      // THERE IS A RETRY-ON-RECONNECT BRANCH IN THAT SAME CATCH, AND IT IS OFF
+      // HERE. It is gated on process.env.__NEXT_USE_OFFLINE, which
+      // node_modules/next/dist/build/define-env.js:126 defines from
+      // config.experimental.useOffline. next.config.ts does not set it, so the
+      // branch is dead code in this build. Recorded because it is the most
+      // likely thing a future session will find and use to argue this guard is
+      // redundant: if that flag is ever turned on, re-evaluate this guard
+      // rather than keeping it out of habit.
+      //
+      // THE SECOND THING THIS DOES NOT COVER, and it is structural rather than
+      // a decision: this stops a refresh from STARTING while offline. It can
+      // do nothing about one already IN FLIGHT when the connection drops.
+      // That request fails inside Next, takes the same fallback traced above,
+      // and hard-navigates. There is no hook between the failure and
+      // location.replace() for us to hold, so closing this would mean not
+      // using router.refresh() at all, which is a redesign rather than a
+      // guard. The window is one round trip per REFRESH_INTERVAL_MS, so it is
+      // small in production and much wider on a dev server, where a refresh
+      // compiles on demand. Named here because the QA that verified this
+      // guard (8 Sept 2026) could not distinguish it from a page still
+      // loading when the network died, which is ordinary browser behaviour
+      // and not this component's to fix.
+      //
+      // WHAT THIS DOES NOT COVER, decided rather than overlooked: a device
+      // connected to a network that has no working internet (a captive portal,
+      // a wifi with no backhaul) reports itself online, so this guard misses
+      // it. Jacob's ruling, 8 Sept 2026: in that state everything else in the
+      // app is broken too, so the member already knows something is wrong. The
+      // alternative, a pre-flight probe before each refresh, was declined
+      // because it permanently doubles request volume on this screen to buy a
+      // subset of cases. Trigger for revisiting: somebody actually observing
+      // the browser error page after this shipped.
+      //
+      // `=== false` rather than `!navigator.onLine`, so this fails toward
+      // working: only an explicit false blocks a refresh. A platform where the
+      // property is missing gets the old behaviour rather than a component
+      // that silently never refreshes again.
+      if (navigator.onLine === false) return
       if (pausedRef.current) return
       const now = Date.now()
       // The whole slice: a trigger landing while a refresh is still
@@ -400,17 +469,57 @@ export default function LiveRefresh({ paused }: Props) {
       }
     }
 
+    // A member who walks back into signal should see the catch-up now, not up
+    // to REFRESH_INTERVAL_MS later. The coalesce window keeps this from
+    // double-firing with a tick that lands in the same moment.
+    //
+    // DELIBERATELY NO MATCHING "offline" LISTENER, and this is a question the
+    // next reader will have. Stopping the interval on the way out would add a
+    // second piece of state to keep consistent with this one, for no benefit:
+    // the tick is already gated on visibility and now on connectivity, so a
+    // tick while offline costs one boolean read and nothing else.
+    //
+    // This deliberately does NOT call startInterval(). If the tab is visible
+    // the interval is already running; if it is hidden it must stay stopped,
+    // and visibilitychange starts it when the member comes back. That is the
+    // opposite of handleFocus, which does restart it, because focus is a
+    // return-to-the-tab signal and this is not.
+    //
+    // GATED ON VISIBILITY, UNLIKE handleFocus's refresh, and the difference is
+    // worth spelling out since the two look alike at a glance. handleFocus's
+    // own refresh() call is deliberately NOT gated on document.visibilityState,
+    // because focus is a return-to-the-tab signal that stands in for a
+    // visibility event some platforms do not fire (see above); gating the
+    // refresh on the very property it exists to substitute for would reopen
+    // the gap it closes. handleFocus DOES read document.visibilityState
+    // itself, at line 453 below, but only to decide whether to restart the
+    // interval, never to decide whether to refresh. An `online`
+    // event carries none of that meaning. It says the device's network came
+    // back, nothing about whether anyone is looking at this tab, so a
+    // backgrounded tab whose wifi drops and reconnects would otherwise fetch
+    // a full server render for a screen nobody is reading, and queue that
+    // refresh in front of any send the member makes the moment they unlock
+    // the phone (see "WHY REFRESHES NEED THEIR OWN IN-FLIGHT GUARD" for why a
+    // queued refresh is not a free mistake). The tick already refuses to run
+    // while hidden; this listener now makes the same call itself.
+    const handleOnline = () => {
+      if (document.visibilityState !== "visible") return
+      refresh()
+    }
+
     if (document.visibilityState === "visible") {
       startInterval()
     }
 
     document.addEventListener("visibilitychange", handleVisibilityChange)
     window.addEventListener("focus", handleFocus)
+    window.addEventListener("online", handleOnline)
 
     return () => {
       stopInterval()
       document.removeEventListener("visibilitychange", handleVisibilityChange)
       window.removeEventListener("focus", handleFocus)
+      window.removeEventListener("online", handleOnline)
     }
   }, [router])
 
