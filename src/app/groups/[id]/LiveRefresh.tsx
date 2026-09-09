@@ -367,6 +367,20 @@ export default function LiveRefresh({ paused }: Props) {
       // redundant: if that flag is ever turned on, re-evaluate this guard
       // rather than keeping it out of habit.
       //
+      // THE SECOND THING THIS DOES NOT COVER, and it is structural rather than
+      // a decision: this stops a refresh from STARTING while offline. It can
+      // do nothing about one already IN FLIGHT when the connection drops.
+      // That request fails inside Next, takes the same fallback traced above,
+      // and hard-navigates. There is no hook between the failure and
+      // location.replace() for us to hold, so closing this would mean not
+      // using router.refresh() at all, which is a redesign rather than a
+      // guard. The window is one round trip per REFRESH_INTERVAL_MS, so it is
+      // small in production and much wider on a dev server, where a refresh
+      // compiles on demand. Named here because the QA that verified this
+      // guard (8 Sept 2026) could not distinguish it from a page still
+      // loading when the network died, which is ordinary browser behaviour
+      // and not this component's to fix.
+      //
       // WHAT THIS DOES NOT COVER, decided rather than overlooked: a device
       // connected to a network that has no working internet (a captive portal,
       // a wifi with no backhaul) reports itself online, so this guard misses
