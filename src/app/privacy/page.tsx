@@ -284,11 +284,33 @@ export default function PrivacyPage() {
         </LegalList>
       </LegalSection>
 
-      <LegalSection heading="Cookies">
+      {/* Rewritten 8 Sept 2026. The previous version said cookies "keep you
+          signed in, and that is all they do", which two shipped changes had
+          already falsified: the email-ask snooze cookie
+          (src/lib/auth/email-ask-cooldown.ts:134, 3 Sept) and the composer's
+          parked draft (GroupHome.tsx:204, 4 Sept). Found by Jacob reading the
+          page, which is the second time in eight days this page has been found
+          stale by a human rather than by any check.
+
+          Two accuracy constraints that shaped this wording, so a future copy
+          pass does not undo them. It deliberately does NOT say the stored
+          things never leave the device: the sign-in cookie is sent to our own
+          server on every request, which is how sessions work, so that
+          comforting sentence would be a new false claim inside a fix for a
+          false claim. And "until you close the tab" is load-bearing and
+          correct, because the draft is in sessionStorage rather than
+          localStorage; GroupHome.tsx's own header explains that choice.
+
+          53 words against the previous 30, on a page shortened by about 90
+          words on 2 Sept. Jacob approved the growth explicitly as the price of
+          accuracy. */}
+      <LegalSection heading="Cookies and your device">
         <LegalText>
-          The app sets cookies to keep you signed in, and that is all they do.
-          No analytics, no tracking, no advertising, and nothing that follows
-          you around other websites.
+          The app stores a few things on your device: what keeps you signed in,
+          a note that you closed the box asking for your email so it waits a
+          day before asking again, and an unsent message until you close the
+          tab. No analytics, no tracking, no advertising, and nothing that
+          follows you around other websites.
         </LegalText>
       </LegalSection>
 
