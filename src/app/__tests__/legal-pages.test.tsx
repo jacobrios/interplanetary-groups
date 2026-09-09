@@ -163,6 +163,24 @@ describe("both pages have a way out", () => {
   }
 })
 
+describe("the terms page's Your information section links out", () => {
+  // Behaviour, not wording. The "Your information" section is the signpost a
+  // reader scanning headings lands on, and until 8 Sept 2026 it named the
+  // privacy notice while carrying no link, pointing at an in-context link one
+  // section up that Jacob could not find when he read the page. This test is
+  // what stops a future copy pass restoring that.
+  it("gives the terms page's Your information section its own link to the privacy notice", () => {
+    render(<TermsPage />)
+
+    const heading = screen.getByRole("heading", { name: /your information/i })
+    const section = heading.closest("section")
+    expect(section).not.toBeNull()
+
+    const link = section!.querySelector('a[href="/privacy"]')
+    expect(link).not.toBeNull()
+  })
+})
+
 describe("neither page carries teal", () => {
   // CLAUDE.md's colour rule: teal marks an action that genuinely matters,
   // and reading a policy is not one. --action is the teal token.

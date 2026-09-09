@@ -180,17 +180,32 @@ export default function TermsPage() {
         </LegalText>
       </LegalSection>
 
-      {/* Deliberately does NOT repeat the privacy-notice link from the
-          section directly above it. That link was added in fix round 1, and
-          two underlined "privacy notice" links two paragraphs apart read as
-          a stutter on a phone (seen rendered at 375x812, which is how it was
-          caught). The signpost keeps its heading, because it is the thing a
-          reader scanning the headings should find; the link lives once, at
-          the sentence that actually needs it. */}
+      {/* This section carries its own link to the privacy notice, and that
+          reverses a recorded decision rather than overlooking one.
+
+          Fix round 1 deliberately did NOT repeat the link from the section
+          directly above, because two underlined "privacy notice" links two
+          paragraphs apart read as a stutter on a phone at 375x812, which is
+          how it was caught. Reversed 8 Sept 2026: Jacob read this page, could
+          not find the link at all, and reported this sentence as pointing at
+          nothing. Neither this page nor /privacy renders LegalFooter, so that
+          one in-context link was the only route between them.
+
+          A real reader failing to find a link outranks a design argument about
+          stutter. The link now lives at the sentence that sends the reader
+          somewhere, so the signpost is not pointing at nothing. Both links
+          stay. */}
       <LegalSection heading="Your information">
         <LegalText>
           What else the app keeps, who can see it, and how to have it deleted
-          is all on the privacy notice, linked just above.
+          is all on the{" "}
+          <Link
+            href="/privacy"
+            style={{ color: "var(--text-secondary)", textDecoration: "underline" }}
+          >
+            privacy notice
+          </Link>
+          .
         </LegalText>
       </LegalSection>
     </LegalPage>
