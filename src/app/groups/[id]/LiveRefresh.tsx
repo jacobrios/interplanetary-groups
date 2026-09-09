@@ -347,9 +347,11 @@ export default function LiveRefresh({ paused }: Props) {
       // turns it into exitStatus 2 (ppr-navigations.js:1123) and, in that
       // exit status's own case block (ppr-navigations.js:987), dispatches a
       // retry action with mpa: true. server-patch-reducer.js:22 reads that
-      // flag and calls completeHardNavigation (segment-cache/navigation.js:29
-      // and :340), which sets pushRef.mpaNavigation. app-router.js:214 checks
-      // that flag and calls location.replace() at app-router.js:221. A full
+      // flag and calls completeHardNavigation at its own call site,
+      // server-patch-reducer.js:29 (the function itself is defined at
+      // segment-cache/navigation.js:340 and exported at :20-21). Calling it
+      // sets pushRef.mpaNavigation. app-router.js:214 checks that flag and
+      // calls location.replace() at app-router.js:221. A full
       // browser navigation with no connectivity lands the member on the
       // browser's own error page, and the group home they were reading is
       // gone until they reload by hand. Every line above was read in
@@ -469,12 +471,15 @@ export default function LiveRefresh({ paused }: Props) {
     // opposite of handleFocus, which does restart it, because focus is a
     // return-to-the-tab signal and this is not.
     //
-    // GATED ON VISIBILITY, UNLIKE handleFocus, and the difference is worth
-    // spelling out since the two look alike at a glance. handleFocus is
-    // deliberately NOT gated on document.visibilityState, because focus is a
-    // return-to-the-tab signal that stands in for a visibility event some
-    // platforms do not fire (see above); gating it on the very property it
-    // exists to substitute for would reopen the gap it closes. An `online`
+    // GATED ON VISIBILITY, UNLIKE handleFocus's refresh, and the difference is
+    // worth spelling out since the two look alike at a glance. handleFocus's
+    // own refresh() call is deliberately NOT gated on document.visibilityState,
+    // because focus is a return-to-the-tab signal that stands in for a
+    // visibility event some platforms do not fire (see above); gating the
+    // refresh on the very property it exists to substitute for would reopen
+    // the gap it closes. handleFocus DOES read document.visibilityState
+    // itself, at line 453 below, but only to decide whether to restart the
+    // interval, never to decide whether to refresh. An `online`
     // event carries none of that meaning. It says the device's network came
     // back, nothing about whether anyone is looking at this tab, so a
     // backgrounded tab whose wifi drops and reconnects would otherwise fetch

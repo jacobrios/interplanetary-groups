@@ -309,18 +309,24 @@ export default function PrivacyPage() {
           deploy watcher writes TWO keys, not one (RELOADED_FOR_KEY and
           RELOAD_COUNT_KEY, DeployWatch.tsx:207-208), and "which version of
           the app this tab loaded" named neither of them precisely. A grep of
-          every device-storage write site in src/ is what settled the real
-          count: five writes across four files, not the four writers this
-          comment first assumed. In file and line, so the count cannot drift
-          again: the sign-in cookie (src/lib/supabase/proxy-session.ts:23,
-          the write that actually reaches the browser; the same function's
-          request.cookies.set at :19 only mutates this request's own copy and
-          never leaves the server), the email-ask cookie
-          (email-ask-cooldown.ts:134), the deploy watcher's two keys
-          (DeployWatch.tsx:207 and :208), and the composer's draft
-          (GroupHome.tsx:204). This section has now been found incomplete
-          twice, which is why the count is written out this way rather than
-          left as a bare number for a third pass to get wrong again.
+          every device-storage write site in src/ was supposed to settle the
+          real count, and it was wrong too: it reported five writes across
+          four files, when the true count is six writes across five files.
+          In file and line, so the count cannot drift again: the sign-in
+          cookie, written from two places (src/lib/supabase/proxy-session.ts:23,
+          the proxy's refresh path, the write that actually reaches the
+          browser; the same function's request.cookies.set at :19 only
+          mutates this request's own copy and never leaves the server; and
+          src/lib/supabase/server.ts:21, cookieStore.set(name, value,
+          options), written from inside a server action, which also reaches
+          the browser), the email-ask cookie (email-ask-cooldown.ts:134), the
+          deploy watcher's two keys (DeployWatch.tsx:207 and :208), and the
+          composer's draft (GroupHome.tsx:204). This section's inventory has
+          now been found incomplete three times, the third time inside the
+          comment written to prevent exactly that, because a grep pattern
+          that cannot match every write shape, this one never tried
+          cookieStore.set(, reports clean for a reason unrelated to the
+          truth.
 
           The old body counted 29 words. This one counts 69, on a page
           shortened by about 90 words on 2 Sept. Jacob approved the growth
