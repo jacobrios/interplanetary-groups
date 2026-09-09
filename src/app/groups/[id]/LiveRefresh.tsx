@@ -126,7 +126,7 @@
 //
 // A dangling timer is not a hypothetical concern in this codebase: one left
 // in ShareInviteLink.tsx blocked a safety-net hook on 1 Sept 2026. The
-// interval and both listeners are torn down on unmount without exception.
+// interval and three listeners are torn down on unmount without exception.
 //
 // WHY REFRESHES COALESCE WITHIN A SHORT WINDOW
 //

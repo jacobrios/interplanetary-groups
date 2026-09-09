@@ -206,7 +206,7 @@ describe("LiveRefresh", () => {
     )
 
     // Behavioural confirmation, not just that the removal calls were made:
-    // nothing fires after teardown, from any of the three sources.
+    // nothing fires after teardown, from any of the four sources.
     vi.advanceTimersByTime(50_000)
     document.dispatchEvent(new Event("visibilitychange"))
     window.dispatchEvent(new Event("focus"))
