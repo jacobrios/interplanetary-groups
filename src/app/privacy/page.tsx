@@ -289,9 +289,9 @@ export default function PrivacyPage() {
           already falsified: the email-ask snooze cookie
           (src/lib/auth/email-ask-cooldown.ts:134, 3 Sept), the composer's
           parked draft (GroupHome.tsx:204, 4 Sept), and the deploy watcher's
-          version note (DeployWatch.tsx:207, 4 Sept). Found by Jacob reading the
-          page, which is the second time in eight days this page has been found
-          stale by a human rather than by any check.
+          two version keys (DeployWatch.tsx:207 and :208, 4 Sept). Found by
+          Jacob reading the page, which is the second time in eight days this
+          page has been found stale by a human rather than by any check.
 
           Two accuracy constraints that shaped this wording, so a future copy
           pass does not undo them. It deliberately does NOT say the stored
@@ -302,25 +302,37 @@ export default function PrivacyPage() {
           correct, because the draft is in sessionStorage rather than
           localStorage; GroupHome.tsx's own header explains that choice.
 
-          The first pass at this rewrite was itself incomplete: it named the
-          snooze cookie and the parked draft but missed the deploy watcher's
-          version note, caught in review on 8 Sept 2026. A grep of every
-          device-storage writer in src/ is what settled the real list, four
-          writers rather than the three this comment first assumed, and that
-          is worth recording because this section has now been found
-          incomplete twice.
+          The first pass at this rewrite was itself incomplete, twice over.
+          It named the snooze cookie and the parked draft but missed the
+          deploy watcher's version note entirely, caught in review on 8 Sept
+          2026. And once that note was added, it still undercounted: the
+          deploy watcher writes TWO keys, not one (RELOADED_FOR_KEY and
+          RELOAD_COUNT_KEY, DeployWatch.tsx:207-208), and "which version of
+          the app this tab loaded" named neither of them precisely. A grep of
+          every device-storage write site in src/ is what settled the real
+          count: five writes across four files, not the four writers this
+          comment first assumed. In file and line, so the count cannot drift
+          again: the sign-in cookie (src/lib/supabase/proxy-session.ts:23,
+          the write that actually reaches the browser; the same function's
+          request.cookies.set at :19 only mutates this request's own copy and
+          never leaves the server), the email-ask cookie
+          (email-ask-cooldown.ts:134), the deploy watcher's two keys
+          (DeployWatch.tsx:207 and :208), and the composer's draft
+          (GroupHome.tsx:204). This section has now been found incomplete
+          twice, which is why the count is written out this way rather than
+          left as a bare number for a third pass to get wrong again.
 
-          The old body counted 29 words. This one counts 64, on a page
+          The old body counted 29 words. This one counts 69, on a page
           shortened by about 90 words on 2 Sept. Jacob approved the growth
           explicitly as the price of accuracy. */}
       <LegalSection heading="Cookies and your device">
         <LegalText>
           The app stores a few things on your device: what keeps you signed in,
-          a note that you closed the box asking for your email so it waits a
-          day before asking again, which version of the app this tab loaded,
-          and an unsent message until you close the tab. No analytics, no
-          tracking, no advertising, and nothing that follows you around other
-          websites.
+          a note that you were asked for your email so it waits a day before
+          asking again, which version of the app this tab has updated itself
+          to and how many times, and an unsent message until you close the
+          tab. No analytics, no tracking, no advertising, and nothing that
+          follows you around other websites.
         </LegalText>
       </LegalSection>
 

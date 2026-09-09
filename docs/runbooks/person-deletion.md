@@ -199,9 +199,18 @@ join the same group in the ordinary way, so this mostly matters for lines
 written before that date, and for the one case that check still lets through
 (somebody who already had a session joining a second group).
 
-This is a known bug in the tooling rather than a quirk of the data, and it has
-been seen firing rather than only reasoned about. Scoping the query is its own
-queued item.
+This is a known bug in the tooling rather than a quirk of the data. The
+text-matching itself has genuinely produced a wrong candidate: during
+development, a concurrent worktree's test data matched by name across group
+boundaries and handed back a stranger's join line from an unrelated group
+(build-notes.md, 4 Sept 2026 postscript). That observed case is the milder,
+cross-group one, which lands in "doubtful" and defaults to no. The same-group
+case described just above, the one that defaults to **yes**, has not been
+seen happening for real; it is established by a test instead
+(`deletion-plan.test.ts`, "lists every join-announcement candidate as
+current-member, including both when two members share a name"), which proves
+the code takes that path without needing a live example of somebody hitting
+it. Scoping the query is its own queued item.
 
 ### Confirming for real
 
