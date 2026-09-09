@@ -285,10 +285,11 @@ export default function PrivacyPage() {
       </LegalSection>
 
       {/* Rewritten 8 Sept 2026. The previous version said cookies "keep you
-          signed in, and that is all they do", which two shipped changes had
+          signed in, and that is all they do", which three shipped changes had
           already falsified: the email-ask snooze cookie
-          (src/lib/auth/email-ask-cooldown.ts:134, 3 Sept) and the composer's
-          parked draft (GroupHome.tsx:204, 4 Sept). Found by Jacob reading the
+          (src/lib/auth/email-ask-cooldown.ts:134, 3 Sept), the composer's
+          parked draft (GroupHome.tsx:204, 4 Sept), and the deploy watcher's
+          version note (DeployWatch.tsx:207, 4 Sept). Found by Jacob reading the
           page, which is the second time in eight days this page has been found
           stale by a human rather than by any check.
 
@@ -301,16 +302,25 @@ export default function PrivacyPage() {
           correct, because the draft is in sessionStorage rather than
           localStorage; GroupHome.tsx's own header explains that choice.
 
-          53 words against the previous 30, on a page shortened by about 90
-          words on 2 Sept. Jacob approved the growth explicitly as the price of
-          accuracy. */}
+          The first pass at this rewrite was itself incomplete: it named the
+          snooze cookie and the parked draft but missed the deploy watcher's
+          version note, caught in review on 8 Sept 2026. A grep of every
+          device-storage writer in src/ is what settled the real list, four
+          writers rather than the three this comment first assumed, and that
+          is worth recording because this section has now been found
+          incomplete twice.
+
+          The old body counted 29 words. This one counts 64, on a page
+          shortened by about 90 words on 2 Sept. Jacob approved the growth
+          explicitly as the price of accuracy. */}
       <LegalSection heading="Cookies and your device">
         <LegalText>
           The app stores a few things on your device: what keeps you signed in,
           a note that you closed the box asking for your email so it waits a
-          day before asking again, and an unsent message until you close the
-          tab. No analytics, no tracking, no advertising, and nothing that
-          follows you around other websites.
+          day before asking again, which version of the app this tab loaded,
+          and an unsent message until you close the tab. No analytics, no
+          tracking, no advertising, and nothing that follows you around other
+          websites.
         </LegalText>
       </LegalSection>
 
