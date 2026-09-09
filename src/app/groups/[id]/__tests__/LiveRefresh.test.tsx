@@ -56,9 +56,20 @@ function setVisibility(state: DocumentVisibilityState) {
   })
 }
 
+// Mirrors setVisibility above rather than inventing a second mocking style:
+// navigator.onLine is a read-only accessor in jsdom, so a test that wants to
+// simulate a dropped radio has to redefine the property.
+function setOnline(online: boolean) {
+  Object.defineProperty(navigator, "onLine", {
+    value: online,
+    configurable: true,
+  })
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
   setVisibility("visible")
+  setOnline(true)
   // Every test starts with no refresh outstanding. Without this reset, a
   // test that leaves mockRefreshPending at true (any in-flight test that
   // does not explicitly settle it) would leak into every later test's
@@ -72,6 +83,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
   setVisibility("visible")
+  setOnline(true)
 })
 
 describe("LiveRefresh", () => {
@@ -171,7 +183,7 @@ describe("LiveRefresh", () => {
     expect(refresh).not.toHaveBeenCalled()
   })
 
-  it("clears the interval and both listeners on unmount", () => {
+  it("clears the interval and all three listeners on unmount", () => {
     const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval")
     const removeDocListener = vi.spyOn(document, "removeEventListener")
     const removeWindowListener = vi.spyOn(window, "removeEventListener")
@@ -188,12 +200,17 @@ describe("LiveRefresh", () => {
       "focus",
       expect.any(Function)
     )
+    expect(removeWindowListener).toHaveBeenCalledWith(
+      "online",
+      expect.any(Function)
+    )
 
     // Behavioural confirmation, not just that the removal calls were made:
     // nothing fires after teardown, from any of the three sources.
     vi.advanceTimersByTime(50_000)
     document.dispatchEvent(new Event("visibilitychange"))
     window.dispatchEvent(new Event("focus"))
+    window.dispatchEvent(new Event("online"))
     expect(refresh).not.toHaveBeenCalled()
   })
 
@@ -233,6 +250,54 @@ describe("LiveRefresh", () => {
     window.dispatchEvent(new Event("focus"))
 
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  // WHAT THESE TESTS CANNOT SHOW. None of this exercises a real dropped
+  // connection: jsdom has no network, and router.refresh is mocked here
+  // anyway. What is proven is that this component reads navigator.onLine and
+  // honours it. That honouring it prevents the browser error page rests on the
+  // Next source trace in LiveRefresh.tsx's header, not on any test in this
+  // repo. The device pass is the only real proof and it is Jacob's.
+
+  // The whole point of the offline gate. Without it, this tick reaches
+  // router.refresh(), whose network failure falls through to a full browser
+  // navigation, which with no connectivity is the browser's error page. See
+  // LiveRefresh.tsx's header for the traced Next mechanism.
+  it("fires no refresh at all while the browser reports itself offline", () => {
+    setOnline(false)
+    render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(50_000)
+    expect(refresh).not.toHaveBeenCalled()
+
+    // Not just the timer: the two event-driven paths are gated too, since a
+    // member returning to the tab while still offline is the likelier case.
+    setVisibility("hidden")
+    document.dispatchEvent(new Event("visibilitychange"))
+    setVisibility("visible")
+    document.dispatchEvent(new Event("visibilitychange"))
+    window.dispatchEvent(new Event("focus"))
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it("refreshes as soon as the browser reports itself back online", () => {
+    setOnline(false)
+    render(<LiveRefresh paused={false} />)
+
+    vi.advanceTimersByTime(50_000)
+    expect(refresh).not.toHaveBeenCalled()
+
+    setOnline(true)
+    window.dispatchEvent(new Event("online"))
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("clears the online listener on unmount", () => {
+    const { unmount } = render(<LiveRefresh paused={false} />)
+    unmount()
+
+    window.dispatchEvent(new Event("online"))
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   // Blocker found in review: handleFocus called refresh() but never
