@@ -676,6 +676,10 @@ Seven High-priority items come due at the moment of the first production deploy.
     *What it explicitly does NOT cover, stated because the site-health slice's own "two things it does not cover" list read exhaustive and was not.* **The Supabase auth soft-fail is invisible to this too.** `src/lib/auth/current-user.ts:16` reads only the `data` half of `auth.getUser()` and returns null when the call errors, so a degraded auth service logs every member out quietly onto the front door or the members-only wall. Nothing throws, so there is no error line for a drain to carry and no 500 to alert on. That is the next slice in the queue after this bundle, and this item does not shrink it.
     *No settings are named here on purpose.* Nobody has opened Vercel's log-drain screen yet, and item 13 learned three times over that writing a third-party setting into this record before somebody has looked at it produces a record that is confidently wrong. Whoever configures it should come back and write down what they actually chose and why, in item 13's shape.
 
+17. **Make the "Production build" check required on `main`.** Added 9 Sept 2026 (CI build check slice). **Gates no deploy and needs no code:** it is one GitHub setting, in the owner's hands. Settings, then Branches or Rules, then a rule on `main` requiring the status check named exactly `Production build`.
+    *Why it matters.* Until it is set, a red build reports an X on the pull request and the merge button stays green, so the new gate is a notification rather than a gate, which is precisely the shape of the thing it was built to replace: Vercel already emailed on all three failed deploys of 4 Sept 2026 and the merges still happened.
+    *Two things to know before switching it on.* A required check that never reports blocks the merge forever, so the workflow has to have run at least once on a real pull request first, and the rule's name must match the job's own `name:` exactly rather than the workflow's. Neither is recoverable-by-guessing from the GitHub UI, which is why they are written down here.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -8130,3 +8134,34 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 **One gap this QA promoted from theory to named limitation, and it is not fixed.** The owner also reported an immediate error page when he killed the network *quickly after loading*. Two readings and the evidence cannot separate them: the page was still loading, which is ordinary browser behaviour and no app's bug; or a poll was in flight, which is the guard's real structural hole, since it prevents a refresh from starting and can do nothing about one already dispatched. Next exposes no hook between that failure and `location.replace()`, so closing it means abandoning `router.refresh()`, which is a redesign and not a guard. Now recorded in `LiveRefresh.tsx`'s own header and in `CLAUDE.md`, because the slice's shipped comments claimed a protection broader than what it delivers, which is the third instance of exactly that failure on this one branch.
 
 **What is still unproven:** all of the above is a local production build, not Vercel. The mechanism under test runs entirely in the browser, so the difference does not bear on this question, but the sentence is here rather than assumed.
+
+---
+
+## §11 entry: the repo gets a gate before the merge, and it is the build (9 September 2026)
+
+**What changed.** `.github/workflows/ci.yml` runs `npm ci` and then `npm run build` on every pull request into `main`. It is the first CI this repository has ever had. Before today the only automation was local hooks, and every one of them ran the test suite.
+
+**Why the build rather than the suite.** The 4 September 2026 entry above carries the story: vitest does not typecheck, `next build` does, and three production deploys failed in a row while four consecutive green suites said nothing. The durable fix that day was a manual step in `~/.claude/checklists/pr-handoff.md`. This moves it onto a machine, which is the whole point, because a manual pre-PR step is exactly the kind that gets skipped on the day it matters.
+
+**Why the test suite is deliberately absent, recorded as a decision rather than an omission.** The suite runs against the shared `interplanetary-groups-dev-test` Supabase project, which is also what local runs, the post-edit hooks and every QA staging script use. `suite-lock.mjs` serializes two runs inside one checkout and keys on the working directory, so it cannot see a GitHub runner at all; a CI run firing while the owner is mid-QA would collide in one database and produce Prisma transaction timeouts naming innocent files, a failure this project has already met and already misread once. **Adding tests to CI needs a CI-only database first**, which means a third Supabase project. The owner ruled a third project out on 26 Aug 2026 when he declined the preview environment, and most of that reasoning transfers, so this is left as a decision for him rather than assumed in either direction.
+
+**The env block is measured, not guessed.** Four variables have to be *set* and none of them is ever dialled, found by adding one at a time until the build went green:
+
+- `DIRECT_URL`, because `prisma.config.ts` reads it through `prisma/config`'s `env()`, which throws on a missing variable, so this repo's `postinstall` (`prisma generate`) fails during `npm ci` without it. That is the first thing a bare checkout hits, and it fails at install rather than at build, which is not where anyone would look.
+- `DATABASE_URL`, because `src/lib/prisma.ts` throws at module scope and Next loads every route module while collecting page data. Observed failing on `/events/[id]/calendar.ics`, *after* the typecheck had already passed.
+- the two `NEXT_PUBLIC_SUPABASE_*` variables, because the build attempts to prerender `/create`, which reaches `getCurrentUser()` and so `getSupabaseEnv()`.
+
+Every host in the block is loopback with nothing listening, and the build passes, which is the evidence that the production build touches no database and makes no outbound call. **No secret belongs in this workflow**, and if one is ever needed that is a finding about the build rather than a value to add.
+
+**The gate was proven able to go red.** A `const n: number = "not a number"` dropped into a test file: `npx vitest run` on that file reported 1 passed, and `npm run build` exited 1 with `error TS2322: Type 'string' is not assignable to type 'number'`. That is the 4 September failure class reproduced and then caught, rather than an assumption that the build would have caught it. Both runs happened in a throwaway worktree with **no `.env` present**, which is the only honest way to learn what a runner actually needs; the normal worktree recipe symlinks `.env` in and would have hidden all four variables above.
+
+**What this still does not cover, listed because a short list reads exhaustive and this one is not.**
+
+- **Node version drift.** Vercel's Node version lives in its own dashboard rather than in this repo, so CI's pinned 24 and production's version can differ with nothing anywhere saying so. Pinning `engines.node` in `package.json` is the fix and was left out of lane.
+- **Pushes to `main`.** Only pull requests trigger the workflow. A merge that breaks `main` is still caught by Vercel's own build and its failure email, which is the arrangement that existed before today and is unchanged.
+- **Lint.** `npm run lint` runs nowhere: not in CI, not in any hook. Noted rather than added, because the ask was the build only.
+- **The check is advisory until GitHub is told otherwise.** A red build does not block a merge until it is a required status check on `main`. After-launch item 17.
+
+**Baseline, recorded before anything landed on the branch:** 1885 passing across 158 files on `main` at `1379c4f`, zero failures.
+
+**Declared deviations.** No slice document was written: the design arrived fully specified in the owner's own request, the change is one configuration file, and a four-part front section plus task-by-task detail would have been longer than the thing it described. This entry carries the reasoning instead. And the verification ran in a git worktree while the work itself was serial, because an env-free checkout was the only way to test the runner's actual conditions.

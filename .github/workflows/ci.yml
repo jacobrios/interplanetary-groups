@@ -1,0 +1,65 @@
+# Runs the production build on every pull request into main.
+#
+# Why the build rather than the test suite: vitest does not typecheck, and
+# Vercel runs tsc as part of `next build`. On 4 September 2026 an adopted test
+# file carried 24 TypeScript errors, four consecutive green suites said nothing
+# about them, and three production deploys failed in a row while production
+# served three-hour-old code, including a fix for a live bug. Vercel emailed on
+# every failure, so the alarm worked; what was missing was any gate before the
+# merge. This is that gate.
+#
+# The test suite is deliberately NOT here. It runs against the shared
+# interplanetary-groups-dev-test Supabase project, which is also what local
+# runs, hook-driven runs, and QA use, so a CI run and a laptop run would collide
+# in one database and produce failures that name innocent files. Adding tests to
+# CI needs a CI-only database first. See docs/build-notes.md, §11 entry for this
+# slice.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+# A newer push to the same PR makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    env:
+      # Deliberately fake, and no secret belongs here. Each of these four has to
+      # be SET, and none of them is ever dialled. Found by adding one at a time
+      # until the build went green, so the list is the measured minimum:
+      #   DIRECT_URL    prisma.config.ts reads it through prisma/config's env(),
+      #                 which throws on a missing variable, so `prisma generate`
+      #                 (this repo's postinstall) fails during `npm ci` without it.
+      #   DATABASE_URL  src/lib/prisma.ts throws at module scope, and Next loads
+      #                 every route module while collecting page data.
+      #   the two NEXT_PUBLIC_SUPABASE_* pair, because the build tries to
+      #                 prerender /create, which reaches getSupabaseEnv().
+      # Proven rather than assumed: every host here is loopback with nothing
+      # listening, and the build passes, so the build makes no outbound call and
+      # touches no database. If it ever needs a reachable one, that is a finding
+      # about the build rather than a secret to add here.
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Matches the dev machine (24.x). Vercel's Node version is set in its
+          # own dashboard rather than in this repo, so the two can drift and this
+          # check cannot see it; pinning engines.node in package.json is the fix
+          # and was left out of lane.
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
