@@ -1,0 +1,78 @@
+# Runs the production build on every pull request into main.
+#
+# Why the build rather than the test suite: vitest does not typecheck, and
+# Vercel runs tsc as part of `next build`. On 4 September 2026 an adopted test
+# file carried 24 TypeScript errors, four consecutive green suites said nothing
+# about them, and three production deploys failed in a row while production
+# served three-hour-old code, including a fix for a live bug. Vercel emailed on
+# every failure, so the alarm worked; what was missing was any gate before the
+# merge. This is that gate.
+#
+# The test suite is deliberately NOT here, and the accurate reason is narrower
+# than the one first written: about 39 of the 158 test files talk to the shared
+# interplanetary-groups-dev-test Supabase project, which local runs, the hooks
+# and QA also use, so those would collide with a laptop run in one database.
+# THOSE files need a CI-only database. The other ~119 do not, and running them
+# here is a real option that was surfaced to the owner rather than taken, since
+# the ask was the build. See docs/build-notes.md, §11 entry for this slice.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+# A newer push to the same PR makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# `npm ci` runs postinstall scripts under GITHUB_TOKEN, and without a block here
+# the job inherits whatever the repo default is, which may be read-write.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    env:
+      # Deliberately fake, and no secret belongs here. Each of these four has to
+      # be SET, and none of them is ever dialled. Found by adding one at a time
+      # until the build went green, so the list is the measured minimum:
+      #   DIRECT_URL    prisma.config.ts reads it through prisma/config's env(),
+      #                 which throws on a missing variable, so `prisma generate`
+      #                 (this repo's postinstall) fails during `npm ci` without it.
+      #   DATABASE_URL  src/lib/prisma.ts throws at module scope, and Next loads
+      #                 every route module while collecting page data.
+      #   the NEXT_PUBLIC_SUPABASE_* pair, because the build tries to prerender
+      #                 /create, which reaches getSupabaseEnv().
+      # What passing with these values does and does not prove, corrected in
+      # review before this ever merged. It proves the build reaches no DATABASE:
+      # loopback with nothing listening gives an immediate ECONNREFUSED, and the
+      # build passes anyway. It does NOT prove the build makes no outbound call,
+      # and the build does make one: layout.tsx imports next/font/google, so a
+      # cold build fetches Geist from fonts.googleapis.com and dies hard if that
+      # fetch fails. The Supabase pair is never dialled at all, because every
+      # route that would reach it bails to dynamic at `await cookies()` first, so
+      # their values are presence-checks and nothing more. No secret belongs
+      # here; if the build ever needs a reachable service, that is a finding
+      # about the build rather than a value to add.
+      DIRECT_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Matches the dev machine (24.x). Vercel's Node version is set in its
+          # own dashboard rather than in this repo, so the two can drift and this
+          # check cannot see it; pinning engines.node in package.json is the fix
+          # and was left out of lane.
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
