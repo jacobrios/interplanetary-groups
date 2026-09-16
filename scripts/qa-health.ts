@@ -42,14 +42,31 @@
 // thing being checked (see the DELIBERATELY UNTESTED comment above
 // realProbes in src/lib/health/check.ts). --break-auth builds a REAL
 // @supabase/ssr client, via the library's own createServerClient
-// constructor, aimed at http://127.0.0.1:1, the same closed-port shape
-// UNREACHABLE uses for Prisma. It is never a stub whose getUser() rejects:
-// a stub would prove something about our test code, not about the library,
-// and would make this script theatre rather than evidence. Because
-// runHealthCheck stops at the first failing probe and supabase_auth runs
-// last, --break-auth runs against the real, healthy dev-test database:
-// user_row, membership_row and group_home_data all have to pass for
-// execution to reach the probe this flag exists to break.
+// constructor, aimed at http://127.0.0.1:65535, a real connection refusal.
+// It is never a stub whose getUser() rejects: a stub would prove something
+// about our test code, not about the library, and would make this script
+// theatre rather than evidence. Because runHealthCheck stops at the first
+// failing probe and supabase_auth runs last, --break-auth runs against the
+// real, healthy dev-test database: user_row, membership_row and
+// group_home_data all have to pass for execution to reach the probe this
+// flag exists to break.
+//
+// The port is 65535, NOT 1, and this was a fix-round correction (an
+// independent reviewer caught it, not something discovered by writing this
+// script): port 1 is on Node/undici's Fetch-spec "bad port" blocklist, so
+// `fetch('http://127.0.0.1:1')` is refused by the client itself before any
+// TCP connection is attempted, and never reaches the network at all. That
+// still gets wrapped into AuthRetryableFetchError by auth-js's generic
+// catch, so the flag would still "pass," but it would be proving "any fetch
+// exception gets wrapped," not "a real network failure gets wrapped," which
+// is the actual claim this slice's evidence exists to carry. 65535 is a
+// real, unassigned, unblocked port: dialing it produces a genuine
+// ECONNREFUSED from the OS, the same species of failure UNREACHABLE
+// produces for Prisma (Postgres uses a raw socket, so it was never subject
+// to undici's blocklist in the first place, which is why copying its port 1
+// literally was wrong here). Do not swap this back to a low port number;
+// low ports below 1024 are the ones commonly blocklisted and would silently
+// weaken this evidence again the same way.
 
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
@@ -62,8 +79,18 @@ import { judge, EXPECTED_DEV_TEST_REF } from "./db-which"
 /** Valid-shaped, resolvable, and nothing is listening. Fails fast. */
 const UNREACHABLE = "postgresql://nobody:nobody@127.0.0.1:1/none"
 
-/** Same closed-port shape as UNREACHABLE above, for the Supabase auth server. */
-const UNREACHABLE_SUPABASE_URL = "http://127.0.0.1:1"
+/**
+ * A real, unassigned port that nothing is listening on, for the Supabase
+ * auth server. Deliberately NOT port 1 like UNREACHABLE above: port 1 is on
+ * Node/undici's Fetch-spec "bad port" blocklist, so a fetch() aimed at it is
+ * refused by the client before any TCP connection is attempted, which would
+ * prove only that a fetch exception gets wrapped, not that a real network
+ * failure does. 65535 is above the blocklist, is not commonly bound by
+ * anything, and produces a genuine OS-level ECONNREFUSED, matching what
+ * UNREACHABLE proves for Prisma over a raw socket. See the file header for
+ * the full reasoning and the fix-round correction that produced this.
+ */
+const UNREACHABLE_SUPABASE_URL = "http://127.0.0.1:65535"
 
 /**
  * Build a real @supabase/ssr client for a bare script, at an explicit URL,
@@ -117,12 +144,21 @@ async function makeRealSupabase() {
 }
 
 /**
- * The real client library, aimed at a closed port instead of the real
- * project. The publishable key is still the real one from this checkout's
- * environment: with nobody listening on the other end it does not matter
- * what the key is, but using the real key keeps the client construction
- * itself honest. Everything about this client is real except the one thing
- * --break-auth exists to break, which URL it dials.
+ * The real client library, aimed at a closed, unblocked port instead of the
+ * real project. The publishable key is still the real one from this
+ * checkout's environment: with nobody listening on the other end it does
+ * not matter what the key is, but using the real key keeps the client
+ * construction itself honest. Everything about this client is real except
+ * the one thing --break-auth exists to break, which URL it dials.
+ *
+ * 65535 is a real, valid port, not a reserved one, so it could in principle
+ * be bound by something on the machine this runs on. That failure mode is
+ * not silent: if 65535 is ever listening, getUser()'s fetch no longer fails
+ * with ECONNREFUSED, so supabase_auth stops throwing, and the run prints
+ * HEALTHY where BROKEN is expected. main()'s own `if (verdict.ok)` check on
+ * this branch is what turns that into a loud
+ * "FAILED: an unreachable Supabase auth server reported healthy." and a
+ * nonzero exit, rather than a silent false pass.
  */
 async function makeUnreachableSupabase() {
   const { publishableKey } = getSupabaseEnv()
