@@ -22,10 +22,10 @@ member: the same shape as the four-day invisible outage of 28-31 August 2026.
 ## Non-goals
 
 - ~~**The other thirteen `auth.getUser()` call sites.**~~ (Corrected 15 Sept 2026, final-fix
-  pass: it is twelve, not thirteen, verified by `grep -rn "auth\.getUser(" src` — eleven in
-  `src/app/actions` (`remove-member.ts`, `rsvp.ts`, `leave-group.ts`,
+  pass: it is twelve, not thirteen, verified by `grep -rn "auth\.getUser(" src`. Eleven sit
+  in `src/app/actions`: `remove-member.ts`, `rsvp.ts`, `leave-group.ts`,
   `reset-invite-link.ts`, `proposal-answer.ts`, `proposal-vote.ts`, `send-message.ts`,
-  `gauge-vote.ts`, `create-group.ts`, `cancel-event.ts`, `join-group.ts`) plus
+  `gauge-vote.ts`, `create-group.ts`, `cancel-event.ts`, `join-group.ts`. The twelfth is
   `src/lib/supabase/proxy-session.ts`.) **The other twelve `auth.getUser()` call sites.**
   Real, and they wait; they belong in their own slice. `send-message.ts` is the one worth
   naming: its own call soft-fails first, so during an outage the composer says "You need
@@ -72,13 +72,13 @@ same trick `--break` already uses for Prisma.
 
 # Tasks
 
-## Task 0 — baseline
+## Task 0: baseline
 
 Recorded before anything landed: **1885 passing across 158 files** on `main` at `d5d93c8`,
 zero failures. Cross-checked against the CI slice's finishing number in build-notes §11,
 which is the same figure. No pre-existing failure to carry.
 
-## Task 1 — the classifier seam
+## Task 1: the classifier seam
 
 New file `src/lib/auth/availability.ts`.
 
@@ -121,12 +121,12 @@ which CLAUDE.md already calls the stronger of the project's two claim-to-fact bo
 Say so in the file header, and point at it.
 
 **Tests** (`src/lib/auth/__tests__/availability.test.ts`): one case per outcome.
-Construct the errors from `@supabase/auth-js`'s own exports — `AuthRetryableFetchError`,
-`AuthSessionMissingError`, `AuthApiError` — never as object literals with a `name` field.
+Construct the errors from `@supabase/auth-js`'s own exports (`AuthRetryableFetchError`,
+`AuthSessionMissingError`, `AuthApiError`), never as object literals with a `name` field.
 A hand-rolled shape would pass while the real one failed, which is the exact class of
 mistake this slice exists to stop. Prove each test can fail before you rely on it.
 
-## Task 2 — `current-user.ts` throws
+## Task 2: `current-user.ts` throws
 
 Rewrite the body of `getCurrentUser()` to pass the whole reply through
 `classifyAuthReply`.
@@ -161,7 +161,7 @@ in a comment: we are testing our own branch on a shape the library documents, no
 a query still matches a database. The library's real behaviour is proven by task 4's
 script instead.
 
-## Task 3 — the health probe
+## Task 3: the health probe
 
 In `src/lib/health/check.ts`:
 
@@ -191,13 +191,13 @@ partial because `--break` fails at the first probe. This probe is last, so `--br
 must reach it through healthy earlier probes; that is fine and intended, but do not let
 the existing warning read as though it covers this one.
 
-## Task 4 — `--break-auth`
+## Task 4: `--break-auth`
 
 Add the flag to `scripts/qa-health.ts`, alongside `--break`, and document it in the file
 header and in `package.json` if `--break` is documented there.
 
 It runs the full probe list with the Supabase client pointed at a valid-shaped URL on a
-closed port — `http://127.0.0.1:1`, matching `UNREACHABLE`'s reasoning for Prisma — and
+closed port (`http://127.0.0.1:1`, matching `UNREACHABLE`'s reasoning for Prisma) and
 prints the verdict. Expected: `ok: false`, `failedStep: "supabase_auth"`, with a detail
 naming a fetch failure.
 
@@ -210,7 +210,7 @@ A probe that fails when broken but has never been seen passing might be failing 
 unrelated reason, and one that passes but has never been seen failing is the vacuous
 probe this design exists to avoid.
 
-## Task 5 — the browser pass
+## Task 5: the browser pass
 
 Not a code task. Start a dev server with `NEXT_PUBLIC_SUPABASE_URL` pointed at
 `http://127.0.0.1:1`, sign-in state already in the browser, and load a group home.
