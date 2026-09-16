@@ -14,8 +14,13 @@
 // of repeating the current-user.ts mistake by reaching past this module into
 // the raw reply. That is a claim about this module's two callers, not about
 // the raw reply's readers generally: twelve other call sites still read a
-// raw getUser() reply directly (named in check.ts's "NO `select`" comment),
-// which this slice's own non-goals list as real and deliberately unmigrated.
+// raw getUser() reply directly; `grep -rn "auth\.getUser(" src` finds them,
+// eleven in src/app/actions plus src/lib/supabase/proxy-session.ts, and this
+// slice's own non-goals list them as real and deliberately unmigrated. That
+// is NOT the twelve-item list in check.ts's "NO `select`" comment, which is
+// a different set entirely (unselected whole-User Prisma reads); both happen
+// to number twelve, so a reader sent there would find a list of the right
+// length full of the wrong files.
 //
 // Why a separate module rather than a helper inside current-user.ts: the
 // health probe (task 3 of this slice) needs to classify a getUser() reply
