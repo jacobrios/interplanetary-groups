@@ -21,6 +21,8 @@ import { findLiveProposals } from "@/lib/proposals/read"
 import { loadEmailAskInputs } from "@/lib/auth/email-ask"
 import { CARD_REGION_CAP } from "@/lib/cards/region"
 import { describeError } from "@/lib/errors/describe-error"
+import { createClient } from "@/lib/supabase/server"
+import { classifyAuthReply, AuthUnavailableError } from "@/lib/auth/availability"
 
 // describeError itself now lives in src/lib/errors/describe-error.ts (moved
 // there 15 Sept 2026, supabase-auth-soft-fail slice, task 1) because
@@ -37,6 +39,7 @@ export type HealthStep =
   | "user_row"
   | "membership_row"
   | "group_home_data"
+  | "supabase_auth"
   /** Produced by the cron route when the sweeps themselves throw, never by a
    *  probe. One vocabulary for both, so the heartbeat body reads the same way
    *  whatever failed. */
@@ -50,6 +53,22 @@ export interface Probe {
   name: HealthStep
   /** Resolves when healthy. Resolves to "skip" when there is nothing to check. */
   run: () => Promise<void | "skip">
+}
+
+/**
+ * The one thing the supabase_auth probe touches on a Supabase client.
+ * Narrower than the real SupabaseClient type on purpose: it is written as
+ * `Parameters<typeof classifyAuthReply>[0]` rather than importing AuthError
+ * and the Supabase User type directly, so this stays in lockstep with
+ * whatever classifyAuthReply actually accepts instead of a hand-copied
+ * duplicate that can drift from it. This narrowness is also what lets
+ * scripts/qa-health.ts (task 4, --break-auth) hand the probe a client
+ * pointed at a closed port without constructing a real SupabaseClient.
+ */
+type SupabaseClientLike = {
+  auth: {
+    getUser: (jwt?: string) => Promise<Parameters<typeof classifyAuthReply>[0]>
+  }
 }
 
 /**
@@ -89,12 +108,15 @@ export async function runHealthCheck(
  * The probes, in the order they run.
  *
  * DELIBERATELY UNTESTED, and this is a decision rather than an omission. A
- * test for these must mock Prisma, and mocking Prisma removes the only thing
- * being checked: whether the real query still matches the real database.
- * The message-send-latency slice already paid for this lesson, where a
- * component test passed against mocked server actions while the browser
- * disagreed, and the test was deleted rather than kept. The evidence for
- * this function is scripts/qa-health.ts, run against a real database.
+ * test for these must mock Prisma (or, for supabase_auth, mock the Supabase
+ * client), and mocking either one removes the only thing being checked:
+ * whether the real query, or the real auth request, still reaches the real
+ * service. The message-send-latency slice already paid for this lesson,
+ * where a component test passed against mocked server actions while the
+ * browser disagreed, and the test was deleted rather than kept. The evidence
+ * for the Prisma probes is scripts/qa-health.ts, run against a real
+ * database; the evidence for supabase_auth is the same script's
+ * --break-auth flag (task 4), run against the real Supabase project.
  *
  * @param client  Injectable so scripts/qa-health.ts --break can point the
  *                probes at an unreachable database and prove the failure
@@ -109,8 +131,30 @@ export async function runHealthCheck(
  *                today because --break fails at the first probe and never
  *                reaches them. A future --break variant that skips ahead to
  *                group_home_data would quietly test the real database.
+ *
+ *                NONE OF THIS COVERS supabase_auth. That probe never touches
+ *                `client` at all, so an unreachable-database `--break` run
+ *                reaches it not because this injection extends there but
+ *                because supabase_auth runs last, behind three probes that
+ *                already failed on the broken database. See the `makeSupabase`
+ *                parameter below for that probe's own injection seam.
+ *
+ * @param makeSupabase  A factory, not a client instance, and that shape is
+ *                deliberate: src/lib/supabase/server.ts's real createClient()
+ *                is async and reads request cookies via next/headers, so it
+ *                cannot be produced once and reused the way `client` is.
+ *                Keeping realProbes(now) callable with no third argument
+ *                everywhere it already is (this file's own default, the cron
+ *                route, scripts/qa-health.ts's healthy path) is why the
+ *                default is the real factory rather than something already
+ *                invoked. scripts/qa-health.ts --break-auth (task 4) passes a
+ *                factory that resolves to a client aimed at a closed port.
  */
-export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
+export function realProbes(
+  now: Date,
+  client: PrismaClient = prisma,
+  makeSupabase: () => Promise<SupabaseClientLike> = createClient
+): Probe[] {
   return [
     {
       name: "user_row",
@@ -159,7 +203,52 @@ export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
       name: "group_home_data",
       run: () => probeGroupHomeData(now, client),
     },
+    {
+      name: "supabase_auth",
+      run: () => probeSupabaseAuth(makeSupabase),
+    },
   ]
+}
+
+/** A JWT-shaped string, never issued by anything real. */
+const THROWAWAY_JWT = "orbit-health-probe.not-a-real-session.unsigned"
+
+/**
+ * Prove that Supabase's auth server itself is up and answering, which
+ * nothing else in this file, or anywhere else the cron touches, checks.
+ *
+ * THIS IS THE WHOLE REASON FOR THE JWT ARGUMENT, so read this before
+ * "simplifying" it to a bare `getUser()`. The cron has no request, so it has
+ * no cookies, so a bare `supabase.auth.getUser()` here would run in exactly
+ * the cookie-less context a real cron invocation has. Verified directly
+ * against @supabase/auth-js 2.108.2's GoTrueClient.js: with no session,
+ * `_getUser` finds no `data.session?.access_token`, and its `_useSession`
+ * branch returns `{ data: { user: null }, error: new AuthSessionMissingError() }`
+ * BEFORE calling `_request` at all. No network call happens. That probe
+ * would read green with Supabase's auth server completely unreachable,
+ * which is precisely the four-day-outage shape this whole file exists to
+ * catch, one layer over. Passing ANY truthy jwt string takes `_getUser`'s
+ * other branch, which calls `_request` unconditionally, so the probe always
+ * makes a real request over the network.
+ *
+ * The token is deliberately fake and unsigned, and that is fine: a rejected
+ * token still proves the service answered. classifyAuthReply reads that
+ * rejection as "signed-out" (a 401/403 AuthApiError, the same bucket as an
+ * expired or forged cookie), not "unavailable" (a network failure or a 5xx,
+ * per isAuthRetryableFetchError). Only "unavailable" fails this probe;
+ * "signed-in" (which a throwaway token will never produce) would pass too,
+ * for the same reason.
+ */
+async function probeSupabaseAuth(
+  makeSupabase: () => Promise<SupabaseClientLike>
+): Promise<void> {
+  const supabase = await makeSupabase()
+  const reply = await supabase.auth.getUser(THROWAWAY_JWT)
+  const outcome = classifyAuthReply(reply)
+
+  if (outcome.kind === "unavailable") {
+    throw new AuthUnavailableError(outcome.detail)
+  }
 }
 
 /**
