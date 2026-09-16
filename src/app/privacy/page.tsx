@@ -51,7 +51,9 @@
 //     FORMER_MEMBER_LABEL; nothing scans anybody's prose, so a name written
 //     into a sentence survives. Saying otherwise would be the single most
 //     damaging sentence this page could carry.
-//   - Better Stack. src/lib/health/check.ts's describeError is an explicit
+//   - Better Stack. src/lib/errors/describe-error.ts's describeError (moved
+//     out of src/lib/health/check.ts, which still re-exports it, in the
+//     supabase-auth-soft-fail slice) is an explicit
 //     privacy boundary carrying an error's class, code and message only,
 //     with a stated residual: a database driver's own error text can echo
 //     the value that tripped it. So the page claims "error messages rather

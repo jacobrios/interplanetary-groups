@@ -21,11 +21,16 @@ member: the same shape as the four-day invisible outage of 28-31 August 2026.
 
 ## Non-goals
 
-- **The other thirteen `auth.getUser()` call sites.** Real, and they wait; they belong in
-  their own slice. `send-message.ts` is the one worth naming: its own call soft-fails
-  first, so during an outage the composer says "You need to be signed in to send
-  messages" rather than reaching `getCurrentUser()` at all. Misleading, visible, out of
-  scope.
+- ~~**The other thirteen `auth.getUser()` call sites.**~~ (Corrected 15 Sept 2026, final-fix
+  pass: it is twelve, not thirteen, verified by `grep -rn "auth\.getUser(" src` — eleven in
+  `src/app/actions` (`remove-member.ts`, `rsvp.ts`, `leave-group.ts`,
+  `reset-invite-link.ts`, `proposal-answer.ts`, `proposal-vote.ts`, `send-message.ts`,
+  `gauge-vote.ts`, `create-group.ts`, `cancel-event.ts`, `join-group.ts`) plus
+  `src/lib/supabase/proxy-session.ts`.) **The other twelve `auth.getUser()` call sites.**
+  Real, and they wait; they belong in their own slice. `send-message.ts` is the one worth
+  naming: its own call soft-fails first, so during an outage the composer says "You need
+  to be signed in to send messages" rather than reaching `getCurrentUser()` at all.
+  Misleading, visible, out of scope.
 - **A dedicated degraded screen.** Weighed and declined: it needs a result type through
   eight pages and four actions to tell the member about a mechanism they do not care
   about.
@@ -58,8 +63,10 @@ same trick `--break` already uses for Prisma.
   whose uptime we do not control.
 - **The probe's throwaway JWT is a magic string.** It exists only to force a real network
   request, and a future reader may mistake it for a credential.
-- **The thirteen other call sites now diverge from this one.** Until they are done, the
-  product's answer to "is auth down" depends on which door you came through.
+- ~~**The thirteen other call sites now diverge from this one.**~~ (Corrected 15 Sept
+  2026: twelve, see the Non-goals correction above.) **The twelve other call sites now
+  diverge from this one.** Until they are done, the product's answer to "is auth down"
+  depends on which door you came through.
 
 ---
 
@@ -218,3 +225,22 @@ stray servers.
 Report what was seen. If the screen that appears is not `error.tsx`, stop and say so
 rather than adjusting anything; that would mean the throw is being caught somewhere this
 design did not find.
+
+---
+
+## Postscript, 15 Sept 2026 (final-fix pass)
+
+This document is append-only; the following corrects rather than rewrites what is above.
+
+**The port in Task 4 and Task 5 is wrong as written, and the build did not use it.**
+Both tasks say `http://127.0.0.1:1`. The actual closed port used, under a ruling made
+during the build and recorded in `scripts/qa-health.ts`'s own header comment, is
+`127.0.0.1:65535`, not `:1`. Port 1 is on Node/undici's Fetch-spec "bad port" blocklist,
+so `fetch('http://127.0.0.1:1')` is refused by the client itself before any TCP
+connection is attempted; it still gets wrapped into `AuthRetryableFetchError` by
+auth-js's generic catch, so `--break-auth` would still report `ok: false`, but it would
+be proving only that "any fetch exception gets wrapped," not that a real network
+failure does. An independent reviewer caught this during a fix round; it was not found
+by writing the script. This section is the corresponding correction for this document's
+own two `127.0.0.1:1` references above, left in place per the project's append-only rule
+rather than silently edited to `:65535`.

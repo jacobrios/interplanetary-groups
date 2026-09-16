@@ -229,8 +229,12 @@ async function main() {
     const adapter = new PrismaPg({ connectionString: UNREACHABLE, max: 1 })
     const broken = new PrismaClient({ adapter })
     // Only user_row has to fail: the runner stops at the first failure, which
-    // is the behaviour being demonstrated.
-    const verdict = await runHealthCheck(now, realProbes(now, broken))
+    // is the behaviour being demonstrated. makeRealSupabase is passed
+    // anyway, not left to realProbes()'s own default: that default reads
+    // request cookies via next/headers and throws outside a request
+    // context, so leaving it off would report a database failure as an auth
+    // one the moment user_row's own connection error stops firing first.
+    const verdict = await runHealthCheck(now, realProbes(now, broken, makeRealSupabase))
     print("--break (unreachable database)", verdict)
     await broken.$disconnect()
 

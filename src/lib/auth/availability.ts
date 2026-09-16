@@ -9,8 +9,13 @@
 // entirely, so a network blip or a Supabase outage looks EXACTLY like "this
 // visitor has no session," and a signed-in member is logged out silently.
 // classifyAuthReply is where that raw reply becomes one of three named
-// outcomes, read in exactly one place, so a future caller cannot repeat the
-// current-user.ts mistake by reaching past this module into the raw reply.
+// outcomes. It has exactly two consumers today, current-user.ts (task 2) and
+// the health probe (task 3), so a future caller has somewhere to go instead
+// of repeating the current-user.ts mistake by reaching past this module into
+// the raw reply. That is a claim about this module's two callers, not about
+// the raw reply's readers generally: twelve other call sites still read a
+// raw getUser() reply directly (named in check.ts's "NO `select`" comment),
+// which this slice's own non-goals list as real and deliberately unmigrated.
 //
 // Why a separate module rather than a helper inside current-user.ts: the
 // health probe (task 3 of this slice) needs to classify a getUser() reply

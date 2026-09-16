@@ -5,8 +5,9 @@
 //
 // The shape of that outage is what this file is built around. A logged-out
 // visitor saw a healthy site the entire time, because getCurrentUser()
-// (src/lib/auth/current-user.ts:20) returns early before its database call
-// when there is no session. A member reached that call on every page, where
+// (src/lib/auth/current-user.ts:36, the `signed-out` branch) returns early
+// before its database call when there is no session. A member reached that
+// call on every page, where
 // an unselected `User` read named a column two missing migrations had never
 // created. So an uptime ping would have read green for four days.
 //
@@ -147,12 +148,17 @@ export async function runHealthCheck(
  *                deliberate: src/lib/supabase/server.ts's real createClient()
  *                is async and reads request cookies via next/headers, so it
  *                cannot be produced once and reused the way `client` is.
- *                Keeping realProbes(now) callable with no third argument
- *                everywhere it already is (this file's own default, the cron
- *                route, scripts/qa-health.ts's healthy path) is why the
- *                default is the real factory rather than something already
- *                invoked. scripts/qa-health.ts --break-auth (task 4) passes a
- *                factory that resolves to a client aimed at a closed port.
+ *                Keeping realProbes(now) callable with no third argument is
+ *                why the default is the real factory rather than something
+ *                already invoked, and it is right for both callers that use
+ *                it that way: this file's own default, and the cron route
+ *                (src/app/api/cron/orbit/route.ts), which both run inside a
+ *                real request where next/headers' cookies() actually works.
+ *                scripts/qa-health.ts has no request at all, so even its
+ *                healthy path cannot lean on this default: it passes its own
+ *                cookie-free makeRealSupabase explicitly. Only --break-auth
+ *                (task 4) swaps in a factory that resolves to a client aimed
+ *                at a closed port instead.
  */
 export function realProbes(
   now: Date,
@@ -168,7 +174,7 @@ export function realProbes(
         // Adding a select here silently disables the only check that would
         // have caught the four-day outage of 28-31 August 2026. The whole
         // point is that this query names every column on User, exactly as
-        // getCurrentUser() does at src/lib/auth/current-user.ts:20 and as
+        // getCurrentUser() does at src/lib/auth/current-user.ts:43 and as
         // EVERY OTHER UNSELECTED WHOLE-`User` READ IN THE CODEBASE does
         // independently. One probe covers all of them, because they are the
         // same query shape.
@@ -178,7 +184,7 @@ export function realProbes(
         // src/app/actions paths, which reads as src/app/actions/rsvp.ts, a
         // file with no user.find call at all; the real site is
         // src/lib/events/rsvp.ts:43. There were twelve others, not four, on
-        // 1 September 2026 (current-user.ts:20; app/actions gauge-vote.ts:73,
+        // 1 September 2026 (current-user.ts:43; app/actions gauge-vote.ts:73,
         // proposal-vote.ts:62, proposal-answer.ts:51; lib auth/email.ts:258
         // and :393, groups/join.ts:45, provision.ts:49, leave.ts:25,
         // remove-member.ts:26, reset-invite.ts:27, gauges/vote.ts:40,

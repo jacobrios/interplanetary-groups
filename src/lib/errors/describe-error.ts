@@ -76,15 +76,18 @@ export function describeError(err: unknown): string {
  * WHY BOTH ENDS, and this is the whole point rather than a refinement. A
  * Prisma error opens with a code frame: the class name, an "Invalid
  * `client.user.findFirst()` invocation in" line, an absolute file path, a
- * blank line, and several lines of THIS FILE'S OWN COMMENTS quoted back at
- * us. On the real --break output that preamble was 459 of the first 500
+ * blank line, and several lines of the CALLING FILE'S OWN COMMENTS quoted
+ * back at us (src/lib/health/check.ts's, for the query this was built to
+ * diagnose; this file has no failing query of its own to be quoted from).
+ * On the real --break output that preamble was 459 of the first 500
  * characters. The diagnosis, the sentence naming the missing column or the
- * unreachable host, is at the very END. Keeping the head therefore keeps our
- * own source comments and throws away the only sentence the owner needs at
- * 3am, and it did: the cause survived by about nine characters purely
- * because the comments above happened to be that length. A longer production
- * path, a minified chunk, or anybody editing those comments would have
- * pushed it off the end with nothing anywhere saying so.
+ * unreachable host, is at the very END. Keeping the head therefore keeps
+ * check.ts's own source comments and throws away the only sentence the
+ * owner needs at 3am, and it did: the cause survived by about nine
+ * characters purely because check.ts's comments above the query happened to
+ * be that length. A longer production path, a minified chunk, or anybody
+ * editing those comments would have pushed it off the end with nothing
+ * anywhere saying so.
  *
  * The result still lands at exactly DETAIL_MAX when it has to trim, so the
  * budget this function exists to enforce is unchanged.
