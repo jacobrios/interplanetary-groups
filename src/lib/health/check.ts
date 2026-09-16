@@ -133,11 +133,15 @@ export async function runHealthCheck(
  *                group_home_data would quietly test the real database.
  *
  *                NONE OF THIS COVERS supabase_auth. That probe never touches
- *                `client` at all, so an unreachable-database `--break` run
- *                reaches it not because this injection extends there but
- *                because supabase_auth runs last, behind three probes that
- *                already failed on the broken database. See the `makeSupabase`
- *                parameter below for that probe's own injection seam.
+ *                `client` at all, and `--break`'s broken-database run never
+ *                reaches it: runHealthCheck stops at the first failure, so
+ *                `--break` fails at user_row and supabase_auth never runs.
+ *                The only route to supabase_auth's own failure path is
+ *                `--break-auth` (task 4) run against a HEALTHY database,
+ *                where user_row, membership_row and group_home_data all
+ *                PASS and execution reaches this probe last, which is then
+ *                the one made to fail. See the `makeSupabase` parameter
+ *                below for that probe's own injection seam.
  *
  * @param makeSupabase  A factory, not a client instance, and that shape is
  *                deliberate: src/lib/supabase/server.ts's real createClient()
