@@ -211,14 +211,14 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const runner = fakeRunner()
-    runStop({ probe: skip, shellCwd: root, spawn: runner.spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: runner.spawn, probe: down, warn: () => {} })
     expect(runner.calls).toHaveLength(0)
   })
 
   it("never counts the outage as a pass: the edit is still owed a run", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(needsFullRun(root)).toBe(true)
   })
 
@@ -226,7 +226,7 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const said: string[] = []
-    const code = runStop({ probe: skip,
+    const code = runStop({
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: down,
@@ -242,11 +242,11 @@ describe("when the database does not answer", () => {
   it("stays silent and does not block on later turns of the same outage", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     markEdited(root) // another edit during the outage, on the real clock, so a run is owed either way
     const said: string[] = []
     const runner = fakeRunner()
-    const code = runStop({ probe: skip,
+    const code = runStop({
       shellCwd: root,
       spawn: runner.spawn,
       probe: down,
@@ -262,7 +262,7 @@ describe("when the database does not answer", () => {
     // blocked again, so announcing there would be announcing to nobody.
     const root = project()
     markEdited(root, 1_000)
-    const held = runStop({ probe: skip,
+    const held = runStop({
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: down,
@@ -270,16 +270,16 @@ describe("when the database does not answer", () => {
       warn: () => {},
     })
     expect(held).toBe(0)
-    const next = runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    const next = runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(next).toBe(2)
   })
 
   it("runs the suite exactly as before once the database answers again", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     const runner = fakeRunner()
-    const code = runStop({ probe: skip, shellCwd: root, spawn: runner.spawn, probe: up, now: clock(2_000) })
+    const code = runStop({ shellCwd: root, spawn: runner.spawn, probe: up, now: clock(2_000) })
     expect(code).toBe(0)
     expect(runner.calls[0].args).toEqual(["vitest", "run"])
     expect(needsFullRun(root)).toBe(false)
@@ -288,9 +288,9 @@ describe("when the database does not answer", () => {
   it("announces a second, later outage, because recovery resets the one-shot", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
-    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner(1).spawn, probe: up, now: clock(2_000), warn: () => {} })
-    const code = runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ shellCwd: root, spawn: fakeRunner(1).spawn, probe: up, now: clock(2_000), warn: () => {} })
+    const code = runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(code).toBe(2)
   })
 
@@ -298,7 +298,7 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const runner = fakeRunner()
-    runStop({ probe: skip,
+    runStop({
       shellCwd: root,
       spawn: runner.spawn,
       probe: () => ({ status: "skipped" }),
@@ -310,7 +310,7 @@ describe("when the database does not answer", () => {
   it("never probes on a turn that owes nothing, so talk-only turns cost no connection", () => {
     const root = project()
     let probed = 0
-    runStop({ probe: skip,
+    runStop({
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: () => {

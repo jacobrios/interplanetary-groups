@@ -21,6 +21,9 @@ import { classifyProbe, errorCode, resolveDatabaseUrl } from "./db-probe.mjs"
 const PROBE = fileURLToPath(new URL("./db-probe.mjs", import.meta.url))
 const DEAD = "postgresql://nobody:nobody@127.0.0.1:1/none"
 
+/** A partial environment, typed for the function that reads it. */
+const env = (vars: Record<string, string> = {}) => vars as unknown as NodeJS.ProcessEnv
+
 const cleanup: string[] = []
 afterEach(() => {
   for (const d of cleanup.splice(0)) rmSync(d, { recursive: true, force: true })
@@ -35,7 +38,7 @@ describe("which DATABASE_URL the probe checks", () => {
   it("prefers the environment, the same way the test runner's dotenv does", () => {
     const root = dir()
     writeFileSync(join(root, ".env"), "DATABASE_URL=postgresql://from-file/db\n")
-    expect(resolveDatabaseUrl(root, { DATABASE_URL: "postgresql://from-env/db" }, dotenvParse)).toBe(
+    expect(resolveDatabaseUrl(root, env({ DATABASE_URL: "postgresql://from-env/db" }), dotenvParse)).toBe(
       "postgresql://from-env/db"
     )
   })
@@ -49,18 +52,18 @@ describe("which DATABASE_URL the probe checks", () => {
       join(root, ".env"),
       'DATABASE_URL=postgresql://first/db\nDATABASE_URL="postgresql://last/db" # pooler\n'
     )
-    expect(resolveDatabaseUrl(root, {}, dotenvParse)).toBe(dotenvParse('DATABASE_URL="postgresql://last/db" # pooler').DATABASE_URL)
-    expect(resolveDatabaseUrl(root, {}, dotenvParse)).toBe("postgresql://last/db")
+    expect(resolveDatabaseUrl(root, env(), dotenvParse)).toBe(dotenvParse('DATABASE_URL="postgresql://last/db" # pooler').DATABASE_URL)
+    expect(resolveDatabaseUrl(root, env(), dotenvParse)).toBe("postgresql://last/db")
   })
 
   it("reports none when neither has one, which means there is nothing to check", () => {
-    expect(resolveDatabaseUrl(dir(), {}, dotenvParse)).toBeNull()
+    expect(resolveDatabaseUrl(dir(), env(), dotenvParse)).toBeNull()
   })
 
   it("reports none when the project has no dotenv to read .env with", () => {
     const root = dir()
     writeFileSync(join(root, ".env"), "DATABASE_URL=postgresql://x/db\n")
-    expect(resolveDatabaseUrl(root, {})).toBeNull()
+    expect(resolveDatabaseUrl(root, env())).toBeNull()
   })
 })
 
