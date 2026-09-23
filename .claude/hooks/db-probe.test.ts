@@ -15,7 +15,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
-import { errorCode, resolveDatabaseUrl } from "./db-probe.mjs"
+import { parse as dotenvParse } from "dotenv"
+import { classifyProbe, errorCode, resolveDatabaseUrl } from "./db-probe.mjs"
 
 const PROBE = fileURLToPath(new URL("./db-probe.mjs", import.meta.url))
 const DEAD = "postgresql://nobody:nobody@127.0.0.1:1/none"
@@ -34,19 +35,32 @@ describe("which DATABASE_URL the probe checks", () => {
   it("prefers the environment, the same way the test runner's dotenv does", () => {
     const root = dir()
     writeFileSync(join(root, ".env"), "DATABASE_URL=postgresql://from-file/db\n")
-    expect(resolveDatabaseUrl(root, { DATABASE_URL: "postgresql://from-env/db" })).toBe(
+    expect(resolveDatabaseUrl(root, { DATABASE_URL: "postgresql://from-env/db" }, dotenvParse)).toBe(
       "postgresql://from-env/db"
     )
   })
 
-  it("falls back to the project's .env, quotes and all", () => {
+  it("reads the project's .env exactly as dotenv does: quotes, comments, repeats", () => {
+    // Found by review: a hand-rolled parser disagreed with dotenv on all four of
+    // these, and disagreeing means probing a URL the tests never use, which is
+    // the one way this probe can call a working database down.
     const root = dir()
-    writeFileSync(join(root, ".env"), 'OTHER=1\nDATABASE_URL="postgresql://from-file/db"\n')
-    expect(resolveDatabaseUrl(root, {})).toBe("postgresql://from-file/db")
+    writeFileSync(
+      join(root, ".env"),
+      'DATABASE_URL=postgresql://first/db\nDATABASE_URL="postgresql://last/db" # pooler\n'
+    )
+    expect(resolveDatabaseUrl(root, {}, dotenvParse)).toBe(dotenvParse('DATABASE_URL="postgresql://last/db" # pooler').DATABASE_URL)
+    expect(resolveDatabaseUrl(root, {}, dotenvParse)).toBe("postgresql://last/db")
   })
 
   it("reports none when neither has one, which means there is nothing to check", () => {
-    expect(resolveDatabaseUrl(dir(), {})).toBeNull()
+    expect(resolveDatabaseUrl(dir(), {}, dotenvParse)).toBeNull()
+  })
+
+  it("reports none when the project has no dotenv to read .env with", () => {
+    const root = dir()
+    writeFileSync(join(root, ".env"), "DATABASE_URL=postgresql://x/db\n")
+    expect(resolveDatabaseUrl(root, {})).toBeNull()
   })
 })
 
@@ -97,5 +111,30 @@ describe("the probe, run for real", () => {
     delete env.DATABASE_URL
     const r = spawnSync(process.execPath, [PROBE], { cwd: root, env, encoding: "utf8" })
     expect(r.status).toBe(3)
+  })
+})
+
+describe("reading the probe's answer", () => {
+  // Found by review: treating every exit other than 0 and 3 as "down" meant a
+  // crashing probe would silently switch the gate off. Only a clean "did not
+  // answer" (exit 1 with a code) is an outage; anything else means the probe
+  // itself is broken, and a broken probe must fall back to running the suite.
+  it("calls it down only for exit 1 with a code", () => {
+    expect(classifyProbe({ status: 1, stdout: "ECIRCUITBREAKER" })).toEqual({
+      status: "down",
+      code: "ECIRCUITBREAKER",
+    })
+  })
+  it("calls it ok for exit 0", () => {
+    expect(classifyProbe({ status: 0, stdout: "" })).toEqual({ status: "ok" })
+  })
+  it("steps aside on a crash with no code, rather than switching the gate off", () => {
+    expect(classifyProbe({ status: 1, stdout: "" }).status).toBe("skipped")
+  })
+  it("steps aside when the probe was killed or never started", () => {
+    expect(classifyProbe({ status: null, stdout: "" }).status).toBe("skipped")
+  })
+  it("steps aside on its own nothing-to-check exit", () => {
+    expect(classifyProbe({ status: 3, stdout: "no pg driver" }).status).toBe("skipped")
   })
 })

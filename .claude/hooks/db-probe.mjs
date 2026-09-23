@@ -27,24 +27,47 @@ import { join } from "node:path"
 
 export const PROBE_TIMEOUT_MS = 4_000
 
-/** DATABASE_URL the way the test runner will see it: the environment wins, then the project's .env. */
-export function resolveDatabaseUrl(root, env = process.env) {
+/** The project's own dotenv parser, or null when the project has none. */
+function projectDotenvParse(root) {
+  try {
+    return createRequire(join(root, "package.json"))("dotenv").parse
+  } catch {
+    return null
+  }
+}
+
+/**
+ * DATABASE_URL the way the test runner will see it: the environment wins, then
+ * the project's .env read by the project's OWN dotenv. Not a hand-rolled
+ * parser: review found one disagreeing with dotenv on quotes, trailing
+ * comments, backticks and repeated keys, and probing a URL the tests never use
+ * is the one way this probe can call a working database down. No dotenv means
+ * nothing to check, which runs the suite as before.
+ */
+export function resolveDatabaseUrl(root, env = process.env, parse = projectDotenvParse(root)) {
   if (env.DATABASE_URL) return env.DATABASE_URL
+  if (!parse) return null
   let text
   try {
     text = readFileSync(join(root, ".env"), "utf8")
   } catch {
     return null
   }
-  for (const line of text.split(/\r?\n/)) {
-    const m = line.match(/^\s*(?:export\s+)?DATABASE_URL\s*=\s*(.*?)\s*$/)
-    if (!m) continue
-    let value = m[1]
-    const quoted = /^(["']).*\1$/.test(value)
-    if (quoted) value = value.slice(1, -1)
-    return value || null
-  }
-  return null
+  return parse(text).DATABASE_URL || null
+}
+
+/**
+ * How the stop hook reads this script's exit. Only a clean "did not answer",
+ * exit 1 WITH a code, is an outage. Anything else (a crash with no output, a
+ * kill, a spawn that never started) means the probe itself is broken, and a
+ * broken probe must fall back to running the suite rather than quietly
+ * switching the gate off. Found by review.
+ */
+export function classifyProbe({ status, stdout }) {
+  if (status === 0) return { status: "ok" }
+  const code = String(stdout || "").trim()
+  if (status === 1 && code) return { status: "down", code }
+  return { status: "skipped" }
 }
 
 /** The short code worth printing: the pooler's own "(ECIRCUITBREAKER)", else the driver's code. */
@@ -72,18 +95,20 @@ async function main() {
   }
 
   // A hard ceiling over the driver's own timeouts, so nothing it does can hold
-  // the stop hook open past it.
+  // the stop hook open past it. It prints TIMEOUT, so it reads as an outage.
   setTimeout(() => {
     process.stdout.write("TIMEOUT")
     process.exit(1)
   }, PROBE_TIMEOUT_MS + 500).unref()
 
-  const client = new pg.Client({
-    connectionString: url,
-    connectionTimeoutMillis: PROBE_TIMEOUT_MS,
-    query_timeout: PROBE_TIMEOUT_MS,
-  })
   try {
+    // Inside the try on purpose: a URL the driver cannot parse must report a
+    // code, not crash silently. Found by review.
+    const client = new pg.Client({
+      connectionString: url,
+      connectionTimeoutMillis: PROBE_TIMEOUT_MS,
+      query_timeout: PROBE_TIMEOUT_MS,
+    })
     await client.connect()
     await client.query("SELECT 1")
     await client.end().catch(() => {})

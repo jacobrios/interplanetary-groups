@@ -27,6 +27,13 @@ const HOOK = fileURLToPath(
 const cleanup: string[] = []
 
 /**
+ * The default for every case that is not about the database: behave as a
+ * project with nothing to probe. Without it these cases would spawn the real
+ * probe and stay off the database only because a temp folder cannot find pg.
+ */
+const skip = () => ({ status: "skipped" })
+
+/**
  * A throwaway project with its stamps registered for cleanup.
  *
  * CLAUDE_PROJECT_DIR is pinned to it deliberately. The suite runs inside a real
@@ -70,7 +77,7 @@ describe("when no edit is waiting", () => {
   it("runs nothing, so a reviewer or explorer finishes free", () => {
     const root = project()
     const runner = fakeRunner()
-    const code = runStop({ shellCwd: root, spawn: runner.spawn })
+    const code = runStop({ probe: skip, shellCwd: root, spawn: runner.spawn })
     expect(code).toBe(0)
     expect(runner.calls).toHaveLength(0)
   })
@@ -81,7 +88,7 @@ describe("when an edit is waiting", () => {
     const root = project()
     markEdited(root, 1_000)
     const runner = fakeRunner()
-    runStop({ shellCwd: root, spawn: runner.spawn, now: clock(2_000) })
+    runStop({ probe: skip, shellCwd: root, spawn: runner.spawn, now: clock(2_000) })
 
     expect(runner.calls).toHaveLength(1)
     expect(runner.calls[0].args).toEqual(["vitest", "run"])
@@ -91,14 +98,14 @@ describe("when an edit is waiting", () => {
   it("clears the debt once the suite has run green", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ shellCwd: root, spawn: fakeRunner().spawn, now: clock(2_000) })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, now: clock(2_000) })
     expect(needsFullRun(root)).toBe(false)
   })
 
   it("keeps the debt when the suite failed, so the next finish runs it again", () => {
     const root = project()
     markEdited(root, 1_000)
-    const code = runStop({
+    const code = runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner(1).spawn,
       now: clock(2_000),
@@ -114,7 +121,7 @@ describe("when an edit is waiting", () => {
     const root = project()
     markEdited(root, 1_000)
     const midRunEdit = () => markEdited(root, 3_000)
-    runStop({
+    runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner(0, midRunEdit).spawn,
       now: clock(2_000, 4_000),
@@ -129,7 +136,7 @@ describe("when the harness says a stop hook is already holding this agent", () =
     // is the backstop: the suite's before and after numbers go in the PR body.
     const root = project()
     markEdited(root, 1_000)
-    const code = runStop({
+    const code = runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner(1).spawn,
       now: clock(2_000),
@@ -145,7 +152,7 @@ describe("when the harness says a stop hook is already holding this agent", () =
     const root = project()
     markEdited(root, 1_000)
     const said: string[] = []
-    runStop({
+    runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner(1).spawn,
       now: clock(2_000),
@@ -163,7 +170,7 @@ describe("when the harness says a stop hook is already holding this agent", () =
   it("keeps the debt when it gives up, so the next finish tries again", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({
+    runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner(1).spawn,
       now: clock(2_000),
@@ -204,14 +211,14 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const runner = fakeRunner()
-    runStop({ shellCwd: root, spawn: runner.spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: runner.spawn, probe: down, warn: () => {} })
     expect(runner.calls).toHaveLength(0)
   })
 
   it("never counts the outage as a pass: the edit is still owed a run", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(needsFullRun(root)).toBe(true)
   })
 
@@ -219,7 +226,7 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const said: string[] = []
-    const code = runStop({
+    const code = runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: down,
@@ -235,11 +242,11 @@ describe("when the database does not answer", () => {
   it("stays silent and does not block on later turns of the same outage", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     markEdited(root) // another edit during the outage, on the real clock, so a run is owed either way
     const said: string[] = []
     const runner = fakeRunner()
-    const code = runStop({
+    const code = runStop({ probe: skip,
       shellCwd: root,
       spawn: runner.spawn,
       probe: down,
@@ -255,7 +262,7 @@ describe("when the database does not answer", () => {
     // blocked again, so announcing there would be announcing to nobody.
     const root = project()
     markEdited(root, 1_000)
-    const held = runStop({
+    const held = runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: down,
@@ -263,16 +270,16 @@ describe("when the database does not answer", () => {
       warn: () => {},
     })
     expect(held).toBe(0)
-    const next = runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    const next = runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(next).toBe(2)
   })
 
   it("runs the suite exactly as before once the database answers again", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     const runner = fakeRunner()
-    const code = runStop({ shellCwd: root, spawn: runner.spawn, probe: up, now: clock(2_000) })
+    const code = runStop({ probe: skip, shellCwd: root, spawn: runner.spawn, probe: up, now: clock(2_000) })
     expect(code).toBe(0)
     expect(runner.calls[0].args).toEqual(["vitest", "run"])
     expect(needsFullRun(root)).toBe(false)
@@ -281,9 +288,9 @@ describe("when the database does not answer", () => {
   it("announces a second, later outage, because recovery resets the one-shot", () => {
     const root = project()
     markEdited(root, 1_000)
-    runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
-    runStop({ shellCwd: root, spawn: fakeRunner(1).spawn, probe: up, now: clock(2_000), warn: () => {} })
-    const code = runStop({ shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
+    runStop({ probe: skip, shellCwd: root, spawn: fakeRunner(1).spawn, probe: up, now: clock(2_000), warn: () => {} })
+    const code = runStop({ probe: skip, shellCwd: root, spawn: fakeRunner().spawn, probe: down, warn: () => {} })
     expect(code).toBe(2)
   })
 
@@ -291,7 +298,7 @@ describe("when the database does not answer", () => {
     const root = project()
     markEdited(root, 1_000)
     const runner = fakeRunner()
-    runStop({
+    runStop({ probe: skip,
       shellCwd: root,
       spawn: runner.spawn,
       probe: () => ({ status: "skipped" }),
@@ -303,7 +310,7 @@ describe("when the database does not answer", () => {
   it("never probes on a turn that owes nothing, so talk-only turns cost no connection", () => {
     const root = project()
     let probed = 0
-    runStop({
+    runStop({ probe: skip,
       shellCwd: root,
       spawn: fakeRunner().spawn,
       probe: () => {

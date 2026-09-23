@@ -33,6 +33,7 @@
 
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
+import { classifyProbe } from "./db-probe.mjs"
 import { resolveProjectRoot } from "./project-root.mjs"
 import {
   clearOutage,
@@ -56,9 +57,7 @@ function defaultSpawn(cwd, args) {
  */
 function defaultProbe(root) {
   const r = spawnSync(process.execPath, [PROBE], { cwd: root, encoding: "utf8", timeout: 8_000 })
-  if (r.status === 0) return { status: "ok" }
-  if (r.status === 3) return { status: "skipped" }
-  return { status: "down", code: (r.stdout || "").trim() || "TIMEOUT" }
+  return classifyProbe(r)
 }
 
 /**

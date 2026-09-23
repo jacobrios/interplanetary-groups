@@ -112,14 +112,19 @@ export function needsFullRun(root) {
 // checkout share one announcement. It never touches the edit or run stamps:
 // an outage must never count as a pass.
 
-/** True when this outage has already been announced. */
-export function outageAnnounced(root) {
-  try {
-    readFileSync(stampPaths(root).outage)
-    return true
-  } catch {
-    return false
-  }
+/**
+ * An announcement older than this is treated as belonging to an earlier
+ * outage. The marker is only cleared on a turn that owes a run while the
+ * database answers, so a recovery nobody observed would otherwise hide the
+ * next outage for good. Found by review.
+ */
+export const OUTAGE_ANNOUNCEMENT_TTL_MS = 3 * 60 * 60 * 1000
+
+/** True when this outage has already been announced. Unreadable means no: one extra line is harmless. */
+export function outageAnnounced(root, now = Date.now()) {
+  const at = readStamp(stampPaths(root).outage)
+  if (at === null || Number.isNaN(at)) return false
+  return now - at < OUTAGE_ANNOUNCEMENT_TTL_MS
 }
 
 /** Record that the current outage has been announced. */
