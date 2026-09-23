@@ -8196,3 +8196,17 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 **The open question, the owner's and not settled here.** `LiveRefresh` polls the group home every ten seconds, so while auth is degraded a member who is only **reading** an already-rendered feed is pulled to the error screen within ten seconds. Review confirmed it does not wedge, does not loop, and the parked draft survives, so nothing is broken. But it is the opposite of the 8 September offline decision, where the product deliberately keeps the member on the screen they had and says nothing. Nobody surfaced this until the final review. One micro-PR either way, nothing built on top of it.
 
 *Postscript, 23 September 2026: settled by the owner before the merge, on the build's recommendation. Ship as is: a reading member is pulled to the error screen. The 8 September offline decision does not carry over, because the two failures differ in what the member can see. Offline is visible on their own phone, so leaving them on a stale screen misleads nobody. An auth outage is invisible to them, so a screen that still looks alive while it cannot send, vote or RSVP would be the silent failure this slice exists to remove. No code changed.*
+
+---
+
+## §11 entry: the full-suite hook stops hammering a dead database (23 Sep 2026)
+
+*A micro-PR against the safety nets, not a product slice.*
+
+**What happened.** The dev-test database paused after a week idle. Restored, its pooler tripped a circuit breaker on failed logins. Every turn that owed a run then fired the whole suite at it anyway: about three hundred failed logins a time, plausibly keeping the lockout alive, and a 295-failure wall printed after every turn in every session sharing the checkout.
+
+**Decided.** The full-suite hook asks the database one question first (`db-probe.mjs`: one `SELECT 1` through the tests' own door, `pg` with `DATABASE_URL` as the project's dotenv reads it, about four seconds at most). Unreachable means: the suite is not run, the owed edit is **not** forgiven, and the agent is told once per outage in one line. Reachable, or no database configured: exactly as before. The per-edit hook is deliberately untouched, since a probe there would cost a remote round trip on every edit forever.
+
+**Chosen over alternatives.** Exit 0 alone was rejected on review by the session that hit the outage: a stop hook's stderr under exit 0 never reaches the agent, so a skip would look like a pass. A held turn does not spend the announcement, for the same reason.
+
+**Debt, accepted.** Two sessions in one checkout share one announcement, so the second session's agent is never told; the owed run still waits for it. A slow first login after the database resumes can read as one false outage; the next owed turn probes again. And the reachable path has not been seen end to end on a real database, because it was locked out the whole time this was built; the unit tests cover it.
