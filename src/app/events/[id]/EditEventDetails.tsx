@@ -18,7 +18,7 @@
 // the rest of the page (roster card, cancel control, calendar button) never
 // moves.
 
-import { useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { editEventAction, type EditEventState } from "@/app/actions/edit-event"
 import { EDIT_TITLE_MAX } from "@/lib/events/edit-details"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
@@ -102,6 +102,26 @@ export default function EditEventDetails({
   const [timeValue, setTimeValue] = useState(timeLocal)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  // What the form showed when it was opened, snapshotted once at open and
+  // sent with every save. The server compares against these rather than
+  // the stored row, because this page does not live-refresh: a form opened
+  // minutes ago must not read somebody else's newer change as this member
+  // asking to undo it. Snapshotted, not read from props at save time, so a
+  // refresh landing under an open form cannot move the baseline either.
+  const [opened, setOpened] = useState({ title, place, dateLocal, timeLocal })
+
+  // Focus follows the swap: into the first field when the form opens, back
+  // to the Edit control when it closes, so a keyboard or screen-reader user
+  // is never dropped onto a control that just unmounted. A ref, not state,
+  // so it only acts on a swap this component caused (never on first render).
+  const titleRef = useRef<HTMLInputElement>(null)
+  const editButtonRef = useRef<HTMLButtonElement>(null)
+  const focusAfterSwap = useRef<"title" | "edit" | null>(null)
+  useEffect(() => {
+    if (focusAfterSwap.current === "title") titleRef.current?.focus()
+    else if (focusAfterSwap.current === "edit") editButtonRef.current?.focus()
+    focusAfterSwap.current = null
+  }, [editing])
 
   function openForm() {
     // Fields are re-seeded from the page's current props every time the
@@ -112,12 +132,15 @@ export default function EditEventDetails({
     setPlaceValue(place)
     setDateValue(dateLocal)
     setTimeValue(timeLocal)
+    setOpened({ title, place, dateLocal, timeLocal })
     setErrorMsg(null)
+    focusAfterSwap.current = "title"
     setEditing(true)
   }
 
   function cancelForm() {
     setErrorMsg(null)
+    focusAfterSwap.current = "edit"
     setEditing(false)
   }
 
@@ -130,11 +153,16 @@ export default function EditEventDetails({
       formData.set("place", placeValue)
       formData.set("dateLocal", dateValue)
       formData.set("timeLocal", timeValue)
+      formData.set("origTitle", opened.title)
+      formData.set("origPlace", opened.place)
+      formData.set("origDateLocal", opened.dateLocal)
+      formData.set("origTimeLocal", opened.timeLocal)
       const result: EditEventState = await editEventAction({}, formData)
       if (result?.errors?.general) {
         setErrorMsg(result.errors.general)
         return
       }
+      focusAfterSwap.current = "edit"
       setEditing(false)
     })
   }
@@ -145,6 +173,7 @@ export default function EditEventDetails({
         {children}
         <div style={{ textAlign: "right", marginTop: "6px" }}>
           <button
+            ref={editButtonRef}
             type="button"
             onClick={openForm}
             aria-label="Edit this plan"
@@ -173,6 +202,7 @@ export default function EditEventDetails({
           Title
         </label>
         <input
+          ref={titleRef}
           id="edit-event-title"
           type="text"
           value={titleValue}

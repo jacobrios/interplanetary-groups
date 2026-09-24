@@ -132,3 +132,78 @@ describe("EditEventDetails, editing", () => {
     expect(screen.queryByLabelText("Title")).toBeNull()
   })
 })
+
+describe("EditEventDetails, what the form was opened with", () => {
+  it("sends the values it was opened with alongside the edited ones", async () => {
+    const { rerender } = render(
+      <EditEventDetails {...baseProps}>
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Edit this plan" }))
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Bouldering" } })
+
+    // The page re-renders underneath an open form (a refresh landing): the
+    // baseline is still what the member was looking at when they opened it.
+    rerender(
+      <EditEventDetails {...baseProps} title="Renamed elsewhere" timeLocal="19:00">
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(editEventAction).toHaveBeenCalledTimes(1))
+    const [, formData] = editEventAction.mock.calls[0] as [unknown, FormData]
+    expect(formData.get("title")).toBe("Bouldering")
+    expect(formData.get("origTitle")).toBe("Climbing")
+    expect(formData.get("origPlace")).toBe("The climbing gym")
+    expect(formData.get("origDateLocal")).toBe("2099-06-05")
+    expect(formData.get("origTimeLocal")).toBe("18:00")
+  })
+})
+
+describe("EditEventDetails, focus", () => {
+  it("moves focus to the Title field when the form opens", () => {
+    render(
+      <EditEventDetails {...baseProps}>
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Edit this plan" }))
+    expect(document.activeElement).toBe(screen.getByLabelText("Title"))
+  })
+
+  it("returns focus to the Edit control after Never mind", () => {
+    render(
+      <EditEventDetails {...baseProps}>
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Edit this plan" }))
+    fireEvent.click(screen.getByRole("button", { name: "Never mind" }))
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit this plan" }))
+  })
+
+  it("returns focus to the Edit control after a successful save", async () => {
+    render(
+      <EditEventDetails {...baseProps}>
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Edit this plan" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(screen.getByText("the static view")).toBeTruthy())
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit this plan" }))
+  })
+
+  it("does not take focus on first render", () => {
+    render(
+      <EditEventDetails {...baseProps}>
+        <p>the static view</p>
+      </EditEventDetails>
+    )
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
