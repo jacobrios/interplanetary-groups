@@ -19,8 +19,9 @@
 
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, type Event, type Prisma } from "@prisma/client"
-import { parseRhythm, parseStoredRhythms } from "@/lib/orbit/rhythm"
+import { parseRhythm, parseStoredRhythms, type GroupRhythm } from "@/lib/orbit/rhythm"
 import { computeNextOccurrence } from "@/lib/orbit/occurrence"
+import { startOfLocalDay } from "@/lib/orbit/spark-copy"
 import { buildDetailsAnnouncement, type PlanOutcome } from "@/lib/orbit/details-copy"
 import { applyDetailChangeInTx } from "@/lib/events/edit-details"
 import { moveEventCoreInTx } from "@/lib/events/move"
@@ -51,6 +52,28 @@ export async function findNextRhythmPlan(
     where: { groupId, gaugeId: null, status: EventStatus.SCHEDULED, startsAt: { gt: now } },
     orderBy: { startsAt: "asc" },
   })
+}
+
+/**
+ * Where the next plan goes when the rhythm's days or time change: searched
+ * from the start of the plan's OWN local day, so a time change stays on the
+ * plan's day and a day change lands in the days following it. Searching from
+ * `now` instead would pull a plan that is not the rhythm's very next
+ * occurrence (say, a week out) a week earlier. Minus 1ms so an occurrence
+ * exactly at local midnight still counts. When that lands at or before `now`
+ * (the plan is today and the new time has already passed), the next
+ * occurrence after now instead. Shared by the direct move and the vote.
+ */
+export function proposedStartForPlan(
+  rhythm: GroupRhythm,
+  timeZone: string,
+  planStartsAt: Date,
+  now: Date
+): Date {
+  const dayStart = new Date(startOfLocalDay(planStartsAt, timeZone).getTime() - 1)
+  const onPlanDay = computeNextOccurrence(rhythm, timeZone, dayStart)
+  if (onPlanDay.getTime() > now.getTime()) return onPlanDay
+  return computeNextOccurrence(rhythm, timeZone, now)
 }
 
 export interface UpdateGroupDetailsInput {
@@ -182,7 +205,12 @@ export async function updateGroupDetails(
 
         if (first.schedule) {
           // validateDetailsEdit guarantees the primary rhythm is schedulable.
-          const next = computeNextOccurrence(parseRhythm(v.rhythms)!, group.timeZone, now)
+          const next = proposedStartForPlan(
+            parseRhythm(v.rhythms)!,
+            group.timeZone,
+            plan.startsAt,
+            now
+          )
           if (next.getTime() !== plan.startsAt.getTime()) {
             if (memberCount === 1) {
               // Founder alone: nobody else's yes is at stake, so the plan

@@ -620,4 +620,83 @@ describe("updateGroupDetails", () => {
     expect(messages[0].body).not.toContain("is updated too")
     expect(messages[0].body).not.toContain("Move")
   })
+
+  describe("the proposed start stays on the plan's own day", () => {
+    // A plan a week further out than the rhythm's next occurrence from NOW:
+    // Sat 2099-06-20 09:00 America/Chicago == 14:00 UTC.
+    const LATER = new Date("2099-06-20T14:00:00Z")
+
+    async function movePlanTo(startsAt: Date) {
+      await prisma.event.update({ where: { id: eventId! }, data: { startsAt } })
+    }
+
+    async function onlyProposal() {
+      const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+      expect(proposals).toHaveLength(1)
+      return proposals[0]
+    }
+
+    it("(a) a time change proposes the new time on the plan's own day", async () => {
+      await movePlanTo(LATER)
+      const result = await updateGroupDetails(
+        input({
+          rhythms: [{ ...EDIT_SAME, timeLocal: "08:00" }],
+          planChoice: "update",
+          openedPlan: { eventId: eventId!, startsAt: LATER.toISOString() },
+        })
+      )
+      expect(result).toEqual({ status: "ok" })
+      // Sat 2099-06-20 08:00 Chicago == 13:00 UTC, not Sat Jun 13.
+      expect((await onlyProposal()).proposedStartsAt.toISOString()).toBe("2099-06-20T13:00:00.000Z")
+      expect(await orbitMessages()).toHaveLength(1)
+    })
+
+    it("(a, founder alone) the direct move uses the same computation", async () => {
+      await removeRiley()
+      await movePlanTo(LATER)
+      const result = await updateGroupDetails(
+        input({
+          rhythms: [{ ...EDIT_SAME, timeLocal: "08:00" }],
+          planChoice: "update",
+          openedPlan: { eventId: eventId!, startsAt: LATER.toISOString() },
+        })
+      )
+      expect(result).toEqual({ status: "ok" })
+      const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+      expect(event.startsAt.toISOString()).toBe("2099-06-20T13:00:00.000Z")
+      expect(await orbitMessages()).toHaveLength(0)
+    })
+
+    it("(b) a day change lands in the days following the plan", async () => {
+      await movePlanTo(LATER)
+      const result = await updateGroupDetails(
+        input({
+          rhythms: [{ ...EDIT_SAME, daysOfWeek: [0] }],
+          planChoice: "update",
+          openedPlan: { eventId: eventId!, startsAt: LATER.toISOString() },
+        })
+      )
+      expect(result).toEqual({ status: "ok" })
+      // Sun 2099-06-21 09:00 Chicago == 14:00 UTC.
+      expect((await onlyProposal()).proposedStartsAt.toISOString()).toBe("2099-06-21T14:00:00.000Z")
+    })
+
+    it("(c) plan today and the new time already passed: falls back to the next occurrence after now", async () => {
+      // Plan Sat 2099-06-13 11:00 Chicago (16:00 UTC); now is 10:30 that morning.
+      const planToday = new Date("2099-06-13T16:00:00Z")
+      const nowToday = new Date("2099-06-13T15:30:00Z")
+      await movePlanTo(planToday)
+      const result = await updateGroupDetails(
+        input({
+          rhythms: [{ ...EDIT_SAME, timeLocal: "08:00" }],
+          planChoice: "update",
+          openedPlan: { eventId: eventId!, startsAt: planToday.toISOString() },
+          now: nowToday,
+        })
+      )
+      expect(result).toEqual({ status: "ok" })
+      // Sat 08:00 today has passed, so the next Sat 08:00: 2099-06-20 13:00 UTC.
+      expect((await onlyProposal()).proposedStartsAt.toISOString()).toBe("2099-06-20T13:00:00.000Z")
+    })
+  })
 })
