@@ -208,8 +208,18 @@ export default function OnboardingWizard({ knownName }: Props) {
         founderName,
         groupName,
         description,
+        // Trim the activity here too, not just venueName: handleRhythmChange
+        // below already derives `title` from a trimmed activity, so an
+        // untrimmed `activity` traveling to the server is the one field left
+        // disagreeing with its own title. Left alone, "padel " (trailing
+        // space) creates the group, and the founder's first group-info save
+        // afterward trims it there, which diffDetails then reports as a
+        // rename the founder never made (CLAUDE.md: stored state is not
+        // display, carry it, do not regenerate it — the inverse failure
+        // here is a value nobody actually changed reading as changed).
         rhythms: rhythms.map((r) => ({
           ...r,
+          activity: r.activity.trim(),
           venueName: r.venueName?.trim() ? r.venueName.trim() : null,
         })),
         timeZone,

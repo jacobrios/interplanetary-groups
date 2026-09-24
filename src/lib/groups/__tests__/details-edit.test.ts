@@ -52,6 +52,14 @@ it("derives the title from a renamed activity", () => {
   const r = validateDetailsEdit(STORED, edit({ rhythms: rh }))
   expect(r.ok && r.rhythms[0].title).toBe("Padel")
 })
+it("carries a legacy stored title unchanged when its activity was not touched (CLAUDE.md: carry stored state, do not regenerate it)", () => {
+  const legacy: StoredRhythm[] = [
+    { ...STORED[0], title: "Climbing Mon & Wed" },
+    STORED[1],
+  ]
+  const r = validateDetailsEdit(legacy, { name: "Saturday Tennis", rhythms: legacy.map(toRhythmEdit) })
+  expect(r.ok && r.rhythms[0].title).toBe("Climbing Mon & Wed")
+})
 it("dedupes and sorts days, dropping out-of-range values", () => {
   const rh = STORED.map(toRhythmEdit); rh[0] = { ...rh[0], daysOfWeek: [6, 1, 1, 9] }
   const r = validateDetailsEdit(STORED, edit({ rhythms: rh }))

@@ -12,6 +12,7 @@ const TZ = "America/Chicago"
 const NOW = new Date("2099-06-10T12:00:00Z") // Wednesday
 const SAT = new Date("2099-06-13T14:00:00Z") // Sat 9am America/Chicago
 const SUN8 = new Date("2099-06-14T13:00:00Z") // Sun 8am America/Chicago
+const FAR_SUN8 = new Date("2099-06-21T13:00:00Z") // Sun 8am America/Chicago, 11 days out
 
 const BEFORE: StoredRhythm[] = [
   {
@@ -135,6 +136,54 @@ describe("buildDetailsAnnouncement", () => {
       now: NOW,
     })
     expect(result).toBe("Casey changed tennis to Sun at 8am, every week. Move the plan this Sat to Sun 8am too?")
+  })
+
+  it("vote proposed time a week or more away carries the date, so 'Move it to Fri 8pm' cannot mean the wrong Friday", () => {
+    const after = afterWith({ daysOfWeek: [0], timeLocal: "08:00", venueName: "Court 5" })
+    const diff = diffDetails(BEFORE, after, "Group", "Group")
+    const plan: PlanOutcome = {
+      kind: "vote",
+      startsAt: SAT,
+      proposedStartsAt: FAR_SUN8,
+      detailsUpdated: true,
+    }
+    const result = buildDetailsAnnouncement({
+      founderName: "Casey",
+      after,
+      before: BEFORE,
+      diff,
+      memberCount: 3,
+      plan,
+      timeZone: TZ,
+      now: NOW,
+    })
+    expect(result).toBe(
+      "Casey changed tennis to Sun at 8am, every week, and changed the spot for tennis to Court 5. The plan this Sat is updated too. Move it to Sun, Jun 21 8am as well?"
+    )
+  })
+
+  it("vote proposed time a week or more away, details not updated: same dated form on the plain ask", () => {
+    const after = afterWith({ daysOfWeek: [0], timeLocal: "08:00" })
+    const diff = diffDetails(BEFORE, after, "Group", "Group")
+    const plan: PlanOutcome = {
+      kind: "vote",
+      startsAt: SAT,
+      proposedStartsAt: FAR_SUN8,
+      detailsUpdated: false,
+    }
+    const result = buildDetailsAnnouncement({
+      founderName: "Casey",
+      after,
+      before: BEFORE,
+      diff,
+      memberCount: 3,
+      plan,
+      timeZone: TZ,
+      now: NOW,
+    })
+    expect(result).toBe(
+      "Casey changed tennis to Sun at 8am, every week. Move the plan this Sat to Sun, Jun 21 8am too?"
+    )
   })
 
   it("rename + schedule + spot, no plan (none)", () => {

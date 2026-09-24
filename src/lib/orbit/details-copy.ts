@@ -11,6 +11,7 @@
 
 import { formatWeekdayShort, formatTime, formatMonthDay } from "@/lib/events/format"
 import { whenPhrase } from "./change-copy"
+import { startOfLocalDay, THIS_WEEK_DAYS } from "./spark-copy"
 import { formatRhythmRow } from "./playback"
 import type { StoredRhythm } from "./rhythm"
 import type { DetailsDiff } from "@/lib/groups/details-edit"
@@ -69,6 +70,23 @@ function joinClauses(clauses: string[]): string {
   return `${clauses.slice(0, -1).join(", ")}, and ${clauses[clauses.length - 1]}`
 }
 
+/**
+ * "Fri 8pm" inside the week, "Fri, Jun 21 8pm" a week or more out. Weekday
+ * plus time alone is ambiguous once the proposed start is far enough away
+ * that "Fri" could mean more than one Friday; the same 7-day threshold
+ * whenPhrase uses for its own "on Sun, Jun 21" form.
+ */
+function proposedTimeLabel(proposedStartsAt: Date, timeZone: string, now: Date): string {
+  const daysAway = Math.round(
+    (proposedStartsAt.getTime() - startOfLocalDay(now, timeZone).getTime()) / 86_400_000
+  )
+  const day = formatWeekdayShort(proposedStartsAt, timeZone)
+  const time = formatTime(proposedStartsAt, timeZone)
+  return daysAway >= THIS_WEEK_DAYS
+    ? `${day}, ${formatMonthDay(proposedStartsAt, timeZone)} ${time}`
+    : `${day} ${time}`
+}
+
 /** The sentence about the next plan, appended with a space, or null when there is none to say. */
 function planSentence(plan: PlanOutcome, timeZone: string, now: Date): string | null {
   if (plan.kind === "none") return null
@@ -80,11 +98,10 @@ function planSentence(plan: PlanOutcome, timeZone: string, now: Date): string | 
     case "updated":
       return `The plan ${w} is updated too.`
     case "vote": {
-      const day = formatWeekdayShort(plan.proposedStartsAt, timeZone)
-      const time = formatTime(plan.proposedStartsAt, timeZone)
+      const proposed = proposedTimeLabel(plan.proposedStartsAt, timeZone, now)
       return plan.detailsUpdated
-        ? `The plan ${w} is updated too. Move it to ${day} ${time} as well?`
-        : `Move the plan ${w} to ${day} ${time} too?`
+        ? `The plan ${w} is updated too. Move it to ${proposed} as well?`
+        : `Move the plan ${w} to ${proposed} too?`
     }
   }
 }

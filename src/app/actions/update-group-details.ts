@@ -87,6 +87,10 @@ export async function updateGroupDetailsAction(
   // is showing an out-of-date plan, and the founder needs the current one.
   revalidatePath(`/groups/${groupId}/info`)
   revalidatePath(`/groups/${groupId}`)
+  // /groups lists every group the session is in by name (the second-group
+  // entry point), so a rename must reach it too or it goes on showing the
+  // old name until something else happens to revalidate that route.
+  revalidatePath("/groups")
   if (planEventId) revalidatePath(`/events/${planEventId}`)
 
   if (result.status === "error") return { errors: { general: result.message } }

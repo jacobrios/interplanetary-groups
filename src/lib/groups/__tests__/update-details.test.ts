@@ -593,4 +593,31 @@ describe("updateGroupDetails", () => {
     expect(venues.map((v) => v.name)).toEqual(["Court 5"])
     expect(await orbitMessages()).toHaveLength(1)
   })
+
+  it("a schedule edit that reports changed but whose next occurrence equals the plan's own start: no false 'is updated too' claim", async () => {
+    // Adding Sunday to a Saturday-only weekly rhythm is a real diff (the
+    // stored days array changes), but Saturday is still the soonest slot
+    // from NOW, so the plan's own startsAt does not move and nothing on
+    // the plan was actually touched. The old unconditional "updated"
+    // outcome said "is updated too" anyway; it must now say nothing at all
+    // about the plan.
+    const result = await updateGroupDetails(
+      input({
+        rhythms: [{ ...EDIT_SAME, daysOfWeek: [0, 6] }],
+        planChoice: "update",
+        openedPlan: OPENED(),
+      })
+    )
+    expect(result).toEqual({ status: "ok" })
+
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+    expect(event.startsAt.getTime()).toBe(START.getTime())
+    expect(await prisma.changeProposal.count({ where: { eventId: eventId! } })).toBe(0)
+
+    const messages = await orbitMessages()
+    expect(messages).toHaveLength(1)
+    expect(messages[0].body).toBe("[TEST] Casey changed tennis to Sun & Sat at 9am, every week.")
+    expect(messages[0].body).not.toContain("is updated too")
+    expect(messages[0].body).not.toContain("Move")
+  })
 })

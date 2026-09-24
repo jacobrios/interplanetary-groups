@@ -76,7 +76,11 @@ export function validateDetailsEdit(
 
     const built: StoredRhythm = {
       activity,
-      title: titleCaseActivity(activity),
+      // Stored state is not display (CLAUDE.md): re-deriving the title on
+      // every save would silently rewrite a pre-20-Aug stored title (before
+      // titles stopped naming weekdays) the moment its activity is merely
+      // carried through unchanged. Only a genuine rename earns a fresh title.
+      title: activity === s.activity ? s.title : titleCaseActivity(activity),
       // cadence and durationMinutes are never taken from the edit; they
       // ride along with the stored rhythm they belong to.
       cadence: s.cadence,

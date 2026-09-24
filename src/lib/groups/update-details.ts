@@ -214,7 +214,13 @@ export async function updateGroupDetails(
                 proposedStartsAt: proposed,
                 detailsUpdated,
               }
-            : { kind: "updated", startsAt: plan.startsAt }
+            : detailsUpdated
+              ? { kind: "updated", startsAt: plan.startsAt }
+              : // A schedule-only edit whose new occurrence lands on the
+                // plan's own startsAt (or a spot/activity write that came
+                // back "noop") never touched the plan, so saying "is
+                // updated too" would be untrue.
+                { kind: "none" }
 
       const compose = (planOutcome: PlanOutcome) =>
         buildDetailsAnnouncement({

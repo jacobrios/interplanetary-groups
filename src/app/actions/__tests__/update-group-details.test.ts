@@ -88,6 +88,7 @@ describe("updateGroupDetailsAction", () => {
     )
     expect(revalidatePath).toHaveBeenCalledWith("/groups/grp_1/info")
     expect(revalidatePath).toHaveBeenCalledWith("/groups/grp_1")
+    expect(revalidatePath).toHaveBeenCalledWith("/groups")
     expect(revalidatePath).toHaveBeenCalledWith("/events/evt_1")
   })
 
@@ -99,7 +100,12 @@ describe("updateGroupDetailsAction", () => {
     expect(updateGroupDetails).toHaveBeenCalledWith(
       expect.objectContaining({ planChoice: null, openedPlan: null })
     )
-    expect(revalidatePath).toHaveBeenCalledTimes(2)
+    expect(revalidatePath).toHaveBeenCalledTimes(3)
+  })
+
+  it("refreshes /groups too, so a rename shows up in the group list", async () => {
+    await updateGroupDetailsAction({}, form(FIELDS))
+    expect(revalidatePath).toHaveBeenCalledWith("/groups")
   })
 
   it("reports the save's own error, such as a stale plan", async () => {
