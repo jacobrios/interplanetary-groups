@@ -135,11 +135,14 @@ export default function Step2Playback({
   const canConfirm =
     !isCreating && groupName.trim().length > 0 && primaryVenueFilled && detailsValidation.ok
 
-  // The unschedulable-after-edit message only earns a place in the card's
-  // error slot while a day/time editor is open (task 9 brief): closed, the
-  // step reads exactly as it did before this slice, and the pre-existing
-  // required-spot messaging (the venue button's own "(required)" copy)
-  // stays the only signal for that case.
+  // detailsValidation.error only earns a place in the card's error slot
+  // while a day/time editor is open (task 9 brief): closed, the step reads
+  // exactly as it did before this slice, and the pre-existing required-spot
+  // messaging (the venue button's own "(required)" copy) stays the only
+  // signal for that case. This is not only the unschedulable message: any
+  // validateDetailsEdit refusal can land here while an editor is open,
+  // including detailsNoSpot's "Add where you meet for X." if the founder
+  // clears a spot from the same card while a day/time block is open.
   const dayTimeErrorMsg =
     openDayTimeIdx.size > 0 && !detailsValidation.ok ? detailsValidation.error : null
 
