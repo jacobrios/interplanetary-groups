@@ -40,6 +40,16 @@ export async function editEventAction(
   const place = (formData.get("place") as string | null) ?? ""
   const dateLocal = (formData.get("dateLocal") as string | null) ?? ""
   const timeLocal = (formData.get("timeLocal") as string | null) ?? ""
+  // What the form showed when it was opened. submitEventEdit compares
+  // against these, not against the stored row, so a form left open while
+  // somebody else changed the plan cannot undo their change.
+  const field = (name: string) => (formData.get(name) as string | null) ?? ""
+  const original = {
+    title: field("origTitle"),
+    place: field("origPlace"),
+    dateLocal: field("origDateLocal"),
+    timeLocal: field("origTimeLocal"),
+  }
 
   const result = await submitEventEdit({
     eventId,
@@ -49,15 +59,24 @@ export async function editEventAction(
     dateLocal,
     timeLocal,
     now: new Date(),
+    original,
   })
+
+  // A partial save (title or place written, then the vote refused) is an
+  // error the member must see AND a change the page must show, so the
+  // refresh keys off whether anything was written, not off success.
+  if (result.status === "ok" || result.edited) {
+    revalidatePath(`/events/${eventId}`)
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { groupId: true },
+    })
+    if (event) revalidatePath(`/groups/${event.groupId}`)
+  }
 
   if (result.status === "error") {
     return { errors: { general: result.message } }
   }
-
-  revalidatePath(`/events/${eventId}`)
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { groupId: true } })
-  if (event) revalidatePath(`/groups/${event.groupId}`)
 
   return {}
 }

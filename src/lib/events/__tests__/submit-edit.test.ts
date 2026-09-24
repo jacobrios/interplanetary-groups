@@ -7,11 +7,13 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, ProposalKind, ProposalVoteAnswer } from "@prisma/client"
 import { submitEventEdit } from "../submit-edit"
+import { createGroupProposal } from "@/lib/proposals/create"
 
 let userId: string | null = null
 let otherUserId: string | null = null
 let groupId: string | null = null
 let eventId: string | null = null
+let extraUserIds: string[] = []
 
 // Chicago (America/Chicago, UTC-5 in June) so the timezone conversion in the
 // group's own zone is actually exercised rather than degenerating to UTC.
@@ -41,11 +43,12 @@ async function cleanup() {
     await prisma.group.delete({ where: { id: groupId } }).catch(() => {})
     groupId = null
   }
-  for (const id of [userId, otherUserId]) {
+  for (const id of [userId, otherUserId, ...extraUserIds]) {
     if (id) await prisma.user.delete({ where: { id } }).catch(() => {})
   }
   userId = null
   otherUserId = null
+  extraUserIds = []
   eventId = null
 }
 
@@ -88,6 +91,10 @@ beforeEach(async () => {
 
 const actor = () => ({ id: userId!, name: "[TEST] Casey" })
 
+// What the form showed when it was opened: the event exactly as the fixture
+// stores it. A test that simulates a stale form passes a different one.
+const ORIG = { title: "Tennis", place: "", dateLocal: "2099-06-13", timeLocal: "09:00" }
+
 describe("submitEventEdit", () => {
   it("fixture sanity: START is Sat 09:00 America/Chicago", () => {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -109,6 +116,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "09:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({ status: "ok", edited: true, proposed: false })
 
@@ -135,6 +143,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({ status: "ok", edited: false, proposed: true })
 
@@ -163,6 +172,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({ status: "ok", edited: true, proposed: true })
 
@@ -190,6 +200,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(strangerResult).toEqual({
       status: "error",
@@ -218,6 +229,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({
       status: "error",
@@ -241,6 +253,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-20",
       timeLocal: "09:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({
       status: "error",
@@ -265,6 +278,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "09:00",
       now: NOW,
+      original: ORIG,
     })
     expect(result).toEqual({ status: "error", message: "Nothing changed." })
 
@@ -281,6 +295,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(first).toEqual({ status: "ok", edited: false, proposed: true })
 
@@ -292,6 +307,7 @@ describe("submitEventEdit", () => {
       dateLocal: "2099-06-13",
       timeLocal: "10:00",
       now: NOW,
+      original: ORIG,
     })
     expect(second).toEqual({ status: "ok", edited: false, proposed: true })
 
@@ -350,11 +366,13 @@ describe("submitEventEdit", () => {
         dateLocal: "2099-06-13",
         timeLocal: "10:00",
         now: NOW,
+        original: ORIG,
       })
       expect(result).toEqual({
         status: "error",
         message:
           "Your other changes are saved, but someone just changed the time, so the group wasn't asked. Take another look.",
+        edited: true,
       })
     } finally {
       spy.mockRestore()
@@ -366,5 +384,227 @@ describe("submitEventEdit", () => {
 
     const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
     expect(proposals).toHaveLength(0)
+  })
+})
+
+// Adds members beyond the fixture's two, so a vote can be shaped either side
+// of the consensus bar. Cleaned up with the rest in afterEach.
+async function addMembers(names: string[]): Promise<string[]> {
+  const ids: string[] = []
+  for (const name of names) {
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const u = await prisma.user.create({
+      data: { name: `[TEST] ${name}`, supabaseAuthId: `test-submit-edit-x-${suffix}` },
+    })
+    extraUserIds.push(u.id)
+    await prisma.membership.create({ data: { userId: u.id, groupId: groupId! } })
+    ids.push(u.id)
+  }
+  return ids
+}
+
+describe("submitEventEdit, a form opened before someone else changed the plan", () => {
+  it("a stale form that only renames does not undo a place someone else set meanwhile", async () => {
+    // The form was opened with no place; someone else then set one.
+    await prisma.venue.create({ data: { eventId: eventId!, name: "Court 9" } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Doubles",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "09:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({ status: "ok", edited: true, proposed: false })
+
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 9"])
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.title).toBe("Doubles")
+  })
+
+  it("a stale form still showing the old time, saved with a title fix, opens no vote to move it back", async () => {
+    // The group moved the plan to 10:00 after this form was opened at 09:00.
+    const MOVED = new Date(START.getTime() + 60 * 60 * 1000)
+    await prisma.event.update({ where: { id: eventId! }, data: { startsAt: MOVED } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Doubles",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "09:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({ status: "ok", edited: true, proposed: false })
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(0)
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.startsAt.getTime()).toBe(MOVED.getTime())
+    expect(event?.title).toBe("Doubles")
+  })
+
+  it("refuses a title change when the stored title moved since the form opened, writing nothing", async () => {
+    await prisma.event.update({ where: { id: eventId! }, data: { title: "Badminton" } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Doubles",
+      place: "Court 5",
+      dateLocal: "2099-06-13",
+      timeLocal: "09:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({
+      status: "error",
+      message: "Someone else just changed this plan, take another look.",
+    })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.title).toBe("Badminton")
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues).toHaveLength(0)
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
+  })
+
+  it("refuses a place change when the stored place moved since the form opened, writing nothing", async () => {
+    await prisma.venue.create({ data: { eventId: eventId!, name: "Court 9" } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Tennis",
+      place: "Court 5",
+      dateLocal: "2099-06-13",
+      timeLocal: "09:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({
+      status: "error",
+      message: "Someone else just changed this plan, take another look.",
+    })
+
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 9"])
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
+  })
+
+  it("refuses a time change when the stored time moved since the form opened, writing nothing", async () => {
+    const MOVED = new Date(START.getTime() + 60 * 60 * 1000)
+    await prisma.event.update({ where: { id: eventId! }, data: { startsAt: MOVED } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Doubles",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "11:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({
+      status: "error",
+      message: "Someone else just changed this plan, take another look.",
+    })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.title).toBe("Tennis")
+    expect(event?.startsAt.getTime()).toBe(MOVED.getTime())
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(0)
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
+  })
+})
+
+describe("submitEventEdit, saving the same time a live vote already asks about", () => {
+  // 2099-06-13 10:00 America/Chicago == 15:00 UTC.
+  const TEN = new Date("2099-06-13T15:00:00Z")
+
+  async function openVoteWithTwoYeses(): Promise<{ proposalId: string; samId: string }> {
+    const [samId] = await addMembers(["Sam"])
+    const opened = await createGroupProposal({
+      groupId: groupId!,
+      eventId: eventId!,
+      askerUserId: otherUserId!,
+      sourceMessageId: null,
+      proposedStartsAt: TEN,
+      priorStartsAt: START,
+      body: "[TEST] Riley wants to move tennis to 10am. Move it?",
+    })
+    if (opened.status !== "created") throw new Error("fixture: vote did not open")
+    await prisma.proposalVote.create({
+      data: { proposalId: opened.proposal.id, userId: samId, answer: ProposalVoteAnswer.YES },
+    })
+    return { proposalId: opened.proposal.id, samId }
+  }
+
+  it("joins the open vote as a yes instead of replacing it, and posts nothing new", async () => {
+    const { proposalId } = await openVoteWithTwoYeses()
+    // Three people keeping the old time, so three yeses do not clear the bar
+    // and the vote stays open to be counted.
+    const keepers = await addMembers(["Kai", "Lee", "Max"])
+    await prisma.proposalVote.createMany({
+      data: keepers.map((userId) => ({ proposalId, userId, answer: ProposalVoteAnswer.KEEP })),
+    })
+    const messagesBefore = await prisma.message.count({ where: { groupId: groupId! } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Tennis",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "10:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({ status: "ok", edited: false, proposed: true })
+
+    const live = await prisma.changeProposal.findMany({
+      where: { eventId: eventId!, answer: null },
+    })
+    expect(live.map((p) => p.id)).toEqual([proposalId])
+    const yeses = await prisma.proposalVote.findMany({
+      where: { proposalId, answer: ProposalVoteAnswer.YES },
+    })
+    expect(yeses).toHaveLength(3)
+    expect(yeses.map((v) => v.userId)).toContain(userId!)
+    expect(await prisma.message.count({ where: { groupId: groupId! } })).toBe(messagesBefore)
+  })
+
+  it("moves the plan when the editor's yes is the one that clears the bar, as a chip tap would", async () => {
+    const { proposalId } = await openVoteWithTwoYeses()
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Tennis",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "10:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({ status: "ok", edited: false, proposed: true })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.startsAt.getTime()).toBe(TEN.getTime())
+    const proposal = await prisma.changeProposal.findUnique({ where: { id: proposalId } })
+    expect(proposal?.answer).not.toBeNull()
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(1)
   })
 })
