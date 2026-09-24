@@ -275,7 +275,10 @@ export default function EditEventDetails({
     <div data-details-card style={detailsCardStyle}>
       <div style={detailsBodyStyle}>
         <h2 ref={headingRef} tabIndex={-1} style={{ ...visuallyHiddenStyle, outline: "none" }}>
-          Editing this plan
+          {/* Names the plan: while the form is open this hidden heading is
+              the only one on the card, so without the title a screen reader
+              would lose which plan is being edited. */}
+          Editing {title}
         </h2>
 
         <div style={{ marginBottom: "10px" }}>

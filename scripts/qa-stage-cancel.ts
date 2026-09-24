@@ -12,7 +12,7 @@
 //
 //   - "Tennis" is SCHEDULED, three days out, with RSVPs already on it, so
 //     the live card shows its counts and its RSVP pair, and its detail
-//     screen carries "Call this off" below that pair. This is the plan the
+//     screen carries "Call off" below that pair. This is the plan the
 //     runner calls off themselves, which is the only way to see the two-tap
 //     confirm and Orbit's announcement.
 //   - "Squash" is already CANCELLED, four days out, and deliberately keeps

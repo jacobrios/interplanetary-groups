@@ -265,7 +265,7 @@ describe("EditEventDetails, focus", () => {
   it("moves focus to the form's heading, not a text field, when the form opens", () => {
     renderIt()
     openForm()
-    const heading = screen.getByRole("heading", { name: "Editing this plan" })
+    const heading = screen.getByRole("heading", { name: "Editing Climbing" })
     expect(document.activeElement).toBe(heading)
     expect(heading.getAttribute("tabindex")).toBe("-1")
     expect(document.activeElement?.tagName).not.toBe("INPUT")
