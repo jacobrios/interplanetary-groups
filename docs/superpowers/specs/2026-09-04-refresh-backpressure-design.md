@@ -5,7 +5,7 @@ regression caused by the chat-sync slice that shipped this morning.*
 
 ## What happened
 
-The owner's wife sent five or six messages from her phone. He opened his own
+Another member sent five or six messages from their phone. He opened his own
 phone to a Safari tab that had been sitting on the group home. **Nothing
 arrived, and the whole app was dead:** no card taps, no navigation, no group
 info, and messages he typed never reached the server. Reloading the tab fixed

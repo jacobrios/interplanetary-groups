@@ -5,8 +5,8 @@ conversation with the owner that settled seven decisions.*
 
 ## Settled, do not relitigate
 
-Found in the owner's first two-person QA, 3 Sept 2026: his wife joined, posted
-twice, and Orbit answered her, while his own open tab showed an empty room
+Found in the owner's first two-person QA, 3 Sept 2026: a second person joined,
+posted twice, and Orbit answered them, while his own open tab showed an empty room
 until he reloaded. Nothing in this product updates an open page. There is no
 polling, no socket, no realtime subscription, and no refetch on focus; the
 search for all four returned nothing. `revalidatePath` invalidates the server
