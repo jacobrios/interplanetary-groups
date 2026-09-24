@@ -157,6 +157,23 @@ describe("EditEventDetails, editing", () => {
     }
   })
 
+  // Owner's phone QA, 24 Sept 2026: iOS Safari renders a native date/time
+  // input at an intrinsic minimum width and ignores width/min-width, so the
+  // Time box overflowed the card's right edge and butted into Day with no
+  // gap (desktop Chromium honored the CSS, which is why this passed there).
+  // -webkit-appearance / appearance: none strips that native chrome so the
+  // width rules above actually apply on iOS.
+  it("strips native iOS appearance from the day and time pickers so width/min-width take effect", () => {
+    renderIt()
+    openForm()
+    for (const label of ["Day", "Time"]) {
+      const input = screen.getByLabelText(label) as HTMLInputElement
+      expect(input.style.getPropertyValue("-webkit-appearance")).toBe("none")
+      expect(input.style.appearance).toBe("none")
+      expect(input.className).toContain("edit-picker")
+    }
+  })
+
   it("restores the card on Never mind, having called nothing", () => {
     renderIt()
     openForm()

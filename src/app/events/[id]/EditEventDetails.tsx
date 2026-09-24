@@ -136,9 +136,20 @@ const shrinkColumn: React.CSSProperties = {
   minWidth: 0,
 }
 
+// iOS WebKit (mobile Chrome and Safari alike, both on Apple's engine there)
+// renders a native date/time input at an intrinsic minimum width and ignores
+// width/min-width entirely, which is what pushed Time past the card's right
+// edge (owner's phone QA, 24 Sept 2026, seen in mobile Chrome). Stripping the
+// native appearance is what makes width/min-width apply on iOS; desktop
+// Chromium already honored them, which is why this never showed up there.
+// The pseudo-element that left-aligns the value on iOS can't live inline, so
+// it's `.edit-picker::-webkit-date-and-time-value` in globals.css, beside
+// `.scrollbar-hidden`.
 const pickerStyle: React.CSSProperties = {
   display: "block",
   minWidth: 0,
+  WebkitAppearance: "none",
+  appearance: "none",
 }
 
 export default function EditEventDetails({
@@ -323,6 +334,7 @@ export default function EditEventDetails({
               value={dateValue}
               onChange={(e) => setDateValue(e.target.value)}
               disabled={isPending}
+              className="edit-picker"
               style={{ ...fieldStyle, ...pickerStyle }}
             />
           </div>
@@ -336,6 +348,7 @@ export default function EditEventDetails({
               value={timeValue}
               onChange={(e) => setTimeValue(e.target.value)}
               disabled={isPending}
+              className="edit-picker"
               style={{ ...fieldStyle, ...pickerStyle }}
             />
           </div>
