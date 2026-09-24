@@ -58,7 +58,8 @@ export interface MoveCoreInput {
   newStartsAt: Date
   /** Everyone seeded IN on the moved plan. Part one passes [requesterUserId]. */
   seedInUserIds: string[]
-  announcementBody: string
+  /** null writes no Message row: the caller has its own announcement to make, or none at all. */
+  announcementBody: string | null
   resolveProposalId?: string
 }
 
@@ -122,14 +123,16 @@ export async function moveEventCoreInTx(
     })
   }
 
-  await tx.message.create({
-    data: {
-      groupId: event.groupId,
-      authorType: MessageAuthor.ORBIT,
-      authorId: null,
-      body: announcementBody,
-    },
-  })
+  if (announcementBody !== null) {
+    await tx.message.create({
+      data: {
+        groupId: event.groupId,
+        authorType: MessageAuthor.ORBIT,
+        authorId: null,
+        body: announcementBody,
+      },
+    })
+  }
 
   if (resolveProposalId) {
     // Conditional, the same race-proof shape as the event's own stale guard

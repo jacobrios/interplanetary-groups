@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, RsvpStatus } from "@prisma/client"
-import { editEventDetails, EDIT_TITLE_MAX } from "../edit-details"
+import { editEventDetails, applyDetailChangeInTx, EDIT_TITLE_MAX } from "../edit-details"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import type { DetailChange } from "@/lib/orbit/edit-copy"
 
@@ -409,5 +409,29 @@ describe("editEventDetails", () => {
 
     const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
     expect(messages).toHaveLength(0) // no announcement for the losing edit
+  })
+
+  it("applyDetailChangeInTx applies a place change and writes zero Message rows", async () => {
+    const result = await prisma.$transaction((tx) =>
+      applyDetailChangeInTx(tx, {
+        eventId: eventId!,
+        title: "Tennis",
+        place: "Court 3",
+        now: NOW,
+      })
+    )
+    expect(result).toEqual({
+      status: "applied",
+      change: { place: { from: null, to: "Court 3" } },
+      currentTitle: "Tennis",
+      groupId: groupId!,
+    })
+
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues).toHaveLength(1)
+    expect(venues[0].name).toBe("Court 3")
+
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
   })
 })
