@@ -680,7 +680,7 @@ Seven High-priority items come due at the moment of the first production deploy.
     *Why it matters.* Until it is set, a red build reports an X on the pull request and the merge button stays green, so the new gate is a notification rather than a gate, which is precisely the shape of the thing it was built to replace: Vercel already emailed on all three failed deploys of 4 Sept 2026 and the merges still happened.
     *Two things to know before switching it on.* A required check that never reports blocks the merge forever, so the workflow has to have run at least once on a real pull request first, and the rule's name must match the job's own `name:` exactly rather than the workflow's. Neither is recoverable-by-guessing from the GitHub UI, which is why they are written down here.
 
-18. **Run the proposal-source migration against production before the editable-event-card branch merges to main.** Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production.
+18. **Run the proposal-source migration against production before the editable-event-card branch merges to main.** Read `docs/runbooks/production-migration.md` first (added 23 Sept 2026, final review). Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production.
     *Why it matters:* purely additive (drops a NOT NULL), so running it first is safe for the live code, which always writes a value; running it after the merge means the first card edit of a day or time fails with a database error.
     *Detail:* migration `20260924004142_proposal_source_optional`.
 
@@ -8217,3 +8217,29 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 **Chosen over alternatives.** Exit 0 alone was rejected on review by the session that hit the outage: a stop hook's stderr under exit 0 never reaches the agent, so a skip would look like a pass. A held turn does not spend the announcement, for the same reason.
 
 **Debt, accepted.** Two sessions in one checkout share one announcement, so the second session's agent is never told; the owed run still waits for it. A slow first login after the database resumes can read as one false outage; the next owed turn probes again. And the reachable path has not been seen end to end on a real database, because it was locked out the whole time this was built; the unit tests cover it.
+
+---
+
+## §11 entry: the editable event card (23 September 2026)
+
+**What changed.** Any member can fix an upcoming plan from its page. Before, a floated plan could never get a place and nothing about any plan was correctable.
+
+**The seven decisions settled with the owner before any code.**
+
+- **Anyone edits, and Orbit names who**: with no vote on a place or title, the name is the only check.
+- **Place and title save directly; day and time open the existing group vote**, the editor counted as a yes, and the vote gained the ability to move the day.
+- **One Orbit line per save**, naming who and the old and new values; undoing is another edit; a rename changes what Orbit calls the plan.
+- **Place and title leave RSVPs alone**; a new day or time keeps the vote's reset.
+- **Saved calendar entries stay stale**; re-adding hands out a newer version.
+- **The edit lives on the plan's page, not the home card**: the card is the gist and its height budget is spent.
+- **Onboarding's required venue stays until the group-details slice, not this one**: an edit fixes one plan, and the rhythm would recreate the missing venue every week.
+
+**Four decided in planning** *(this entry's reading; the plan did not enumerate them)*. The form opens inline, never as a modal. A vote opened from the page records no source message rather than pointing at Orbit's, which would claim the member said something they did not. A weekly plan cannot move onto or past its rhythm's next regular slot, measured from its original slot, or the hourly job skips that week in silence. A renamed title is kept as typed, since lowercasing turned "Pool at Sam's" into "Pool at sam's".
+
+**Decided during the build.** A save whose day-time vote loses a race says its other changes landed. Orbit's chat decline says anyone can **ask the group** for a new day on the page, because the page asks rather than moves. A stale form cannot undo someone else's change. Saving the time an open vote already asks about adds a yes to it rather than wiping its votes.
+
+**Evidence.** Suite 1928 across 162 files at `291ead3` to 2006 across 168, zero failures. Bench `venue-ask-two-plans` 5/5. Browser walkthrough at 375x812 passed, and **found a build break no test could**: the form pulled the database client into the browser, which only the production build sees. Real phone: the owner's, not yet.
+
+**Queued.** (1) Onboarding's follow-up question should show the place alongside the time and stop saying "One question". (2) Whether venue stays required at onboarding for good, owner leaning yes, decided in the group-details slice. (3) Going back from step 2 regenerates the suggested group name; recommend decline unless an edited name is ever lost. Out of lane, unranked: the vote's supersede step retires the asker's open votes in their other groups too (pre-existing, own micro-PR); the full-suite stop hook tests the main checkout, never the worktree, and flaked three times.
+
+**Debt.** An edit fixes one plan, never the rhythm. Saved calendars go stale until the subscribable calendar. More stored messages name a member that deletion cannot reach. Renaming a weekly plan lets an idea under its old name past the duplicate guard until it passes. A plan moved from a week out to under three days out can miss the digest's three-days-before reminder. The refusal "runs into the next regular Tennis on Sat at 9am" does not say which Saturday. The page and the edit pick a plan's first venue by different orders, harmless while plans have one. Calendar apps replacing rather than duplicating a re-added entry: unverified. Deploy obligation: after-launch item 18.

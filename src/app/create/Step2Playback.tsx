@@ -91,6 +91,13 @@ export default function Step2Playback({
   // optional: gating them would trade a blank (honest) for a founder typing
   // "idk" to get past, and that string would ride venue inheritance onto a
   // real event later.
+  //
+  // Amended 23 Sept 2026 (editable-event-card slice): the revert trigger
+  // moved to the group-details slice. The editable event card fixes one
+  // occurrence's place, never the rhythm's, so a group created without a
+  // venue would have it missing again on every weekly plan the hourly job
+  // creates. Whether the requirement stays permanently is settled in that
+  // slice (owner leaning yes).
   const primaryVenueFilled = (rhythms[0]?.venueName ?? "").trim().length > 0
 
   // One source for "can this be pressed", so the disabled attribute and the
