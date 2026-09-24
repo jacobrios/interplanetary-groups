@@ -92,7 +92,7 @@ export function deriveProposalBands(input: {
     })
     bands.set(p.event.id, {
       eventId: p.event.id,
-      question: proposalBandQuestion(p.event.title, p.proposedStartsAt, input.timeZone),
+      question: proposalBandQuestion(p.event.title, p.proposedStartsAt, p.priorStartsAt, input.timeZone),
       chips: {
         id: p.id,
         orbitMessageId: p.orbitMessageId,
