@@ -65,6 +65,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   const [timeZone, setTimeZone] = useState<string | null>(null)
   useEffect(() => {
     try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the browser timezone does not exist during server render, so it can only be read after mount
       setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone || null)
     } catch {
       setTimeZone(null)

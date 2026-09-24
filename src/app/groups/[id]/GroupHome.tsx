@@ -313,6 +313,7 @@ export default function GroupHome({
   // about is one extra render on mount. That is the same one-frame cost the
   // paragraph above already accepts, priced twice rather than a second problem.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the parked draft lives in browser storage the server cannot read, so it loads after mount and again on group change
     setInputValue(readDraft(groupId))
   }, [groupId])
 
@@ -411,6 +412,7 @@ export default function GroupHome({
   // than left to grow for the life of the tab.
   useEffect(() => {
     if (settledSends.length > 0 && !hasUnreconciledSend) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears settled send ids once no optimistic send is pending; deliberate, see the settledSends notes above
       setSettledSends([])
     }
   }, [hasUnreconciledSend, settledSends])
@@ -469,6 +471,7 @@ export default function GroupHome({
     // Appends only ever happen at the end, so dropping the drained prefix is
     // enough. Found in independent review, not by a test: the interleaving
     // needs a real paint boundary and is not reproducible in jsdom.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- drains exactly the queued detection ids after the send commits; functional update keeps late appends, see above
     setDetectQueue((queue) => queue.slice(draining.length))
     for (const messageId of draining) {
       void (async () => {
