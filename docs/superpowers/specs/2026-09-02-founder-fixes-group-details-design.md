@@ -22,7 +22,9 @@ in "Lineage" at the foot of this front section.
    cleared in the editor.
 5. **This week's plan:** one question, "Update that one too, or leave it?".
    Spot and name apply directly, RSVPs untouched. Day or time opens the group
-   vote with the founder counted yes; the founder is never marked coming.
+   vote with the founder counted yes; when it passes the founder is marked
+   in, like any other asker (amended 24 Sept 2026, owner: consistency over an
+   exception that would have needed a migration).
    Not asked once the plan has started. A vote that clears its bar the
    moment it opens moves the plan at once (also fixing the event card's
    solo-group dead end, declared in the PR).
@@ -38,7 +40,7 @@ debt, below.
 
 **Verified by.** Tests: the validator; the founder gate; the message composer
 (one message, founder named, silent alone and on rename); each state of the
-plan question; the founder's yes never becoming an RSVP; a vote that clears
+plan question; the founder's yes becoming an IN RSVP when the plan moves; a vote that clears
 at birth moving the plan. Not tested: the native pickers, and rendering, which
 get the 375px pass and a real-phone pass.
 
@@ -59,7 +61,7 @@ was deleted as untrue.
 
 **Goal:** the founder can correct the group's name and every activity's name, days, time and spot, on group info after creation and on onboarding step 2 before it, with this week's plan brought along on request.
 
-**Architecture:** one pure module validates and diffs an edit (`src/lib/groups/details-edit.ts`), one pure module composes Orbit's single message (`src/lib/orbit/details-copy.ts`), one lib function does the founder-gated write (`src/lib/groups/update-details.ts`) reusing the event card's write path (an extracted `applyDetailChangeInTx`) and the existing group vote (`createGroupProposal`, `moveEventCoreInTx`). One shared client component (`RhythmFields`) renders the fields on both surfaces. One small migration marks a vote whose asker must not be seeded as coming.
+**Architecture:** one pure module validates and diffs an edit (`src/lib/groups/details-edit.ts`), one pure module composes Orbit's single message (`src/lib/orbit/details-copy.ts`), one lib function does the founder-gated write (`src/lib/groups/update-details.ts`) reusing the event card's write path (an extracted `applyDetailChangeInTx`) and the existing group vote (`createGroupProposal`, `moveEventCoreInTx`). One shared client component (`RhythmFields`) renders the fields on both surfaces.
 
 **Tech stack:** Next.js 16 (App Router, server actions), Prisma 7 against the dev-test Supabase database, Vitest (jsdom for components, the real dev-test database for lib tests), React 19.
 
@@ -75,7 +77,7 @@ was deleted as untrue.
 - Tests build their own fixtures and pass from an empty database. Copy the fixture and cleanup shape of `src/lib/events/__tests__/submit-edit.test.ts`.
 - Write the failing test first and SHOW it failing. A test that passes on its first run needs a one-line reason it could have failed.
 - Do NOT change `buildCantDoReply` or any other chat decline, prompt, `normalize.ts`, or `spark.ts`. Do NOT run `eval:detect` or `eval:onboarding`.
-- The hook blocks hand edits under `prisma/migrations/`. Generate migrations with the Prisma CLI only.
+- This slice has NO migration. If a task seems to need a schema change, stop and report it.
 - Run a single test file with `npx vitest run <path>`.
 
 ### The approved picture (build to this)
@@ -95,8 +97,6 @@ was deleted as untrue.
 | `src/components/RhythmFields.tsx` | Create | Activity / Days / Time (/ Place) fields for one activity |
 | `src/lib/groups/details-edit.ts` | Create | `validateDetailsEdit`, `diffDetails`, error strings, `GROUP_NAME_MAX` |
 | `src/lib/orbit/details-copy.ts` | Create | `buildDetailsAnnouncement`, `buildPlanQuestion` |
-| `prisma/schema.prisma` + generated migration | Modify/Create | `ChangeProposal.askerSeedsRsvp Boolean @default(true)` |
-| `src/lib/proposals/create.ts`, `promote.ts` | Modify | Write and honour `askerSeedsRsvp` |
 | `src/lib/events/submit-edit.ts` | Modify | Promote a vote that clears its bar the moment it opens |
 | `src/lib/events/move.ts` | Modify | `announcementBody: string | null`; null writes no message |
 | `src/lib/events/edit-details.ts` | Modify | Extract `applyDetailChangeInTx`; `editEventDetails` unchanged in behaviour |
@@ -512,34 +512,18 @@ Before trusting a row: check `formatRhythmRow`'s real output for that rhythm in 
 
 ---
 
-### Task 5: a vote can decline to mark its asker as coming, and a vote that clears at birth moves the plan
+### Task 5: a vote that clears its bar the moment it opens moves the plan
 
 **Files:**
-- Modify: `prisma/schema.prisma` (model `ChangeProposal`)
-- Create (generated): `prisma/migrations/<timestamp>_proposal_asker_seeds_rsvp/migration.sql`
-- Modify: `src/lib/proposals/create.ts`, `src/lib/proposals/promote.ts`, `src/lib/events/submit-edit.ts`
-- Test: `src/lib/proposals/__tests__/proposals.test.ts`, `src/lib/proposals/__tests__/promote.test.ts`, `src/lib/events/__tests__/submit-edit.test.ts` (add cases)
+- Modify: `src/lib/events/submit-edit.ts`
+- Test: `src/lib/events/__tests__/submit-edit.test.ts` (add a case)
 
 **Interfaces:**
-- Produces: `CreateGroupProposalInput.askerSeedsRsvp?: boolean` (default `true`), stored on `ChangeProposal.askerSeedsRsvp`. Promote seeds `yesVoterIds` minus the asker when it is `false`. The asker's YES vote still exists and still counts toward the bar.
+- Produces: no new names. After `createGroupProposal` returns `created`, `submitEventEdit` calls `promoteProposalMove` once, best-effort. The asker's yes, seeded by `createGroupProposal`, still becomes an IN RSVP when the plan moves, exactly as today (the owner chose this for the founder too, 24 Sept 2026, so nothing about seeding changes).
 
-- [ ] **Step 1: Schema.** Add to `model ChangeProposal`, after `kind`:
-```prisma
-  /// False when the asker's yes counts toward the bar but must not become an
-  /// IN RSVP when the plan moves: the founder correcting the group's regular
-  /// schedule is not saying they will be there (group-details slice, 24 Sept 2026).
-  askerSeedsRsvp   Boolean         @default(true)
-```
-- [ ] **Step 2: Generate the migration.** `npm run db:which` (must print DEV-TEST), then `npx prisma migrate dev --name proposal_asker_seeds_rsvp`, then `npx prisma generate`. Read the generated SQL: it must be a single `ALTER TABLE "ChangeProposal" ADD COLUMN "askerSeedsRsvp" BOOLEAN NOT NULL DEFAULT true;` and nothing else. Anything else: stop and report.
-- [ ] **Step 3: Write the failing tests.**
-  - `proposals.test.ts`: `createGroupProposal({ ...await baseInput(), askerSeedsRsvp: false })` stores `askerSeedsRsvp: false` and still seeds the asker's YES vote; omitting it stores `true`.
-  - `promote.test.ts`: a GROUP proposal created with `askerSeedsRsvp: false` in a two-member group, the second member votes YES, `promoteProposalMove` returns `moved`, and afterwards the event has an IN RSVP for the second member and **none** for the asker. The existing "yes voters seeded IN" test stays green unchanged (the default path).
-  - `submit-edit.test.ts`: in a group whose only member is the actor (delete `otherUserId`'s membership in the test's own setup), `submitEventEdit` with a new time returns `{ status: "ok", proposed: true }` AND the event's `startsAt` is now the new time. Today it stays put: this is the solo dead end the front section's decision 5 fixes.
-- [ ] **Step 4: Run and see all three fail.**
-- [ ] **Step 5: Implement.**
-  - `create.ts`: accept `askerSeedsRsvp = true` and write it in `tx.changeProposal.create`'s data.
-  - `promote.ts`: where it passes `seedInUserIds: yesVoterIds`, pass `proposal.askerSeedsRsvp ? yesVoterIds : yesVoterIds.filter((id) => id !== proposal.askerUserId)`. Make sure the proposal read includes the column (it does if it reads the whole row; check).
-  - `submit-edit.ts`: after `createGroupProposal` returns `status: "created"`, the same best-effort block the join path uses:
+- [ ] **Step 1: Write the failing test.** In a group whose only member is the actor (delete `otherUserId`'s membership in the test's own setup), `submitEventEdit` with a new time returns `{ status: "ok", proposed: true }` AND the event's `startsAt` is now the new time AND the actor holds an IN RSVP on it. Today the plan stays put: a vote in a group of one clears its bar ("the whole group when smaller than three") the instant it opens, but promotion only ever runs on a chip tap, so nothing moves it.
+- [ ] **Step 2: Run it and see it fail** on the `startsAt` assertion.
+- [ ] **Step 3: Implement**, after the `createGroupProposal` call:
 ```ts
   if (proposalResult.status === "created") {
     // A vote can clear its bar the moment it opens (a group of one: the
@@ -552,7 +536,8 @@ Before trusting a row: check `formatRhythmRow`'s real output for that rhythm in 
     }
   }
 ```
-- [ ] **Step 6: Run** those three files plus `src/lib/proposals` whole: pass. **Step 7: Commit** `"Let a vote skip seeding its asker, and move a plan whose vote clears as it opens"`.
+- [ ] **Step 4: Run** `src/lib/events` and `src/lib/proposals`: pass. A two-member group's edit must still leave the plan unmoved (the existing tests cover it; confirm one does, and add one if not).
+- [ ] **Step 5: Commit** `"Move a plan whose vote clears its bar as it opens"`.
 
 ---
 
@@ -621,9 +606,9 @@ export async function updateGroupDetailsAction(_prev: UpdateGroupDetailsState, f
 6. Write `group.name` and `recurringActivities` (the validated `StoredRhythm[]`, never the raw payload).
 7. If `plan` and `planChoice === "update"`:
    - If `first.activity || first.spot`: `applyDetailChangeInTx(tx, { eventId: plan.id, title: v.rhythms[0].title, place: v.rhythms[0].venueName ?? "", now })`. `stale` → return `DETAILS_STALE` and let the transaction roll back (throw a local error class and map it). `noop` is fine.
-   - If `first.schedule`: `proposed = computeNextOccurrence(parseRhythm(v.rhythms)!, group.timeZone, now)`. Equal to `plan.startsAt` → no move. Otherwise, **founder alone (`memberCount === 1`)**: `moveEventCoreInTx(tx, { eventId: plan.id, expectedStartsAt: plan.startsAt, newStartsAt: proposed, seedInUserIds: [], announcementBody: null })`; not `moved` → roll back with `DETAILS_STALE`. **Others present:** remember `{ proposed }` for step 9.
+   - If `first.schedule`: `proposed = computeNextOccurrence(parseRhythm(v.rhythms)!, group.timeZone, now)`. Equal to `plan.startsAt` → no move. Otherwise, **founder alone (`memberCount === 1`)**: `moveEventCoreInTx(tx, { eventId: plan.id, expectedStartsAt: plan.startsAt, newStartsAt: proposed, seedInUserIds: [caller.id], announcementBody: null })`; not `moved` → roll back with `DETAILS_STALE`. **Others present:** remember `{ proposed }` for step 9.
 8. `outcome: PlanOutcome` = `none` (no plan) | `left` | `updated` | `vote`. `body = buildDetailsAnnouncement({ founderName: caller.name, before: stored, after: v.rhythms, diff, memberCount, plan: outcome, timeZone: group.timeZone, now })`. If the outcome is not `vote` and `body` is non-null: `tx.message.create({ data: { groupId, authorType: MessageAuthor.ORBIT, authorId: null, body } })`.
-9. After the transaction, only for `vote`: `createGroupProposal({ groupId, eventId: plan.id, askerUserId: caller.id, sourceMessageId: null, proposedStartsAt: proposed, priorStartsAt: plan.startsAt, body, askerSeedsRsvp: false })`. That call writes the ONE message, carrying the chips. If it returns `skipped`, write the `left`-shaped body instead via `createMessage` (so the group still hears about the schedule change), and return `{ status: "ok" }`. Record in a code comment that this step is outside the transaction on purpose: `createGroupProposal` owns its own transaction and row lock.
+9. After the transaction, only for `vote`: `createGroupProposal({ groupId, eventId: plan.id, askerUserId: caller.id, sourceMessageId: null, proposedStartsAt: proposed, priorStartsAt: plan.startsAt, body })`. That call writes the ONE message, carrying the chips. If it returns `skipped`, write the `left`-shaped body instead via `createMessage` (so the group still hears about the schedule change), and return `{ status: "ok" }`. Record in a code comment that this step is outside the transaction on purpose: `createGroupProposal` owns its own transaction and row lock.
 
 The action: copy `src/app/actions/reset-invite-link.ts`'s shape. Parse `payload` with `JSON.parse` inside try/catch (bad JSON → `DETAILS_GENERIC`); `rhythms` must be an array; the lib validates the rest. Map `NOT_FOUNDER`/`NO_USER` → `"Only the founder can change group details."`, anything else logged and → `DETAILS_GENERIC`. After the try/catch: `revalidatePath` for `/groups/${groupId}/info` and `/groups/${groupId}`, and for `/events/${planEventId}` when present.
 
@@ -635,8 +620,8 @@ The action: copy `src/app/actions/reset-invite-link.ts`'s shape. Parse `payload`
   5. rename only → name written, **zero** new messages;
   6. founder alone (delete Riley's membership in setup), spot change, `leave` → rhythm updated, event venue untouched, zero messages;
   7. others present, spot change, `update` → event's Venue now `Court 5`, both RSVPs still IN, exactly one ORBIT message, null author, body starting `Casey changed the spot for tennis to Court 5.`;
-  8. others present, time change to 08:00 Sun, `update` → event `startsAt` unchanged, one open GROUP proposal with `askerSeedsRsvp: false` and Casey's YES, exactly one ORBIT message and it is the proposal's `orbitMessageId`;
-  9. founder alone, time change, `update` → event moved to the Sunday occurrence, RSVPs wiped, **zero** messages, no proposal;
+  8. others present, time change to 08:00 Sun, `update` → event `startsAt` unchanged, one open GROUP proposal with Casey's YES, exactly one ORBIT message and it is the proposal's `orbitMessageId`;
+  9. founder alone, time change, `update` → event moved to the Sunday occurrence, RSVPs reset with Casey the only IN (the consistent-asker rule), **zero** messages, no proposal;
   10. `leave` with a schedule change → event untouched, one message ending `stays as it was.`;
   11. stale: `openedPlan.startsAt` differs from the stored plan → `DETAILS_STALE`, nothing written (name and column unchanged);
   12. `planChoice: null` while a plan exists and the first activity changed → `DETAILS_STALE`;
@@ -728,12 +713,12 @@ Commit `"Let a founder fix a misread day or time on onboarding step 2"`.
 - [ ] Stop the dev server, then `npx next build --webpack`: exit 0. Restart the dev server after.
 - [ ] **Picture check, before the QA handoff (owner's design rule 3):** rebuild the throwaway comparison page (`src/app/zz-mock/`, git-excluded) so each changed screen, now the REAL build, sits beside its production neighbour at 375px: group info at rest, editing, the plan question, step 2 open. Screenshot each, compare against the approved mocks above, and fix any difference before handing over. Delete `src/app/zz-mock/` afterwards.
 - [ ] Real-phone pass on the LAN address (`ipconfig getifaddr en0`, checked against `next.config.ts`'s allowed dev origins): new layouts, and the editor changes vertical space. The owner tests with Chrome on iOS (WebKit): check the time picker width and that opening the form raises no keyboard.
-- [ ] `docs/build-notes.md`: the §11 entry opened on 24 Sept, 400 to 600 words, product language; the after-launch list gets item 19, "run the proposal-asker-seeds-RSVP migration against production, from this worktree, before the merge", per `docs/runbooks/production-migration.md`.
+- [ ] `docs/build-notes.md`: the §11 entry opened on 24 Sept, 400 to 600 words, product language; no migration, so no after-launch item; confirm that by reading the final diff's `prisma/` changes (there must be none).
 - [ ] `CLAUDE.md` current state: what is now true; strike the "Still missing, and known" founder-fix sentence and the rhythm-venue parenthetical; the venue-required rule now permanent; the debt from the front section; the out-of-lane solo-vote fix named.
 - [ ] Independent read-only review of the assembled diff, then the PR (body near 300 words, review report included, `pr-review-guard` requires it), then the QA script in chat per `~/.claude/checklists/pr-handoff.md`.
 
 ### Self-review (done while writing)
 
-- Front section coverage: decisions 1 → T8; 2 → T9; 3 → T3/T2; 4 → T3 rule 4; 5 → T5/T7 steps 7 and 9; 6 → T4/T7 step 8; 7 → global constraints; 8 → T2. The solo dead-end fix → T5. Verification list → T3, T4, T5, T7 tests. Debt → T10 record.
+- Front section coverage: decisions 1 → T8; 2 → T9; 3 → T3/T2; 4 → T3 rule 4; 5 → T5 (solo fix), T7 steps 7 and 9 (founder marked in like any asker); 6 → T4/T7 step 8; 7 → global constraints; 8 → T2. The solo dead-end fix → T5. Verification list → T3, T4, T5, T7 tests. Debt → T10 record.
 - Deviation from the front section, declared: for a founder ALONE, a day or time change moves the plan directly (T7 step 7) instead of opening a vote that would clear the instant it opened. The outcome is identical and it is what keeps the founder-alone case silent, since a vote always posts its question.
-- Names cross-checked: `RhythmEdit`, `validateDetailsEdit`, `diffDetails`, `firstRhythmChanged`, `buildDetailsAnnouncement`, `buildPlanQuestion`, `PlanOutcome`, `findNextRhythmPlan`, `updateGroupDetails`, `applyDetailChangeInTx`, `askerSeedsRsvp`.
+- Names cross-checked: `RhythmEdit`, `validateDetailsEdit`, `diffDetails`, `firstRhythmChanged`, `buildDetailsAnnouncement`, `buildPlanQuestion`, `PlanOutcome`, `findNextRhythmPlan`, `updateGroupDetails`, `applyDetailChangeInTx`.
