@@ -35,8 +35,11 @@ import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor } from "@prisma/client"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import type { DetailChange } from "@/lib/orbit/edit-copy"
+import { EDIT_TITLE_MAX } from "./edit-fields"
 
-export const EDIT_TITLE_MAX = 50
+// Re-exported so server-side callers and tests can keep importing it from
+// here; client code must import it from ./edit-fields instead.
+export { EDIT_TITLE_MAX }
 
 export type EditDetailsResult =
   | { status: "edited"; change: DetailChange }

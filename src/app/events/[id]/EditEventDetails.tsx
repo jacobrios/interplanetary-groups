@@ -20,7 +20,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { editEventAction, type EditEventState } from "@/app/actions/edit-event"
-import { EDIT_TITLE_MAX } from "@/lib/events/edit-details"
+import { EDIT_TITLE_MAX } from "@/lib/events/edit-fields"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import { ErrorLine } from "@/components/choice"
 
