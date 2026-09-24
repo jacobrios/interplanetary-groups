@@ -8222,7 +8222,7 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 
 ## §11 entry: the editable event card (23 September 2026)
 
-**What changed.** Any member can fix an upcoming plan from its page. Before, a floated plan could never get a place and nothing about any plan was correctable.
+**What changed.** Any member can fix an upcoming plan from its page. Before, nothing about a plan was correctable.
 
 **The seven decisions settled with the owner before any code.**
 
@@ -8232,14 +8232,19 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 - **Place and title leave RSVPs alone**; a new day or time keeps the vote's reset.
 - **Saved calendar entries stay stale**; re-adding hands out a newer version.
 - **The edit lives on the plan's page, not the home card**: the card is the gist and its height budget is spent.
-- **Onboarding's required venue stays until the group-details slice, not this one**: an edit fixes one plan, and the rhythm would recreate the missing venue every week.
+- **Onboarding's required venue stays until the group-details slice**: an edit fixes one plan, and the rhythm would recreate the missing venue weekly.
 
-**Four decided in planning** *(this entry's reading; the plan did not enumerate them)*. The form opens inline, never as a modal. A vote opened from the page records no source message rather than pointing at Orbit's, which would claim the member said something they did not. A weekly plan cannot move onto or past its rhythm's next regular slot, measured from its original slot, or the hourly job skips that week in silence. A renamed title is kept as typed, since lowercasing turned "Pool at Sam's" into "Pool at sam's".
+**Four more the owner approved after the slice document was written.**
 
-**Decided during the build.** A save whose day-time vote loses a race says its other changes landed. Orbit's chat decline says anyone can **ask the group** for a new day on the page, because the page asks rather than moves. A stale form cannot undo someone else's change. Saving the time an open vote already asks about adds a yes to it rather than wiping its votes.
+1. **A weekly plan cannot move on or after its rhythm's next regular slot**, measured from its original slot, or the hourly job skips that week in silence. Floated plans have no limit.
+2. **One save changing both kinds of detail posts two Orbit messages**, the place or title line first, then the vote's question: one is done, the other is asked.
+3. **A place can be removed as well as changed**, and Orbit says what it was; a title is capped at 50 characters and cannot be blank.
+4. **A vote opened from the page has no chat message behind it**, which made the proposal's source message optional: a migration that must reach production before the merge (after-launch item 18).
 
-**Evidence.** Suite 1928 across 162 files at `291ead3` to 2006 across 168, zero failures. Bench `venue-ask-two-plans` 5/5. Browser walkthrough at 375x812 passed, and **found a build break no test could**: the form pulled the database client into the browser, which only the production build sees. Real phone: the owner's, not yet.
+**Decided during the build.** The form opens inline, never as a pop-up. A new title is kept as typed, since lowercasing turned "Pool at Sam's" into "Pool at sam's". Orbit's chat decline says anyone can **ask the group** for a new day on the page, because the page asks rather than moves. A stale form cannot undo someone else's change. Saving the time an open vote already asks about adds a yes to it rather than wiping its votes.
 
-**Queued.** (1) Onboarding's follow-up question should show the place alongside the time and stop saying "One question". (2) Whether venue stays required at onboarding for good, owner leaning yes, decided in the group-details slice. (3) Going back from step 2 regenerates the suggested group name; recommend decline unless an edited name is ever lost. Out of lane, unranked: the vote's supersede step retires the asker's open votes in their other groups too (pre-existing, own micro-PR); the full-suite stop hook tests the main checkout, never the worktree, and flaked three times.
+**Evidence.** Suite 1928 across 162 files at `291ead3` to 2006 across 168, zero failures. Bench `venue-ask-two-plans` 5/5. Browser walkthrough at 375x812 passed, and **found a build break no test could**: the form pulled the database client into the browser. Real phone: the owner's, not yet.
 
-**Debt.** An edit fixes one plan, never the rhythm. Saved calendars go stale until the subscribable calendar. More stored messages name a member that deletion cannot reach. Renaming a weekly plan lets an idea under its old name past the duplicate guard until it passes. A plan moved from a week out to under three days out can miss the digest's three-days-before reminder. The refusal "runs into the next regular Tennis on Sat at 9am" does not say which Saturday. The page and the edit pick a plan's first venue by different orders, harmless while plans have one. Calendar apps replacing rather than duplicating a re-added entry: unverified. Deploy obligation: after-launch item 18.
+**Queued.** (1) Onboarding's follow-up question should show the place alongside the time and stop saying "One question". (2) Whether venue stays required at onboarding for good, owner leaning yes, decided in the group-details slice. (3) Going back from step 2 regenerates the suggested group name; recommend decline unless an edited name is ever lost. Out of lane, unranked: the vote's supersede step retires the asker's open votes in other groups too (own micro-PR); the full-suite stop hook tests the main checkout, never the worktree.
+
+**Debt.** An edit fixes one plan, never the rhythm. Saved calendars go stale until the subscribable calendar. More stored messages name a member, beyond deletion's reach. A renamed weekly plan lets an idea under its old name past the duplicate guard. A plan moved from a week out to under three days out can miss the digest's three-days-before reminder. The refusal "runs into the next regular Tennis on Sat at 9am" does not say which Saturday. The page and the edit order venues differently, harmless while plans have one. Calendar apps replacing rather than duplicating a re-added entry: unverified.
