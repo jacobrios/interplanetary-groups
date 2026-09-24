@@ -266,6 +266,17 @@ export async function submitEventEdit(input: {
     ),
   })
 
+  if (proposalResult.status === "created") {
+    // A vote can clear its bar the moment it opens (a group of one: the
+    // bar is the whole group). Without this nothing ever moves it, because
+    // promotion only runs on a chip tap (group-details slice, 24 Sept 2026).
+    try {
+      await promoteProposalMove(proposalResult.proposal.id, now)
+    } catch (err) {
+      console.error("[submit-edit] promote-at-birth failed", err)
+    }
+  }
+
   if (proposalResult.status === "skipped" && proposalResult.reason === "stale") {
     // editEventDetails already committed (title and/or place, announced in
     // the feed) by the time this staleness is discovered: the plain "take

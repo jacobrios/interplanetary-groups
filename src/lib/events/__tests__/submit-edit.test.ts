@@ -5,7 +5,7 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
-import { EventStatus, MessageAuthor, ProposalKind, ProposalVoteAnswer } from "@prisma/client"
+import { EventStatus, MessageAuthor, ProposalKind, ProposalVoteAnswer, RsvpStatus } from "@prisma/client"
 import { submitEventEdit } from "../submit-edit"
 import { createGroupProposal } from "@/lib/proposals/create"
 
@@ -606,5 +606,40 @@ describe("submitEventEdit, saving the same time a live vote already asks about",
     expect(proposal?.answer).not.toBeNull()
     const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
     expect(proposals).toHaveLength(1)
+  })
+})
+
+describe("submitEventEdit, a group of one", () => {
+  it("moves the plan the instant the vote opens, since a group of one clears its own bar immediately", async () => {
+    // Solo group: remove the fixture's other membership so the actor is the
+    // whole group and their own seeded yes already clears "the whole group
+    // when smaller than three". Promotion otherwise only ever runs on a
+    // chip tap, so without this task nothing would move the plan.
+    await prisma.membership.deleteMany({ where: { groupId: groupId!, userId: otherUserId! } })
+
+    const result = await submitEventEdit({
+      eventId: eventId!,
+      actor: actor(),
+      title: "Tennis",
+      place: "",
+      dateLocal: "2099-06-13",
+      timeLocal: "10:00",
+      now: NOW,
+      original: ORIG,
+    })
+    expect(result).toEqual({ status: "ok", edited: false, proposed: true })
+
+    // 2099-06-13 10:00 America/Chicago == 15:00 UTC.
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.startsAt.toISOString()).toBe("2099-06-13T15:00:00.000Z")
+
+    const rsvp = await prisma.rsvp.findUnique({
+      where: { eventId_userId: { eventId: eventId!, userId: userId! } },
+    })
+    expect(rsvp?.status).toBe(RsvpStatus.IN)
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(1)
+    expect(proposals[0].answer).not.toBeNull()
   })
 })
