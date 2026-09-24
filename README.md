@@ -88,9 +88,9 @@ One layer sits above all of that. **[ai-build-process](https://github.com/jacobr
 - "Next week" and "next Friday" land on the week the person meant
 - Belong to several groups and move between them from a list
 - Two people with the same name cannot join one group, so every name on screen means one person
-- The chat updates live while it is open, and an open tab picks up a new release once the member is idle
+- The chat updates live while it is open, and an open group chat picks up a new release once the member is idle
 - A privacy notice, terms, and deletion of a person's data by request
-- An hourly self-check that alerts the owner when signed-in screens break, including when sign-in itself is down (members then see an error screen rather than being quietly signed out)
+- An hourly self-check that alerts the owner when signed-in screens break, including when sign-in itself is down (on most screens members then see an error page rather than being quietly signed out)
 - A production build check on every pull request
 
 **Deferred on purpose, and queued**
