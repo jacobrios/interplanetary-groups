@@ -130,10 +130,30 @@ export async function createGroupProposal({
       }
 
       // A card ask has no chat message, so the (sourceMessageId, kind)
-      // unique cannot catch a double-tapped Save. This does: the same
-      // person asking the same thing about the same plan, still
-      // unanswered, is the same ask.
+      // unique cannot catch a double-tapped Save. The findFirst below does,
+      // for one request at a time, but under READ COMMITTED a plain SELECT
+      // takes no lock: two truly concurrent card-ask transactions can both
+      // read "no duplicate yet" before either commits its INSERT, and both
+      // proposals (and both Orbit questions) go live. So first take the
+      // event row's write lock with a conditional UPDATE: Postgres blocks
+      // the second transaction's UPDATE until the first commits or rolls
+      // back, and by the time it resumes, its own findFirst is a fresh
+      // statement that sees the first transaction's now-committed proposal.
+      // The chat path needs none of this: its idempotency is the
+      // (sourceMessageId, kind) unique index, which Postgres serializes on
+      // its own. (The update writes back the same startsAt, so it changes
+      // nothing but Event.updatedAt, which nudges the calendar file's
+      // SEQUENCE forward the moment a card vote opens rather than only when
+      // it resolves; harmless, and arguably correct, since a vote opening is
+      // itself a legitimate reason for a subscribed calendar to notice
+      // something moved.)
       if (sourceMessageId === null) {
+        const locked = await tx.event.updateMany({
+          where: { id: eventId, startsAt: priorStartsAt, status: EventStatus.SCHEDULED },
+          data: { startsAt: priorStartsAt },
+        })
+        if (locked.count === 0) throw new StaleEventInTx()
+
         const duplicate = await tx.changeProposal.findFirst({
           where: {
             eventId,

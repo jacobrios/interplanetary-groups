@@ -309,6 +309,32 @@ describe("createGroupProposal", () => {
     expect(await prisma.changeProposal.count({ where: { eventId: eventId!, answer: null } })).toBe(1)
     expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(1)
   })
+
+  it("two truly concurrent card asks with no source message still open only one", async () => {
+    // Sequential calls (the test above) can't exercise the race: the second
+    // call's findFirst only ever runs after the first has already committed
+    // or rolled back. Promise.all fires both createGroupProposal transactions
+    // at once, so both reach the duplicate findFirst with nothing committed
+    // yet unless the event-row lock (the conditional updateMany added for
+    // this fix) forces the second to wait for the first.
+    const cardInput = {
+      groupId: groupId!,
+      eventId: eventId!,
+      askerUserId: userId!,
+      sourceMessageId: null,
+      proposedStartsAt: PROPOSED,
+      priorStartsAt: EVENT_START,
+      body: "[TEST] ask",
+    }
+    const [a, b] = await Promise.all([createGroupProposal(cardInput), createGroupProposal(cardInput)])
+    const results = [a, b]
+    const created = results.filter((r) => r.status === "created")
+    const skipped = results.filter((r) => r.status === "skipped")
+    expect(created).toHaveLength(1)
+    expect(skipped).toEqual([{ status: "skipped", reason: "already_asked" }])
+    expect(await prisma.changeProposal.count({ where: { eventId: eventId!, answer: null } })).toBe(1)
+    expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(1)
+  })
 })
 
 describe("findLiveProposals", () => {
