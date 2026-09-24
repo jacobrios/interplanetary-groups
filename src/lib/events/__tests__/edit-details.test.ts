@@ -2,7 +2,7 @@
 // Cleanup order (FK constraints): Message -> Event (Venue and Rsvp cascade
 // with their Event) -> Membership -> Group -> User. Modelled on cancel.test.ts.
 
-import { describe, it, expect, afterEach, beforeEach } from "vitest"
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, RsvpStatus } from "@prisma/client"
 import { editEventDetails, EDIT_TITLE_MAX } from "../edit-details"
@@ -324,37 +324,84 @@ describe("editEventDetails", () => {
     // race: against a real Postgres connection pool the two calls are as
     // likely to run fully serially (each starting from whatever the row
     // holds at that moment, both then genuinely succeeding) as to actually
-    // overlap. This is the same lock-held-as-precondition pattern
-    // promote.test.ts uses for its own "stale baseline" case: an external
-    // transaction takes the row lock and holds it open well past the point
-    // editEventDetails's own conditional updateMany reaches it, so that
-    // write is forced to block, then re-evaluate against the already-
-    // committed row and lose. `locked` fires the instant the external
-    // update call returns, which is only once the lock is definitely held.
+    // overlap. So an external transaction takes the row lock first and
+    // holds it until editEventDetails has provably done its read (and is
+    // about to issue its conditional write), then commits. That read saw
+    // the pre-edit row, so the write must match nothing and lose, whatever
+    // the timing of the commit relative to the write.
+    //
+    // No sleep decides the outcome: the hold ends on a signal from inside
+    // editEventDetails's own transaction, taken by wrapping the tx handle
+    // it is given so its event.updateMany announces itself before running.
+    // (An earlier version slept 1500ms and assumed the write landed inside
+    // that window, which a slow shared database does not guarantee.)
     let locked!: () => void
     const lockHeld = new Promise<void>((resolve) => {
       locked = resolve
     })
+    let writeReached!: () => void
+    const editReachedWrite = new Promise<void>((resolve) => {
+      writeReached = resolve
+    })
+
     const externalEdit = prisma.$transaction(async (tx) => {
       await tx.event.update({
         where: { id: eventId! },
         data: { title: "Badminton", activityLabel: "Badminton" },
       })
       locked()
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await editReachedWrite
     })
-
     await lockHeld
-    const [, result] = await Promise.all([
-      externalEdit,
-      editEventDetails({
-        eventId: eventId!,
-        title: "Pool",
-        place: "",
-        now: NOW,
-        announce: stubAnnounce,
-      }),
-    ])
+
+    // Only editEventDetails's transaction starts from here on, so every
+    // $transaction call this spy sees is that one.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const originalTransaction = (prisma.$transaction as any).bind(prisma)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spy = (vi.spyOn(prisma, "$transaction") as any).mockImplementation(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (fn: (tx: any) => Promise<unknown>, opts?: unknown) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        originalTransaction((tx: any) => {
+          const event = new Proxy(tx.event, {
+            get(target, prop) {
+              if (prop === "updateMany") {
+                return (args: unknown) => {
+                  writeReached()
+                  return target.updateMany(args)
+                }
+              }
+              const value = Reflect.get(target, prop)
+              return typeof value === "function" ? value.bind(target) : value
+            },
+          })
+          const wrapped = new Proxy(tx, {
+            get(target, prop) {
+              if (prop === "event") return event
+              const value = Reflect.get(target, prop)
+              return typeof value === "function" ? value.bind(target) : value
+            },
+          })
+          return fn(wrapped)
+        }, opts)
+    )
+
+    let result
+    try {
+      ;[, result] = await Promise.all([
+        externalEdit,
+        editEventDetails({
+          eventId: eventId!,
+          title: "Pool",
+          place: "",
+          now: NOW,
+          announce: stubAnnounce,
+        }),
+      ])
+    } finally {
+      spy.mockRestore()
+    }
     expect(result).toEqual({ status: "skipped", reason: "stale" })
 
     const event = await prisma.event.findUnique({ where: { id: eventId! } })
