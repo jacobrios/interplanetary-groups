@@ -48,10 +48,13 @@ export default defineConfig({
     // this config at the start of every invocation, whoever started it, so
     // both parties take it. Do not "simplify" this into the hook.
     //
-    // Scope, worth knowing before trusting it: the lock is keyed on
-    // process.cwd(), so it serializes runs within THIS checkout only. Two git
-    // worktrees share one dev-test database and do NOT block each other, so
-    // the concurrent-worktree collision documented in CLAUDE.md survives this.
+    // Scope, worth knowing before trusting it: since 24 Sept 2026 the lock is
+    // keyed on the git REPOSITORY, not on process.cwd(), so every worktree of
+    // this repo takes turns on the one dev-test database. (Before that it was
+    // per checkout and two worktrees did not block each other.) The limit that
+    // remains: this file loads the lock from each checkout's own branch, so a
+    // worktree cut before that change still runs the old per-folder lock until
+    // it catches up with main, and the two do not see each other.
     //
     // WHAT THIS DOES AND DOES NOT RECLAIM, because the earlier version of this
     // comment claimed more than the mechanism delivers and that is this repo's
