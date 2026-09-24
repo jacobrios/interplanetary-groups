@@ -162,8 +162,8 @@ export function buildCantDoReply(
 ): string {
   if (fields.includes("day")) {
     return eventStartsAt
-      ? `I can't move it to another day from chat, but anyone can on the plan's page. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
-      : `I can't move it to another day from chat, but anyone can on the plan's page. I can change the time if that helps.`
+      ? `I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
+      : `I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time if that helps.`
   }
   if (fields.includes("venue")) {
     return `I can't change the spot from chat, but anyone can on the plan's page. I can move the time if that helps.`

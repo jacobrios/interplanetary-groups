@@ -141,7 +141,7 @@ describe("copy composers", () => {
 
   it("declines by field: day wins over venue, venue over other", () => {
     expect(buildCantDoReply(["day", "time"], MORNING_EVENT, ZONE)).toBe(
-      "I can't move it to another day from chat, but anyone can on the plan's page. I can change the time on Sun if that helps."
+      "I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time on Sun if that helps."
     )
     expect(buildCantDoReply(["venue"], MORNING_EVENT, ZONE)).toBe(
       "I can't change the spot from chat, but anyone can on the plan's page. I can move the time if that helps."
@@ -232,7 +232,7 @@ describe("group proposal copy", () => {
 
   it("the targetless decline drops the weekday clause", () => {
     expect(buildCantDoReply(["day"], null, TZ)).toBe(
-      "I can't move it to another day from chat, but anyone can on the plan's page. I can change the time if that helps."
+      "I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time if that helps."
     )
   })
 })
