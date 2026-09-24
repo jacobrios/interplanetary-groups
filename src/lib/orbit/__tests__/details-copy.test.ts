@@ -69,6 +69,26 @@ describe("buildDetailsAnnouncement", () => {
     )
   })
 
+  it("spot cleared (venue set to null), no plan (none)", () => {
+    const after = afterWith({ venueName: null })
+    const diff = diffDetails(BEFORE, after, "Group", "Group")
+    expect(diff.rhythms).toEqual([
+      { index: 0, activity: null, schedule: false, spot: { from: "Court 3", to: null } },
+    ])
+
+    const result = buildDetailsAnnouncement({
+      founderName: "Casey",
+      after,
+      before: BEFORE,
+      diff,
+      memberCount: 3,
+      plan: { kind: "none" },
+      timeZone: TZ,
+      now: NOW,
+    })
+    expect(result).toBe("Casey removed the spot for tennis.")
+  })
+
   it("schedule + spot change with a 'vote' plan outcome, details already updated", () => {
     const after = afterWith({ daysOfWeek: [0], timeLocal: "08:00", venueName: "Court 5" })
     expect(formatRhythmRow(after[0]).value).toBe("Sun at 8am, every week")
