@@ -68,7 +68,7 @@ export default function ResetInviteLink({ groupId }: Props) {
         Reset the invite link?
       </p>
       <p style={{ fontSize: "var(--type-meta)", color: "var(--text-secondary)" }}>
-        The old link will stop working everywhere it's been shared.
+        The old link will stop working everywhere it&apos;s been shared.
       </p>
 
       {errorMsg && (

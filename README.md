@@ -84,13 +84,20 @@ One layer sits above all of that. **[ai-build-process](https://github.com/jacobr
 - RSVPs, a roster, event pages, and a group page carrying the invite link and the group's own actions
 - Sign back in from any device with an emailed code
 - Add a plan to your own calendar, and get an email only when something is waiting on you or you missed something
+- Call off one plan (for rain, say) and put it back, by anyone in the group
+- "Next week" and "next Friday" land on the week the person meant
+- Belong to several groups and move between them from a list
+- Two people with the same name cannot join one group, so every name on screen means one person
+- The chat updates live while it is open, and an open group chat picks up a new release once the member is idle
+- A privacy notice, terms, and deletion of a person's data by request
+- An hourly self-check that alerts the owner when signed-in screens break, including when sign-in itself is down (on most screens members then see an error page rather than being quietly signed out)
+- A production build check on every pull request
 
 **Deferred on purpose, and queued**
 
-- Getting into a second group from inside the app. Someone can belong to several groups already, and the data model has supported that from day one, but the app only ever opens the most recent one.
-- Changing anything about a plan except its time. A wrong venue, day, or cadence gets an honest decline in chat rather than a silent guess, and each is queued on its own.
+- Changing a plan's venue, day, or cadence. Its time can move by group vote and it can be called off, but a wrong venue, day, or cadence gets an honest decline in chat rather than a silent guess, and each is queued on its own.
 - Making it impossible to end up as two people. Signing in with an email is built; someone who never adds one can still come back as a second member, which leaves the group's counts wrong in the one product whose whole claim is accurate attendance. Closing that is queued.
-- Sending a message faster. It takes a few seconds once a group has any history, and gets slower the more the group talks. That is the next thing being built.
+- Letting a founder fix a group's details after creation. Today a wrong day or time has to be caught on the playback screen before the group exists.
 
 **Out of scope for the MVP**
 
@@ -110,7 +117,7 @@ Multiple venues per event, nested events, travel and logistics features, forward
 | Testing | Vitest, plus two graded model benches that run outside the suite |
 | Hosting | Vercel, with an hourly cron that schedules the next recurring plan, follows up on ideas and votes that have stalled, and sends the digest |
 
-1,374 tests across 126 files cover the normalization boundary, vote thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
+About 160 test files cover the normalization boundary, vote thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
 
 ---
 
@@ -131,9 +138,15 @@ npm run dev
 
 **Email fails closed outside production.** A send from a non-production environment goes only to an address named in `EMAIL_DEV_ALLOWLIST`, and an unset allowlist sends nothing. That is the intended default: a development database holds QA rows carrying real addresses, so a local run must never be one command away from mailing a real person.
 
-`npm test` runs against a real database rather than mocks, so it needs the same `.env` in place with migrations already applied.
+`npm test` runs against a real database rather than mocks, so it needs the same `.env` in place with migrations already applied. About 40 test files need that database; the rest run without one.
 
 ```bash
 npm test        # full suite
 npm run lint
 ```
+
+---
+
+## License
+
+Copyright (c) 2026 Jacob Rios. All rights reserved. The source is public so it can be read and reviewed; no license is granted to copy, modify, or redistribute it.
