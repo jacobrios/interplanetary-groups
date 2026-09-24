@@ -56,6 +56,7 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
   const cardRef = useRef<HTMLDivElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const linkRef = useRef<HTMLButtonElement>(null)
+  const leaveButtonRef = useRef<HTMLButtonElement>(null)
   const focusAfterSwap = useRef<"form" | "link" | null>(null)
   useEffect(() => {
     if (focusAfterSwap.current === "form") {
@@ -66,6 +67,19 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
     }
     focusAfterSwap.current = null
   }, [editing])
+
+  // Coordinator phone-width fix: the band grows when it swaps to the plan
+  // question (two extra rows), so the card scrolled into view at open time
+  // no longer guarantees the answer buttons are on screen by the time this
+  // fires, and nothing was moving focus onto them either. Keyed on `asking`
+  // itself, not a timer, so it re-runs exactly once the band's new height is
+  // in the DOM.
+  useEffect(() => {
+    if (asking) {
+      cardRef.current?.scrollIntoView?.({ block: "end" })
+      leaveButtonRef.current?.focus()
+    }
+  }, [asking])
 
   function openForm() {
     // Re-seeded from props on every open, not left with a prior abandoned
@@ -216,6 +230,7 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
             </p>
             <div style={pairRow}>
               <button
+                ref={leaveButtonRef}
                 type="button"
                 onClick={() => doSubmit("leave")}
                 disabled={isPending}

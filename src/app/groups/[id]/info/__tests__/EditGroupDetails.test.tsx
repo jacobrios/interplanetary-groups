@@ -12,9 +12,18 @@ vi.mock("@/app/actions/update-group-details", () => ({
   updateGroupDetailsAction: (...args: unknown[]) => updateGroupDetailsAction(...args),
 }))
 
+// jsdom has no native scrollIntoView; give it a no-op so vi.spyOn has a real
+// method to wrap (a spy needs the property to exist first).
+if (!("scrollIntoView" in HTMLElement.prototype)) {
+  ;(HTMLElement.prototype as unknown as { scrollIntoView: () => void }).scrollIntoView = () => {}
+}
+let scrollIntoViewSpy: ReturnType<typeof vi.spyOn> | null = null
+
 afterEach(() => {
   cleanup()
   updateGroupDetailsAction.mockClear()
+  scrollIntoViewSpy?.mockRestore()
+  scrollIntoViewSpy = null
 })
 
 const climbing: StoredRhythm = {
@@ -109,12 +118,10 @@ describe("EditGroupDetails, opening the form", () => {
   })
 
   it("scrolls the card into view on open", () => {
-    const spy = vi.fn()
-    // jsdom does not implement scrollIntoView; provide it so the call is observable.
-    ;(HTMLElement.prototype as unknown as { scrollIntoView: typeof spy }).scrollIntoView = spy
+    scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {})
     renderIt()
     openForm()
-    expect(spy).toHaveBeenCalledWith({ block: "end" })
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "end" })
   })
 
   it("separates two rhythms with a hairline and puts a Place field on each", () => {
@@ -233,6 +240,26 @@ describe("EditGroupDetails, Save with a changed first activity and a next plan",
     expect(update.style.color).toBe("var(--text-primary)")
     expect(leave.style.flexGrow).toBe("1")
     expect(update.style.flexGrow).toBe("1")
+  })
+
+  // Coordinator phone-width fix, found in the picture check: on a real
+  // build the band grows when it swaps to the question, and the answer
+  // buttons landed below the fold with the card scrolled into view only at
+  // open time. Entering the question re-scrolls and moves focus onto the
+  // first answer, closing the earlier "focus falls to the body" minor too.
+  it("scrolls the card into view again and focuses Leave it when entering the question", () => {
+    scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {})
+    renderIt({ nextPlan })
+    openForm()
+    // Clear the open-time call so this only asserts the asking-transition one.
+    scrollIntoViewSpy.mockClear()
+
+    fireEvent.change(screen.getByLabelText("Activity"), { target: { value: "bouldering" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "end" })
+    const leave = screen.getByRole("button", { name: "Leave it" })
+    expect(document.activeElement).toBe(leave)
   })
 
   it("submits planChoice 'leave' on Leave it, carrying the plan's eventId and startsAt", async () => {
