@@ -8279,3 +8279,9 @@ A correction to this record's vocabulary, 23 Sept 2026: the person referred to t
 - **Unverified:** whether helper agents share their session's id in hook input. The design is correct either way, but that was reasoned, not observed. If they do share it, one helper's finish also checks, and can be held by, another helper's worktree in the same session. That errs toward running more, never less.
 - **Accepted:** a cleared temp directory silently forgives every owed run, because the stamps and the session's list live there. Pre-existing, and now written down correctly; it had been documented as failing safe.
 - **What a green suite cannot show here:** that the edit hook's note reaches the finish hook inside a real harness session. The live check reproduced the harness's input shape; a real worktree session after merge is the first observation of it end to end.
+
+## §11 entry: group details editing (opened 24 September 2026)
+
+**Baseline, recorded before anything landed on the branch:** 2040 passing of 2040 across 170 files, on `main` at `e6e0e68`, cut into branch `group-details-editing`. Cross-check: the editable event card finished at 2006 across 168; the 34 tests and two files between them belong to PR #138 (the worktree test gate), which merged after it. **One unnamed intermittent failure, recorded rather than dropped:** the first baseline run read 1 failed of 2040 and a second run read 2040 of 2040. The failing test's name was lost because only the run's summary lines were kept, which is the session's error, not the suite's. It did not repeat; if a failure appears mid-slice in a file this slice never touched, suspect this one before suspecting the slice.
+
+The slice's decisions, settled with the owner on 24 September 2026, are in the slice document's front section, `docs/superpowers/specs/2026-09-02-founder-fixes-group-details-design.md`; the full entry is written when the slice lands.
