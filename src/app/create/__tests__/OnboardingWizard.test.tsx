@@ -31,8 +31,11 @@ const RHYTHMS: StoredRhythm[] = [
 
 // Action modules are mocked wholesale (the JoinForm.test.tsx precedent),
 // never partially executed: extract.ts and merge.ts reach the Anthropic SDK
-// and env-gated model calls this test must never touch.
-const extractMock = vi.fn(async () => ({
+// and env-gated model calls this test must never touch. Typed as
+// (..._args: unknown[]) rather than the real action signatures, matching
+// EditEventDetails.test.tsx's mocks: the point of the mock is to observe
+// what reaches it, not to re-type the server action.
+const extractMock = vi.fn(async (..._args: unknown[]) => ({
   status: "ready" as const,
   profile: { groupName: "Padel Crew", rhythms: RHYTHMS },
 }))
@@ -44,7 +47,10 @@ vi.mock("@/app/actions/merge-gap", () => ({
   mergeGapAction: vi.fn(),
 }))
 
-const createMock = vi.fn(async () => ({ groupId: "grp_1", inviteToken: "tok_1" }))
+const createMock = vi.fn(async (..._args: unknown[]) => ({
+  groupId: "grp_1",
+  inviteToken: "tok_1",
+}))
 vi.mock("@/app/actions/create-group", () => ({
   createGroupAction: (input: unknown) => createMock(input),
 }))
@@ -79,10 +85,10 @@ describe("OnboardingWizard, the real handler, not a harness copy", () => {
     fireEvent.click(screen.getByRole("button", { name: /looks right, set up invites/i }))
     await vi.waitFor(() => expect(createMock).toHaveBeenCalledTimes(1))
 
-    const input = createMock.mock.calls[0][0] as {
-      rhythms: { activity: string; title: string }[]
-    }
-    expect(input.rhythms[0].activity).toBe("padel")
-    expect(input.rhythms[0].title).toBe("Padel")
+    const [payload] = createMock.mock.calls[0] as [
+      { rhythms: { activity: string; title: string }[] },
+    ]
+    expect(payload.rhythms[0].activity).toBe("padel")
+    expect(payload.rhythms[0].title).toBe("Padel")
   })
 })
