@@ -43,7 +43,7 @@ import { createGroupProposal } from "@/lib/proposals/create"
 import { promoteProposalMove } from "@/lib/proposals/promote"
 import { checkEditedStart } from "./edit-limits"
 import { editEventDetails } from "./edit-details"
-import { formatTime, formatWeekdayShort } from "./format"
+import { formatMonthDay, formatWeekdayShort } from "./format"
 
 const DATE_LOCAL_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -160,7 +160,9 @@ export async function submitEventEdit(input: {
       const { nextOccurrence } = check
       return {
         status: "error",
-        message: `That runs into the next regular ${event.title} on ${formatWeekdayShort(nextOccurrence, timeZone)} at ${formatTime(nextOccurrence, timeZone)}. Pick a time before then.`,
+        // Names the date, not just the weekday (owner's phone QA, 24 Sept
+        // 2026): "Sat" alone never said WHICH Saturday was in the way.
+        message: `That runs into the next ${event.title}, on ${formatWeekdayShort(nextOccurrence, timeZone)}, ${formatMonthDay(nextOccurrence, timeZone)}. Pick an earlier day.`,
       }
     }
   }

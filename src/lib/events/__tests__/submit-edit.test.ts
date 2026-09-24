@@ -257,7 +257,7 @@ describe("submitEventEdit", () => {
     })
     expect(result).toEqual({
       status: "error",
-      message: "That runs into the next regular Tennis on Sat at 9am. Pick a time before then.",
+      message: "That runs into the next Tennis, on Sat, Jun 20. Pick an earlier day.",
     })
 
     const event = await prisma.event.findUnique({ where: { id: eventId! } })
