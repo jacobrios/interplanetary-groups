@@ -82,8 +82,15 @@ type TxResult =
       proposedStartsAt: Date
       priorStartsAt: Date
       body: string
-      /** Said instead when the vote cannot open: the group still hears about the change. */
-      fallbackBody: string | null
+      /**
+       * Said instead when the vote cannot open, so the group still hears
+       * about the change. Stale (the plan moved in the gap): the plan
+       * sentence says what happened to the plan. Already asked (the same
+       * vote is open): no plan sentence at all, since "stays as it was"
+       * would be false while that vote is live.
+       */
+      staleBody: string | null
+      alreadyAskedBody: string | null
     }
 
 export async function updateGroupDetails(
@@ -164,8 +171,19 @@ export async function updateGroupDetails(
             place,
             now,
           })
-          if (applied.status === "applied") detailsUpdated = true
-          else if (applied.reason !== "noop") throw new StalePlanInTx()
+          if (applied.status === "applied") {
+            detailsUpdated = true
+          } else if (applied.reason === "invalid_title" || applied.reason === "invalid_place") {
+            // Not somebody changing the plan under us: a value this save
+            // produced failed the plan's own caps. Thrown plain so the
+            // action logs it and shows the generic message, never the
+            // stale one. (Unreachable while the caps match: see report.)
+            throw new Error(`DETAILS_PLAN_WRITE_${applied.reason.toUpperCase()}`)
+          } else if (applied.reason !== "noop") {
+            // no_event / cancelled / already_started / stale: the plan
+            // changed after it was read in this same transaction.
+            throw new StalePlanInTx()
+          }
         }
 
         if (first.schedule) {
@@ -227,11 +245,12 @@ export async function updateGroupDetails(
           proposedStartsAt: outcome.proposedStartsAt,
           priorStartsAt: plan.startsAt,
           body,
-          fallbackBody: compose(
+          staleBody: compose(
             detailsUpdated
               ? { kind: "updated", startsAt: plan.startsAt }
               : { kind: "left", startsAt: plan.startsAt }
           ),
+          alreadyAskedBody: compose({ kind: "none" }),
         }
       }
 
@@ -262,15 +281,18 @@ export async function updateGroupDetails(
     priorStartsAt: txResult.priorStartsAt,
     body: txResult.body,
   })
-  if (created.status === "skipped" && txResult.fallbackBody !== null) {
-    // The vote could not open (the plan moved in the gap, or the same ask is
-    // already open), so the group still hears about the schedule change.
-    await createMessage({
-      groupId: txResult.groupId,
-      authorType: MessageAuthor.ORBIT,
-      authorId: null,
-      body: txResult.fallbackBody,
-    })
+  if (created.status === "skipped") {
+    // The vote could not open, so the group still hears about the change.
+    const fallback =
+      created.reason === "already_asked" ? txResult.alreadyAskedBody : txResult.staleBody
+    if (fallback !== null) {
+      await createMessage({
+        groupId: txResult.groupId,
+        authorType: MessageAuthor.ORBIT,
+        authorId: null,
+        body: fallback,
+      })
+    }
   }
   return { status: "ok" }
 }

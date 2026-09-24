@@ -19,7 +19,6 @@ import {
 import { updateGroupDetails, DETAILS_STALE, type UpdateGroupDetailsInput } from "../update-details"
 import { DETAILS_UNSCHEDULABLE } from "../details-edit"
 import type { RhythmEdit } from "../rhythm-edit"
-import { createGroupProposal } from "@/lib/proposals/create"
 
 let caseyId: string | null = null
 let caseyAuth = ""
@@ -489,18 +488,24 @@ describe("updateGroupDetails", () => {
     expect(await orbitMessages()).toHaveLength(1)
   })
 
-  it("a vote that cannot open still tells the group, in exactly one message", async () => {
-    // The same ask is already open, so createGroupProposal skips it.
-    const existing = await createGroupProposal({
-      groupId: groupId!,
-      eventId: eventId!,
-      askerUserId: caseyId!,
-      sourceMessageId: null,
-      proposedStartsAt: SUNDAY_8,
-      priorStartsAt: START,
-      body: "Earlier ask",
+  it("a vote already open for the same move: one message, no plan sentence", async () => {
+    // Seed the same ask the founder already opened from the plan's page. Its
+    // question is a MEMBER line so the ORBIT count below is only this save's.
+    const seedMsg = await prisma.message.create({
+      data: { groupId: groupId!, authorType: MessageAuthor.MEMBER, authorId: caseyId!, body: "seed" },
     })
-    expect(existing.status).toBe("created")
+    await prisma.changeProposal.create({
+      data: {
+        groupId: groupId!,
+        eventId: eventId!,
+        askerUserId: caseyId!,
+        sourceMessageId: null,
+        orbitMessageId: seedMsg.id,
+        proposedStartsAt: SUNDAY_8,
+        priorStartsAt: START,
+        kind: ProposalKind.GROUP,
+      },
+    })
 
     const result = await updateGroupDetails(
       input({
@@ -511,11 +516,60 @@ describe("updateGroupDetails", () => {
     )
     expect(result).toEqual({ status: "ok" })
 
-    expect(await prisma.changeProposal.findMany({ where: { eventId: eventId! } })).toHaveLength(1)
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(1)
+    expect(proposals[0].answer).toBeNull()
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+    expect(event.startsAt.getTime()).toBe(START.getTime())
+
     const messages = await orbitMessages()
-    // The pre-existing ask's message plus exactly one from this save.
-    expect(messages).toHaveLength(2)
-    expect(messages[1].body.startsWith("[TEST] Casey changed tennis to")).toBe(true)
-    expect(messages[1].body.endsWith("stays as it was.")).toBe(true)
+    expect(messages).toHaveLength(1)
+    expect(messages[0].body.startsWith("[TEST] Casey changed tennis to")).toBe(true)
+    expect(messages[0].body).not.toMatch(/plan/i)
+    expect(messages[0].body).not.toContain("stays as it was")
+  })
+
+  it("others present, spot AND time change, update: spot applied now, time goes to a vote, one message", async () => {
+    const result = await updateGroupDetails(
+      input({
+        rhythms: [{ ...EDIT_SAME, daysOfWeek: [0], timeLocal: "08:00", venueName: "Court 5" }],
+        planChoice: "update",
+        openedPlan: OPENED(),
+      })
+    )
+    expect(result).toEqual({ status: "ok" })
+
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 5"])
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+    expect(event.startsAt.getTime()).toBe(START.getTime())
+    const rsvps = await prisma.rsvp.findMany({ where: { eventId: eventId! } })
+    expect(rsvps).toHaveLength(2)
+    expect(rsvps.every((r) => r.status === RsvpStatus.IN)).toBe(true)
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(1)
+    expect(proposals[0].answer).toBeNull()
+
+    const messages = await orbitMessages()
+    expect(messages).toHaveLength(1)
+    expect(messages[0].id).toBe(proposals[0].orbitMessageId)
+    expect(messages[0].body).toContain("is updated too. Move it to")
+  })
+
+  it("founder alone, spot change, update: plan's place moves, nothing posted", async () => {
+    await removeRiley()
+    const result = await updateGroupDetails(
+      input({
+        rhythms: [{ ...EDIT_SAME, venueName: "Court 5" }],
+        planChoice: "update",
+        openedPlan: OPENED(),
+      })
+    )
+    expect(result).toEqual({ status: "ok" })
+
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 5"])
+    expect(await orbitMessages()).toHaveLength(0)
   })
 })
