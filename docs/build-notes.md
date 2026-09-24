@@ -8197,6 +8197,9 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 
 *Postscript, 23 September 2026: settled by the owner before the merge, on the build's recommendation. Ship as is: a reading member is pulled to the error screen. The 8 September offline decision does not carry over, because the two failures differ in what the member can see. Offline is visible on their own phone, so leaving them on a stale screen misleads nobody. An auth outage is invisible to them, so a screen that still looks alive while it cannot send, vote or RSVP would be the silent failure this slice exists to remove. No code changed.*
 
+
+*Postscript, 23 September 2026, the owner's QA before merge. Steps one to five were seen on his own screen: joining, a reading member pulled to the error screen within ten seconds, Try again staying on it while auth is down, and a stranger in a private window getting a normal front page. Step six, Try again after auth returns, was not seen by him: the tab caught the gap between the two dev servers. Its evidence is the server log alone, which shows the member view of the group home rendering for his tab and recording his visit, and that view renders only for a recognised signed-in member. One finding, pre-existing and queued rather than fixed: Try again gives no visible sign it did anything, so a retry that fails reads as a dead button, which matters more now that auth outages land on that screen. Recommendation: a brief "Trying..." state, as a polish micro-PR.*
+
 ---
 
 ## §11 entry: the full-suite hook stops hammering a dead database (23 Sep 2026)
