@@ -25,14 +25,14 @@ afterEach(() => {
 describe("CancelControls, live plan", () => {
   it("shows one quiet control at rest and calls nothing", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Call off" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Yes, call it off" })).toBeNull()
     expect(cancelEventAction).not.toHaveBeenCalled()
   })
 
   it("does not cancel on the first tap", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
 
     expect(cancelEventAction).not.toHaveBeenCalled()
     expect(screen.getByRole("button", { name: "Yes, call it off" })).toBeTruthy()
@@ -42,7 +42,7 @@ describe("CancelControls, live plan", () => {
 
   it("cancels on the second tap", async () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
     fireEvent.click(screen.getByRole("button", { name: "Yes, call it off" }))
 
     await waitFor(() => expect(cancelEventAction).toHaveBeenCalledTimes(1))
@@ -50,11 +50,11 @@ describe("CancelControls, live plan", () => {
 
   it("returns to rest on Never mind, having called nothing", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
     fireEvent.click(screen.getByRole("button", { name: "Never mind" }))
 
     expect(cancelEventAction).not.toHaveBeenCalled()
-    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Call off" })).toBeTruthy()
   })
 
   // Owner's phone QA, 3 Sept 2026: the cancel consequence shouts the state
@@ -62,7 +62,7 @@ describe("CancelControls, live plan", () => {
   // deliberately untouched, so it is pinned here too, as the negative case.
   it("shouts OFF in the cancel consequence line, and leaves the restore one alone", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
     expect(
       screen.getByText("This tells the group the plan is OFF. Anyone can undo it.")
     ).toBeTruthy()
@@ -97,7 +97,7 @@ describe("CancelControls, cancelled plan", () => {
 describe("CancelControls, shape", () => {
   it("rests as a full-width pill in both states", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    const off = screen.getByRole("button", { name: "Call this off" })
+    const off = screen.getByRole("button", { name: "Call off" })
     expect(off.style.width).toBe("100%")
     expect(off.style.borderRadius).toBe("24px")
     expect(off.style.minHeight).toBe("44px")
@@ -118,7 +118,7 @@ describe("CancelControls, shape", () => {
 
     cleanup()
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    const off = screen.getByRole("button", { name: "Call this off" })
+    const off = screen.getByRole("button", { name: "Call off" })
     expect(off.getAttribute("style")).not.toContain("--action")
   })
 
@@ -128,7 +128,7 @@ describe("CancelControls, shape", () => {
   // safe-first position is still what protects against an accidental tap.
   it("gives both confirm controls equal weight, and neither teal", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
 
     const safe = screen.getByRole("button", { name: "Never mind" })
     const destructive = screen.getByRole("button", { name: "Yes, call it off" })
@@ -141,7 +141,7 @@ describe("CancelControls, shape", () => {
 
   it("gives the two confirm controls the resting pill's full width between them", () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
 
     const safe = screen.getByRole("button", { name: "Never mind" })
     const destructive = screen.getByRole("button", { name: "Yes, call it off" })
@@ -156,6 +156,46 @@ describe("CancelControls, shape", () => {
   })
 })
 
+// ── The Edit | Call off row (owner's phone QA, 24 Sept 2026) ──────────────
+// "Edit" left the details card and now shares a row with "Call off": two
+// equal-width outlined pills, neither teal. CancelControls owns the row
+// because its confirm step has to take the whole row over, Edit included.
+describe("CancelControls, sharing its row with a leading control", () => {
+  const edit = <button type="button">Edit</button>
+
+  it("puts the leading control and Call off side by side, equal width", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} leading={edit} />)
+    const editBtn = screen.getByRole("button", { name: "Edit" })
+    const off = screen.getByRole("button", { name: "Call off" })
+    const row = off.parentElement!
+    expect(row).toBe(editBtn.parentElement)
+    expect(row.style.display).toBe("flex")
+    expect(row.style.gap).toBe("0.625rem")
+    expect(off.style.flexGrow).toBe("1")
+    expect(off.style.flexBasis).toBe("0px")
+    expect(off.style.minWidth).toBe("0px")
+    expect(off.style.borderRadius).toBe("24px")
+    expect(off.getAttribute("style")).not.toContain("--action")
+  })
+
+  it("hides the leading control while the confirm row is open, and brings it back", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} leading={edit} />)
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull()
+    expect(screen.getByRole("button", { name: "Yes, call it off" })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole("button", { name: "Never mind" }))
+    expect(screen.getByRole("button", { name: "Edit" })).toBeTruthy()
+  })
+
+  it("stays a full-width pill when there is no leading control", () => {
+    render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
+    const off = screen.getByRole("button", { name: "Call off" })
+    expect(off.style.width).toBe("100%")
+    expect(off.style.flexGrow).toBe("")
+  })
+})
+
 // ── The bug found driving the real app: confirming survived a success ──────
 // The component instance is not remounted between renders, only its props
 // change (isCancelled flips after the server action revalidates), so any
@@ -166,14 +206,14 @@ describe("CancelControls, shape", () => {
 describe("CancelControls, confirm row closes after a successful action", () => {
   it("closes the confirm row and shows the resting control again after a successful cancel", async () => {
     render(<CancelControls eventId="e1" groupId="g1" isCancelled={false} />)
-    fireEvent.click(screen.getByRole("button", { name: "Call this off" }))
+    fireEvent.click(screen.getByRole("button", { name: "Call off" }))
     fireEvent.click(screen.getByRole("button", { name: "Yes, call it off" }))
 
     await waitFor(() => expect(cancelEventAction).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, call it off" })).toBeNull())
     expect(screen.queryByRole("button", { name: "Never mind" })).toBeNull()
     expect(screen.queryByText(/This tells the group the plan is OFF/)).toBeNull()
-    expect(screen.getByRole("button", { name: "Call this off" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Call off" })).toBeTruthy()
   })
 
   it("closes the confirm row and shows the resting control again after a successful restore", async () => {
@@ -207,6 +247,24 @@ describe("event page places the control outside the details card", () => {
     expect(calendar).toBeGreaterThan(-1)
     expect(control).toBeGreaterThan(-1)
     expect(control).toBeGreaterThan(calendar)
+  })
+
+  // Owner's phone QA, 24 Sept 2026: an editable plan's card, calendar pill
+  // and Edit | Call off row are drawn by EditEventDetails (which renders
+  // CancelControls itself, outside the card; its own suite renders that and
+  // checks it from the DOM). The page hands it the RSVP pair and the
+  // calendar pill as slots, and never nests a cancel control in either.
+  it("hands an editable plan's card to EditEventDetails, with the RSVP pair and calendar as slots", () => {
+    const start = source.indexOf("<EditEventDetails")
+    const end = source.indexOf("</EditEventDetails>")
+    expect(start).toBeGreaterThan(-1)
+    expect(end).toBeGreaterThan(start)
+    const block = source.slice(start, end)
+    expect(block).toContain("rsvp={")
+    expect(block).toContain("<RsvpControls")
+    expect(block).toContain("calendar={<AddToCalendarButton")
+    expect(block).not.toContain("<CancelControls")
+    expect(block).not.toContain("zoneLabel")
   })
 
   it("writes no cancel control inside the details card's own block", () => {

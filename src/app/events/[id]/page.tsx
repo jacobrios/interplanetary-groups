@@ -22,7 +22,7 @@ import { findLiveProposals } from "@/lib/proposals/read"
 import { deriveProposalBands, type ProposalBandData } from "@/lib/pending/derive"
 import { eventCardLabel } from "@/lib/cards/region"
 import { getLocalParts } from "@/lib/orbit/occurrence"
-import { formatTimeZoneLabel } from "@/lib/groups/timezone"
+import { detailsCardStyle, detailsBodyStyle, detailsBandStyle } from "./details-card"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -89,11 +89,16 @@ export default async function EventPage({ params }: Props) {
   // already started is history, not something anybody should be retitling
   // out from under people already at it. The viewer is already guaranteed a
   // member by the MembersOnlyWall check above, so no membership check here.
+  //
+  // Since 24 Sept 2026 (owner's phone QA) this also decides who draws the
+  // details card: an editable plan hands its card, calendar pill and
+  // Edit | Call off row to EditEventDetails, because editing takes over the
+  // card and hides the pills below it. Anything else keeps the card below.
+  // The JSX re-checks `viewer` only so TS can see it is non-null.
   const canEdit = !isCancelled && event.startsAt.getTime() > Date.now()
   const localParts = getLocalParts(event.startsAt, event.group.timeZone)
   const dateLocal = `${String(localParts.year).padStart(4, "0")}-${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}`
   const timeLocal = `${String(localParts.hour).padStart(2, "0")}:${String(localParts.minute).padStart(2, "0")}`
-  const zoneLabel = formatTimeZoneLabel(event.group.timeZone)
 
   // ─── Open time-change vote, if any ─────────────────────────────────────
   // Same group-scoped read the group home uses (src/lib/proposals/read.ts),
@@ -169,167 +174,173 @@ export default async function EventPage({ params }: Props) {
           padding: "0 22px 16px",
         }}
       >
-        {/* ── Event details card ─────────────────────────────────────── */}
-        {/* Card recipe ported from walkthrough.css .ed-card + the 569-573
-            override (surface, 1.7px hairline border, 14px radius, the
-            product's standard card shadow) — this is EventCard's and
-            PlaybackCard's own recipe now, not this screen's alone.
-            overflow:hidden is load-bearing: it clips the footer band's
-            corners to the card's own radius. */}
-        <div
-          style={{
-            backgroundColor: "var(--surface-raised)",
-            border: "1.7px solid var(--hairline)",
-            borderRadius: "14px",
-            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
-            overflow: "hidden",
-            marginBottom: "16px",
-          }}
-        >
-          <div style={{ padding: "15px 16px" }}>
-            {/* Called-off status label, above the title. Bright
-                --text-primary, never teal: teal in this slot means "this
-                needs you", and a called-off plan needs nothing from anybody
-                (eventCardLabel, shared with the home card so the two words
-                can never disagree). Renders through CancelledLabel
-                (components/NeedLabel.tsx) rather than NeedLabel itself, so
-                the status reads as the brightest thing on the screen
-                (owner's phone QA, 3 Sept 2026), matching the group home
-                card's treatment; NeedLabel's own grey needsViewer ladder is
-                unchanged for every other caller. */}
-            {isCancelled && (
-              <p style={{ marginBottom: "8px" }}>
-                <CancelledLabel value={eventCardLabel(true, null)} />
-              </p>
-            )}
-
-            {/* Title and meta rows, optionally wrapped in the Edit control
-                (task 7, editable-event-card slice). canEdit is false for a
-                called-off or already-started plan, in which case this
-                renders exactly as it did before this task: no wrapper, no
-                Edit button. */}
-            {canEdit ? (
-              <EditEventDetails
+        {/* ── Editable plan ────────────────────────────────────────────── */}
+        {/* Owner's phone QA, 24 Sept 2026. A plan that can still be edited
+            renders its details card, its "Add to calendar" pill and its
+            Edit | Call off row through EditEventDetails, because editing
+            takes the whole card over (form in the body, Never mind | Save in
+            the band) and hides both pills below it; that state spans the
+            card and the pill region, so one client component owns both.
+            The server still renders every static piece and hands it in.
+            The comments on the non-editable branch below describe the card,
+            the band and the pill order, which are the same on both paths
+            (the card shell is shared through details-card.ts). */}
+        {canEdit && viewer ? (
+          <EditEventDetails
+            eventId={event.id}
+            groupId={event.group.id}
+            title={event.title}
+            place={venueLabel ?? ""}
+            dateLocal={dateLocal}
+            timeLocal={timeLocal}
+            rsvp={
+              <RsvpControls
                 eventId={event.id}
-                title={event.title}
-                place={venueLabel ?? ""}
-                dateLocal={dateLocal}
-                timeLocal={timeLocal}
-                zoneLabel={zoneLabel}
-              >
+                currentStatus={viewerStatus}
+                groupId={event.group.id}
+              />
+            }
+            calendar={<AddToCalendarButton eventId={event.id} />}
+          >
+            <EventTitleAndMeta
+              title={event.title}
+              detailInk={detailInk}
+              dateLabel={dateLabel}
+              venueLabel={venueLabel}
+            />
+          </EditEventDetails>
+        ) : (
+          <>
+            {/* ── Event details card ─────────────────────────────────────── */}
+            {/* Card recipe ported from walkthrough.css .ed-card + the 569-573
+                override (surface, 1.7px hairline border, 14px radius, the
+                product's standard card shadow) — this is EventCard's and
+                PlaybackCard's own recipe now, not this screen's alone.
+                overflow:hidden is load-bearing: it clips the footer band's
+                corners to the card's own radius. */}
+            <div style={detailsCardStyle}>
+              <div style={detailsBodyStyle}>
+                {/* Called-off status label, above the title. Bright
+                    --text-primary, never teal: teal in this slot means "this
+                    needs you", and a called-off plan needs nothing from anybody
+                    (eventCardLabel, shared with the home card so the two words
+                    can never disagree). Renders through CancelledLabel
+                    (components/NeedLabel.tsx) rather than NeedLabel itself, so
+                    the status reads as the brightest thing on the screen
+                    (owner's phone QA, 3 Sept 2026), matching the group home
+                    card's treatment; NeedLabel's own grey needsViewer ladder is
+                    unchanged for every other caller. */}
+                {isCancelled && (
+                  <p style={{ marginBottom: "8px" }}>
+                    <CancelledLabel value={eventCardLabel(true, null)} />
+                  </p>
+                )}
+
                 <EventTitleAndMeta
                   title={event.title}
                   detailInk={detailInk}
                   dateLabel={dateLabel}
                   venueLabel={venueLabel}
                 />
-              </EditEventDetails>
-            ) : (
-              <EventTitleAndMeta
-                title={event.title}
-                detailInk={detailInk}
-                dateLabel={dateLabel}
-                venueLabel={venueLabel}
-              />
-            )}
-          </div>
+              </div>
 
-          {/* RSVP footer band (.ed-band.footer): the screen block draws it
-              lime-tinted (line 419), but the refinement pass at 596-597
-              strips that to transparent with a hairline top border — the
-              last definition wins. RsvpControls itself is unchanged
-              (controller resolution D): the pair stays, both borders teal
-              while unanswered, the chosen answer filled and checkmarked.
-              groupId is passed so rsvpAction revalidates the group home
-              too, matching the home-card caller (EventCard.tsx): a member
-              who RSVPs here and taps back should see the card's need label
-              already settled, not the pre-tap "Needs your RSVP" from a
-              stale render.
+              {/* RSVP footer band (.ed-band.footer): the screen block draws it
+                  lime-tinted (line 419), but the refinement pass at 596-597
+                  strips that to transparent with a hairline top border — the
+                  last definition wins. RsvpControls itself is unchanged
+                  (controller resolution D): the pair stays, both borders teal
+                  while unanswered, the chosen answer filled and checkmarked.
+                  groupId is passed so rsvpAction revalidates the group home
+                  too, matching the home-card caller (EventCard.tsx): a member
+                  who RSVPs here and taps back should see the card's need label
+                  already settled, not the pre-tap "Needs your RSVP" from a
+                  stale render.
 
-              This band holds the RSVP pair and nothing else, as of 2 Sept
-              2026 (QA feedback round, spec §13). The cancel and restore
-              controls briefly lived in here too and that was a mistake with
-              three visible symptoms on the owner's phone: this band already
-              means "answer this question", so a control sharing it read as a
-              box inside a box, sat narrower than the pair above it, and its
-              confirm step looked like two more options for the RSVP. Both
-              controls moved out below the card; see the region under "Add to
-              calendar". A called-off plan has no RSVP pair, so the band
-              itself does not render there at all. */}
-          {viewer && !isCancelled && (
-            <div
-              style={{
-                borderTop: "1.6px solid var(--hairline)",
-                padding: "13px 16px",
-                backgroundColor: "transparent",
-              }}
-            >
-              <RsvpControls
-                eventId={event.id}
-                currentStatus={viewerStatus}
-                groupId={event.group.id}
-              />
+                  This band holds the RSVP pair and nothing else, as of 2 Sept
+                  2026 (QA feedback round, spec §13). The cancel and restore
+                  controls briefly lived in here too and that was a mistake with
+                  three visible symptoms on the owner's phone: this band already
+                  means "answer this question", so a control sharing it read as a
+                  box inside a box, sat narrower than the pair above it, and its
+                  confirm step looked like two more options for the RSVP. Both
+                  controls moved out below the card; see the region under "Add to
+                  calendar". A called-off plan has no RSVP pair, so the band
+                  itself does not render there at all. */}
+              {viewer && !isCancelled && (
+                <div style={detailsBandStyle}>
+                  <RsvpControls
+                    eventId={event.id}
+                    currentStatus={viewerStatus}
+                    groupId={event.group.id}
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* ── Add to calendar ────────────────────────────────────────── */}
-        {/* The screen's own primary action, its own region: teal, separate
-            from the details card's teal "I'm in" (per-element teal rule).
-            Reuses the same 16px gap that already separates the details card
-            from the roster card below.
+            {/* ── Add to calendar ────────────────────────────────────────── */}
+            {/* The screen's own primary action, its own region: teal, separate
+                from the details card's teal "I'm in" (per-element teal rule).
+                Reuses the same 16px gap that already separates the details card
+                from the roster card below.
 
-            Above the time-change vote, as of 17 Aug 2026, reversing the
-            original order. The old reasoning ("a vote here amends the very
-            time that button would save, so the vote comes first") was
-            mechanism-true and read wrong: sitting below the vote, the
-            button looked like it saved the PROPOSED time, when it always
-            builds the file from the current stored plan. Ordering implies
-            scope, so the button now sits with the details card whose time
-            it actually saves, and the vote reads as its own matter below.
-            (Putting the button inside the details card was the stronger
-            semantic answer and was deliberately not taken; the owner's
-            call, 14 Aug QA.)
+                Above the time-change vote, as of 17 Aug 2026, reversing the
+                original order. The old reasoning ("a vote here amends the very
+                time that button would save, so the vote comes first") was
+                mechanism-true and read wrong: sitting below the vote, the
+                button looked like it saved the PROPOSED time, when it always
+                builds the file from the current stored plan. Ordering implies
+                scope, so the button now sits with the details card whose time
+                it actually saves, and the vote reads as its own matter below.
+                (Putting the button inside the details card was the stronger
+                semantic answer and was deliberately not taken; the owner's
+                call, 14 Aug QA.)
 
-            Extended 2 Sept 2026 (QA feedback round, spec §13): this is a
-            region of full-width pills now, not a single button, so the
-            ordering rule above has a third element to cover. The order is
-            "Add to calendar" then "Call this off", and it follows the same
-            logic that put the calendar button here in the first place: both
-            pills act on the plan the details card describes, and the quieter,
-            rarer, heavier action goes last. On a called-off plan neither of
-            those is true of the calendar button, so the region holds one pill
-            only, "Put this back on", which is then the screen's sole teal. */}
-        {/* Hidden on a called-off plan: there is nothing to save. The honest
-            gap this leaves is registered as debt in the spec, and it is real:
-            a member who already saved the plan still gets buzzed, and there
-            is no path here to re-fetch an .ics carrying STATUS:CANCELLED.
-            The subscribable feed (build-notes §6) is the actual fix. */}
-        {!isCancelled && (
-          <div style={{ marginBottom: "16px" }}>
-            <AddToCalendarButton eventId={event.id} />
-          </div>
-        )}
+                Extended 2 Sept 2026 (QA feedback round, spec §13): this is a
+                region of full-width pills now, not a single button, so the
+                ordering rule above has a third element to cover. The order is
+                "Add to calendar" then "Call this off", and it follows the same
+                logic that put the calendar button here in the first place: both
+                pills act on the plan the details card describes, and the quieter,
+                rarer, heavier action goes last. On a called-off plan neither of
+                those is true of the calendar button, so the region holds one pill
+                only, "Put this back on", which is then the screen's sole teal.
+                (Amended 24 Sept 2026: the resting label is "Call off" now, and
+                on a plan that can still be edited it shares its row with
+                "Edit"; that row lives in EditEventDetails. This branch is a
+                started plan's full-width "Call off" or a called-off plan's
+                restore.) */}
+            {/* Hidden on a called-off plan: there is nothing to save. The honest
+                gap this leaves is registered as debt in the spec, and it is real:
+                a member who already saved the plan still gets buzzed, and there
+                is no path here to re-fetch an .ics carrying STATUS:CANCELLED.
+                The subscribable feed (build-notes §6) is the actual fix. */}
+            {!isCancelled && (
+              <div style={{ marginBottom: "16px" }}>
+                <AddToCalendarButton eventId={event.id} />
+              </div>
+            )}
 
-        {/* ── Call this off / Put this back on ───────────────────────────── */}
-        {/* Outside the details card on purpose (spec §13): inside its footer
-            band the control inherited a container that means "answer this
-            question", which is what made it read as a fourth RSVP option.
-            Out here it is its own pill in its own region, the same width and
-            the same shape as the calendar button above it, and its confirm
-            step is unmistakably about it alone.
+            {/* ── Call off / Put this back on ──────────────────────────────── */}
+            {/* Outside the details card on purpose (spec §13): inside its footer
+                band the control inherited a container that means "answer this
+                question", which is what made it read as a fourth RSVP option.
+                Out here it is its own pill in its own region, the same width and
+                the same shape as the calendar button above it, and its confirm
+                step is unmistakably about it alone.
 
-            Members only, like every write on this screen. No such control on
-            the group home card (decision 5): the card region's height budget
-            was won by a whole slice and a control there spends it. */}
-        {viewer && (
-          <div style={{ marginBottom: "16px" }}>
-            <CancelControls
-              eventId={event.id}
-              groupId={event.group.id}
-              isCancelled={isCancelled}
-            />
-          </div>
+                Members only, like every write on this screen. No such control on
+                the group home card (decision 5): the card region's height budget
+                was won by a whole slice and a control there spends it. */}
+            {viewer && (
+              <div style={{ marginBottom: "16px" }}>
+                <CancelControls
+                  eventId={event.id}
+                  groupId={event.group.id}
+                  isCancelled={isCancelled}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Open time-change vote ─────────────────────────────────────── */}

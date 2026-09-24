@@ -17,23 +17,50 @@
 // children with a form; the swap is local state, not a route or a modal, so
 // the rest of the page (roster card, cancel control, calendar button) never
 // moves.
+//
+// ── Amended 24 Sept 2026, owner's phone QA ──
+// The paragraph above describes the first build. "Edit" left the details
+// card (it made the card taller than production's for a rare action) and
+// now sits below "Add to calendar", sharing one row with "Call off": two
+// equal-width outlined pills, neither teal. And editing takes the whole card
+// over: the form replaces the card's body, the RSVP band becomes
+// "Never mind | Save" in the RSVP pair's own geometry, and the calendar pill
+// and the Edit | Call off row are hidden while the form is open. The
+// time-change vote and the roster below still never move.
+//
+// That editing state spans the card AND the pill region, so this component
+// now owns both, for an editable plan only: the page renders the static
+// pieces on the server and hands them in (`children` for the title and meta
+// rows, `rsvp` for the band's RSVP pair, `calendar` for the calendar pill).
+// A plan nobody can edit (called off, or already started) never mounts this
+// component and keeps the page's own card. The card shell is shared through
+// details-card.ts so the two paths cannot drift.
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { editEventAction, type EditEventState } from "@/app/actions/edit-event"
 import { EDIT_TITLE_MAX } from "@/lib/events/edit-fields"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import { ErrorLine } from "@/components/choice"
+import { visuallyHiddenStyle } from "@/components/visually-hidden"
+import CancelControls from "./CancelControls"
+import { pairPill } from "./pills"
+import { detailsCardStyle, detailsBodyStyle, detailsBandStyle } from "./details-card"
 
 interface Props {
   eventId: string
+  groupId: string
   title: string
   place: string
   /** "YYYY-MM-DD", already in the group's own timezone (task brief). */
   dateLocal: string
   /** "HH:mm", 24h, already in the group's own timezone. */
   timeLocal: string
-  zoneLabel: string
+  /** The title and meta rows, the card's body at rest. */
   children: React.ReactNode
+  /** The RSVP pair, the card's footer band at rest. */
+  rsvp: React.ReactNode
+  /** The "Add to calendar" pill, below the card at rest. */
+  calendar: React.ReactNode
 }
 
 // Field styling reproduced by VALUE from the venue input in
@@ -63,37 +90,67 @@ const labelStyle: React.CSSProperties = {
   marginBottom: "0.25rem",
 }
 
-// Save's geometry is CancelControls' tealPill, reproduced rather than
-// imported: that pill is a module-local const there, not an export, and
-// this is the same "read the value, don't reach across a module boundary
-// for a private const" call the field styling above makes about
-// Step2Playback's input.
-const tealPill: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  width: "100%",
-  minHeight: "44px",
-  padding: "0.75rem 1.5rem",
-  borderRadius: "24px",
+// The editing band's two buttons: the RSVP pair's own geometry (RsvpOption
+// at its non-compact size: 0.625rem 1rem padding, 0.5rem radius, 1.5px
+// border, label size, 0.625rem gap), so the band keeps its shape while its
+// question changes from "are you in?" to "keep these changes?". Never mind
+// first and outlined; Save teal-filled, because saving is the one action
+// that matters here and this is not an open question between equals.
+// Longhand flex for the same jsdom reason as pills.ts.
+const bandButton: React.CSSProperties = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  minWidth: 0,
+  padding: "0.625rem 1rem",
+  borderRadius: "0.5rem",
   fontSize: "var(--type-label)",
+  fontFamily: "inherit",
   fontWeight: 600,
   lineHeight: "var(--leading-normal)",
-  cursor: "pointer",
+}
+
+const neverMindButton: React.CSSProperties = {
+  ...bandButton,
+  backgroundColor: "transparent",
+  border: "1.5px solid var(--hairline)",
+  color: "var(--text-primary)",
+}
+
+const saveButton: React.CSSProperties = {
+  ...bandButton,
   backgroundColor: "var(--action)",
+  border: "1.5px solid var(--action)",
   color: "var(--action-ink)",
-  border: "1px solid var(--action)",
+}
+
+// Day and Time share a row. Native date and time inputs carry an intrinsic
+// minimum width on iOS that pushed the Time field past the card's right edge
+// (owner's phone QA, 24 Sept 2026): each column is allowed to shrink below
+// its content (flex-basis 0, min-width 0) and each input fills its column
+// rather than asking for its own width.
+const shrinkColumn: React.CSSProperties = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  minWidth: 0,
+}
+
+const pickerStyle: React.CSSProperties = {
+  display: "block",
+  minWidth: 0,
 }
 
 export default function EditEventDetails({
   eventId,
+  groupId,
   title,
   place,
   dateLocal,
   timeLocal,
-  zoneLabel,
   children,
+  rsvp,
+  calendar,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [titleValue, setTitleValue] = useState(title)
@@ -110,15 +167,22 @@ export default function EditEventDetails({
   // refresh landing under an open form cannot move the baseline either.
   const [opened, setOpened] = useState({ title, place, dateLocal, timeLocal })
 
-  // Focus follows the swap: into the first field when the form opens, back
-  // to the Edit control when it closes, so a keyboard or screen-reader user
-  // is never dropped onto a control that just unmounted. A ref, not state,
-  // so it only acts on a swap this component caused (never on first render).
-  const titleRef = useRef<HTMLInputElement>(null)
+  // Focus follows the swap: into the form when it opens, back to the Edit
+  // pill when it closes, so a keyboard or screen-reader user is never
+  // dropped onto a control that just unmounted. A ref, not state, so it only
+  // acts on a swap this component caused (never on first render).
+  //
+  // Into the form means its visually hidden heading, NOT the Title input
+  // (owner's phone QA, 24 Sept 2026): focusing a text field raised the iOS
+  // keyboard on open, and the first tap on the date picker then dismissed
+  // the keyboard, shifted the layout and closed the picker it had just
+  // opened. A heading with tabIndex -1 puts a screen reader inside the form
+  // and raises no keyboard.
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const editButtonRef = useRef<HTMLButtonElement>(null)
-  const focusAfterSwap = useRef<"title" | "edit" | null>(null)
+  const focusAfterSwap = useRef<"form" | "edit" | null>(null)
   useEffect(() => {
-    if (focusAfterSwap.current === "title") titleRef.current?.focus()
+    if (focusAfterSwap.current === "form") headingRef.current?.focus()
     else if (focusAfterSwap.current === "edit") editButtonRef.current?.focus()
     focusAfterSwap.current = null
   }, [editing])
@@ -134,7 +198,7 @@ export default function EditEventDetails({
     setTimeValue(timeLocal)
     setOpened({ title, place, dateLocal, timeLocal })
     setErrorMsg(null)
-    focusAfterSwap.current = "title"
+    focusAfterSwap.current = "form"
     setEditing(true)
   }
 
@@ -167,143 +231,163 @@ export default function EditEventDetails({
     })
   }
 
+  // The Edit pill, handed to CancelControls as the leading half of its row
+  // so the cancel confirm step can take the whole row over (pills.ts).
+  // aria-label keeps the fuller name a screen reader has always heard; it
+  // starts with the visible word, so voice control still matches "Edit".
+  const editPill = (
+    <button
+      ref={editButtonRef}
+      type="button"
+      onClick={openForm}
+      aria-label="Edit this plan"
+      style={pairPill}
+    >
+      Edit
+    </button>
+  )
+
   if (!editing) {
     return (
-      <div>
-        {children}
-        <div style={{ textAlign: "right", marginTop: "6px" }}>
-          <button
-            ref={editButtonRef}
-            type="button"
-            onClick={openForm}
-            aria-label="Edit this plan"
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              minHeight: "44px",
-              fontSize: "var(--type-meta)",
-              color: "var(--text-secondary)",
-              textDecoration: "underline",
-              cursor: "pointer",
-            }}
-          >
-            Edit
-          </button>
+      <>
+        <div data-details-card style={detailsCardStyle}>
+          <div style={detailsBodyStyle}>{children}</div>
+          <div style={detailsBandStyle}>{rsvp}</div>
         </div>
-      </div>
+
+        {/* Add to calendar, then the Edit | Call off row: the page's own
+            order below the card (see page.tsx), kept here because while the
+            form is open both are hidden. */}
+        <div style={{ marginBottom: "16px" }}>{calendar}</div>
+        <div style={{ marginBottom: "16px" }}>
+          <CancelControls
+            eventId={eventId}
+            groupId={groupId}
+            isCancelled={false}
+            leading={editPill}
+          />
+        </div>
+      </>
     )
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: "10px" }}>
-        <label htmlFor="edit-event-title" style={labelStyle}>
-          Title
-        </label>
-        <input
-          ref={titleRef}
-          id="edit-event-title"
-          type="text"
-          value={titleValue}
-          onChange={(e) => setTitleValue(e.target.value)}
-          maxLength={EDIT_TITLE_MAX}
-          disabled={isPending}
-          style={fieldStyle}
-        />
-      </div>
+    <div data-details-card style={detailsCardStyle}>
+      <div style={detailsBodyStyle}>
+        <h2 ref={headingRef} tabIndex={-1} style={{ ...visuallyHiddenStyle, outline: "none" }}>
+          Editing this plan
+        </h2>
 
-      <div style={{ marginBottom: "10px" }}>
-        <label htmlFor="edit-event-place" style={labelStyle}>
-          Place
-        </label>
-        <input
-          id="edit-event-place"
-          type="text"
-          value={placeValue}
-          onChange={(e) => setPlaceValue(e.target.value)}
-          maxLength={VENUE_NAME_MAX}
-          placeholder="Where are you meeting?"
-          disabled={isPending}
-          style={fieldStyle}
-        />
-      </div>
-
-      <div style={{ display: "flex", gap: "10px", marginBottom: "6px" }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="edit-event-date" style={labelStyle}>
-            Day
+        <div style={{ marginBottom: "10px" }}>
+          <label htmlFor="edit-event-title" style={labelStyle}>
+            Title
           </label>
           <input
-            id="edit-event-date"
-            type="date"
-            value={dateValue}
-            onChange={(e) => setDateValue(e.target.value)}
+            id="edit-event-title"
+            type="text"
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            maxLength={EDIT_TITLE_MAX}
             disabled={isPending}
             style={fieldStyle}
           />
         </div>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="edit-event-time" style={labelStyle}>
-            Time
+
+        <div style={{ marginBottom: "10px" }}>
+          <label htmlFor="edit-event-place" style={labelStyle}>
+            Place
           </label>
           <input
-            id="edit-event-time"
-            type="time"
-            value={timeValue}
-            onChange={(e) => setTimeValue(e.target.value)}
+            id="edit-event-place"
+            type="text"
+            value={placeValue}
+            onChange={(e) => setPlaceValue(e.target.value)}
+            maxLength={VENUE_NAME_MAX}
+            placeholder="Where are you meeting?"
             disabled={isPending}
             style={fieldStyle}
           />
         </div>
-      </div>
 
-      {/* A day or time typed here is not applied directly: it opens the
-          group's own time-change vote (ProposalSection), the same path a
-          "can we move it?" chat message takes. Named here so nobody fills
-          in a new time expecting it to take effect on Save alone. */}
-      <p
-        style={{
-          fontSize: "var(--type-meta)",
-          color: "var(--text-secondary)",
-          marginBottom: "12px",
-        }}
-      >
-        Changing the day or time asks the group first. Times in {zoneLabel}.
-      </p>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "6px" }}>
+          <div style={shrinkColumn}>
+            <label htmlFor="edit-event-date" style={labelStyle}>
+              Day
+            </label>
+            <input
+              id="edit-event-date"
+              type="date"
+              value={dateValue}
+              onChange={(e) => setDateValue(e.target.value)}
+              disabled={isPending}
+              style={{ ...fieldStyle, ...pickerStyle }}
+            />
+          </div>
+          <div style={shrinkColumn}>
+            <label htmlFor="edit-event-time" style={labelStyle}>
+              Time
+            </label>
+            <input
+              id="edit-event-time"
+              type="time"
+              value={timeValue}
+              onChange={(e) => setTimeValue(e.target.value)}
+              disabled={isPending}
+              style={{ ...fieldStyle, ...pickerStyle }}
+            />
+          </div>
+        </div>
 
-      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-        <button
-          type="button"
-          onClick={cancelForm}
-          disabled={isPending}
+        {/* A day or time typed here is not applied directly: it opens the
+            group's own time-change vote (ProposalSection), the same path a
+            "can we move it?" chat message takes. Named here so nobody fills
+            in a new time expecting it to take effect on Save alone. The
+            "Times in {zone}." tail was dropped on 24 Sept 2026 (owner's
+            phone QA): everything on this screen is already in the group's
+            time, so it said nothing a member needed. */}
+        <p
           style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            minHeight: "44px",
             fontSize: "var(--type-meta)",
             color: "var(--text-secondary)",
-            textDecoration: "underline",
-            cursor: isPending ? "default" : "pointer",
-            opacity: isPending ? 0.65 : 1,
           }}
         >
-          Never mind
-        </button>
-        <div style={{ flex: 1 }}>
+          Changing the day or time asks the group first.
+        </p>
+
+        {/* Under the form and above the band, so a refusal sits beside the
+            fields it is about and right above the button that caused it. */}
+        <ErrorLine msg={errorMsg} />
+      </div>
+
+      {/* The RSVP band becomes the form's own answer row while editing. */}
+      <div style={detailsBandStyle}>
+        <div style={{ display: "flex", gap: "0.625rem" }}>
+          <button
+            type="button"
+            onClick={cancelForm}
+            disabled={isPending}
+            style={{
+              ...neverMindButton,
+              cursor: isPending ? "default" : "pointer",
+              opacity: isPending ? 0.65 : 1,
+            }}
+          >
+            Never mind
+          </button>
           <button
             type="button"
             onClick={submit}
             disabled={isPending}
-            style={{ ...tealPill, opacity: isPending ? 0.65 : 1 }}
+            style={{
+              ...saveButton,
+              cursor: isPending ? "default" : "pointer",
+              opacity: isPending ? 0.65 : 1,
+            }}
           >
             Save
           </button>
         </div>
       </div>
-
-      <ErrorLine msg={errorMsg} />
     </div>
   )
 }
