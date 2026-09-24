@@ -12,6 +12,27 @@
 //   while the ask is open (leaning toward neither answer), the chosen
 //   option's fill after (CLAUDE.md teal rule as amended by this slice).
 
+// Lifted 24 Sept 2026 alongside form-fields.ts so the group-details editor's
+// own chip rendering can reuse this exact style without duplicating it.
+export function choiceChipStyle(
+  selected: boolean,
+  quiet: boolean,
+  disabled: boolean
+): React.CSSProperties {
+  return {
+    border: "1.7px solid var(--hairline)",
+    backgroundColor: selected ? "var(--surface-self)" : "transparent",
+    borderRadius: "20px",
+    padding: "8px 12px",
+    fontSize: "var(--type-label)",
+    fontWeight: 600,
+    fontFamily: "inherit",
+    color: quiet && !selected ? "var(--text-secondary)" : "var(--text-primary)",
+    whiteSpace: "nowrap",
+    cursor: disabled ? "default" : "pointer",
+  }
+}
+
 export function ChoiceChip({
   name,
   value,
@@ -33,18 +54,7 @@ export function ChoiceChip({
       name={name}
       value={value}
       disabled={disabled}
-      style={{
-        border: "1.7px solid var(--hairline)",
-        backgroundColor: selected ? "var(--surface-self)" : "transparent",
-        borderRadius: "20px",
-        padding: "8px 12px",
-        fontSize: "var(--type-label)",
-        fontWeight: 600,
-        fontFamily: "inherit",
-        color: quiet && !selected ? "var(--text-secondary)" : "var(--text-primary)",
-        whiteSpace: "nowrap",
-        cursor: disabled ? "default" : "pointer",
-      }}
+      style={choiceChipStyle(selected, quiet, disabled)}
     >
       {selected ? `✓ ${label}` : label}
     </button>
