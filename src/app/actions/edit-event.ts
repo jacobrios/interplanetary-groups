@@ -33,6 +33,9 @@ export async function editEventAction(
   const user = await prisma.user.findUnique({ where: { supabaseAuthId: authUser.id } })
   if (!user) return { errors: { general: "You need to be signed in to do that." } }
 
+  // Unlike cancel-event.ts's resolveActor, membership is not checked here:
+  // submitEventEdit checks it itself, so it stays covered by that module's
+  // own tests instead of duplicated (and untested) in this thin action.
   const title = (formData.get("title") as string | null) ?? ""
   const place = (formData.get("place") as string | null) ?? ""
   const dateLocal = (formData.get("dateLocal") as string | null) ?? ""

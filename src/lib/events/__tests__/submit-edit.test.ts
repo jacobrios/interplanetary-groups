@@ -3,7 +3,7 @@
 // -> Event (Venue and Rsvp cascade with their Event) -> Membership -> Group
 // -> User. Modelled on proposals.test.ts and edit-details.test.ts.
 
-import { describe, it, expect, afterEach, beforeEach } from "vitest"
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, ProposalKind, ProposalVoteAnswer } from "@prisma/client"
 import { submitEventEdit } from "../submit-edit"
@@ -299,5 +299,72 @@ describe("submitEventEdit", () => {
       where: { eventId: eventId!, answer: null },
     })
     expect(proposals).toHaveLength(1)
+  })
+
+  it("tells the truth about a partial save when editEventDetails commits but the proposal then finds the plan stale", async () => {
+    // There is no seam in submitEventEdit for injecting a mid-flight race
+    // (it runs straight through to completion once called), so the least
+    // invasive way to force this exact interleaving is to intercept
+    // submitEventEdit's own FIRST read of the event and, as a side effect of
+    // resolving it, simulate a concurrent actor moving the event's time
+    // underneath it: submitEventEdit's in-memory `event.startsAt` (used for
+    // checkEditedStart and as createGroupProposal's `priorStartsAt`) still
+    // holds the pre-race value, while editEventDetails re-reads the row
+    // fresh inside its own transaction (unaffected by this mock, since it
+    // reads through `tx.event`, a different Prisma delegate) and so still
+    // succeeds. createGroupProposal then re-reads startsAt inside ITS
+    // transaction and finds it no longer matches `priorStartsAt`, exactly
+    // the interleaving the review finding describes: details saved, vote
+    // never opened.
+    const RACED_STARTS_AT = new Date(START.getTime() + 60 * 60 * 1000)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const originalFindUnique = (prisma.event.findUnique as any).bind(prisma.event)
+    let calls = 0
+    // Cast to `any`: Prisma's findUnique overloads return its fluent
+    // `Prisma__EventClient` rather than a plain Promise, which a
+    // hand-written mock implementation can't satisfy structurally. The
+    // runtime behavior (await the real call through, then race) is what
+    // this test actually exercises.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const spy = (vi.spyOn(prisma.event, "findUnique") as any).mockImplementation(
+      async (args: any) => {
+        calls++
+        const result = await originalFindUnique(args)
+        if (calls === 1) {
+          await prisma.event.update({
+            where: { id: eventId! },
+            data: { startsAt: RACED_STARTS_AT },
+          })
+        }
+        return result
+      }
+    )
+
+    try {
+      const result = await submitEventEdit({
+        eventId: eventId!,
+        actor: actor(),
+        title: "Doubles",
+        place: "",
+        dateLocal: "2099-06-13",
+        timeLocal: "10:00",
+        now: NOW,
+      })
+      expect(result).toEqual({
+        status: "error",
+        message:
+          "Your other changes are saved, but someone just changed the time, so the group wasn't asked. Take another look.",
+      })
+    } finally {
+      spy.mockRestore()
+    }
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.title).toBe("Doubles")
+    expect(event?.startsAt.getTime()).toBe(RACED_STARTS_AT.getTime())
+
+    const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
+    expect(proposals).toHaveLength(0)
   })
 })

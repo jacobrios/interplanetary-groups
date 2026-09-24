@@ -171,9 +171,15 @@ export async function submitEventEdit(input: {
   })
 
   if (proposalResult.status === "skipped" && proposalResult.reason === "stale") {
+    // editEventDetails already committed (title and/or place, announced in
+    // the feed) by the time this staleness is discovered: the plain "take
+    // another look" message would read as if the whole save failed, when in
+    // fact only the vote never opened. Tell the truth about both halves.
     return {
       status: "error",
-      message: "Someone else just changed this plan, take another look.",
+      message: edited
+        ? "Your other changes are saved, but someone just changed the time, so the group wasn't asked. Take another look."
+        : "Someone else just changed this plan, take another look.",
     }
   }
   // "already_asked" (a double-tapped Save with the same new time) counts as ok.
