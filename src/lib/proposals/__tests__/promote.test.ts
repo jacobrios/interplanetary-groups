@@ -288,6 +288,52 @@ describe("promoteProposalMove", () => {
     }
   })
 
+  it("a day change: three yeses move the plan and name the old weekday it left", async () => {
+    // Pins the editable-event-card slice's day-change case: the same
+    // consensus arithmetic the time-only path already covers, exercised on
+    // a proposal whose proposedStartsAt lands on a different day (two days
+    // after priorStartsAt) rather than only a different hour on the same
+    // day. Task 2's copy names the old weekday whenever the day changes, so
+    // this is also the announcement's pin.
+    const fx = await makeFixture(3, [0, 1, 2]) // all 3 members IN on OLD_START
+    const proposedStartsAt = new Date(OLD_START.getTime() + 2 * 24 * 60 * 60 * 1000)
+    try {
+      const r0 = await createGroupProposal({
+        groupId: fx.groupId,
+        eventId: fx.eventId,
+        askerUserId: fx.memberIds[0],
+        sourceMessageId: fx.sourceMessageId,
+        proposedStartsAt,
+        priorStartsAt: OLD_START,
+        body: "Sounds like you want this moved. Sound good to everyone?",
+      })
+      if (r0.status !== "created") throw new Error("fixture failed: proposal not created")
+      const proposal = r0.proposal // asker (0) seeded YES
+      await vote(proposal.id, fx.memberIds[1], ProposalVoteAnswer.YES)
+      await vote(proposal.id, fx.memberIds[2], ProposalVoteAnswer.YES)
+
+      const r = await promoteProposalMove(proposal.id, NOW)
+      expect(r).toEqual({ status: "moved" })
+
+      const event = await prisma.event.findUnique({ where: { id: fx.eventId } })
+      expect(event?.startsAt.getTime()).toBe(proposedStartsAt.getTime())
+
+      const rsvps = await prisma.rsvp.findMany({ where: { eventId: fx.eventId } })
+      expect(new Set(rsvps.map((r) => r.userId))).toEqual(new Set(fx.memberIds))
+      expect(rsvps.every((r) => r.status === "IN")).toBe(true)
+
+      const announcement = await prisma.message.findFirst({
+        where: { groupId: fx.groupId, authorType: "ORBIT" },
+        orderBy: { createdAt: "desc" },
+      })
+      // OLD_START (2099-06-14T08:00:00Z) is a Sunday: Task 2's copy names
+      // the old weekday whenever the day changes.
+      expect(announcement?.body).toContain("it was Sun 8am")
+    } finally {
+      await cleanupFixture(fx)
+    }
+  })
+
   it("non-member votes do not count toward the bar", async () => {
     // A YES from a user with no membership must not help clear the floor:
     // 3 members means a floor of 3, and only 2 member yeses are cast, but a
