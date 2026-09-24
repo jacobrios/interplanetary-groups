@@ -28,6 +28,9 @@ const nextConfig: NextConfig = {
     // entry above is kept rather than replaced: both are valid depending on which
     // network the Mac is on, and deleting one would silently break QA on that one.
     "172.20.10.2",
+    // Added 23 Sept 2026 (supabase-auth-soft-fail QA): the home network's lease
+    // moved from .144 to .91. Kept alongside the old one for the same reason.
+    "192.168.1.91",
   ],
 }
 

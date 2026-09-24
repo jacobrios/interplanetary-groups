@@ -4,38 +4,73 @@
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "dev-webpack",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--webpack"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--webpack"
+      ],
       "port": 3000
     },
     {
       "name": "dev-webpack-3100",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--webpack", "--port", "3100"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--webpack",
+        "--port",
+        "3100"
+      ],
       "port": 3100
     },
     {
       "name": "prod-local",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeArgs": [
+        "start"
+      ],
       "port": 3000
     },
     {
       "name": "prod-verify",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start", "--", "-p", "3001"],
+      "runtimeArgs": [
+        "start",
+        "--",
+        "-p",
+        "3001"
+      ],
       "port": 3001
     },
     {
       "name": "design-static",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8123"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8123"
+      ],
       "port": 8123
+    },
+    {
+      "name": "dev-broken-auth-devtest",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "NEXT_PUBLIC_SUPABASE_URL=http://pxbewardwvoyqqcvogel.localhost:65535 npm run dev"
+      ],
+      "port": 3000
     }
   ]
 }

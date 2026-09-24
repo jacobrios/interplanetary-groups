@@ -5,8 +5,9 @@
 //
 // The shape of that outage is what this file is built around. A logged-out
 // visitor saw a healthy site the entire time, because getCurrentUser()
-// (src/lib/auth/current-user.ts:20) returns early before its database call
-// when there is no session. A member reached that call on every page, where
+// (src/lib/auth/current-user.ts:36, the `signed-out` branch) returns early
+// before its database call when there is no session. A member reached that
+// call on every page, where
 // an unselected `User` read named a column two missing migrations had never
 // created. So an uptime ping would have read green for four days.
 //
@@ -20,11 +21,26 @@ import { findLiveGauges } from "@/lib/gauges/read"
 import { findLiveProposals } from "@/lib/proposals/read"
 import { loadEmailAskInputs } from "@/lib/auth/email-ask"
 import { CARD_REGION_CAP } from "@/lib/cards/region"
+import { describeError } from "@/lib/errors/describe-error"
+import { createClient } from "@/lib/supabase/server"
+import { classifyAuthReply, AuthUnavailableError } from "@/lib/auth/availability"
+
+// describeError itself now lives in src/lib/errors/describe-error.ts (moved
+// there 15 Sept 2026, supabase-auth-soft-fail slice, task 1) because
+// src/lib/auth/availability.ts needed the same "safe, size-bounded string
+// from a thrown value" boundary, and importing this file into auth would
+// have pulled the whole probe list's dependencies (events, gauges,
+// proposals, email-ask) backwards into a hot auth path just to format an
+// error. Re-exported below so this file's own two existing callers (the
+// cron route further down and this file's test suite) are unaffected by
+// the move.
+export { describeError }
 
 export type HealthStep =
   | "user_row"
   | "membership_row"
   | "group_home_data"
+  | "supabase_auth"
   /** Produced by the cron route when the sweeps themselves throw, never by a
    *  probe. One vocabulary for both, so the heartbeat body reads the same way
    *  whatever failed. */
@@ -40,81 +56,20 @@ export interface Probe {
   run: () => Promise<void | "skip">
 }
 
-const DETAIL_MAX = 500
-
-/** Marks where the middle of an over-long detail was cut out. */
-const ELISION = " [...] "
-
 /**
- * The error's own short code, when it has one that is safe to send.
- *
- * Prisma sets `code` on its known-request errors (`P2022` for a missing
- * column, the outage of 28-31 August 2026; `P1001` for a server it cannot
- * reach). It is the single most diagnostic thing in the whole error and it
- * is structurally incapable of carrying a row value, which is why it clears
- * the privacy boundary below.
- *
- * The thrown value is `unknown`, so this narrows rather than casting: a
- * numeric `code` (Node's older system errors) is not a code for our purposes.
+ * The one thing the supabase_auth probe touches on a Supabase client.
+ * Narrower than the real SupabaseClient type on purpose: it is written as
+ * `Parameters<typeof classifyAuthReply>[0]` rather than importing AuthError
+ * and the Supabase User type directly, so this stays in lockstep with
+ * whatever classifyAuthReply actually accepts instead of a hand-copied
+ * duplicate that can drift from it. This narrowness is also what lets
+ * scripts/qa-health.ts (task 4, --break-auth) hand the probe a client
+ * pointed at a closed port without constructing a real SupabaseClient.
  */
-function errorCode(err: unknown): string | null {
-  if (typeof err !== "object" || err === null) return null
-  const code = (err as { code?: unknown }).code
-  return typeof code === "string" && code.length > 0 ? code : null
-}
-
-/**
- * Turn a thrown value into the string that gets sent to Better Stack.
- *
- * This is a privacy boundary, not a formatting helper. It carries the error's
- * class, its code, and its message, and nothing else: never a query result,
- * never a row. It is not an absolute guarantee, and the caveat is the same
- * one src/lib/email/send.ts already carries for Resend: a Prisma
- * unique-constraint error can echo an offending value into its own message.
- * Our code never puts a value into this string itself; the residual risk
- * lives entirely in the database driver's own error text.
- */
-export function describeError(err: unknown): string {
-  const name = err instanceof Error ? err.constructor.name : typeof err
-  const code = errorCode(err)
-  const head = code === null ? name : `${name} [${code}]`
-  let message: string
-  try {
-    message = err instanceof Error ? err.message : String(err)
-  } catch {
-    // A value with no prototype or toString/valueOf/Symbol.toPrimitive throws
-    // during String(). Callers treat this function as total, and a monitor
-    // that throws while describing a failure reports the outage as silence.
-    message = "(a value that could not be converted to text)"
+type SupabaseClientLike = {
+  auth: {
+    getUser: (jwt?: string) => Promise<Parameters<typeof classifyAuthReply>[0]>
   }
-  return truncateBothEnds(`${head}: ${message}`)
-}
-
-/**
- * Trim to DETAIL_MAX by removing the MIDDLE, never the tail.
- *
- * WHY BOTH ENDS, and this is the whole point rather than a refinement. A
- * Prisma error opens with a code frame: the class name, an "Invalid
- * `client.user.findFirst()` invocation in" line, an absolute file path, a
- * blank line, and several lines of THIS FILE'S OWN COMMENTS quoted back at
- * us. On the real --break output that preamble was 459 of the first 500
- * characters. The diagnosis, the sentence naming the missing column or the
- * unreachable host, is at the very END. Keeping the head therefore keeps our
- * own source comments and throws away the only sentence the owner needs at
- * 3am, and it did: the cause survived by about nine characters purely
- * because the comments above happened to be that length. A longer production
- * path, a minified chunk, or anybody editing those comments would have
- * pushed it off the end with nothing anywhere saying so.
- *
- * The result still lands at exactly DETAIL_MAX when it has to trim, so the
- * budget this function exists to enforce is unchanged.
- */
-function truncateBothEnds(s: string): string {
-  if (s.length <= DETAIL_MAX) return s
-  const keep = DETAIL_MAX - ELISION.length
-  const headLen = Math.ceil(keep / 2)
-  const tailLen = keep - headLen
-  return s.slice(0, headLen) + ELISION + s.slice(s.length - tailLen)
 }
 
 /**
@@ -154,12 +109,15 @@ export async function runHealthCheck(
  * The probes, in the order they run.
  *
  * DELIBERATELY UNTESTED, and this is a decision rather than an omission. A
- * test for these must mock Prisma, and mocking Prisma removes the only thing
- * being checked: whether the real query still matches the real database.
- * The message-send-latency slice already paid for this lesson, where a
- * component test passed against mocked server actions while the browser
- * disagreed, and the test was deleted rather than kept. The evidence for
- * this function is scripts/qa-health.ts, run against a real database.
+ * test for these must mock Prisma (or, for supabase_auth, mock the Supabase
+ * client), and mocking either one removes the only thing being checked:
+ * whether the real query, or the real auth request, still reaches the real
+ * service. The message-send-latency slice already paid for this lesson,
+ * where a component test passed against mocked server actions while the
+ * browser disagreed, and the test was deleted rather than kept. The evidence
+ * for the Prisma probes is scripts/qa-health.ts, run against a real
+ * database; the evidence for supabase_auth is the same script's
+ * --break-auth flag (task 4), run against the real Supabase project.
  *
  * @param client  Injectable so scripts/qa-health.ts --break can point the
  *                probes at an unreachable database and prove the failure
@@ -174,8 +132,39 @@ export async function runHealthCheck(
  *                today because --break fails at the first probe and never
  *                reaches them. A future --break variant that skips ahead to
  *                group_home_data would quietly test the real database.
+ *
+ *                NONE OF THIS COVERS supabase_auth. That probe never touches
+ *                `client` at all, and `--break`'s broken-database run never
+ *                reaches it: runHealthCheck stops at the first failure, so
+ *                `--break` fails at user_row and supabase_auth never runs.
+ *                The only route to supabase_auth's own failure path is
+ *                `--break-auth` (task 4) run against a HEALTHY database,
+ *                where user_row, membership_row and group_home_data all
+ *                PASS and execution reaches this probe last, which is then
+ *                the one made to fail. See the `makeSupabase` parameter
+ *                below for that probe's own injection seam.
+ *
+ * @param makeSupabase  A factory, not a client instance, and that shape is
+ *                deliberate: src/lib/supabase/server.ts's real createClient()
+ *                is async and reads request cookies via next/headers, so it
+ *                cannot be produced once and reused the way `client` is.
+ *                Keeping realProbes(now) callable with no third argument is
+ *                why the default is the real factory rather than something
+ *                already invoked, and it is right for both callers that use
+ *                it that way: this file's own default, and the cron route
+ *                (src/app/api/cron/orbit/route.ts), which both run inside a
+ *                real request where next/headers' cookies() actually works.
+ *                scripts/qa-health.ts has no request at all, so even its
+ *                healthy path cannot lean on this default: it passes its own
+ *                cookie-free makeRealSupabase explicitly. Only --break-auth
+ *                (task 4) swaps in a factory that resolves to a client aimed
+ *                at a closed port instead.
  */
-export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
+export function realProbes(
+  now: Date,
+  client: PrismaClient = prisma,
+  makeSupabase: () => Promise<SupabaseClientLike> = createClient
+): Probe[] {
   return [
     {
       name: "user_row",
@@ -185,7 +174,7 @@ export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
         // Adding a select here silently disables the only check that would
         // have caught the four-day outage of 28-31 August 2026. The whole
         // point is that this query names every column on User, exactly as
-        // getCurrentUser() does at src/lib/auth/current-user.ts:20 and as
+        // getCurrentUser() does at src/lib/auth/current-user.ts:43 and as
         // EVERY OTHER UNSELECTED WHOLE-`User` READ IN THE CODEBASE does
         // independently. One probe covers all of them, because they are the
         // same query shape.
@@ -195,7 +184,7 @@ export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
         // src/app/actions paths, which reads as src/app/actions/rsvp.ts, a
         // file with no user.find call at all; the real site is
         // src/lib/events/rsvp.ts:43. There were twelve others, not four, on
-        // 1 September 2026 (current-user.ts:20; app/actions gauge-vote.ts:73,
+        // 1 September 2026 (current-user.ts:43; app/actions gauge-vote.ts:73,
         // proposal-vote.ts:62, proposal-answer.ts:51; lib auth/email.ts:258
         // and :393, groups/join.ts:45, provision.ts:49, leave.ts:25,
         // remove-member.ts:26, reset-invite.ts:27, gauges/vote.ts:40,
@@ -224,7 +213,52 @@ export function realProbes(now: Date, client: PrismaClient = prisma): Probe[] {
       name: "group_home_data",
       run: () => probeGroupHomeData(now, client),
     },
+    {
+      name: "supabase_auth",
+      run: () => probeSupabaseAuth(makeSupabase),
+    },
   ]
+}
+
+/** A JWT-shaped string, never issued by anything real. */
+const THROWAWAY_JWT = "orbit-health-probe.not-a-real-session.unsigned"
+
+/**
+ * Prove that Supabase's auth server itself is up and answering, which
+ * nothing else in this file, or anywhere else the cron touches, checks.
+ *
+ * THIS IS THE WHOLE REASON FOR THE JWT ARGUMENT, so read this before
+ * "simplifying" it to a bare `getUser()`. The cron has no request, so it has
+ * no cookies, so a bare `supabase.auth.getUser()` here would run in exactly
+ * the cookie-less context a real cron invocation has. Verified directly
+ * against @supabase/auth-js 2.108.2's GoTrueClient.js: with no session,
+ * `_getUser` finds no `data.session?.access_token`, and its `_useSession`
+ * branch returns `{ data: { user: null }, error: new AuthSessionMissingError() }`
+ * BEFORE calling `_request` at all. No network call happens. That probe
+ * would read green with Supabase's auth server completely unreachable,
+ * which is precisely the four-day-outage shape this whole file exists to
+ * catch, one layer over. Passing ANY truthy jwt string takes `_getUser`'s
+ * other branch, which calls `_request` unconditionally, so the probe always
+ * makes a real request over the network.
+ *
+ * The token is deliberately fake and unsigned, and that is fine: a rejected
+ * token still proves the service answered. classifyAuthReply reads that
+ * rejection as "signed-out" (a 401/403 AuthApiError, the same bucket as an
+ * expired or forged cookie), not "unavailable" (a network failure or a 5xx,
+ * per isAuthRetryableFetchError). Only "unavailable" fails this probe;
+ * "signed-in" (which a throwaway token will never produce) would pass too,
+ * for the same reason.
+ */
+async function probeSupabaseAuth(
+  makeSupabase: () => Promise<SupabaseClientLike>
+): Promise<void> {
+  const supabase = await makeSupabase()
+  const reply = await supabase.auth.getUser(THROWAWAY_JWT)
+  const outcome = classifyAuthReply(reply)
+
+  if (outcome.kind === "unavailable") {
+    throw new AuthUnavailableError(outcome.detail)
+  }
 }
 
 /**

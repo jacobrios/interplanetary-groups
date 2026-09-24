@@ -33,12 +33,21 @@ import {
  * database write failed would be the worst possible reading of that. The cost
  * is that the offer can come back on a later render, which is a repeat rather
  * than a betrayal.
+ *
+ * getCurrentUser() is inside this try, not before it (supabase-auth-soft-fail
+ * fix round): it can now throw AuthUnavailableError, and all three actions in
+ * this file run inside a `useTransition` from a modal the member may be
+ * mid-typing into (EmailAskNote.tsx, EmailAttachFlow.tsx). A transition
+ * callback that throws lands on error.tsx and discards the sheet along with
+ * whatever the member had typed, which for a bare "Not now" tap is a strictly
+ * worse outcome than the write-failed case right above, not merely as bad. An
+ * auth blip must cost the same nothing here that a failed write already does.
  */
 export async function dismissEmailOfferAction(): Promise<{ ok: boolean }> {
-  const user = await getCurrentUser()
-  if (!user) return { ok: false }
-
   try {
+    const user = await getCurrentUser()
+    if (!user) return { ok: false }
+
     await recordEmailOfferDismissed({ userId: user.id, now: new Date() })
     return { ok: true }
   } catch (err) {
@@ -47,14 +56,27 @@ export async function dismissEmailOfferAction(): Promise<{ ok: boolean }> {
   }
 }
 
-/** Step one: ask Supabase to send this member a code. */
+/**
+ * Step one: ask Supabase to send this member a code.
+ *
+ * getCurrentUser() runs inside the try for the reason given on
+ * dismissEmailOfferAction above: this also runs inside the attach flow's
+ * modal transition. `service_error` is the honest reading of a thrown
+ * AuthUnavailableError, and it is exactly what this action already returned
+ * for a null user before this fix, so no new result variant was needed.
+ */
 export async function requestEmailAttachAction(
   email: string
 ): Promise<{ result: AttachRequestResult }> {
-  const user = await getCurrentUser()
-  if (!user) return { result: "service_error" }
+  try {
+    const user = await getCurrentUser()
+    if (!user) return { result: "service_error" }
 
-  return requestEmailAttach(email)
+    return await requestEmailAttach(email)
+  } catch (err) {
+    console.error("[email-ask] requesting an attach code failed", err)
+    return { result: "service_error" }
+  }
 }
 
 /** Step two: confirm the code, which attaches the address and writes our copy. */
@@ -62,8 +84,13 @@ export async function confirmEmailAttachAction(
   email: string,
   code: string
 ): Promise<{ result: ConfirmAttachResult }> {
-  const user = await getCurrentUser()
-  if (!user) return { result: "service_error" }
+  try {
+    const user = await getCurrentUser()
+    if (!user) return { result: "service_error" }
 
-  return confirmEmailAttach(email, code)
+    return await confirmEmailAttach(email, code)
+  } catch (err) {
+    console.error("[email-ask] confirming an attach code failed", err)
+    return { result: "service_error" }
+  }
 }

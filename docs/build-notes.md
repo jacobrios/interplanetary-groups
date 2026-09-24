@@ -8171,6 +8171,37 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 
 **Declared deviations.** No slice document was written: the design arrived fully specified in the owner's own request, the change is one configuration file, and a four-part front section plus task-by-task detail would have been longer than the thing it described. This entry carries the reasoning instead. And the verification ran in a git worktree while the work itself was serial, because an env-free checkout was the only way to test the runner's actual conditions.
 
+---
+
+## §11 entry: the green light stops lying about auth (15 September 2026)
+
+**What was broken.** `getCurrentUser()` dropped the `error` half of Supabase's auth reply, so a failing auth call was indistinguishable from nobody being signed in: a member with a good session was silently logged out onto the front door or the members-only wall, nothing on screen saying so and nothing thrown for the log drain to see. A green light over a product broken for every member, the same shape as the invisible outage of 28-31 August 2026. It throws now, and the hourly check has a Supabase probe.
+
+**The decisions.**
+
+- **The member sees the existing `error.tsx`**, the owner's call: its retry is real and its copy already fitted a transient blip, where a purpose-built screen needed a result type threaded through eight pages and four actions.
+- **"Down" means a network failure or a Supabase 5xx, deliberately not a rejected token.** A rotated signing key and one member's legitimately expired cookie are byte-identical at the call site, so treating a 401 as down would throw an error screen at everybody whose session merely aged out, which is worse than the bug. **So a rotated key is still not covered**; the claim is narrowed, not faked.
+- **The classifier is a shared seam**, `src/lib/auth/availability.ts`, read by the product and by the probe so the two can never disagree about what down means. The project's third claim-to-fact boundary, alongside `normalize.ts` and `auth/email.ts`.
+- **A blip does not destroy the session**, verified in the library's own source rather than assumed. That is what makes "Try again" honest rather than a dead end, and why the chosen screen works at all.
+- **A stranger is unaffected**: no session cookie means no network call, so during an outage only people who actually have a session see the error.
+
+**Two findings worth more than the feature.** First, **the obvious way to test an auth outage reads green, and it fooled this slice's own first attempt**: pointing `NEXT_PUBLIC_SUPABASE_URL` at a dead host silently renames the cookie the client looks for, so it finds none, short-circuits with no network call, and shows the members-only wall, which is the bug's own symptom. **The same trap the probe's throwaway JWT exists to avoid, hit twice in one slice.** Second, **`--break-auth`'s closed port had to move from 1 to 65535**: port 1 is on Node's Fetch-spec bad-port blocklist, so the request is refused before anything is dialled, which proves "any fetch exception gets wrapped" rather than "a real network failure gets wrapped", and the second is the claim the slice rests on. `--break`'s Postgres port 1 is correct and untouched; a raw socket is not subject to that blocklist. Caught by a reviewer, not by writing the script.
+
+**Evidence.** Suite 1885 across 158 files to **1902 across 161**, zero failures, reconciling exactly: three new files, seventeen tests (`availability` 7, `current-user` 4, `email-ask` 6), no existing count moved. `npx next build --webpack` exit 0. `npm run qa:health -- --break-auth` fails at `supabase_auth` on a real `connect ECONNREFUSED 127.0.0.1:65535`; `npm run qa:health` passes all four probes against dev-test Supabase. Neither alone is evidence; together they prove the probe is not vacuous. Browser at 375x812: the error screen for a signed-in member, a normal front door for a stranger.
+
+**What review caught.** The email sign-in sheet's three actions called `getCurrentUser()` outside their catch, so a blip while a member had the sheet open would have replaced the group home with the error screen and lost a typed address and a pending code step. Fixed and mutation-proved against the pre-fix file. **And this branch made comments untrue three separate times**, which on a project that treats an untrue comment as a defect is the thing to notice rather than the three fixes: twice by moving code so a comment's line number pointed at prose, once by sending a reader to `check.ts`'s "NO `select`" list for the twelve other `auth.getUser()` sites, which is a different set that also happens to number twelve, so the wrong pointer looked confirmed by its own length.
+
+**Debt.** The twelve other `auth.getUser()` call sites still soft-fail, so the product's answer to "is auth down" depends on which door you came through. Nothing exercises the cron's real client path, since the cron test mocks the health check wholesale and both QA paths inject their own factory; if it ever throws, the hourly check cries Supabase failure every hour, a false alarm that trains the owner to ignore the real one. A transient blip at the top of the hour is one more alarm source, now on a dependency whose uptime we do not control. And the probe's throwaway JWT is a magic string a future reader could mistake for a credential.
+
+**The open question, the owner's and not settled here.** `LiveRefresh` polls the group home every ten seconds, so while auth is degraded a member who is only **reading** an already-rendered feed is pulled to the error screen within ten seconds. Review confirmed it does not wedge, does not loop, and the parked draft survives, so nothing is broken. But it is the opposite of the 8 September offline decision, where the product deliberately keeps the member on the screen they had and says nothing. Nobody surfaced this until the final review. One micro-PR either way, nothing built on top of it.
+
+*Postscript, 23 September 2026: settled by the owner before the merge, on the build's recommendation. Ship as is: a reading member is pulled to the error screen. The 8 September offline decision does not carry over, because the two failures differ in what the member can see. Offline is visible on their own phone, so leaving them on a stale screen misleads nobody. An auth outage is invisible to them, so a screen that still looks alive while it cannot send, vote or RSVP would be the silent failure this slice exists to remove. No code changed.*
+
+
+*Postscript, 23 September 2026, the owner's QA before merge. Steps one to five were seen on his own screen: joining, a reading member pulled to the error screen within ten seconds, Try again staying on it while auth is down, and a stranger in a private window getting a normal front page. Step six, Try again after auth returns, was not seen by him: the tab caught the gap between the two dev servers. Its evidence is the server log alone, which shows the member view of the group home rendering for his tab and recording his visit, and that view renders only for a recognised signed-in member. One finding, pre-existing and queued rather than fixed: Try again gives no visible sign it did anything, so a retry that fails reads as a dead button, which matters more now that auth outages land on that screen. Recommendation: a brief "Trying..." state, as a polish micro-PR.*
+
+---
+
 ## §11 entry: the full-suite hook stops hammering a dead database (23 Sep 2026)
 
 *A micro-PR against the safety nets, not a product slice.*
