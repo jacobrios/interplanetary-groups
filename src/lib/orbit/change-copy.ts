@@ -150,9 +150,10 @@ export function buildChangeQuestion(
  * on. Day outranks venue (a day request often names a time too, and acting on
  * half a request is the misread this slice exists to prevent).
  *
- * DEBT (recorded in the spec): each of these hardcodes what Orbit cannot do.
- * The slice that ships venue or day changes must retire its line here as part
- * of its definition of done, or Orbit starts lying.
+ * Retired by the editable-event-card slice (23 Sept 2026): the page can
+ * change place and title directly and open a vote for the day, so the
+ * honest answer is now a pointer, and chat still cannot act on either
+ * (verbal group two).
  */
 export function buildCantDoReply(
   fields: ChangeField[],
@@ -161,11 +162,11 @@ export function buildCantDoReply(
 ): string {
   if (fields.includes("day")) {
     return eventStartsAt
-      ? `I can't move it to another day yet. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
-      : `I can't move it to another day yet. I can change the time if that helps.`
+      ? `I can't move it to another day from chat, but anyone can on the plan's page. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
+      : `I can't move it to another day from chat, but anyone can on the plan's page. I can change the time if that helps.`
   }
   if (fields.includes("venue")) {
-    return `I can't change the spot yet, that's coming. I can move the time if that helps.`
+    return `I can't change the spot from chat, but anyone can on the plan's page. I can move the time if that helps.`
   }
   return `I can't change that part of the plan yet. Moving the time is what I can do.`
 }
