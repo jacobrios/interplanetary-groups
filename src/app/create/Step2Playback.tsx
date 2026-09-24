@@ -17,6 +17,9 @@ import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import { PlaybackCard, PlaybackNameRow, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
+import RhythmFields from "@/components/RhythmFields"
+import { toRhythmEdit, validateDetailsEdit } from "@/lib/groups/details-edit"
+import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 
 const INTRO_COPY = "Here's what I understood."
 
@@ -27,6 +30,12 @@ interface Props {
   rhythms: StoredRhythm[]
   /** Per-rhythm standing-place edit; index matches the rhythms array. */
   onVenueNameChange: (index: number, value: string) => void
+  /** Per-rhythm day/time edit, from the "Change day or time" block; index
+   * matches the rhythms array. Cadence is never touched here (task 9,
+   * group-details-editing slice): the founder can fix a day or time Orbit
+   * misread, but adding or changing how often something recurs stays out
+   * of this control. */
+  onRhythmChange: (index: number, next: RhythmEdit) => void
   /**
    * The founder's browser-inferred IANA zone (or null before detection / when
    * it produced nothing). This is the only place a wrong inference becomes
@@ -47,6 +56,7 @@ export default function Step2Playback({
   onGroupNameChange,
   rhythms,
   onVenueNameChange,
+  onRhythmChange,
   timeZone,
   onConfirm,
   onBack,
@@ -81,6 +91,12 @@ export default function Step2Playback({
   )
   const [tappedVenueIdx, setTappedVenueIdx] = useState<ReadonlySet<number>>(new Set())
 
+  // Which rhythms' "Change day or time" block is open (task 9,
+  // group-details-editing slice). One-way like the venue reveal above:
+  // once opened, a block stays open for the rest of this step, with no
+  // close control (the approved picture has none).
+  const [openDayTimeIdx, setOpenDayTimeIdx] = useState<ReadonlySet<number>>(new Set())
+
   // The primary rhythm's venue is required as of 4 Sept 2026
   // (venue-on-playback slice, task 8): there is nowhere after group
   // creation to add a venue, so a founder who skips it here can never fix
@@ -100,11 +116,32 @@ export default function Step2Playback({
   // slice (owner leaning yes).
   const primaryVenueFilled = (rhythms[0]?.venueName ?? "").trim().length > 0
 
+  // Re-validated on every render against the rhythms currently on screen
+  // (task 9): a founder can now edit a rhythm's day or time in place, and
+  // that edit must not be confirmable into an unschedulable group. `stored`
+  // and the edit are the same array here (there is no separate "before"
+  // state on this step the way the group-info editor has one), so this
+  // reads as "is what's on screen right now valid," which subsumes the
+  // primaryVenueFilled check above for the schedule half.
+  const detailsValidation = validateDetailsEdit(rhythms, {
+    name: groupName,
+    rhythms: rhythms.map(toRhythmEdit),
+  })
+
   // One source for "can this be pressed", so the disabled attribute and the
   // dimmed appearance can never disagree (they did: the opacity keyed off
   // isCreating alone, so a confirm blocked by an empty group name still
   // rendered as a live teal band).
-  const canConfirm = !isCreating && groupName.trim().length > 0 && primaryVenueFilled
+  const canConfirm =
+    !isCreating && groupName.trim().length > 0 && primaryVenueFilled && detailsValidation.ok
+
+  // The unschedulable-after-edit message only earns a place in the card's
+  // error slot while a day/time editor is open (task 9 brief): closed, the
+  // step reads exactly as it did before this slice, and the pre-existing
+  // required-spot messaging (the venue button's own "(required)" copy)
+  // stays the only signal for that case.
+  const dayTimeErrorMsg =
+    openDayTimeIdx.size > 0 && !detailsValidation.ok ? detailsValidation.error : null
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
@@ -327,12 +364,63 @@ export default function Step2Playback({
               {isPrimary ? "Where do you meet? (required)" : "Where do you meet?"}
             </button>
           )
+
+          // Task 9 (group-details-editing slice): a quiet "Change day or
+          // time" link under the spot control, opening in place into
+          // RhythmFields (no Place field, the spot box above is it
+          // already). One-way like the venue reveal above: once opened for
+          // a rhythm, the block stays open (the approved picture has no
+          // close control), and the link is simply gone for that rhythm.
+          const dayTimeOpen = openDayTimeIdx.has(i)
+          const dayTimeControl = dayTimeOpen ? (
+            <div
+              style={{
+                marginTop: "10px",
+                paddingTop: "10px",
+                borderTop: "1.4px solid var(--hairline)",
+              }}
+            >
+              <RhythmFields
+                idPrefix={`daytime-${i}`}
+                value={toRhythmEdit(r)}
+                onChange={(next) => onRhythmChange(i, next)}
+                showPlace={false}
+                disabled={isCreating}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOpenDayTimeIdx(new Set([...openDayTimeIdx, i]))}
+              disabled={isCreating}
+              style={{
+                display: "block",
+                marginTop: "8px",
+                background: "none",
+                border: "none",
+                padding: "0.25rem 0.5rem",
+                color: "var(--text-secondary)",
+                fontSize: "var(--type-meta)",
+                lineHeight: "var(--leading-normal)",
+                textDecoration: "underline",
+                cursor: isCreating ? "not-allowed" : "pointer",
+              }}
+            >
+              Change day or time
+            </button>
+          )
+
           return (
             <PlaybackRow
               key={i}
               label={row.label}
               isLast={i === rhythms.length - 1}
-              venue={venueControl}
+              venue={
+                <>
+                  {venueControl}
+                  {dayTimeControl}
+                </>
+              }
             >
               <p style={rowValueTextStyle}>{row.value}</p>
             </PlaybackRow>
@@ -355,7 +443,7 @@ export default function Step2Playback({
           Times in {zoneLabel}
         </p>
 
-        {error && (
+        {(error ?? dayTimeErrorMsg) && (
           <p
             style={{
               fontSize: "var(--type-meta)",
@@ -364,7 +452,7 @@ export default function Step2Playback({
               margin: "0.75rem 0 0",
             }}
           >
-            {error}
+            {error ?? dayTimeErrorMsg}
           </p>
         )}
       </PlaybackCard>

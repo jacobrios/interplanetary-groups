@@ -22,6 +22,8 @@ import {
 import { mergeGapAction } from "@/app/actions/merge-gap"
 import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import { titleCaseActivity } from "@/lib/orbit/rhythm"
+import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
@@ -175,6 +177,29 @@ export default function OnboardingWizard({ knownName }: Props) {
     )
   }
 
+  // Task 9 (group-details-editing slice): the "Change day or time" block's
+  // onChange. Only activity/days/time flow through here; venue keeps its
+  // own path via handleVenueNameChange above, and cadence is never touched
+  // by this control (adding or changing how often something recurs is out
+  // of scope for a founder fixing a misread day or time).
+  function handleRhythmChange(index: number, next: RhythmEdit) {
+    setRhythms((prev) =>
+      prev
+        ? prev.map((r, i) =>
+            i === index
+              ? {
+                  ...r,
+                  activity: next.activity,
+                  title: titleCaseActivity(next.activity.trim() || r.activity),
+                  daysOfWeek: next.daysOfWeek,
+                  timeLocal: next.timeLocal,
+                }
+              : r
+          )
+        : prev
+    )
+  }
+
   function handleConfirm() {
     if (!rhythms) return
     setCreateError(null)
@@ -224,6 +249,7 @@ export default function OnboardingWizard({ knownName }: Props) {
           onGroupNameChange={setGroupName}
           rhythms={rhythms}
           onVenueNameChange={handleVenueNameChange}
+          onRhythmChange={handleRhythmChange}
           timeZone={timeZone}
           onConfirm={handleConfirm}
           onBack={() => setStep("describe")}
