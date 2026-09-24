@@ -274,6 +274,41 @@ describe("createGroupProposal", () => {
     const proposals = await prisma.changeProposal.findMany({ where: { eventId: eventId! } })
     expect(proposals).toHaveLength(0)
   })
+
+  it("opens a GROUP proposal with no source message", async () => {
+    const result = await createGroupProposal({
+      groupId: groupId!,
+      eventId: eventId!,
+      askerUserId: userId!,
+      sourceMessageId: null,
+      proposedStartsAt: PROPOSED,
+      priorStartsAt: EVENT_START,
+      body: "[TEST] ask",
+    })
+    expect(result.status).toBe("created")
+    if (result.status !== "created") return
+    expect(result.proposal.sourceMessageId).toBeNull()
+    const votes = await prisma.proposalVote.findMany({ where: { proposalId: result.proposal.id } })
+    expect(votes.map((v) => v.userId)).toEqual([userId])
+  })
+
+  it("a double-submitted card ask with no source message opens once", async () => {
+    const cardInput = {
+      groupId: groupId!,
+      eventId: eventId!,
+      askerUserId: userId!,
+      sourceMessageId: null,
+      proposedStartsAt: PROPOSED,
+      priorStartsAt: EVENT_START,
+      body: "[TEST] ask",
+    }
+    const first = await createGroupProposal(cardInput)
+    const second = await createGroupProposal(cardInput)
+    expect(first.status).toBe("created")
+    expect(second).toEqual({ status: "skipped", reason: "already_asked" })
+    expect(await prisma.changeProposal.count({ where: { eventId: eventId!, answer: null } })).toBe(1)
+    expect(await prisma.message.count({ where: { groupId: groupId!, authorType: "ORBIT" } })).toBe(1)
+  })
 })
 
 describe("findLiveProposals", () => {

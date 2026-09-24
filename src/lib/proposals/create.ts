@@ -65,8 +65,13 @@ export interface CreateGroupProposalInput {
   groupId: string
   eventId: string
   askerUserId: string
-  /** The member message that asked; compound-unique with kind GROUP. */
-  sourceMessageId: string
+  /**
+   * The member message that asked; compound-unique with kind GROUP. Null
+   * means the ask came from the plan's own page rather than chat, in which
+   * case the (askerUserId, eventId, proposedStartsAt) in-tx check below
+   * stands in for the unique index's idempotency.
+   */
+  sourceMessageId: string | null
   proposedStartsAt: Date
   priorStartsAt: Date
   /** buildGroupProposalQuestion output; copy stays in change-copy.ts. */
@@ -86,6 +91,14 @@ export type CreateGroupProposalResult =
  * retirements standing over nothing.
  */
 class StaleEventInTx extends Error {}
+
+/**
+ * Thrown, never returned, when a card ask with no source message duplicates
+ * an unanswered ask already open for the same person, plan, and proposed
+ * time. A card ask has no chat message, so the (sourceMessageId, kind)
+ * unique cannot catch a double-tapped Save; this is what does.
+ */
+class DuplicateCardAskInTx extends Error {}
 
 export async function createGroupProposal({
   groupId,
@@ -114,6 +127,24 @@ export async function createGroupProposal({
         event.status === EventStatus.CANCELLED
       ) {
         throw new StaleEventInTx()
+      }
+
+      // A card ask has no chat message, so the (sourceMessageId, kind)
+      // unique cannot catch a double-tapped Save. This does: the same
+      // person asking the same thing about the same plan, still
+      // unanswered, is the same ask.
+      if (sourceMessageId === null) {
+        const duplicate = await tx.changeProposal.findFirst({
+          where: {
+            eventId,
+            askerUserId,
+            kind: ProposalKind.GROUP,
+            answer: null,
+            proposedStartsAt,
+          },
+          select: { id: true },
+        })
+        if (duplicate) throw new DuplicateCardAskInTx()
       }
 
       // Newest wins, per event and per asker: a live GROUP proposal on this
@@ -162,6 +193,9 @@ export async function createGroupProposal({
   } catch (err) {
     if (err instanceof StaleEventInTx) {
       return { status: "skipped", reason: "stale" }
+    }
+    if (err instanceof DuplicateCardAskInTx) {
+      return { status: "skipped", reason: "already_asked" }
     }
     // The compound (sourceMessageId, kind) unique: a double-fired detection
     // collides here and the whole transaction, supersedes included, rolls back.

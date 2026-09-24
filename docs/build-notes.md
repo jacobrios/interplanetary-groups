@@ -680,6 +680,10 @@ Seven High-priority items come due at the moment of the first production deploy.
     *Why it matters.* Until it is set, a red build reports an X on the pull request and the merge button stays green, so the new gate is a notification rather than a gate, which is precisely the shape of the thing it was built to replace: Vercel already emailed on all three failed deploys of 4 Sept 2026 and the merges still happened.
     *Two things to know before switching it on.* A required check that never reports blocks the merge forever, so the workflow has to have run at least once on a real pull request first, and the rule's name must match the job's own `name:` exactly rather than the workflow's. Neither is recoverable-by-guessing from the GitHub UI, which is why they are written down here.
 
+18. **Run the proposal-source migration against production before the editable-event-card branch merges to main.** Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production.
+    *Why it matters:* purely additive (drops a NOT NULL), so running it first is safe for the live code, which always writes a value; running it after the merge means the first card edit of a day or time fails with a database error.
+    *Detail:* migration `20260924004142_proposal_source_optional`.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
