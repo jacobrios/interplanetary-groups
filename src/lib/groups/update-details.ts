@@ -154,21 +154,13 @@ export async function updateGroupDetails(
         if (first.activity || first.spot) {
           // Only the fields the founder changed travel to the plan: a spot
           // change must not also undo a member's rename of this one plan,
-          // and a rename must not undo a member's fix to its place.
-          let place: string
-          if (first.spot) {
-            place = primary.venueName ?? ""
-          } else {
-            const venue = await tx.venue.findFirst({
-              where: { eventId: plan.id },
-              orderBy: { id: "asc" },
-            })
-            place = venue ? (venue.displayLabel ?? venue.name) : ""
-          }
+          // and a rename must not undo a member's fix to its place. An
+          // omitted field is left as stored and not validated, so an
+          // over-long stored title never blocks a spot-only save.
           const applied = await applyDetailChangeInTx(tx, {
             eventId: plan.id,
-            title: first.activity ? primary.title : plan.title,
-            place,
+            ...(first.activity ? { title: primary.title } : {}),
+            ...(first.spot ? { place: primary.venueName ?? "" } : {}),
             now,
           })
           if (applied.status === "applied") {
@@ -177,7 +169,9 @@ export async function updateGroupDetails(
             // Not somebody changing the plan under us: a value this save
             // produced failed the plan's own caps. Thrown plain so the
             // action logs it and shows the generic message, never the
-            // stale one. (Unreachable while the caps match: see report.)
+            // stale one. Unreachable today: only supplied fields are
+            // validated, and both are already capped by validateDetailsEdit
+            // at the same limits.
             throw new Error(`DETAILS_PLAN_WRITE_${applied.reason.toUpperCase()}`)
           } else if (applied.reason !== "noop") {
             // no_event / cancelled / already_started / stale: the plan

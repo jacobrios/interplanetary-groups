@@ -434,4 +434,25 @@ describe("editEventDetails", () => {
     const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
     expect(messages).toHaveLength(0)
   })
+
+  it("applyDetailChangeInTx with only a place leaves an over-long stored title untouched and unvalidated", async () => {
+    const longTitle = "T".repeat(60)
+    expect(longTitle.length).toBeGreaterThan(EDIT_TITLE_MAX)
+    await prisma.event.update({ where: { id: eventId! }, data: { title: longTitle } })
+
+    const result = await prisma.$transaction((tx) =>
+      applyDetailChangeInTx(tx, { eventId: eventId!, place: "Court 3", now: NOW })
+    )
+    expect(result).toEqual({
+      status: "applied",
+      change: { place: { from: null, to: "Court 3" } },
+      currentTitle: longTitle,
+      groupId: groupId!,
+    })
+
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+    expect(event.title).toBe(longTitle)
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 3"])
+  })
 })

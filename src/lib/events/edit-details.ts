@@ -71,10 +71,15 @@ export type ApplyDetailChangeResult =
 
 interface ApplyDetailChangeInput {
   eventId: string
-  /** Raw form value. */
-  title: string
-  /** Raw form value; empty (after trim) clears the place. */
-  place: string
+  /**
+   * Raw form value. Omitted: the stored title is left exactly as it is and
+   * is not validated (a stored title can predate EDIT_TITLE_MAX, since
+   * onboarding caps no activity length, and a caller changing only the
+   * place must not be refused over a field it never touched).
+   */
+  title?: string
+  /** Raw form value; empty (after trim) clears the place. Omitted: left as stored, not validated. */
+  place?: string
   now: Date
 }
 
@@ -101,12 +106,13 @@ export async function applyDetailChangeInTx(
   tx: Prisma.TransactionClient,
   { eventId, title, place, now }: ApplyDetailChangeInput
 ): Promise<ApplyDetailChangeResult> {
-  const trimmedTitle = title.trim()
-  if (trimmedTitle.length === 0 || trimmedTitle.length > EDIT_TITLE_MAX) {
+  // Validation and change-detection apply only to supplied fields.
+  const trimmedTitle = title === undefined ? null : title.trim()
+  if (trimmedTitle !== null && (trimmedTitle.length === 0 || trimmedTitle.length > EDIT_TITLE_MAX)) {
     return { status: "skipped", reason: "invalid_title" } as const
   }
-  const trimmedPlace = place.trim()
-  if (trimmedPlace.length > VENUE_NAME_MAX) {
+  const trimmedPlace = place === undefined ? null : place.trim()
+  if (trimmedPlace !== null && trimmedPlace.length > VENUE_NAME_MAX) {
     return { status: "skipped", reason: "invalid_place" } as const
   }
 
@@ -124,13 +130,13 @@ export async function applyDetailChangeInTx(
 
   const venue = event.venues[0] ?? null
   const currentPlace = venue ? (venue.displayLabel ?? venue.name) : null
-  const newPlace = trimmedPlace.length > 0 ? trimmedPlace : null
+  const newPlace = trimmedPlace !== null && trimmedPlace.length > 0 ? trimmedPlace : null
 
   const change: DetailChange = {}
-  if (trimmedTitle !== event.title) {
+  if (trimmedTitle !== null && trimmedTitle !== event.title) {
     change.title = { from: event.title, to: trimmedTitle }
   }
-  if (newPlace !== currentPlace) {
+  if (trimmedPlace !== null && newPlace !== currentPlace) {
     change.place = { from: currentPlace, to: newPlace }
   }
   if (!change.title && !change.place) {
@@ -142,7 +148,7 @@ export async function applyDetailChangeInTx(
   const updated = await tx.event.updateMany({
     where: { id: eventId, status: EventStatus.SCHEDULED, updatedAt: event.updatedAt },
     data: {
-      ...(change.title ? { title: trimmedTitle, activityLabel: trimmedTitle } : {}),
+      ...(change.title ? { title: change.title.to, activityLabel: change.title.to } : {}),
       updatedAt: new Date(),
     },
   })

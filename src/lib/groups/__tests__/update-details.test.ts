@@ -572,4 +572,25 @@ describe("updateGroupDetails", () => {
     expect(venues.map((v) => v.name)).toEqual(["Court 5"])
     expect(await orbitMessages()).toHaveLength(0)
   })
+
+  it("founder spot-only update on a plan whose stored title is over the edit cap still saves", async () => {
+    // Onboarding caps no activity length, and reconcile writes the rhythm's
+    // title straight to Event.title, so a long stored title is reachable.
+    const longTitle = "T".repeat(60)
+    await prisma.event.update({ where: { id: eventId! }, data: { title: longTitle } })
+    const result = await updateGroupDetails(
+      input({
+        rhythms: [{ ...EDIT_SAME, venueName: "Court 5" }],
+        planChoice: "update",
+        openedPlan: OPENED(),
+      })
+    )
+    expect(result).toEqual({ status: "ok" })
+
+    const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId! } })
+    expect(event.title).toBe(longTitle)
+    const venues = await prisma.venue.findMany({ where: { eventId: eventId! } })
+    expect(venues.map((v) => v.name)).toEqual(["Court 5"])
+    expect(await orbitMessages()).toHaveLength(1)
+  })
 })
