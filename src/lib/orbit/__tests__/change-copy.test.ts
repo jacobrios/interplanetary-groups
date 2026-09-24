@@ -10,12 +10,15 @@ import {
   buildGroupProposalQuestion,
   buildConsensusAnnouncement,
   proposalChipLabels,
+  proposalBandQuestion,
   buildWhichPlanQuestion,
   buildWhichTimeQuestion,
   buildAlreadyAtReply,
   buildProposalClosureMessage,
   NO_PLANS_REPLY,
+  timeLabelAgainst,
 } from "../change-copy"
+import { formatWeekdayShort } from "@/lib/events/format"
 
 // Fixtures in UTC so wall time and instant read the same in assertions.
 const ZONE = "UTC"
@@ -138,10 +141,10 @@ describe("copy composers", () => {
 
   it("declines by field: day wins over venue, venue over other", () => {
     expect(buildCantDoReply(["day", "time"], MORNING_EVENT, ZONE)).toBe(
-      "I can't move it to another day yet. I can change the time on Sun if that helps."
+      "I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time on Sun if that helps."
     )
     expect(buildCantDoReply(["venue"], MORNING_EVENT, ZONE)).toBe(
-      "I can't change the spot yet, that's coming. I can move the time if that helps."
+      "I can't change the spot from chat, but anyone can on the plan's page. I can move the time if that helps."
     )
     expect(buildCantDoReply(["other"], MORNING_EVENT, ZONE)).toBe(
       "I can't change that part of the plan yet. Moving the time is what I can do."
@@ -229,7 +232,41 @@ describe("group proposal copy", () => {
 
   it("the targetless decline drops the weekday clause", () => {
     expect(buildCantDoReply(["day"], null, TZ)).toBe(
-      "I can't move it to another day yet. I can change the time if that helps."
+      "I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time if that helps."
     )
+  })
+})
+
+describe("a vote that changes the day names it", () => {
+  const Z = "America/Chicago"
+  const TUE_7PM = new Date("2099-09-23T00:00:00Z")
+  const THU_8PM = new Date("2099-09-25T01:00:00Z")
+  const TUE_8PM = new Date("2099-09-23T01:00:00Z")
+  const NOW = new Date("2099-09-21T15:00:00Z")
+
+  it("fixtures are the days they claim", () => {
+    expect(formatWeekdayShort(TUE_7PM, Z)).toBe("Tue")
+    expect(formatWeekdayShort(THU_8PM, Z)).toBe("Thu")
+  })
+  it("timeLabelAgainst adds the weekday only across days", () => {
+    expect(timeLabelAgainst(THU_8PM, TUE_7PM, Z)).toBe("Thu 8pm")
+    expect(timeLabelAgainst(TUE_8PM, TUE_7PM, Z)).toBe("8pm")
+  })
+  it("chips name both days", () => {
+    expect(proposalChipLabels(THU_8PM, TUE_7PM, Z)).toEqual({ yes: "Move to Thu 8pm", keep: "Keep Tue 7pm" })
+  })
+  it("the ask names the old day", () => {
+    expect(buildGroupProposalQuestion("Sam", "beers", THU_8PM, TUE_7PM, Z, NOW, null)).toBe(
+      "Sam wants beers this Thu at 8pm instead of Tue 7pm. Move it?"
+    )
+  })
+  it("the passed-vote announcement names the old day and points at the page for a revert", () => {
+    expect(buildConsensusAnnouncement("beers", THU_8PM, TUE_7PM, Z, NOW)).toBe(
+      "That settles it. Beers this Thu is moving to 8pm, it was Tue 7pm. I marked everyone who said yes as in; the rest of you, answer again up top. Want it back? Anyone can ask from the plan's page."
+    )
+  })
+  it("the event-screen question names the new day", () => {
+    expect(proposalBandQuestion("Beers", THU_8PM, TUE_7PM, Z)).toBe("Move Beers to Thu 8pm?")
+    expect(proposalBandQuestion("Beers", TUE_8PM, TUE_7PM, Z)).toBe("Move Beers to 8pm?")
   })
 })

@@ -58,13 +58,13 @@ describe("planChange", () => {
   it("a clearly asked non-time request gets the honest decline", () => {
     const p = planChange(change({ requestedFields: ["venue"] }), TARGET, [TARGET], "Sam", 5, ZONE, NOW, false)
     if (p.action !== "reply") throw new Error(`expected reply, got ${p.action}`)
-    expect(p.body).toContain("I can't change the spot yet")
+    expect(p.body).toContain("I can't change the spot from chat")
   })
 
   it("a compound day-and-time request declines rather than acting on half", () => {
     const p = planChange(change({ requestedFields: ["day", "time"] }), TARGET, [TARGET], "Sam", 5, ZONE, NOW, false)
     if (p.action !== "reply") throw new Error(`expected reply, got ${p.action}`)
-    expect(p.body).toContain("I can't move it to another day yet")
+    expect(p.body).toContain("I can't move it to another day from chat")
   })
 
   it("a resolved instant in the past gets the honest reply when clearly asked", () => {
@@ -172,7 +172,7 @@ describe("the rewritten ladder: never silent on a direct ask", () => {
       null, both, "Sam", 5, TZ, now, false
     )
     expect(noTarget.action).toBe("reply")
-    expect((noTarget as { body: string }).body).toContain("can't change the spot yet")
+    expect((noTarget as { body: string }).body).toContain("can't change the spot from chat")
   })
 })
 
@@ -197,7 +197,7 @@ describe("QA 2 Sept, the 'Thursday' failure: nothing to move outranks what kind 
   it("(b) a day request with candidates still gets the day decline, exactly as before", () => {
     const plan = planChange(change({}), climbing, [climbing], "Sam", 5, TZ, now, false)
     expect(plan.action).toBe("reply")
-    expect((plan as { body: string }).body).toContain("I can't move it to another day yet")
+    expect((plan as { body: string }).body).toContain("I can't move it to another day from chat")
   })
 
   it("(c) no candidates and no called-off plans gets NO_PLANS_REPLY", () => {

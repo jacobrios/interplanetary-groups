@@ -78,6 +78,24 @@ export function changeStartInstant(
   return zonedWallTimeToUtc(day.year, day.month, day.day, hour, minute, timeZone)
 }
 
+/** Whether two instants fall on the same local calendar day in `timeZone`. */
+function sameLocalDay(a: Date, b: Date, timeZone: string): boolean {
+  const pa = getLocalParts(a, timeZone)
+  const pb = getLocalParts(b, timeZone)
+  return pa.year === pb.year && pa.month === pb.month && pa.day === pb.day
+}
+
+/**
+ * A time, with its weekday only when it falls on a different local day from
+ * the time it is being compared against. A same-day vote reads exactly as it
+ * always has ("Move to 8pm"); a vote that moves the day says so ("Move to
+ * Thu 8pm"), because "8pm" alone would silently hide the bigger change.
+ */
+export function timeLabelAgainst(at: Date, other: Date, timeZone: string): string {
+  const time = formatTime(at, timeZone)
+  return sameLocalDay(at, other, timeZone) ? time : `${formatWeekdayShort(at, timeZone)} ${time}`
+}
+
 /** "this Sun" inside a week, "on Sun, Jun 21" beyond it, mirroring the gauge copy. */
 export function whenPhrase(startsAt: Date, timeZone: string, now: Date): string {
   const daysAway = Math.round(
@@ -132,9 +150,10 @@ export function buildChangeQuestion(
  * on. Day outranks venue (a day request often names a time too, and acting on
  * half a request is the misread this slice exists to prevent).
  *
- * DEBT (recorded in the spec): each of these hardcodes what Orbit cannot do.
- * The slice that ships venue or day changes must retire its line here as part
- * of its definition of done, or Orbit starts lying.
+ * Retired by the editable-event-card slice (23 Sept 2026): the page can
+ * change place and title directly and open a vote for the day, so the
+ * honest answer is now a pointer, and chat still cannot act on either
+ * (verbal group two).
  */
 export function buildCantDoReply(
   fields: ChangeField[],
@@ -143,11 +162,11 @@ export function buildCantDoReply(
 ): string {
   if (fields.includes("day")) {
     return eventStartsAt
-      ? `I can't move it to another day yet. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
-      : `I can't move it to another day yet. I can change the time if that helps.`
+      ? `I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time on ${formatWeekdayShort(eventStartsAt, timeZone)} if that helps.`
+      : `I can't move it to another day from chat, but anyone can ask the group for a new day on the plan's page. I can change the time if that helps.`
   }
   if (fields.includes("venue")) {
-    return `I can't change the spot yet, that's coming. I can move the time if that helps.`
+    return `I can't change the spot from chat, but anyone can on the plan's page. I can move the time if that helps.`
   }
   return `I can't change that part of the plan yet. Moving the time is what I can do.`
 }
@@ -181,14 +200,17 @@ export function buildGroupProposalQuestion(
   now: Date,
   disclosure: string | null
 ): string {
-  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${formatTime(priorStartsAt, timeZone)}. Move it?`
+  const q = `${askerName} wants ${label} ${whenPhrase(proposedStartsAt, timeZone, now)} at ${formatTime(proposedStartsAt, timeZone)} instead of ${timeLabelAgainst(priorStartsAt, proposedStartsAt, timeZone)}. Move it?`
   return disclosure ? `${q} ${disclosure}` : q
 }
 
 /**
  * The consensus announcement: what Orbit is doing, owns the seeding out loud,
  * and invites a revert. Never assumes a count, since this is the closure on
- * a time-change proposal, not a status update.
+ * a time-change proposal, not a status update. Same day, the revert names
+ * the old time outright; a day change too, chat cannot move a day, so
+ * pointing at chat would be a promise Orbit cannot keep, and the revert
+ * points at the plan's own page instead.
  */
 export function buildConsensusAnnouncement(
   label: string,
@@ -197,8 +219,11 @@ export function buildConsensusAnnouncement(
   timeZone: string,
   now: Date
 ): string {
-  const oldTime = formatTime(oldStartsAt, timeZone)
-  return `That settles it. ${cap(label)} ${whenPhrase(newStartsAt, timeZone, now)} is moving to ${formatTime(newStartsAt, timeZone)}, it was ${oldTime}. I marked everyone who said yes as in; the rest of you, answer again up top. Want it back at ${oldTime}? Say the word.`
+  const oldTime = timeLabelAgainst(oldStartsAt, newStartsAt, timeZone)
+  const revert = sameLocalDay(oldStartsAt, newStartsAt, timeZone)
+    ? `Want it back at ${oldTime}? Say the word.`
+    : `Want it back? Anyone can ask from the plan's page.`
+  return `That settles it. ${cap(label)} ${whenPhrase(newStartsAt, timeZone, now)} is moving to ${formatTime(newStartsAt, timeZone)}, it was ${oldTime}. I marked everyone who said yes as in; the rest of you, answer again up top. ${revert}`
 }
 
 /**
@@ -218,8 +243,8 @@ export function proposalChipLabels(
   timeZone: string
 ): { yes: string; keep: string } {
   return {
-    yes: `Move to ${formatTime(proposedStartsAt, timeZone)}`,
-    keep: `Keep ${formatTime(priorStartsAt, timeZone)}`,
+    yes: `Move to ${timeLabelAgainst(proposedStartsAt, priorStartsAt, timeZone)}`,
+    keep: `Keep ${timeLabelAgainst(priorStartsAt, proposedStartsAt, timeZone)}`,
   }
 }
 
@@ -229,13 +254,15 @@ export function proposalChipLabels(
  *  deterministic, and deliberately impersonal: composed from stored rows at
  *  render, never stored, and never naming the asker's constraint (the
  *  owner's objective-copy ruling: the group answers the time, not the
- *  person). */
+ *  person). Names the new day too when the vote would change it, same rule
+ *  as the chips below it. */
 export function proposalBandQuestion(
   eventTitle: string,
   proposedStartsAt: Date,
+  priorStartsAt: Date,
   timeZone: string
 ): string {
-  return `Move ${eventTitle} to ${formatTime(proposedStartsAt, timeZone)}?`
+  return `Move ${eventTitle} to ${timeLabelAgainst(proposedStartsAt, priorStartsAt, timeZone)}?`
 }
 
 /*

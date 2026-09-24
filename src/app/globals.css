@@ -77,6 +77,13 @@ body {
    the color, which would otherwise dim the token a second time. */
 input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 1; }
 
+/* A fourth: ::-webkit-date-and-time-value is a pseudo-element, so it cannot
+   ride an inline style either. Stripping a date/time input's native
+   appearance (EditEventDetails.tsx's edit-picker style) leaves iOS WebKit
+   centering the value by default; this puts it back on the left, matching
+   the Title and Place inputs beside it (owner's phone QA, 24 Sept 2026). */
+.edit-picker::-webkit-date-and-time-value { text-align: left; }
+
 /* A third thing inline styles cannot express, for a reason close to the one
    the two above give: :active is a pseudo-class. (Only close, and worth
    saying rather than glossing: .tap-card-ask below is here to sit beside its

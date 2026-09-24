@@ -8,7 +8,8 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { CARD_REGION_CAP } from "@/lib/cards/region"
 import { findUpcomingEvents, hasUpcomingEventForActivity } from "@/lib/events/upcoming-list"
-import { formatEventDate, formatTime } from "@/lib/events/format"
+import { formatEventDate } from "@/lib/events/format"
+import { timeLabelAgainst } from "@/lib/orbit/change-copy"
 import { createGauge } from "@/lib/gauges/create"
 import { findLiveGauges } from "@/lib/gauges/read"
 import { findOpenRetryAsk } from "@/lib/gauges/open-ask"
@@ -148,7 +149,7 @@ export async function detectIntentAction(messageId: string): Promise<DetectInten
       .filter((p) => p.kind === ProposalKind.GROUP)
       .map((p) => {
         const label = p.event.activityLabel ?? p.event.title.toLowerCase()
-        return `A question is already out to the group: move ${label} to ${formatTime(p.proposedStartsAt, group.timeZone)} (asked by ${p.asker.name}).`
+        return `A question is already out to the group: move ${label} to ${timeLabelAgainst(p.proposedStartsAt, p.priorStartsAt, group.timeZone)} (asked by ${p.asker.name}).`
       })
 
     // The open day-ask, derived before the model is called: the model is told

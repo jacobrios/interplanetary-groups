@@ -57,72 +57,40 @@
 // rather than both quiet: these are the only two controls in this region,
 // and dimming both would read as disabled.
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, type ReactNode } from "react"
 import { cancelEventAction, restoreEventAction } from "@/app/actions/cancel-event"
 import { ErrorLine } from "@/components/choice"
+import { outlinedPill, tealPill, pairPill, pairRow } from "./pills"
+
+// ── Sharing a row with "Edit" (owner's phone QA, 24 Sept 2026) ──
+// On a plan that can still be edited, the resting control shares one row
+// with an "Edit" pill passed in as `leading`: two equal-width outlined pills,
+// Edit left, "Call off" right, neither teal. This component owns the row
+// rather than the page, because its confirm step must take the WHOLE row
+// over, Edit included, and only this component knows when it is confirming.
+// With no `leading` (a plan already started, or a called-off plan) it stays
+// the full-width pill described above. The resting label shortened from
+// "Call this off" to "Call off" the same day: it pairs with "Edit", and
+// "Cancel" was rejected because beside "Edit" it reads as "stop editing".
 
 interface Props {
   eventId: string
   groupId: string
   isCancelled: boolean
-}
-
-// Geometry read from AddToCalendarButton and reproduced exactly, so the two
-// controls stack as one column of pills rather than as two different ideas.
-// minHeight is a floor, never a fixed height, per the layout-grows rule.
-const pill: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-  width: "100%",
-  minHeight: "44px",
-  padding: "0.75rem 1.5rem",
-  borderRadius: "24px",
-  fontSize: "var(--type-label)",
-  fontWeight: 600,
-  lineHeight: "var(--leading-normal)",
-  cursor: "pointer",
-}
-
-const outlinedPill: React.CSSProperties = {
-  ...pill,
-  background: "transparent",
-  border: "1px solid var(--hairline)",
-  color: "var(--text-secondary)",
-}
-
-const tealPill: React.CSSProperties = {
-  ...pill,
-  backgroundColor: "var(--action)",
-  color: "var(--action-ink)",
-  border: "1px solid var(--action)",
+  /** A control that shares the resting row, hidden while confirming. */
+  leading?: ReactNode
 }
 
 // The two confirm controls share the pill's full width, so together they
-// occupy exactly the footprint the resting control just vacated. Their
-// horizontal padding drops from 1.5rem to 0.75rem because two pills side by
-// side on a 375px phone cannot each carry 1.5rem of side padding and still
-// hold "Yes, call it off" on one line; the text wraps rather than clips if it
-// ever does not fit, since minHeight is a floor.
-const confirmPill: React.CSSProperties = {
-  ...outlinedPill,
-  // Longhands rather than the `flex` shorthand: identical in a browser, and
-  // jsdom drops `flex: 1 1 0` outright, so the shorthand would leave the
-  // shared-width rule untestable.
-  flexGrow: 1,
-  flexShrink: 1,
-  flexBasis: 0,
-  minWidth: 0,
-  padding: "0.75rem",
-}
+// occupy exactly the footprint the resting row just vacated (pills.ts).
+const confirmPill = pairPill
 
-export default function CancelControls({ eventId, groupId, isCancelled }: Props) {
+export default function CancelControls({ eventId, groupId, isCancelled, leading }: Props) {
   const [confirming, setConfirming] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const restText = isCancelled ? "Put this back on" : "Call this off"
+  const restText = isCancelled ? "Put this back on" : "Call off"
   const confirmText = isCancelled ? "Yes, put it back" : "Yes, call it off"
   // The cancel consequence shouts the state word, matching Orbit's own
   // announcements ("Squash this Thu is OFF"), owner's phone QA, 3 Sept 2026.
@@ -156,13 +124,22 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
   if (!confirming) {
     return (
       <div>
-        <button
-          type="button"
-          style={isCancelled ? tealPill : outlinedPill}
-          onClick={() => setConfirming(true)}
-        >
-          {restText}
-        </button>
+        {leading ? (
+          <div style={pairRow}>
+            {leading}
+            <button type="button" style={pairPill} onClick={() => setConfirming(true)}>
+              {restText}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            style={isCancelled ? tealPill : outlinedPill}
+            onClick={() => setConfirming(true)}
+          >
+            {restText}
+          </button>
+        )}
         <ErrorLine msg={errorMsg} />
       </div>
     )
@@ -181,7 +158,7 @@ export default function CancelControls({ eventId, groupId, isCancelled }: Props)
       >
         {consequence}
       </p>
-      <div style={{ display: "flex", gap: "0.625rem" }}>
+      <div style={pairRow}>
         {/* Equal weight, both --text-primary (owner's phone QA, 3 Sept 2026,
             reversing the 2 Sept round). This IS an open question while the
             confirm row is showing, and the product already has a rule for

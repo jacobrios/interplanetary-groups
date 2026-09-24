@@ -386,7 +386,8 @@ model ChangeProposal {
   groupId          String
   eventId          String
   askerUserId      String
-  sourceMessageId  String
+  /// Null means the proposal was opened from the plan's page, not from chat.
+  sourceMessageId  String?
   orbitMessageId   String          @unique
   proposedStartsAt DateTime
   priorStartsAt    DateTime
@@ -400,7 +401,7 @@ model ChangeProposal {
   group         Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
   event         Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   asker         User    @relation(fields: [askerUserId], references: [id], onDelete: Cascade)
-  sourceMessage Message @relation("ProposalSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
+  sourceMessage Message? @relation("ProposalSource", fields: [sourceMessageId], references: [id], onDelete: Cascade)
   orbitMessage  Message @relation("ProposalOrbit", fields: [orbitMessageId], references: [id], onDelete: Cascade)
 
   @@unique([sourceMessageId, kind])

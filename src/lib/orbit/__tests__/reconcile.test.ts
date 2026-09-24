@@ -480,5 +480,61 @@ describe("reconcileScheduledEvents", () => {
         [movedTo.getTime(), nextWeek.getTime()].sort()
       )
     })
+
+    // Pins the editable-event-card slice's day-forward case: the editing
+    // slice lets a founder or the group move a plan LATER in the week, which
+    // the moved-earlier case above never exercised. While the moved
+    // occurrence is still in the future, it is the group's genuine upcoming
+    // plan, so the cron must not create a second one; only past the moved
+    // time does the slot free up, and the healed occurrence lands one week
+    // after the ORIGINAL slot, never the moved one, because the rhythm's own
+    // weekday never changed.
+    it("moved later within the week stays upcoming, then heals a week after the ORIGINAL slot", async () => {
+      const { group } = await createTestUserAndGroup(SUNDAY_RHYTHM)
+
+      // Cron creates Sunday 08:00 with its scheduledKey.
+      const first = await reconcileScheduledEvents(NOW, { groupId: group.id })
+      expect(first[0].status).toBe("created")
+      const event = await prisma.event.findFirst({ where: { groupId: group.id } })
+      if (!event) throw new Error("expected the scheduled event")
+      eventIds.push(event.id)
+
+      // The group moves it a day later (Monday 08:00). Key untouched: a move
+      // relocates the occurrence, it does not free the slot.
+      const movedTo = new Date(EXPECTED_STARTS_AT.getTime() + 24 * 60 * 60 * 1000)
+      await prisma.event.update({
+        where: { id: event.id },
+        data: { startsAt: movedTo, previousStartsAt: event.startsAt },
+      })
+
+      // Between the original Sunday slot and the moved Monday time, the
+      // moved occurrence is still genuinely upcoming: reconcile must create
+      // nothing, and the reason is upcoming_exists rather than duplicate,
+      // because there is no stale-key collision to skip on, the slot is
+      // simply still spoken for.
+      const betweenNow = new Date(EXPECTED_STARTS_AT.getTime() + 6 * 60 * 60 * 1000)
+      const second = await reconcileScheduledEvents(betweenNow, { groupId: group.id })
+      expect(second[0]).toEqual({ groupId: group.id, status: "skipped", reason: "upcoming_exists" })
+      expect(await prisma.event.count({ where: { groupId: group.id } })).toBe(1)
+
+      // Past the moved Monday time, the slot frees up and the following
+      // week heals itself: a fresh slot, one week after the ORIGINAL Sunday
+      // slot (not the moved Monday time), since the rhythm's own weekday is
+      // still Sunday.
+      const afterMoved = new Date(movedTo.getTime() + 60 * 60 * 1000)
+      const third = await reconcileScheduledEvents(afterMoved, { groupId: group.id })
+      expect(third[0].status).toBe("created")
+      const events = await prisma.event.findMany({ where: { groupId: group.id } })
+      for (const e of events) if (!eventIds.includes(e.id)) eventIds.push(e.id)
+      const messages = await prisma.message.findMany({ where: { groupId: group.id } })
+      for (const m of messages) if (!messageIds.includes(m.id)) messageIds.push(m.id)
+
+      const nextWeek = new Date(EXPECTED_STARTS_AT.getTime() + 7 * 24 * 60 * 60 * 1000)
+      const created = events.find((e) => e.id !== event.id)
+      expect(created?.startsAt.getTime()).toBe(nextWeek.getTime())
+      expect(
+        await prisma.event.count({ where: { groupId: group.id, scheduledKey: { not: null } } })
+      ).toBe(2)
+    })
   })
 })

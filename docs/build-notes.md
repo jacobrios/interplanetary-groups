@@ -679,6 +679,10 @@ Seven High-priority items come due at the moment of the first production deploy.
     *Why it matters.* Until it is set, a red build reports an X on the pull request and the merge button stays green, so the new gate is a notification rather than a gate, which is precisely the shape of the thing it was built to replace: Vercel already emailed on all three failed deploys of 4 Sept 2026 and the merges still happened.
     *Two things to know before switching it on.* A required check that never reports blocks the merge forever, so the workflow has to have run at least once on a real pull request first, and the rule's name must match the job's own `name:` exactly rather than the workflow's. Neither is recoverable-by-guessing from the GitHub UI, which is why they are written down here.
 
+18. ~~**Run the proposal-source migration against production before the editable-event-card branch merges to main.**~~ **DONE, 24 September 2026.** `migrate status` beforehand listed exactly this one migration pending, `migrate deploy` applied it, and `npm run db:which` printed dev-test immediately afterwards. *Original item follows.* **Run the proposal-source migration against production before the editable-event-card branch merges to main.** Read `docs/runbooks/production-migration.md` first (added 23 Sept 2026, final review). Command: `DIRECT_URL="<production session-pooler URL>" npx prisma migrate deploy`, as a one-off inline override on that single command, never by editing `.env`. Immediately after, run `npm run db:which` and confirm it prints the dev-test ref, not production.
+    *Why it matters:* purely additive (drops a NOT NULL), so running it first is safe for the live code, which always writes a value; running it after the merge means the first card edit of a day or time fails with a database error.
+    *Detail:* migration `20260924004142_proposal_source_optional`.
+
 ### Data-foundation slice (18 to 19 June 2026)
 
 Stood up the data layer: Prisma wired to the Supabase Postgres database, the seven-model schema from section 2 implemented, first migration applied, one Vitest smoke test passing against the live dev database. Committed and pushed.
@@ -8228,3 +8232,36 @@ Probe 3 is the one that mattered and could most easily have gone the other way. 
 **Lint reaches zero errors, 23 Sept 2026.** The README tells a reader to run the linter, and it failed with 18 errors, which is a poor first impression for a repo meant to be read. It now reports zero. The Claude Design handoff exports under `docs/design/` are excluded, because they are reference material for visual work rather than product code. One apostrophe in the reset-link confirm was escaped, rendering identically. Four uses of one React rule (setting state inside an effect) are documented as deliberate exceptions, each with its reason, rather than refactored: this change was meant to change nothing, and the group home's send and refresh code has a history of subtle bugs the tests cannot see. The suite read 1928 of 1928 passing across 162 files before and after, and the production build passes. 29 warnings remain as known debt (35 counted with the design exports). This rides the docs branch by the owner's call, not its own pull request as the line above says, after the separate worktree attempt was blocked by two of the owner's guard hooks, which are being fixed separately.
 
 A correction to this record's vocabulary, 23 Sept 2026: the person referred to throughout as "the investor" is a friend who wanted this project to exist as a public-good side project, never a venture investor; he has since stepped back and the owner maintains it alone. Earlier entries keep the word as written.
+
+## §11 entry: the editable event card (23 September 2026)
+
+**What changed.** Any member can fix an upcoming plan from its page. Before, nothing about a plan was correctable.
+
+**The seven decisions settled with the owner before any code.**
+
+- **Anyone edits, and Orbit names who**: with no vote on a place or title, the name is the only check.
+- **Place and title save directly; day and time open the existing group vote**, the editor counted as a yes, and the vote gained the ability to move the day.
+- **One Orbit line per save**, naming who and the old and new values; undoing is another edit; a rename changes what Orbit calls the plan.
+- **Place and title leave RSVPs alone**; a new day or time keeps the vote's reset.
+- **Saved calendar entries stay stale**; re-adding hands out a newer version.
+- **The edit lives on the plan's page, not the home card**: the card is the gist and its height budget is spent.
+- **Onboarding's required venue stays until the group-details slice**: an edit fixes one plan, and the rhythm would recreate the missing venue weekly.
+
+**Four more the owner approved after the slice document was written.**
+
+1. **A weekly plan cannot move on or after its rhythm's next regular slot**, measured from its original slot, or the hourly job skips that week in silence. Floated plans have no limit.
+2. **One save changing both kinds of detail posts two Orbit messages**, the place or title line first, then the vote's question: one is done, the other is asked.
+3. **A place can be removed as well as changed**, and Orbit says what it was; a title is capped at 50 characters and cannot be blank.
+4. **A vote opened from the page has no chat message behind it**, which made the proposal's source message optional: a migration that must reach production before the merge (after-launch item 18).
+
+**Decided during the build.** The form opens inline, never as a pop-up. A new title is kept as typed, since lowercasing turned "Pool at Sam's" into "Pool at sam's". Orbit's chat decline says anyone can **ask the group** for a new day on the page, because the page asks rather than moves. A stale form cannot undo someone else's change. Saving the time an open vote already asks about adds a yes to it rather than wiping its votes.
+
+**Evidence.** Suite 1928 across 162 files at `291ead3` to 2006 across 168, zero failures. Bench `venue-ask-two-plans` 5/5. Browser walkthrough at 375x812 passed, and **found a build break no test could**: the form pulled the database client into the browser. Real phone: the owner's, not yet.
+
+**Queued.** (1) Onboarding's follow-up question should show the place alongside the time and stop saying "One question". (2) Whether venue stays required at onboarding for good, owner leaning yes, decided in the group-details slice. (3) Going back from step 2 regenerates the suggested group name; recommend decline unless an edited name is ever lost. Out of lane, unranked: the vote's supersede step retires the asker's open votes in other groups too (own micro-PR); the full-suite stop hook tests the main checkout, never the worktree.
+
+**Debt.** An edit fixes one plan, never the rhythm. Saved calendars go stale until the subscribable calendar. More stored messages name a member, beyond deletion's reach. A renamed weekly plan lets an idea under its old name past the duplicate guard. A plan moved from a week out to under three days out can miss the digest's three-days-before reminder. The refusal "runs into the next regular Tennis on Sat at 9am" does not say which Saturday. The page and the edit order venues differently, harmless while plans have one. Calendar apps replacing rather than duplicating a re-added entry: unverified.
+
+*Postscript, 24 September 2026, the owner's phone QA. Edit left the details card, which returns to production's height, and sits below Add to calendar in one row with "Call off": two equal outlined pills, neither teal. "Call this off" became "Call off" to pair with Edit; "Cancel" was rejected because beside Edit it reads as stop editing. Editing takes the whole card: the form replaces its body, the RSVP band becomes Never mind and Save, and the pills below hide until it closes. The hint dropped its timezone tail, since the whole screen is in group time. The weekly limit refusal names the date in the way ("That runs into the next Tennis, on Sat, Oct 3. Pick an earlier day."). Two phone bugs fixed: Day and Time overflowed the card on iOS, and opening the form raised the keyboard, which closed the date picker on its first tap; focus now lands on a hidden heading.*
+
+**Postscript, 24 September 2026: two runbook gaps found while applying item 18, queued, not fixed.** First, `docs/runbooks/production-migration.md` says to run from `~/code/interplanetary-groups`, but a slice built in a worktree has its migration only in the worktree until merge, so from the main checkout `migrate status` would report nothing pending; the runbook should say to run from the checkout that holds the migration. Second, the owner's own Terminal could not reach 1Password at all ("No accounts configured"; `op signin` asked for `eval $(op signin)`), while the Claude desktop app's terminal pane worked, so the migration ran there. The cause was not found; a macOS permission for Terminal is the leading guess and a reset did not fix it. Recommendation: queue both as one runbook micro-PR.

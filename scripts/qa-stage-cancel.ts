@@ -12,7 +12,7 @@
 //
 //   - "Tennis" is SCHEDULED, three days out, with RSVPs already on it, so
 //     the live card shows its counts and its RSVP pair, and its detail
-//     screen carries "Call this off" below that pair. This is the plan the
+//     screen carries "Call off" below that pair. This is the plan the
 //     runner calls off themselves, which is the only way to see the two-tap
 //     confirm and Orbit's announcement.
 //   - "Squash" is already CANCELLED, four days out, and deliberately keeps
@@ -159,8 +159,8 @@ async function main(): Promise<void> {
           "Join through inviteUrl; that real session becomes the 4th member and the viewer.",
           "Group home: Tennis reads normally, Squash reads CALLED OFF with no counts and no RSVP buttons.",
           "Open Squash: the label sits above the title, the roster is still there, there is no Add to calendar, and the only control is Put this back on.",
-          "Open Tennis: Call this off sits BELOW the RSVP pair. Tap it once, nothing happens yet.",
-          "Tap Never mind, then tap Call this off again and confirm. Orbit names you in the feed.",
+          "Open Tennis: Call off sits BELOW the RSVP pair. Tap it once, nothing happens yet.",
+          "Tap Never mind, then tap Call off again and confirm. Orbit names you in the feed.",
           "Back on the group home, Tennis now reads the same way Squash does.",
           "Put Tennis back on. Its RSVPs should be exactly as they were.",
         ],

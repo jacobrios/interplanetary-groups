@@ -65,8 +65,13 @@ export interface CreateGroupProposalInput {
   groupId: string
   eventId: string
   askerUserId: string
-  /** The member message that asked; compound-unique with kind GROUP. */
-  sourceMessageId: string
+  /**
+   * The member message that asked; compound-unique with kind GROUP. Null
+   * means the ask came from the plan's own page rather than chat, in which
+   * case the (askerUserId, eventId, proposedStartsAt) in-tx check below
+   * stands in for the unique index's idempotency.
+   */
+  sourceMessageId: string | null
   proposedStartsAt: Date
   priorStartsAt: Date
   /** buildGroupProposalQuestion output; copy stays in change-copy.ts. */
@@ -86,6 +91,14 @@ export type CreateGroupProposalResult =
  * retirements standing over nothing.
  */
 class StaleEventInTx extends Error {}
+
+/**
+ * Thrown, never returned, when a card ask with no source message duplicates
+ * an unanswered ask already open for the same person, plan, and proposed
+ * time. A card ask has no chat message, so the (sourceMessageId, kind)
+ * unique cannot catch a double-tapped Save; this is what does.
+ */
+class DuplicateCardAskInTx extends Error {}
 
 export async function createGroupProposal({
   groupId,
@@ -114,6 +127,44 @@ export async function createGroupProposal({
         event.status === EventStatus.CANCELLED
       ) {
         throw new StaleEventInTx()
+      }
+
+      // A card ask has no chat message, so the (sourceMessageId, kind)
+      // unique cannot catch a double-tapped Save. The findFirst below does,
+      // for one request at a time, but under READ COMMITTED a plain SELECT
+      // takes no lock: two truly concurrent card-ask transactions can both
+      // read "no duplicate yet" before either commits its INSERT, and both
+      // proposals (and both Orbit questions) go live. So first take the
+      // event row's write lock with a conditional UPDATE: Postgres blocks
+      // the second transaction's UPDATE until the first commits or rolls
+      // back, and by the time it resumes, its own findFirst is a fresh
+      // statement that sees the first transaction's now-committed proposal.
+      // The chat path needs none of this: its idempotency is the
+      // (sourceMessageId, kind) unique index, which Postgres serializes on
+      // its own. (The update writes back the same startsAt, so it changes
+      // nothing but Event.updatedAt, which nudges the calendar file's
+      // SEQUENCE forward the moment a card vote opens rather than only when
+      // it resolves; harmless, and arguably correct, since a vote opening is
+      // itself a legitimate reason for a subscribed calendar to notice
+      // something moved.)
+      if (sourceMessageId === null) {
+        const locked = await tx.event.updateMany({
+          where: { id: eventId, startsAt: priorStartsAt, status: EventStatus.SCHEDULED },
+          data: { startsAt: priorStartsAt },
+        })
+        if (locked.count === 0) throw new StaleEventInTx()
+
+        const duplicate = await tx.changeProposal.findFirst({
+          where: {
+            eventId,
+            askerUserId,
+            kind: ProposalKind.GROUP,
+            answer: null,
+            proposedStartsAt,
+          },
+          select: { id: true },
+        })
+        if (duplicate) throw new DuplicateCardAskInTx()
       }
 
       // Newest wins, per event and per asker: a live GROUP proposal on this
@@ -162,6 +213,9 @@ export async function createGroupProposal({
   } catch (err) {
     if (err instanceof StaleEventInTx) {
       return { status: "skipped", reason: "stale" }
+    }
+    if (err instanceof DuplicateCardAskInTx) {
+      return { status: "skipped", reason: "already_asked" }
     }
     // The compound (sourceMessageId, kind) unique: a double-fired detection
     // collides here and the whole transaction, supersedes included, rolls back.
