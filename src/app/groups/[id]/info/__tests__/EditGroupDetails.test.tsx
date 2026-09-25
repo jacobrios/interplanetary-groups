@@ -94,7 +94,10 @@ describe("EditGroupDetails, opening the form", () => {
 
     const cardEl = document.querySelector("[data-info-card]") as HTMLElement
     expect(cardEl.style.padding).toBe("0px")
-    expect(cardEl.style.overflow).toBe("hidden")
+    // "clip" rather than "hidden" (owner's phone QA, PR #140): "hidden" makes
+    // this element its own scroll container, and the sticky band below can
+    // never stick inside a scroll container it isn't the one scrolling.
+    expect(cardEl.style.overflow).toBe("clip")
 
     const name = screen.getByLabelText("Group name") as HTMLInputElement
     expect(name.value).toBe("Tuesday Climbers")
@@ -108,20 +111,44 @@ describe("EditGroupDetails, opening the form", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy()
   })
 
-  it("moves focus to a visually hidden 'Editing group details' heading, not a text field", () => {
+  // Owner's phone QA, PR #140: the band (Never mind | Save, later the plan
+  // question) must stay visible at the bottom of the screen however tall the
+  // form grows. Checked on both bands below (this one and the asking one),
+  // since they are two separate elements swapped in and out.
+  it("keeps the Never mind | Save band pinned to the bottom of the screen while editing", () => {
+    renderIt()
+    openForm()
+    // Save -> the flex row of two buttons -> the band itself.
+    const band = (screen.getByRole("button", { name: "Save" }) as HTMLElement).parentElement
+      ?.parentElement as HTMLElement
+    expect(band.style.position).toBe("sticky")
+    expect(band.style.bottom).toBe("0px")
+    expect(band.style.zIndex).toBe("1")
+    expect(band.style.backgroundColor).toBe("var(--surface-raised)")
+  })
+
+  it("moves focus to a visually hidden 'Editing group details' heading, not a text field, without scrolling the page via focus itself", () => {
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus")
     renderIt()
     openForm()
     const heading = screen.getByRole("heading", { name: "Editing group details" })
     expect(document.activeElement).toBe(heading)
     expect(heading.getAttribute("tabindex")).toBe("-1")
     expect(document.activeElement?.tagName).not.toBe("INPUT")
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    focusSpy.mockRestore()
   })
 
-  it("scrolls the card into view on open", () => {
+  // Owner's phone QA, PR #140: scrolling the card's END into view and then
+  // focusing the heading meant the focus call scrolled the page back up (an
+  // off-top element pulls back into view when focused), so the owner saw the
+  // TOP of the form with Save below the fold. Scrolling the START into view
+  // instead is what the phone-width mock approved.
+  it("scrolls the card's START into view on open", () => {
     scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {})
     renderIt()
     openForm()
-    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "end" })
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "start" })
   })
 
   it("separates two rhythms with a hairline and puts a Place field on each", () => {
@@ -242,24 +269,57 @@ describe("EditGroupDetails, Save with a changed first activity and a next plan",
     expect(update.style.flexGrow).toBe("1")
   })
 
-  // Coordinator phone-width fix, found in the picture check: on a real
-  // build the band grows when it swaps to the question, and the answer
-  // buttons landed below the fold with the card scrolled into view only at
-  // open time. Entering the question re-scrolls and moves focus onto the
-  // first answer, closing the earlier "focus falls to the body" minor too.
-  it("scrolls the card into view again and focuses Leave it when entering the question", () => {
-    scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {})
+  // Teal question, no separate label (owner's call, PR #140): weight and
+  // color alone say this needs an answer.
+  it("shows the plan question in teal with weight 600, centered, meta size", () => {
     renderIt({ nextPlan })
     openForm()
-    // Clear the open-time call so this only asserts the asking-transition one.
+    fireEvent.change(screen.getByLabelText("Activity"), { target: { value: "bouldering" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    const question = screen.getByText(nextPlan.question)
+    expect(question.style.color).toBe("var(--action)")
+    expect(question.style.fontWeight).toBe("600")
+    expect(question.style.textAlign).toBe("center")
+    expect(question.style.fontSize).toBe("var(--type-meta)")
+  })
+
+  it("keeps the question's Leave it | Update it too band pinned to the bottom of the screen too", () => {
+    renderIt({ nextPlan })
+    openForm()
+    fireEvent.change(screen.getByLabelText("Activity"), { target: { value: "bouldering" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+
+    // Leave it -> the pair row -> the band itself.
+    const band = (screen.getByRole("button", { name: "Leave it" }) as HTMLElement).parentElement
+      ?.parentElement as HTMLElement
+    expect(band.style.position).toBe("sticky")
+    expect(band.style.bottom).toBe("0px")
+    expect(band.style.zIndex).toBe("1")
+    expect(band.style.backgroundColor).toBe("var(--surface-raised)")
+  })
+
+  // Owner's phone QA, PR #140: entering the question no longer re-scrolls
+  // (the pinned band already keeps the answers visible); it still moves
+  // focus onto the first answer, now with preventScroll so the focus call
+  // cannot itself scroll the page.
+  it("focuses Leave it with preventScroll when entering the question, without a second scroll", () => {
+    scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {})
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus")
+    renderIt({ nextPlan })
+    openForm()
+    // Clear the open-time calls so this only asserts the asking-transition ones.
     scrollIntoViewSpy.mockClear()
+    focusSpy.mockClear()
 
     fireEvent.change(screen.getByLabelText("Activity"), { target: { value: "bouldering" } })
     fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
-    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: "end" })
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
     const leave = screen.getByRole("button", { name: "Leave it" })
     expect(document.activeElement).toBe(leave)
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    focusSpy.mockRestore()
   })
 
   it("submits planChoice 'leave' on Leave it, carrying the plan's eventId and startsAt", async () => {

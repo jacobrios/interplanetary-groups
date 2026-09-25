@@ -52,4 +52,13 @@ describe("RhythmFields", () => {
     render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
     expect(screen.getByRole("button", { name: /Sun/ }).getAttribute("type")).toBe("button")
   })
+
+  // Owner's phone QA, PR #140: Time used to share a flex row with an empty
+  // spacer column, halving its width; at the owner's larger device text the
+  // value clipped to "07:00 A". Time now takes the full row.
+  it("gives Time the full row width, with no leftover flex row or spacer column", () => {
+    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
+    const time = screen.getByLabelText("Time")
+    expect(time.closest('div[style*="display: flex"]')).toBeNull()
+  })
 })

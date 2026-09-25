@@ -41,14 +41,17 @@ export default function RhythmFields({ idPrefix, value, onChange, showPlace, dis
           ))}
         </div>
       </div>
-      <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-        <div style={shrinkColumn}>
-          <label htmlFor={`${idPrefix}-time`} style={labelStyle}>Time</label>
-          <input id={`${idPrefix}-time`} type="time" value={value.timeLocal ?? ""} disabled={disabled}
-            onChange={(e) => onChange({ ...value, timeLocal: e.target.value === "" ? null : e.target.value })}
-            className="edit-picker" style={{ ...fieldStyle, ...pickerStyle }} />
-        </div>
-        <div style={shrinkColumn} />
+      {/* Full row width, no second column (owner's phone QA, PR #140): the
+          empty spacer div used to hold half the row for nothing, and at the
+          owner's larger device text the Time value clipped to "07:00 A" in
+          its half-width box. pickerStyle and edit-picker are unchanged; the
+          iOS force-zoom / native-chrome fixes they carry have nothing to do
+          with the column width. */}
+      <div style={{ marginBottom: "10px" }}>
+        <label htmlFor={`${idPrefix}-time`} style={labelStyle}>Time</label>
+        <input id={`${idPrefix}-time`} type="time" value={value.timeLocal ?? ""} disabled={disabled}
+          onChange={(e) => onChange({ ...value, timeLocal: e.target.value === "" ? null : e.target.value })}
+          className="edit-picker" style={{ ...fieldStyle, ...pickerStyle }} />
       </div>
       {showPlace && (
         <div style={{ marginBottom: "6px" }}>
