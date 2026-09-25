@@ -5,7 +5,7 @@
 // gauge chip look (choiceChipStyle), approved by the owner 24 Sept 2026
 // as the day picker: the product had no multi-pick control, and inventing
 // one was ruled out.
-import { fieldStyle, labelStyle, pickerStyle, shrinkColumn } from "@/components/form-fields"
+import { fieldStyle, labelStyle, pickerStyle } from "@/components/form-fields"
 import { choiceChipStyle } from "@/components/choice"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import { EDIT_TITLE_MAX } from "@/lib/events/edit-fields"
