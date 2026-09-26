@@ -4,17 +4,18 @@
 // generate the first event immediately (scoped reconcile) so the home is
 // alive on day one. The client-held rhythm payload is re-validated here —
 // the completeness gate is enforced server-side, so no request path can
-// create a group without a schedulable primary rhythm. The wizard advances
-// to the Step 3 share screen on success rather than being redirected; see
-// CreateGroupResult.
+// create a group without a schedulable primary rhythm and whose main
+// activity has a spot. The wizard advances to the Step 3 share screen on
+// success rather than being redirected; see CreateGroupResult.
 
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
 import { provisionFounderGroup } from "@/lib/groups/provision"
-import { parseStoredRhythms, parseRhythm } from "@/lib/orbit/rhythm"
+import { parseStoredRhythms, parseRhythm, cleanVenueName } from "@/lib/orbit/rhythm"
 import { normalizeTimeZone } from "@/lib/groups/timezone"
 import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
+import { detailsNoSpot } from "@/lib/groups/details-edit"
 
 export interface CreateGroupInput {
   founderName: string
@@ -51,6 +52,13 @@ export async function createGroupAction(input: CreateGroupInput): Promise<Create
   const rhythms = parseStoredRhythms(input.rhythms)
   if (!rhythms || parseRhythm(rhythms) === null) {
     return { error: "I lost track of your schedule. Go back a step and try again." }
+  }
+
+  // The main activity's spot (decision 8, onboarding step 2 cleanup): the
+  // wizard cannot reach confirm without one, and the server does not trust
+  // the wizard. Position 0 only; every other activity stays spot-optional.
+  if (cleanVenueName(rhythms[0].venueName) === null) {
+    return { error: detailsNoSpot(rhythms[0].activity) }
   }
 
   // The timezone is a client claim: validate before it drives display or is
