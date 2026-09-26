@@ -9,13 +9,30 @@
 
 import { cleanVenueName, titleCaseActivity, type StoredRhythm } from "./rhythm"
 
-export type MissingField =
-  | "time"
-  | "day"
-  | "both"
-  | "cadence"
-  | "ambiguous_time"
-  | "nothing_schedulable"
+/** The schedule-only gap kinds: everything classifyGap can return. */
+export type ScheduleGap = "time" | "day" | "both" | "cadence" | "ambiguous_time"
+
+/** A schedule gap kind, or the main activity's spot alone. */
+export type SpotGap = "spot" | `${ScheduleGap}_spot`
+
+export type MissingField = ScheduleGap | SpotGap | "nothing_schedulable"
+
+/** True for every kind that still needs the main activity's spot. */
+export function needsSpot(m: MissingField): boolean {
+  return m === "spot" || m.endsWith("_spot")
+}
+
+/** "time" -> "time_spot". */
+export function withSpot(g: ScheduleGap): `${ScheduleGap}_spot` {
+  return `${g}_spot`
+}
+
+/** The schedule half of a kind: "time_spot" -> "time", "spot" and
+ * "nothing_schedulable" -> null (neither has a schedule half). */
+export function scheduleGapOf(m: MissingField): ScheduleGap | null {
+  if (m === "spot" || m === "nothing_schedulable") return null
+  return m.endsWith("_spot") ? (m.slice(0, -"_spot".length) as ScheduleGap) : (m as ScheduleGap)
+}
 
 export type NormalizedOnboarding =
   | { status: "ready"; groupName: string; rhythms: StoredRhythm[] }
@@ -218,7 +235,7 @@ function rejectWeekdayNameOnMultiDay(
  * guessing (guessing wrong would silently create weekly events for a
  * monthly group).
  */
-function classifyGap(primary: Candidate): MissingField {
+function classifyGap(primary: Candidate): ScheduleGap | "nothing_schedulable" {
   const timeStated = primary.timeLocal !== null
   const timeKnown = timeStated && !primary.timeAmbiguous
   if (primary.cadence === null && primary.daysOfWeek !== null && timeKnown) {

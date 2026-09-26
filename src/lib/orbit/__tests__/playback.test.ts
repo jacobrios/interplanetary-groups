@@ -5,7 +5,13 @@
 // from normalized fields (§7 structured-extract-then-format).
 
 import { describe, it, expect } from "vitest"
-import { formatGapRhythmRow, formatRhythmRow, formatTimeLocal, REASK_COPY } from "../playback"
+import {
+  EXHAUSTED_COPY,
+  formatGapRhythmRow,
+  formatRhythmRow,
+  formatTimeLocal,
+  REASK_COPY,
+} from "../playback"
 import type { StoredRhythm } from "../rhythm"
 
 const rhythm =(over: Partial<StoredRhythm>): StoredRhythm => ({
@@ -161,6 +167,52 @@ describe("formatGapRhythmRow", () => {
   })
 })
 
+describe("formatGapRhythmRow, spot kinds", () => {
+  const climb = (over: Partial<StoredRhythm> = {}) =>
+    rhythm({ cadence: "weekly", daysOfWeek: [2, 4], timeLocal: "19:00", ...over })
+
+  it("spot alone keeps the whole schedule as the known part", () => {
+    expect(formatGapRhythmRow(climb(), "spot", null)).toEqual({
+      label: "CLIMBING", known: "Tue & Thu at 7pm", marker: "where?",
+    })
+  })
+  it("spot alone on every day reads every day", () => {
+    expect(formatGapRhythmRow(climb({ daysOfWeek: [0, 1, 2, 3, 4, 5, 6] }), "spot", null).known).toBe("Every day at 7pm")
+  })
+  it("time and spot", () => {
+    expect(formatGapRhythmRow(climb({ timeLocal: null }), "time_spot", null)).toEqual({
+      label: "CLIMBING", known: "Tue & Thu", marker: "what time and where?",
+    })
+  })
+  it("day and spot, both and spot, cadence and spot", () => {
+    expect(formatGapRhythmRow(climb({ daysOfWeek: null }), "day_spot", null)).toMatchObject({ known: "At 7pm", marker: "what days and where?" })
+    expect(formatGapRhythmRow(climb({ daysOfWeek: null, timeLocal: null }), "both_spot", null)).toMatchObject({ known: null, marker: "when and where?" })
+    expect(formatGapRhythmRow(climb({ cadence: null }), "cadence_spot", null)).toMatchObject({ known: "Tue & Thu at 7pm", marker: "every week, and where?" })
+  })
+  it("ambiguous time and spot, and its null-candidate degrade", () => {
+    expect(formatGapRhythmRow(climb({ daysOfWeek: [2], timeLocal: null }), "ambiguous_time_spot", "19:00")).toMatchObject({ known: "Tue at 7", marker: "morning or evening, and where?" })
+    expect(formatGapRhythmRow(climb({ daysOfWeek: [2], timeLocal: null }), "ambiguous_time_spot", null)).toMatchObject({ known: "Tue", marker: "what time and where?" })
+  })
+})
+
+describe("EXHAUSTED_COPY", () => {
+  it("names the spot, not the day and time, when only the spot is missing (the bug decision 4 fixes)", () => {
+    expect(EXHAUSTED_COPY.spot).toBe(
+      "I still need to know where you meet. Add it to your description, like “at Movement Gowanus”, and I'll take another look."
+    )
+    expect(EXHAUSTED_COPY.spot).not.toMatch(/day|time/i)
+  })
+  it("a combined gap names both halves", () => {
+    expect(EXHAUSTED_COPY.time_spot).toMatch(/what time you meet, and where/)
+  })
+  it("nothing schedulable reuses the Step 1 copy", () => {
+    expect(EXHAUSTED_COPY.nothing_schedulable).toBe(REASK_COPY.nothing_schedulable)
+  })
+  it("carries no em or en dashes", () => {
+    for (const s of [...Object.values(EXHAUSTED_COPY), ...Object.values(REASK_COPY)]) expect(s).not.toMatch(/[—–]/)
+  })
+})
+
 describe("copy rules", () => {
   it("no em or en dashes anywhere in composed copy or re-ask templates", () => {
     const samples = [
@@ -199,6 +251,17 @@ describe("copy rules", () => {
       formatGapRhythmRow(rhythm({ cadence: "weekly" }), "both", null).marker,
       formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "ambiguous_time", "19:00")
         .marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [2] }), "spot", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [1] }), "time_spot", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly" }), "day_spot", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly" }), "both_spot", null).marker,
+      formatGapRhythmRow(rhythm({ cadence: "weekly", daysOfWeek: [1] }), "cadence_spot", null)
+        .marker,
+      formatGapRhythmRow(
+        rhythm({ cadence: "weekly", daysOfWeek: [2] }),
+        "ambiguous_time_spot",
+        "19:00"
+      ).marker,
     ]
     for (const m of markers) expect(m).not.toMatch(/[—–]/)
   })

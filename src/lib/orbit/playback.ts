@@ -10,7 +10,7 @@
 // dashes, plain warm Orbit voice.
 
 import type { StoredRhythm } from "./rhythm"
-import type { MissingField } from "./normalize"
+import { needsSpot, scheduleGapOf, type MissingField, type ScheduleGap } from "./normalize"
 import type { GapAskable } from "./gap"
 
 const WEEKDAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -70,6 +70,26 @@ function bareTime(timeLocal: string): string {
   return m === 0 ? `${h12}` : `${h12}:${String(m).padStart(2, "0")}`
 }
 
+/** The gap-row marker for each schedule gap, when the spot is not also
+ * missing. */
+const MARKER: Record<ScheduleGap, string> = {
+  time: "what time?",
+  day: "what days?",
+  both: "what day and time?",
+  cadence: "every week?",
+  ambiguous_time: "morning or evening?",
+}
+
+/** The gap-row marker for each schedule gap, when the main activity's spot
+ * is missing alongside it. */
+const MARKER_WITH_SPOT: Record<ScheduleGap, string> = {
+  time: "what time and where?",
+  day: "what days and where?",
+  both: "when and where?",
+  cadence: "every week, and where?",
+  ambiguous_time: "morning or evening, and where?",
+}
+
 /**
  * The gap card's gapped row: the known part of the value (null when nothing
  * usable is known) plus the short lime-underlined marker naming the gap.
@@ -77,6 +97,12 @@ function bareTime(timeLocal: string): string {
  * The classification in normalize.ts guarantees the fields each gap needs
  * (a time gap has days, an ambiguous gap has days and a candidate); the
  * defensive branches below degrade gracefully rather than trusting that.
+ *
+ * `spot` alone (the main activity's whole schedule is known, only the place
+ * is missing) keeps the entire schedule as the known part; every other kind
+ * splits into its schedule half (via scheduleGapOf) for the known
+ * calculation and picks its marker from MARKER or MARKER_WITH_SPOT depending
+ * on whether it also needs the spot.
  */
 export function formatGapRhythmRow(
   r: StoredRhythm,
@@ -87,32 +113,49 @@ export function formatGapRhythmRow(
   const days = r.daysOfWeek !== null ? formatDays(r.daysOfWeek) : null
   const time = r.timeLocal !== null ? `at ${formatTimeLocal(r.timeLocal)}` : null
 
-  const gap = missing === "ambiguous_time" && candidateTimeLocal === null ? "time" : missing
+  // An ambiguous gap with no candidate degrades to the plain time gap
+  // (spot-combined or not): nothing usable is known about the time either way.
+  const gap: GapAskable =
+    (missing === "ambiguous_time" || missing === "ambiguous_time_spot") &&
+    candidateTimeLocal === null
+      ? missing === "ambiguous_time_spot"
+        ? "time_spot"
+        : "time"
+      : missing
+
+  if (gap === "spot") {
+    const known =
+      r.daysOfWeek !== null && r.daysOfWeek.length === 7 && time !== null
+        ? `every day ${time}`
+        : [days, time].filter(Boolean).join(" ") || null
+    return {
+      label,
+      known: known !== null ? known.charAt(0).toUpperCase() + known.slice(1) : null,
+      marker: "where?",
+    }
+  }
+
+  const schedule = scheduleGapOf(gap) as ScheduleGap
   let known: string | null
-  let marker: string
-  switch (gap) {
+  switch (schedule) {
     case "time":
       known = days
-      marker = "what time?"
       break
     case "day":
       known = time
-      marker = "what days?"
       break
     case "both":
       known = null
-      marker = "what day and time?"
       break
     case "cadence":
       known = [days, time].filter(Boolean).join(" ") || null
-      marker = "every week?"
       break
     case "ambiguous_time":
       known = [days, `at ${bareTime(candidateTimeLocal!)}`].filter(Boolean).join(" ")
-      marker = "morning or evening?"
       break
   }
   if (known !== null) known = known.charAt(0).toUpperCase() + known.slice(1)
+  const marker = needsSpot(gap) ? MARKER_WITH_SPOT[schedule] : MARKER[schedule]
   return { label, known, marker }
 }
 
@@ -132,4 +175,44 @@ export const REASK_COPY: Record<MissingField, string> = {
     "Got it. Is that morning or evening? Add am or pm to your description and I'll set up the schedule.",
   nothing_schedulable:
     "Tell me a bit more about what your group does together and when. I need an activity, a day, and a time to get your schedule going.",
+  spot: "Got it. Where do you usually meet? Add that to your description and I'll set up the schedule.",
+  time_spot:
+    "Got it. What time do you meet, and where? Add that to your description and I'll set up the schedule.",
+  day_spot:
+    "Got it. What days do you meet, and where? Add that and I'll set up the schedule.",
+  both_spot:
+    "I need a day, a time, and a place to set up your schedule. Add those to your description and try again.",
+  cadence_spot:
+    "Got it. Is that every week, and where do you meet? Say so in your description and I'll set up the schedule.",
+  ambiguous_time_spot:
+    "Got it. Is that morning or evening, and where do you meet? Add those to your description and I'll set up the schedule.",
+}
+
+/**
+ * Step 1's escape-hatch copy after the founder's three answers run out,
+ * one per MissingField so the founder is told what is actually missing (the
+ * old single "day and time" string for every kind was the bug front section
+ * decision 4 fixes: it named the wrong gap whenever only the spot, or only
+ * the day, or only the time was outstanding).
+ */
+export const EXHAUSTED_COPY: Record<MissingField, string> = {
+  time: "I still need to know what time you meet. Add it to your description, like “at 7pm”, and I'll take another look.",
+  day: "I still need to know what days you meet. Add them to your description, like “on Tuesdays”, and I'll take another look.",
+  both: "I still need to know what day and time you meet. Add them to your description, like “Tuesdays at 7pm”, and I'll take another look.",
+  cadence:
+    "I still need to know if that's every week. Add it to your description, like “every Tuesday”, and I'll take another look.",
+  ambiguous_time:
+    "I still need to know if that's morning or evening. Add am or pm to your description, like “7pm”, and I'll take another look.",
+  spot: "I still need to know where you meet. Add it to your description, like “at Movement Gowanus”, and I'll take another look.",
+  time_spot:
+    "I still need to know what time you meet, and where. Add them to your description, like “7pm at Movement Gowanus”, and I'll take another look.",
+  day_spot:
+    "I still need to know what days you meet, and where. Add them to your description, like “Tuesdays at Movement Gowanus”, and I'll take another look.",
+  both_spot:
+    "I still need to know when and where you meet. Add them to your description, like “Tuesdays at 7pm, at Movement Gowanus”, and I'll take another look.",
+  cadence_spot:
+    "I still need to know if that's every week, and where you meet. Add them to your description, like “every Tuesday at Movement Gowanus”, and I'll take another look.",
+  ambiguous_time_spot:
+    "I still need to know if that's morning or evening, and where you meet. Add them to your description, like “7pm at Movement Gowanus”, and I'll take another look.",
+  nothing_schedulable: REASK_COPY.nothing_schedulable,
 }

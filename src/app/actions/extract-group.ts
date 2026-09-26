@@ -75,7 +75,11 @@ export async function extractGroupAction(
     status: "incomplete",
     gap: {
       missing: normalized.missing,
-      question: resolveGapQuestion(normalized.missing, readClarifyingQuestion(raw)),
+      question: resolveGapQuestion(
+        normalized.missing,
+        readClarifyingQuestion(raw),
+        normalized.rhythms[0].activity
+      ),
       groupName: normalized.groupName,
       rhythms: normalized.rhythms,
       candidateTimeLocal: normalized.candidateTimeLocal,

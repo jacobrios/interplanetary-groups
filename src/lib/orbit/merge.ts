@@ -19,13 +19,21 @@ import { FIELD_RULES, callExtractionModel } from "./extract"
 import type { GapAskable } from "./gap"
 import type { StoredRhythm } from "./rhythm"
 
-/** Human phrase for the WE ASKED section, per gap. */
+/** Human phrase for the WE ASKED section, per gap. The six spot-combined
+ * entries are only ever sent once Task 2 teaches the gap-ask to actually
+ * produce them; declared here now so the type stays exhaustive. */
 const ASKED_ABOUT: Record<GapAskable, string> = {
   time: "the time",
   day: "the days",
   both: "the day and time",
   cadence: "whether it repeats every week",
   ambiguous_time: "whether the time is morning or evening",
+  spot: "where they usually meet",
+  time_spot: "the time, and where they usually meet",
+  day_spot: "the days, and where they usually meet",
+  both_spot: "the day and time, and where they usually meet",
+  cadence_spot: "whether it repeats every week, and where they usually meet",
+  ambiguous_time_spot: "whether the time is morning or evening, and where they usually meet",
 }
 
 const MERGE_SYSTEM_PROMPT = `You are updating your understanding of a founder's recurring group. You asked the founder one clarifying question and they just answered. Merge the answer into the current understanding and return the complete updated extraction.

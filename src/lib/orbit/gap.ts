@@ -10,7 +10,7 @@
 // phrasing. The templates are the fire exit, not the front door: they only
 // surface when generation fails or violates its constraints.
 
-import type { MissingField, NormalizedOnboarding } from "./normalize"
+import { needsSpot, type MissingField, type NormalizedOnboarding } from "./normalize"
 import type { StoredRhythm } from "./rhythm"
 
 /** Gaps the conversational loop can ask about. nothing_schedulable has no
@@ -18,8 +18,8 @@ import type { StoredRhythm } from "./rhythm"
  * describe screen. */
 export type GapAskable = Exclude<MissingField, "nothing_schedulable">
 
-/** Two founder answers maximum, then the edit-description escape hatch. */
-export const MAX_GAP_ROUNDS = 2
+/** Three founder answers maximum, then the edit-description escape hatch. */
+export const MAX_GAP_ROUNDS = 3
 
 /** Code-side cap; the prompt asks for under 120, leaving headroom. */
 export const QUESTION_MAX = 140
@@ -33,7 +33,28 @@ export const GAP_REASK_COPY: Record<GapAskable, string> = {
   both: "What day and time do you usually meet?",
   cadence: "Is that every week?",
   ambiguous_time: "Is that in the morning or the evening?",
+  spot: "Where do you usually meet?",
+  time_spot: "What time do you meet, and where?",
+  day_spot: "What days do you meet, and where?",
+  both_spot: "What day and time do you meet, and where?",
+  cadence_spot: "Is that every week, and where do you meet?",
+  ambiguous_time_spot: "Is that morning or evening, and where do you meet?",
 }
+
+/** All eleven askable kinds, in a fixed order used to drive per-kind checks. */
+export const GAP_ASKABLE_KINDS = [
+  "time",
+  "day",
+  "both",
+  "cadence",
+  "ambiguous_time",
+  "spot",
+  "time_spot",
+  "day_spot",
+  "both_spot",
+  "cadence_spot",
+  "ambiguous_time_spot",
+] as const satisfies readonly GapAskable[]
 
 /** Deterministic bubble lead-ins per round, composed by code around the one
  * validated model sentence (structured-extract-then-format). */
@@ -190,6 +211,12 @@ export const GAP_HINT_EXAMPLES: Record<GapAskable, string> = {
   both: "e.g. “Tuesdays at 7pm” · “Saturday mornings at 9”",
   cadence: "e.g. “yep, every week”",
   ambiguous_time: "e.g. “in the morning” · “7 at night”",
+  spot: "e.g. “Movement Gowanus” · “Sam’s place”",
+  time_spot: "e.g. “7pm at Movement”",
+  day_spot: "e.g. “Tuesdays at Movement”",
+  both_spot: "e.g. “Tuesdays at 7pm, at Movement”",
+  cadence_spot: "e.g. “yep, every week, at Movement”",
+  ambiguous_time_spot: "e.g. “7 at night, at Movement”",
 }
 
 /** Read the model's question off raw output without trusting it. */
@@ -216,9 +243,31 @@ export function validateQuestion(q: unknown): string | null {
   return trimmed
 }
 
-/** Validated model question, else the static template. */
-export function resolveGapQuestion(missing: GapAskable, rawQuestion: unknown): string {
-  return validateQuestion(rawQuestion) ?? GAP_REASK_COPY[missing]
+/** A question counts as asking for the place only if it says so. */
+export const PLACE_WORD_RE = /\b(where|place|spot)\b/i
+
+/** The fire exit. Only `spot` is composed, so it can name the activity the
+ * founder used; a composed string that fails the validator (an activity
+ * with a period in it, say) falls back to the generic one. */
+export function gapFallbackQuestion(missing: GapAskable, activity: string): string {
+  if (missing === "spot") {
+    return validateQuestion(`Where do you usually meet for ${activity}?`) ?? GAP_REASK_COPY.spot
+  }
+  return GAP_REASK_COPY[missing]
+}
+
+/** Validated model question, else the fire exit. For a kind that still needs
+ * the spot, a question that never asks where is treated as invalid: the card
+ * marks the place as missing, and front section decision 2 says one message
+ * asks for everything, so a time-only question must not reach the screen. */
+export function resolveGapQuestion(
+  missing: GapAskable,
+  rawQuestion: unknown,
+  activity: string
+): string {
+  const q = validateQuestion(rawQuestion)
+  if (q !== null && (!needsSpot(missing) || PLACE_WORD_RE.test(q))) return q
+  return gapFallbackQuestion(missing, activity)
 }
 
 export type GapOutcome =
@@ -231,7 +280,7 @@ export type GapOutcome =
  * answers submitted so far, including the one just merged (0 when deciding
  * off the initial extraction). Ready discards any rider question; a state
  * with nothing schedulable to show escapes to the describe screen no matter
- * the round; the round cap enforces the two-answer maximum.
+ * the round; the round cap enforces the three-answer maximum.
  */
 export function decideGapOutcome(
   normalized: NormalizedOnboarding,
@@ -246,6 +295,6 @@ export function decideGapOutcome(
   return {
     kind: "ask",
     missing: normalized.missing,
-    question: resolveGapQuestion(normalized.missing, rawQuestion),
+    question: resolveGapQuestion(normalized.missing, rawQuestion, normalized.rhythms[0].activity),
   }
 }
