@@ -32,7 +32,7 @@
 // @updatedAt only fires when a write actually touches the row.
 
 import { prisma } from "@/lib/prisma"
-import { EventStatus, MessageAuthor } from "@prisma/client"
+import { EventStatus, MessageAuthor, type Prisma } from "@prisma/client"
 import { VENUE_NAME_MAX } from "@/lib/orbit/rhythm"
 import type { DetailChange } from "@/lib/orbit/edit-copy"
 import { EDIT_TITLE_MAX } from "./edit-fields"
@@ -55,6 +55,34 @@ export type EditDetailsResult =
         | "invalid_place"
     }
 
+export type ApplyDetailChangeResult =
+  | { status: "applied"; change: DetailChange; currentTitle: string; groupId: string }
+  | {
+      status: "skipped"
+      reason:
+        | "no_event"
+        | "cancelled"
+        | "already_started"
+        | "noop"
+        | "stale"
+        | "invalid_title"
+        | "invalid_place"
+    }
+
+interface ApplyDetailChangeInput {
+  eventId: string
+  /**
+   * Raw form value. Omitted: the stored title is left exactly as it is and
+   * is not validated (a stored title can predate EDIT_TITLE_MAX, since
+   * onboarding caps no activity length, and a caller changing only the
+   * place must not be refused over a field it never touched).
+   */
+  title?: string
+  /** Raw form value; empty (after trim) clears the place. Omitted: left as stored, not validated. */
+  place?: string
+  now: Date
+}
+
 interface EditDetailsInput {
   eventId: string
   /** Raw form value. */
@@ -66,6 +94,85 @@ interface EditDetailsInput {
   announce: (change: DetailChange, currentTitle: string) => string
 }
 
+/**
+ * Everything `editEventDetails` does from input validation through the
+ * venue write, minus the message: the write path Task 7's group-details
+ * save reuses so it can compose its own single Orbit announcement (or none,
+ * when the founder is alone and the plan itself moves instead) rather than
+ * inheriting this module's one-line copy. Validation is pure and cheap, so
+ * it runs inside the transaction here too, same as `editEventDetails`.
+ */
+export async function applyDetailChangeInTx(
+  tx: Prisma.TransactionClient,
+  { eventId, title, place, now }: ApplyDetailChangeInput
+): Promise<ApplyDetailChangeResult> {
+  // Validation and change-detection apply only to supplied fields.
+  const trimmedTitle = title === undefined ? null : title.trim()
+  if (trimmedTitle !== null && (trimmedTitle.length === 0 || trimmedTitle.length > EDIT_TITLE_MAX)) {
+    return { status: "skipped", reason: "invalid_title" } as const
+  }
+  const trimmedPlace = place === undefined ? null : place.trim()
+  if (trimmedPlace !== null && trimmedPlace.length > VENUE_NAME_MAX) {
+    return { status: "skipped", reason: "invalid_place" } as const
+  }
+
+  const event = await tx.event.findUnique({
+    where: { id: eventId },
+    include: { venues: { orderBy: { id: "asc" }, take: 1 } },
+  })
+  if (!event) return { status: "skipped", reason: "no_event" } as const
+  if (event.status === EventStatus.CANCELLED) {
+    return { status: "skipped", reason: "cancelled" } as const
+  }
+  if (event.startsAt.getTime() <= now.getTime()) {
+    return { status: "skipped", reason: "already_started" } as const
+  }
+
+  const venue = event.venues[0] ?? null
+  const currentPlace = venue ? (venue.displayLabel ?? venue.name) : null
+  const newPlace = trimmedPlace !== null && trimmedPlace.length > 0 ? trimmedPlace : null
+
+  const change: DetailChange = {}
+  if (trimmedTitle !== null && trimmedTitle !== event.title) {
+    change.title = { from: event.title, to: trimmedTitle }
+  }
+  if (trimmedPlace !== null && newPlace !== currentPlace) {
+    change.place = { from: currentPlace, to: newPlace }
+  }
+  if (!change.title && !change.place) {
+    return { status: "skipped", reason: "noop" } as const
+  }
+
+  const currentTitle = event.title
+
+  const updated = await tx.event.updateMany({
+    where: { id: eventId, status: EventStatus.SCHEDULED, updatedAt: event.updatedAt },
+    data: {
+      ...(change.title ? { title: change.title.to, activityLabel: change.title.to } : {}),
+      updatedAt: new Date(),
+    },
+  })
+  if (updated.count === 0) return { status: "skipped", reason: "stale" } as const
+
+  if (change.place) {
+    if (newPlace === null) {
+      // venue is non-null here: currentPlace can only be non-null when a
+      // venue exists, and newPlace !== currentPlace with newPlace === null
+      // means currentPlace was non-null.
+      await tx.venue.delete({ where: { id: venue!.id } })
+    } else if (venue) {
+      await tx.venue.update({
+        where: { id: venue.id },
+        data: { name: newPlace, displayLabel: null, address: null, url: null },
+      })
+    } else {
+      await tx.venue.create({ data: { eventId, name: newPlace } })
+    }
+  }
+
+  return { status: "applied", change, currentTitle, groupId: event.groupId } as const
+}
+
 export async function editEventDetails({
   eventId,
   title,
@@ -73,79 +180,19 @@ export async function editEventDetails({
   now,
   announce,
 }: EditDetailsInput): Promise<EditDetailsResult> {
-  const trimmedTitle = title.trim()
-  if (trimmedTitle.length === 0 || trimmedTitle.length > EDIT_TITLE_MAX) {
-    return { status: "skipped", reason: "invalid_title" } as const
-  }
-  const trimmedPlace = place.trim()
-  if (trimmedPlace.length > VENUE_NAME_MAX) {
-    return { status: "skipped", reason: "invalid_place" } as const
-  }
-
   return prisma.$transaction(async (tx) => {
-    const event = await tx.event.findUnique({
-      where: { id: eventId },
-      include: { venues: { orderBy: { id: "asc" }, take: 1 } },
-    })
-    if (!event) return { status: "skipped", reason: "no_event" } as const
-    if (event.status === EventStatus.CANCELLED) {
-      return { status: "skipped", reason: "cancelled" } as const
-    }
-    if (event.startsAt.getTime() <= now.getTime()) {
-      return { status: "skipped", reason: "already_started" } as const
-    }
-
-    const venue = event.venues[0] ?? null
-    const currentPlace = venue ? (venue.displayLabel ?? venue.name) : null
-    const newPlace = trimmedPlace.length > 0 ? trimmedPlace : null
-
-    const change: DetailChange = {}
-    if (trimmedTitle !== event.title) {
-      change.title = { from: event.title, to: trimmedTitle }
-    }
-    if (newPlace !== currentPlace) {
-      change.place = { from: currentPlace, to: newPlace }
-    }
-    if (!change.title && !change.place) {
-      return { status: "skipped", reason: "noop" } as const
-    }
-
-    const currentTitle = event.title
-
-    const updated = await tx.event.updateMany({
-      where: { id: eventId, status: EventStatus.SCHEDULED, updatedAt: event.updatedAt },
-      data: {
-        ...(change.title ? { title: trimmedTitle, activityLabel: trimmedTitle } : {}),
-        updatedAt: new Date(),
-      },
-    })
-    if (updated.count === 0) return { status: "skipped", reason: "stale" } as const
-
-    if (change.place) {
-      if (newPlace === null) {
-        // venue is non-null here: currentPlace can only be non-null when a
-        // venue exists, and newPlace !== currentPlace with newPlace === null
-        // means currentPlace was non-null.
-        await tx.venue.delete({ where: { id: venue!.id } })
-      } else if (venue) {
-        await tx.venue.update({
-          where: { id: venue.id },
-          data: { name: newPlace, displayLabel: null, address: null, url: null },
-        })
-      } else {
-        await tx.venue.create({ data: { eventId, name: newPlace } })
-      }
-    }
+    const result = await applyDetailChangeInTx(tx, { eventId, title, place, now })
+    if (result.status !== "applied") return result
 
     await tx.message.create({
       data: {
-        groupId: event.groupId,
+        groupId: result.groupId,
         authorType: MessageAuthor.ORBIT,
         authorId: null,
-        body: announce(change, currentTitle),
+        body: announce(result.change, result.currentTitle),
       },
     })
 
-    return { status: "edited", change } as const
+    return { status: "edited", change: result.change } as const
   })
 }

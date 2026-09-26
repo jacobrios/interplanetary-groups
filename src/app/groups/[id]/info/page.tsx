@@ -26,6 +26,8 @@ import { getCurrentUser } from "@/lib/auth/current-user"
 import { verifiedEmailAddress } from "@/lib/auth/email-ask"
 import { parseStoredRhythms } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
+import { buildPlanQuestion } from "@/lib/orbit/details-copy"
+import { findNextRhythmPlan } from "@/lib/groups/update-details"
 import { groupInitials } from "@/lib/groups/initials"
 import PageHeader from "@/components/PageHeader"
 import BackLink from "@/components/BackLink"
@@ -36,6 +38,8 @@ import LeaveGroupButton from "./LeaveGroupButton"
 import ManageMembers from "./ManageMembers"
 import ResetInviteLink from "./ResetInviteLink"
 import EmailStatusRow from "./EmailStatusRow"
+import EditGroupDetails from "./EditGroupDetails"
+import { infoCardStyle } from "./info-card"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -95,6 +99,21 @@ export default async function GroupInfoPage({ params }: Props) {
       value: r.venueName ? `${row.value} · ${r.venueName}` : row.value,
     }
   })
+
+  // The founder's editor asks about the next plan only when the first
+  // activity changed (task 8). Computed here, founder-only: a member never
+  // sees the editor at all, so there is nothing for them to ask about.
+  let nextPlan: { eventId: string; startsAt: string; question: string } | null = null
+  if (isFounder) {
+    const plan = await findNextRhythmPlan(prisma, group.id, new Date())
+    if (plan) {
+      nextPlan = {
+        eventId: plan.id,
+        startsAt: plan.startsAt.toISOString(),
+        question: buildPlanQuestion(plan.startsAt, group.timeZone),
+      }
+    }
+  }
 
   return (
     <main
@@ -293,29 +312,34 @@ export default async function GroupInfoPage({ params }: Props) {
         </div>
 
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}
-        <div
-          style={{
-            marginTop: "16px",
-            backgroundColor: "var(--surface-raised)",
-            border: "1.7px solid var(--hairline)",
-            borderRadius: "14px",
-            // .gi-card's box-shadow is redefined by the later "Surfaces ·
-            // cards & raised elements" pass (walkthrough.css:570-573), which
-            // wins over the base rule at :482-487 (last definition wins).
-            // Matches PlaybackCard.tsx and EventCard.tsx's standard dark
-            // card shadow.
-            boxShadow: "0 1px 3px rgba(0,0,0,.35)",
-            padding: "13px 17px 5px",
-          }}
-        >
-          <InfoRow label="Who" isFirst>
-            {isFounder ? (
+        {/* Founder only: EditGroupDetails owns the card shell itself (task 8),
+            so it can swap it for the in-place editor. A member gets the same
+            rows inside the plain infoCardStyle div below, unchanged from
+            before this slice, and never sees the editor or its link. */}
+        {isFounder ? (
+          <EditGroupDetails
+            groupId={group.id}
+            groupName={group.name}
+            rhythms={rhythms}
+            nextPlan={nextPlan}
+          >
+            <InfoRow label="Who" isFirst>
               <ManageMembers
                 groupId={group.id}
                 founderId={group.founderId}
                 members={orderedMembers}
               />
-            ) : (
+            </InfoRow>
+
+            {rhythmRows.map((row, i) => (
+              <InfoRow key={i} label={row.label}>
+                <span>{row.value}</span>
+              </InfoRow>
+            ))}
+          </EditGroupDetails>
+        ) : (
+          <div style={infoCardStyle}>
+            <InfoRow label="Who" isFirst>
               <span>
                 {orderedMembers.map((m, i) => (
                   <span key={m.id}>
@@ -326,15 +350,15 @@ export default async function GroupInfoPage({ params }: Props) {
                   </span>
                 ))}
               </span>
-            )}
-          </InfoRow>
-
-          {rhythmRows.map((row, i) => (
-            <InfoRow key={i} label={row.label}>
-              <span>{row.value}</span>
             </InfoRow>
-          ))}
-        </div>
+
+            {rhythmRows.map((row, i) => (
+              <InfoRow key={i} label={row.label}>
+                <span>{row.value}</span>
+              </InfoRow>
+            ))}
+          </div>
+        )}
 
         {/* The line pointing a member at Orbit in the chat for changes used
             to sit here and is deleted (owner's phone QA, 3 Sept 2026): it

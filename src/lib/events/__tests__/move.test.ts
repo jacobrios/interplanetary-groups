@@ -6,7 +6,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { EventStatus, MessageAuthor, ProposalAnswer, RsvpStatus } from "@prisma/client"
 import type { Prisma } from "@prisma/client"
-import { moveEventTime } from "../move"
+import { moveEventTime, moveEventCoreInTx } from "../move"
 
 let userId: string | null = null
 let secondUserId: string | null = null
@@ -251,5 +251,24 @@ describe("moveEventTime", () => {
     expect(event?.startsAt).toEqual(OLD_START) // never moved
     const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
     expect(messages).toHaveLength(0) // no move announcement for a cancelled plan
+  })
+
+  it("moves silently when announcementBody is null: no Message row is added", async () => {
+    const result = await prisma.$transaction((tx) =>
+      moveEventCoreInTx(tx, {
+        eventId: eventId!,
+        expectedStartsAt: OLD_START,
+        newStartsAt: NEW_START,
+        seedInUserIds: [userId!],
+        announcementBody: null,
+      })
+    )
+    expect(result).toEqual({ status: "moved" })
+
+    const event = await prisma.event.findUnique({ where: { id: eventId! } })
+    expect(event?.startsAt).toEqual(NEW_START)
+
+    const messages = await prisma.message.findMany({ where: { groupId: groupId! } })
+    expect(messages).toHaveLength(0)
   })
 })

@@ -22,6 +22,8 @@ import {
 import { mergeGapAction } from "@/app/actions/merge-gap"
 import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import { titleCaseActivity } from "@/lib/orbit/rhythm"
+import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
@@ -175,6 +177,29 @@ export default function OnboardingWizard({ knownName }: Props) {
     )
   }
 
+  // Task 9 (group-details-editing slice): the "Change day or time" block's
+  // onChange. Only activity/days/time flow through here; venue keeps its
+  // own path via handleVenueNameChange above, and cadence is never touched
+  // by this control (adding or changing how often something recurs is out
+  // of scope for a founder fixing a misread day or time).
+  function handleRhythmChange(index: number, next: RhythmEdit) {
+    setRhythms((prev) =>
+      prev
+        ? prev.map((r, i) =>
+            i === index
+              ? {
+                  ...r,
+                  activity: next.activity,
+                  title: titleCaseActivity(next.activity.trim() || r.activity),
+                  daysOfWeek: next.daysOfWeek,
+                  timeLocal: next.timeLocal,
+                }
+              : r
+          )
+        : prev
+    )
+  }
+
   function handleConfirm() {
     if (!rhythms) return
     setCreateError(null)
@@ -183,8 +208,18 @@ export default function OnboardingWizard({ knownName }: Props) {
         founderName,
         groupName,
         description,
+        // Trim the activity here too, not just venueName: handleRhythmChange
+        // below already derives `title` from a trimmed activity, so an
+        // untrimmed `activity` traveling to the server is the one field left
+        // disagreeing with its own title. Left alone, "padel " (trailing
+        // space) creates the group, and the founder's first group-info save
+        // afterward trims it there, which diffDetails then reports as a
+        // rename the founder never made (CLAUDE.md: stored state is not
+        // display, carry it, do not regenerate it — the inverse failure
+        // here is a value nobody actually changed reading as changed).
         rhythms: rhythms.map((r) => ({
           ...r,
+          activity: r.activity.trim(),
           venueName: r.venueName?.trim() ? r.venueName.trim() : null,
         })),
         timeZone,
@@ -224,6 +259,7 @@ export default function OnboardingWizard({ knownName }: Props) {
           onGroupNameChange={setGroupName}
           rhythms={rhythms}
           onVenueNameChange={handleVenueNameChange}
+          onRhythmChange={handleRhythmChange}
           timeZone={timeZone}
           onConfirm={handleConfirm}
           onBack={() => setStep("describe")}

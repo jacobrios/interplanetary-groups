@@ -32,6 +32,7 @@ function renderStep2(rhythms: StoredRhythm[]) {
       onGroupNameChange={() => {}}
       rhythms={rhythms}
       onVenueNameChange={() => {}}
+      onRhythmChange={() => {}}
       timeZone="America/New_York"
       onConfirm={() => {}}
       onBack={() => {}}
