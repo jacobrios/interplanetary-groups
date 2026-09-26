@@ -22,6 +22,8 @@ import {
 import { mergeGapAction } from "@/app/actions/merge-gap"
 import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import type { MissingField } from "@/lib/orbit/normalize"
+import { EXHAUSTED_COPY } from "@/lib/orbit/playback"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
@@ -29,12 +31,6 @@ import StepGapAsk, { type MergeErrorKind } from "./StepGapAsk"
 import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
-
-// Shown on Step 1 after two answers still left the rhythm unschedulable (or
-// a merge round lost everything schedulable): the escape hatch is the
-// existing edit-description flow, explained in Orbit's voice.
-const EXHAUSTED_COPY =
-  "I'm still missing a few details. Add the day and time to your description and I'll take another look."
 
 interface Props {
   /** The signed-in founder's stored `User.name`, or null for a first-time
@@ -85,7 +81,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // True when the last answer moved nothing; the lead-in acknowledges that
   // plainly instead of thanking the founder for nothing.
   const [stalled, setStalled] = useState(false)
-  const [gapExhausted, setGapExhausted] = useState(false)
+  const [exhaustedMissing, setExhaustedMissing] = useState<MissingField | null>(null)
   const [mergeError, setMergeError] = useState<MergeErrorKind | null>(null)
   const [isMerging, startMerge] = useTransition()
 
@@ -117,7 +113,7 @@ export default function OnboardingWizard({ knownName }: Props) {
     setAnswerDraft("")
     setStalled(false)
     setMergeError(null)
-    setGapExhausted(false)
+    setExhaustedMissing(null)
     setStep("gap")
   }
 
@@ -152,10 +148,11 @@ export default function OnboardingWizard({ knownName }: Props) {
         setAnswerDraft("")
         return
       }
-      // Exhausted: two answers spent (or a merge lost everything
-      // schedulable). Back to describe with the explainer; the description
-      // is still in state, ready to edit.
-      setGapExhausted(true)
+      // Exhausted: three answers spent (or a merge lost everything
+      // schedulable). Back to describe with the explainer, naming what is
+      // actually still missing; the description is still in state, ready
+      // to edit.
+      setExhaustedMissing(result.missing)
       setStep("describe")
     })
   }
@@ -163,7 +160,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // A fresh extraction starts a clean loop: clear the exhausted explainer
   // before dispatching.
   function extractFormActionClearingExhausted(formData: FormData) {
-    setGapExhausted(false)
+    setExhaustedMissing(null)
     extractFormAction(formData)
   }
 
@@ -248,7 +245,6 @@ export default function OnboardingWizard({ knownName }: Props) {
           answer={answerDraft}
           onAnswerChange={setAnswerDraft}
           onSubmit={handleAnswerSubmit}
-          onEditDescription={() => setStep("describe")}
           isMerging={isMerging}
           mergeError={mergeError}
         />
@@ -268,7 +264,7 @@ export default function OnboardingWizard({ knownName }: Props) {
         formAction={extractFormActionClearingExhausted}
         isExtracting={isExtracting}
         extractState={extractState}
-        bubbleOverride={gapExhausted ? EXHAUSTED_COPY : undefined}
+        bubbleOverride={exhaustedMissing ? EXHAUSTED_COPY[exhaustedMissing] : undefined}
       />
     </>
   )

@@ -17,6 +17,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import type { ExtractGroupState } from "@/app/actions/extract-group"
+import { EXHAUSTED_COPY } from "@/lib/orbit/playback"
 
 const RHYTHMS: StoredRhythm[] = [
   {
@@ -35,16 +37,24 @@ const RHYTHMS: StoredRhythm[] = [
 // (..._args: unknown[]) rather than the real action signatures, matching
 // EditEventDetails.test.tsx's mocks: the point of the mock is to observe
 // what reaches it, not to re-type the server action.
-const extractMock = vi.fn(async (..._args: unknown[]) => ({
-  status: "ready" as const,
-  profile: { groupName: "Padel Crew", rhythms: RHYTHMS },
-}))
+const extractMock = vi.fn(
+  async (..._args: unknown[]): Promise<ExtractGroupState> => ({
+    status: "ready" as const,
+    profile: { groupName: "Padel Crew", rhythms: RHYTHMS },
+  })
+)
 vi.mock("@/app/actions/extract-group", () => ({
   extractGroupAction: (prev: unknown, formData: unknown) => extractMock(prev, formData),
 }))
 
+// Hoisted (Task 10, onboarding-step2-cleanup slice) so the exhausted-message
+// test below can control what mergeGapAction resolves to per-test, the way
+// extractMock already can; vi.mock's factory runs before this file's own
+// top-level code, so a plain module-scope vi.fn() referenced from inside it
+// would be a use-before-init.
+const mergeGapMock = vi.hoisted(() => vi.fn())
 vi.mock("@/app/actions/merge-gap", () => ({
-  mergeGapAction: vi.fn(),
+  mergeGapAction: mergeGapMock,
 }))
 
 const createMock = vi.fn(async (..._args: unknown[]) => ({
@@ -111,5 +121,43 @@ describe("OnboardingWizard, the real handler, not a harness copy", () => {
 
     const [payload] = createMock.mock.calls[0] as [{ groupName: string }]
     expect(payload.groupName).toBe("Court Crew")
+  })
+})
+
+// Task 10 (onboarding-step2-cleanup slice): after three answers still leave
+// a gap, Step 1's explainer used to say "day and time" no matter what was
+// actually missing. This drives the real gap loop (extraction lands
+// incomplete, one answer exhausts it) and checks the bubble names the real
+// gap rather than the old one-size string.
+describe("OnboardingWizard — exhausting the gap loop names what is still missing", () => {
+  it("shows EXHAUSTED_COPY.spot, not the old single string, when the exhausted gap is a spot", async () => {
+    extractMock.mockResolvedValueOnce({
+      status: "incomplete",
+      gap: {
+        missing: "spot",
+        question: "Where do you usually meet for padel?",
+        groupName: "Padel Crew",
+        rhythms: [{ ...RHYTHMS[0], venueName: null }],
+        candidateTimeLocal: null,
+      },
+    })
+    mergeGapMock.mockResolvedValueOnce({ status: "exhausted", missing: "spot" })
+
+    render(<OnboardingWizard knownName="Jacob" />)
+
+    fireEvent.change(screen.getByLabelText("About your group"), {
+      target: { value: "We play padel twice a week." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+    await vi.waitFor(() => expect(screen.getByLabelText(/message orbit/i)).toBeTruthy())
+
+    fireEvent.change(screen.getByLabelText(/message orbit/i), { target: { value: "idk" } })
+    fireEvent.click(screen.getByRole("button", { name: "Send answer" }))
+
+    await vi.waitFor(() => expect(mergeGapMock).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(screen.getByText(EXHAUSTED_COPY.spot)).toBeTruthy())
+
+    expect(screen.queryByText(/Add the day and time/)).toBeNull()
   })
 })

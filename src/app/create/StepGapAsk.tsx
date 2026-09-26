@@ -11,6 +11,10 @@
 // follows the ChatInput recipe (neutral when empty, teal when typed) — lime
 // is Orbit's gap-prompt cue on the marker, never a button. The card shows
 // no confirm affordance: while a gap is open, the answer is the one action.
+// No "Edit my description" link below the composer either (task 10,
+// onboarding-step2-cleanup slice): the wizard header's own back arrow
+// already does that, so a second control saying the same thing was
+// redundant.
 
 "use client"
 
@@ -78,7 +82,6 @@ interface Props {
   answer: string
   onAnswerChange: (v: string) => void
   onSubmit: () => void
-  onEditDescription: () => void
   isMerging: boolean
   mergeError: MergeErrorKind | null
 }
@@ -91,7 +94,6 @@ export default function StepGapAsk({
   answer,
   onAnswerChange,
   onSubmit,
-  onEditDescription,
   isMerging,
   mergeError,
 }: Props) {
@@ -271,26 +273,6 @@ export default function StepGapAsk({
           </p>
         )}
       </div>
-
-      <button
-        type="button"
-        onClick={onEditDescription}
-        disabled={isMerging}
-        style={{
-          display: "block",
-          margin: "1rem auto 0",
-          background: "none",
-          border: "none",
-          padding: "0.25rem 0.5rem",
-          color: "var(--text-secondary)",
-          fontSize: "var(--type-meta)",
-          lineHeight: "var(--leading-normal)",
-          textDecoration: "underline",
-          cursor: isMerging ? "not-allowed" : "pointer",
-        }}
-      >
-        Edit my description
-      </button>
     </div>
   )
 }
