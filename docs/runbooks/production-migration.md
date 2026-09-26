@@ -1,12 +1,31 @@
 # Running a migration against production
 
-Two commands. Neither contains a secret, so both are safe to save, paste, and read
+Two `op` commands. Neither contains a secret, so both are safe to save, paste, and read
 aloud: the credential is fetched at the moment the command runs and never touches the
 clipboard, the screen, or shell history.
+
+**0. Go to the checkout that holds the new migration.**
+
+If the slice was built in a worktree, that is the worktree, not the main checkout:
+
+```bash
+cd ~/code/interplanetary-groups/.claude/worktrees/<slice-worktree>
+```
+
+Only if the migration is already merged to `main` is the main checkout the right place:
 
 ```bash
 cd ~/code/interplanetary-groups
 ```
+
+A slice worktree is normally set up with `.env` and `node_modules` symlinked from the main
+checkout. Confirm both are there (`ls -la .env node_modules`) before step 1: without the
+`.env` link, step 3 cannot print `DEV-TEST`, and without `node_modules`, `npx prisma` may
+fetch whatever Prisma version is current, which is the release-candidate trap below.
+
+Why: before the merge, a slice's migration exists only in its worktree. Run from the main
+checkout and `migrate status` reports nothing pending, which reads as "already applied"
+and is not. Found 24 September 2026 while applying the editable event card's migration.
 
 **1. Rehearse. Read-only, changes nothing.**
 
@@ -28,7 +47,7 @@ npm run db:which
 
 It must print `DEV-TEST`. If it does not, stop.
 
-**If any `op` command above errors, do not work around it.** Jump to
+**If any `op` command above errors, do not improvise a workaround.** Jump to
 [When `op` errors](#when-op-errors) at the end of this file. It is a two minute fix, and it
 has already cost one incident more time than it should have.
 
@@ -50,8 +69,12 @@ database missing a column takes the entire site down for every signed-in person,
 feature. The other order is harmless: production briefly carries columns the live code has
 never heard of.
 
-**Run it in a terminal outside the Claude Code app.** A terminal-reading tool exists in that
-session. The `op read` form removes the exposure anyway, which is most of why it exists.
+~~**Run it in a terminal outside the Claude Code app.**~~ ~~A terminal-reading tool exists in that session.~~
+~~The `op read` form removes the exposure anyway, which is most of why it exists.~~
+*(Amended 24 September 2026: your own Terminal is still the default, and the Claude desktop
+app's terminal pane is now a named fallback, see [When `op` errors](#when-op-errors), and it is safe for the
+reason the struck sentence already gave: `op read` never prints the credential, so a
+terminal-reading tool has nothing to read.)*
 
 ---
 
@@ -101,7 +124,8 @@ the password. A count about 13 too high means the `DIRECT_URL="` prefix is still
 
 ## When `op` errors
 
-Neither of these is a dead end and neither needs a workaround. The second one cost real time
+None of these is a dead end, and each has a known way through below. The
+`no account found for filter` case cost real time
 on 31 August 2026, because its answer was filed under installing from scratch, and nothing
 was gone.
 
@@ -120,7 +144,20 @@ unlock it, and try once more before anything else.
 integration on first, in the 1Password app under Settings, Developer, "Integrate with
 1Password CLI", then `op signin` as above.
 
-Either way, confirm with the safe check above, which prints `starts correctly` and nothing
+**`No accounts configured`**, or a plain `op signin` telling you to run
+`eval $(op signin)` instead. Try that first:
+
+```bash
+eval $(op signin)
+```
+
+If it still cannot reach 1Password, run the whole migration from the terminal pane inside
+the Claude desktop app instead. On 24 September 2026 the owner's macOS Terminal failed
+exactly this way while the app's pane reached 1Password normally, and the migration ran
+there. It is safe because `op read` never prints the credential. **The cause is not known.**
+A macOS permission for Terminal is the leading guess, and resetting it did not fix it.
+
+Whichever case it was, confirm with the safe check above, which prints `starts correctly` and nothing
 else.
 
 ### Installing from scratch, if `op` is gone entirely
