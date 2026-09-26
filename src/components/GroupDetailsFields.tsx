@@ -4,6 +4,10 @@
 // render one form body. Behaviour-preserving lift from
 // EditGroupDetails.tsx:189-223: same ids, labels, GROUP_NAME_MAX, and
 // separator style, so the existing EditGroupDetails tests pass unchanged.
+// Passes RhythmFields its own showSchedule per rhythm (cadences[i] ===
+// "weekly"), so a non-weekly activity's fields show only Activity and
+// Place, with no Days or Time row to fill in for something that does not
+// repeat on a schedule.
 
 import { GROUP_NAME_MAX } from "@/lib/groups/details-edit"
 import type { RhythmEdit } from "@/lib/groups/rhythm-edit"

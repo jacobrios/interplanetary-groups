@@ -68,20 +68,16 @@ export const rowValueTextStyle: React.CSSProperties = {
  * gapped rhythm), which colors the key lime, the row-level counterpart to
  * `PlaybackGapMarker` coloring the value. `isLast` drops the divider and
  * tightens the bottom padding, matching the card's own last-row rule.
- * `htmlForLabel` swaps the key from a `<p>` to a real `<label>` when the
- * value is an input (the group-name row), preserving its accessible name.
  */
 export function PlaybackRow({
   label,
   pending = false,
   isLast = false,
-  htmlForLabel,
   children,
 }: {
   label: string
   pending?: boolean
   isLast?: boolean
-  htmlForLabel?: string
   children: ReactNode
 }) {
   const keyStyle: React.CSSProperties = {
@@ -133,13 +129,7 @@ export function PlaybackRow({
       }}
     >
       <div style={{ display: "flex", gap: "12px", alignItems: "baseline" }}>
-        {htmlForLabel ? (
-          <label htmlFor={htmlForLabel} style={keyStyle}>
-            {label}
-          </label>
-        ) : (
-          <p style={keyStyle}>{label}</p>
-        )}
+        <p style={keyStyle}>{label}</p>
         <div style={{ flex: "1 1 auto", minWidth: 0 }}>{children}</div>
       </div>
     </div>
@@ -154,23 +144,19 @@ export function PlaybackRow({
  * large bold input, the ugliest thing on the card (owner phone QA, polish
  * slice two). Stacking removes the wrap without touching what makes the row
  * a row: it still sits inside the card's own row list, keeps the same
- * top/bottom padding and hairline divider as every other row, and (via
- * `htmlForLabel`) still renders a real `<label>` over an editable input on
- * Step 2, or a plain key over read-only text on the gap-ask, exactly as
- * `PlaybackRow` did before this. Editability itself is unchanged: this
- * component only reorders the label and the value, it does not decide
- * whether the value is an input or a paragraph, so the group-name input on
- * Step 2 keeps its own box and stays obviously tappable. `isLast` drops the
- * divider and tightens the bottom padding, matching `PlaybackRow`'s own
- * last-row rule; both current call sites always have a WHO row after this
- * one, so `isLast` defaults to false and neither screen's rendering changes.
+ * top/bottom padding and hairline divider as every other row. Both call
+ * sites (Step2Playback and StepGapAsk) render the name as plain read-only
+ * text now, since step 2 is read-only playback with its own "Edit details"
+ * link rather than an in-place input, so the label is a plain key on both
+ * screens. `isLast` drops the divider and tightens the bottom padding,
+ * matching `PlaybackRow`'s own last-row rule; both current call sites
+ * always have a WHO row after this one, so `isLast` defaults to false and
+ * neither screen's rendering changes.
  */
 export function PlaybackNameRow({
-  htmlForLabel,
   isLast = false,
   children,
 }: {
-  htmlForLabel?: string
   isLast?: boolean
   children: ReactNode
 }) {
@@ -194,13 +180,7 @@ export function PlaybackNameRow({
         borderBottom: isLast ? "none" : "1.4px solid var(--hairline)",
       }}
     >
-      {htmlForLabel ? (
-        <label htmlFor={htmlForLabel} style={nameKeyStyle}>
-          Group name
-        </label>
-      ) : (
-        <p style={nameKeyStyle}>Group name</p>
-      )}
+      <p style={nameKeyStyle}>Group name</p>
       {children}
     </div>
   )

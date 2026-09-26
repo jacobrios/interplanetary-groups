@@ -63,9 +63,9 @@ export default function EditDetailsCard({ groupName, rhythms, onDone, onCancel }
   }
 
   return (
-    // overflow: "clip", not "hidden": the reason is at
-    // EditGroupDetails.tsx:177-181 (a sticky band never sticks inside a
-    // scroll container it is not the one scrolling).
+    // overflow: "clip", not "hidden": the reason is at EditGroupDetails.tsx,
+    // the comment on its own outer card div (a sticky band never sticks
+    // inside a scroll container it is not the one scrolling).
     <div ref={cardRef} style={{ ...infoCardStyle, marginTop: 0, padding: 0, overflow: "clip" }}>
       <div style={detailsBodyStyle}>
         <h2 ref={headingRef} tabIndex={-1} style={{ ...visuallyHiddenStyle, outline: "none" }}>
@@ -88,9 +88,10 @@ export default function EditDetailsCard({ groupName, rhythms, onDone, onCancel }
         <ErrorLine msg={error} />
       </div>
 
-      {/* Sticky band, EditGroupDetails.tsx:226-234: pinned to the viewport's
-          bottom edge once the form outgrows the screen, opaque so fields
-          never scroll up through it. */}
+      {/* Sticky band, matching the comment on EditGroupDetails.tsx's own
+          sticky band div: pinned to the viewport's bottom edge once the
+          form outgrows the screen, opaque so fields never scroll up
+          through it. */}
       <div
         style={{
           ...detailsBandStyle,

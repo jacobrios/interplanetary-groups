@@ -20,8 +20,10 @@ import type { GapAskable } from "./gap"
 import type { StoredRhythm } from "./rhythm"
 
 /** Human phrase for the WE ASKED section, per gap. The six spot-combined
- * entries are only ever sent once Task 2 teaches the gap-ask to actually
- * produce them; declared here now so the type stays exhaustive. */
+ * entries cover the primary activity's now-required spot: the gap-ask
+ * asks for it alongside whatever else is missing (time, day, cadence, or
+ * an ambiguous time), so a founder who left out both a time and a spot
+ * sees one combined question rather than two separate ones. */
 const ASKED_ABOUT: Record<GapAskable, string> = {
   time: "the time",
   day: "the days",

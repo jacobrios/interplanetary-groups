@@ -337,9 +337,13 @@ export default function Step1Describe({
 
             "Mention your usual spot too, if you have one." was deleted
             2 September 2026 at the owner's ask: it cost a whole rendered
-            row on his phone, and the venue it asks for never gates anything
-            (CLAUDE.md, venue never gates), so nothing is lost by a founder
-            who does not read it. */}
+            row on his phone. At the time the venue it asks for never
+            gated anything, so nothing was lost by a founder who did not
+            read it; the main weekly activity's spot is required now
+            (CLAUDE.md, venue never gates, with that one exception), but
+            the gap-ask asks for it directly when it is missing, so this
+            hint line still costs a founder nothing by staying silent
+            about it. */}
         <p
           style={{
             fontSize: "var(--type-meta)",
@@ -365,12 +369,12 @@ export default function Step1Describe({
       </form>
 
       {/* The only exit from onboarding, and it is on step 1 only.
-          Steps 2 and 3 already have "Edit my description" for going
-          backwards inside the flow; a leave-the-flow link there would
-          silently discard everything a founder had entered, which is worse
-          than no exit. Because this lives in Step1Describe, which only
-          renders on step 1, that constraint is structural rather than a
-          conditional somebody can later get wrong.
+          Steps 2 and 3 already have the wizard header's back arrow for
+          going backwards inside the flow; a leave-the-flow link there
+          would silently discard everything a founder had entered, which
+          is worse than no exit. Because this lives in Step1Describe,
+          which only renders on step 1, that constraint is structural
+          rather than a conditional somebody can later get wrong.
 
           Bottom-anchored underlined text, matching this flow's own idiom
           for backwards controls, rather than a bar at the top: the top of
