@@ -388,6 +388,7 @@ export default function Step2Playback({
                 value={toRhythmEdit(r)}
                 onChange={(next) => onRhythmChange(i, next)}
                 showPlace={false}
+                showSchedule
                 disabled={isCreating}
               />
             </div>

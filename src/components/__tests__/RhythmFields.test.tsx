@@ -8,48 +8,48 @@ const base = { activity: "tennis", daysOfWeek: [6], timeLocal: "09:00", venueNam
 describe("RhythmFields", () => {
   it("toggles a day on, reporting sorted day numbers", () => {
     const onChange = vi.fn()
-    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace showSchedule disabled={false} />)
     fireEvent.click(screen.getByRole("button", { name: /Mon/ }))
     expect(onChange).toHaveBeenCalledWith({ ...base, daysOfWeek: [1, 6] })
   })
   it("toggles a picked day off", () => {
     const onChange = vi.fn()
-    render(<RhythmFields idPrefix="r0" value={{ ...base, daysOfWeek: [1, 6] }} onChange={onChange} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={{ ...base, daysOfWeek: [1, 6] }} onChange={onChange} showPlace showSchedule disabled={false} />)
     fireEvent.click(screen.getByRole("button", { name: /Sat/ }))
     expect(onChange).toHaveBeenCalledWith({ ...base, daysOfWeek: [1] })
   })
   it("turning the last day off reports null, which validation later refuses", () => {
     const onChange = vi.fn()
-    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace showSchedule disabled={false} />)
     fireEvent.click(screen.getByRole("button", { name: /Sat/ }))
     expect(onChange).toHaveBeenCalledWith({ ...base, daysOfWeek: null })
   })
   it("marks picked days for assistive tech and shows the tick", () => {
-    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace showSchedule disabled={false} />)
     const sat = screen.getByRole("button", { name: /Sat/ })
     expect(sat.getAttribute("aria-pressed")).toBe("true")
     expect(sat.textContent).toBe("✓ Sat")
   })
   it("round-trips HH:mm through the native time input", () => {
     const onChange = vi.fn()
-    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace showSchedule disabled={false} />)
     fireEvent.change(screen.getByLabelText("Time"), { target: { value: "20:30" } })
     expect(onChange).toHaveBeenCalledWith({ ...base, timeLocal: "20:30" })
   })
   it("an emptied time reports null", () => {
     const onChange = vi.fn()
-    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={onChange} showPlace showSchedule disabled={false} />)
     fireEvent.change(screen.getByLabelText("Time"), { target: { value: "" } })
     expect(onChange).toHaveBeenCalledWith({ ...base, timeLocal: null })
   })
   it("caps the place at VENUE_NAME_MAX and hides it on step 2", () => {
-    const { rerender } = render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
+    const { rerender } = render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace showSchedule disabled={false} />)
     expect(screen.getByLabelText("Place").getAttribute("maxLength")).toBe("80")
-    rerender(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace={false} disabled={false} />)
+    rerender(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace={false} showSchedule disabled={false} />)
     expect(screen.queryByLabelText("Place")).toBeNull()
   })
   it("the day chips are type=button so they never submit a surrounding form", () => {
-    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace showSchedule disabled={false} />)
     expect(screen.getByRole("button", { name: /Sun/ }).getAttribute("type")).toBe("button")
   })
 
@@ -57,8 +57,20 @@ describe("RhythmFields", () => {
   // spacer column, halving its width; at the owner's larger device text the
   // value clipped to "07:00 A". Time now takes the full row.
   it("gives Time the full row width, with no leftover flex row or spacer column", () => {
-    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace disabled={false} />)
+    render(<RhythmFields idPrefix="r0" value={base} onChange={() => {}} showPlace showSchedule disabled={false} />)
     const time = screen.getByLabelText("Time")
     expect(time.closest('div[style*="display: flex"]')).toBeNull()
+  })
+
+  // Task 8, onboarding-step2-cleanup slice: a non-weekly (monthly or loose)
+  // activity has no day or time the product can schedule, so the editor
+  // does not offer to change them.
+  it("a non-weekly activity shows only Activity and Place", () => {
+    render(<RhythmFields idPrefix="r1" value={{ activity: "beers", daysOfWeek: null, timeLocal: null, venueName: null }} onChange={() => {}} showPlace showSchedule={false} disabled={false} />)
+    expect(screen.getByLabelText("Activity")).toBeTruthy()
+    expect(screen.getByLabelText("Place")).toBeTruthy()
+    expect(screen.queryByLabelText("Time")).toBeNull()
+    expect(screen.queryByRole("group", { name: "Days" })).toBeNull()
+    expect(screen.queryByRole("button", { name: /Sat/ })).toBeNull()
   })
 })

@@ -164,6 +164,35 @@ describe("EditGroupDetails, opening the form", () => {
     const secondActivityRow = activities[1].closest("div[style*='border-top']") as HTMLElement | null
     expect(secondActivityRow).toBeTruthy()
   })
+
+  // Task 8, onboarding-step2-cleanup slice: decision 7, a monthly (or loose)
+  // activity has no day or time the product can schedule.
+  it("a monthly activity shows only Activity and Place on group info (decision 7)", () => {
+    renderIt({ rhythms: [climbing, beers] })
+    openForm()
+
+    expect(screen.getAllByLabelText("Time")).toHaveLength(1)
+    expect(screen.getAllByLabelText("Place")).toHaveLength(2)
+    expect(screen.getAllByRole("group", { name: "Days" })).toHaveLength(1)
+  })
+
+  // Regression pin for "hiding a field must not clear it": this passes on
+  // its first run by design, since the monthly rhythm's stored day and time
+  // ride through toRhythmEdit untouched whether or not RhythmFields renders
+  // them, so nothing about this test could have failed given the current
+  // toRhythmEdit / validateDetailsEdit / GroupDetailsFields wiring. It is
+  // kept anyway as a guard against a future change that starts clearing a
+  // hidden field before submit.
+  it("saving leaves a hidden monthly day and time exactly as stored", async () => {
+    renderIt({ rhythms: [climbing, beers] })
+    openForm()
+    fireEvent.change(screen.getByLabelText("Group name"), { target: { value: "Wednesday Climbers" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(updateGroupDetailsAction).toHaveBeenCalledTimes(1))
+    const fd = updateGroupDetailsAction.mock.calls[0][1] as FormData
+    const payload = JSON.parse(fd.get("payload") as string)
+    expect(payload.rhythms[1]).toMatchObject({ daysOfWeek: [5], timeLocal: "20:00" })
+  })
 })
 
 describe("EditGroupDetails, Never mind", () => {
