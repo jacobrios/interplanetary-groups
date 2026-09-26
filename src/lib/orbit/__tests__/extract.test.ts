@@ -26,3 +26,16 @@ describe("extraction contract — venueName", () => {
     expect(FIELD_RULES).toMatch(/climbing at the gym/i)
   })
 })
+
+describe("extraction contract, the main activity's spot", () => {
+  it("the clarifying question lists a missing place among the primary's gaps", () => {
+    expect(FIELD_RULES).toMatch(/place missing\?/)
+    expect(FIELD_RULES).toMatch(/What time do you meet, and where\?/)
+  })
+  it("never asks about another rhythm's place", () => {
+    expect(FIELD_RULES).toMatch(/never ask about any other rhythm, including where it meets/)
+  })
+  it("a word that only says the place is not settled is not a place", () => {
+    expect(FIELD_RULES).toMatch(/"idk"/)
+  })
+})

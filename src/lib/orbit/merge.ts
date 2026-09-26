@@ -42,6 +42,8 @@ Merge rules:
 - Latest word wins. If the answer contradicts anything in CURRENT UNDERSTANDING (a day, a time, the cadence, even the activity), the answer is right and the old value is replaced. "Actually Saturdays at 10am" replaces both the days and the time.
 - Copy every field the answer does not touch character for character from CURRENT UNDERSTANDING, including activity wording. Never re-read DESCRIPTION to redo a field CURRENT UNDERSTANDING already has; DESCRIPTION is only context for reading the answer.
 - The answer often settles the asked-about gap indirectly. If we asked whether a time was morning or evening and CANDIDATE TIME is "19:00", then "evening" or "at night" means timeLocal "19:00" with timeAmbiguous false, and "morning" means "07:00" with timeAmbiguous false.
+- The answer can name where the group meets, alone or with a day or time ("7pm at Movement Gowanus", or just "Movement Gowanus"): put it in the primary rhythm's venueName.
+- If the answer only says the place is not settled ("idk yet", "we'll figure it out"), venueName stays null, and the question asks where again.
 - If the answer does not settle the gap ("hmm not sure", "whenever works"), keep the fields as they were.
 - Each distinct recurring activity is one rhythm.
 
@@ -55,7 +57,11 @@ CURRENT UNDERSTANDING: {"suggestedGroupName":"Climbing Crew","clarifyingQuestion
 CANDIDATE TIME: 19:00
 WE ASKED: about whether the time is morning or evening
 ANSWER: "actually saturdays at 10am"
-Correct output: rhythms[0] has daysOfWeek [6], timeLocal "10:00", timeAmbiguous false, and clarifyingQuestion is null.`
+Correct output: rhythms[0] has daysOfWeek [6], timeLocal "10:00", timeAmbiguous false, and clarifyingQuestion is null.
+
+WE ASKED: about where they usually meet
+ANSWER: "Movement Gowanus"
+Correct output: rhythms[0].venueName is "Movement Gowanus", every other field copied, clarifyingQuestion is null.`
 
 export interface MergeGapCallInput {
   /** The founder's original free-text description (client-held; not yet in the DB). */
