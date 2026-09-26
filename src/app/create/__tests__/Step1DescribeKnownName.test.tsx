@@ -205,3 +205,13 @@ describe("Step1Describe — exit link", () => {
     expect(exit.getAttribute("href")).toBe("/groups")
   })
 })
+
+describe("Step1Describe — description placeholder", () => {
+  it("does not suggest a monthly rhythm, which the product can't schedule", () => {
+    renderStep1()
+    const textarea = screen.getByPlaceholderText(
+      "e.g. A few of us climb at Summit Gym on Sunday mornings at 8."
+    )
+    expect(textarea.tagName).toBe("TEXTAREA")
+  })
+})

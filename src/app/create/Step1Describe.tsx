@@ -233,7 +233,7 @@ export default function Step1Describe({
             // found in the surrounding gaps instead. Nothing above 150% is
             // held by any row count; that is a known limit, not an oversight.
             rows={5}
-            placeholder="e.g. A few of us climb at Summit Gym on Sunday mornings at 8, and we grab beers once a month."
+            placeholder="e.g. A few of us climb at Summit Gym on Sunday mornings at 8."
             value={description}
             onChange={(e) => onDescriptionChange(e.target.value)}
             disabled={isExtracting}
