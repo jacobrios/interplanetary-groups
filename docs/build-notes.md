@@ -8337,3 +8337,26 @@ Orbit posts one message per save, naming the founder, and when the plan moves th
   - `extract-day-prominent-run`: "run" instead of "running" 4 of 5 (3 of 5 in both earlier runs today, 1 of 5 on 20 Aug); `extract-day-prominent-multi-day` once. The group's plans would be titled "Run". Pre-existing and possibly worse; five runs cannot tell.
   - `merge-time-and-spot`: the founder's "Movement Gowanus" stored as "Movement Gowanas" once in five. A misspelled place a founder can fix in "Edit details".
 - Cost of this run: about $0.35 to $0.45, same estimate (not 100% sure, verify). Three runs today, so roughly $1.20 total.
+
+**What landed (26 September 2026).** Onboarding now asks for the two things it needs, the when and the where, the same way: Orbit asks in the conversation. A description that leaves out the main weekly activity's spot gets "Where do you usually meet for climbing?", or, when the time is missing too, one combined question. Step 2 stopped being half a form: it is a read-only playback of what Orbit understood, and the one way to change anything is "Edit details", which opens the same editor group info uses. The owner approved phone-width pictures of all five screens before any code, and the built screens were walked at 375px on a dev build against those pictures: both question shapes, "idk yet" asked again, a third non-answer landing on step 1 with the place-specific message, the read-only card, the editor, and group info's editor with a monthly activity.
+
+**What was decided along the way, and why.**
+- **Only the main weekly activity is asked about.** A place for a monthly beers stays optional, because a spontaneous plan settles its place later and a forced answer becomes filler copied onto real plans.
+- **Each combination of gaps has its own named kind** ("time and where", "day and where", and so on) rather than a flag bolted onto the old kinds, so every screen that says something about a gap refuses to build until it has a sentence for every kind. Six more lines per table, each readable in one place.
+- **Two safety nets that do not trust the model.** If Orbit writes a question that forgets to ask where, a fixed question replaces it; and a short list of non-answers ("idk", "not sure", "somewhere", "we'll figure it out") counts as no place and can never overwrite a place already given.
+- **Three answers, not two**, the owner's call: a third round costs about half a cent and only reaches a founder who has already dodged twice. The back-to-step-1 message now names what is missing; before, it said "day and time" whatever the gap was.
+- **The server refuses a group with no main spot**, closing the browser-only debt group details editing opened.
+- **A monthly or loose activity shows only its name and place in the editor**, on step 2 and on group info, because blank day chips invited a founder to fill in a schedule the product cannot keep.
+- **The group-info form body is shared by both editors**; the card and band around it are repeated in the step 2 editor, a known duplication accepted to keep this slice small.
+
+**The prompt change needed one diagnosis round.** Orbit wrote its question before writing down whether a place existed, so a missing place never registered; moving the question to the end of the answer format fixed it. Bench numbers and cost are above.
+
+**Evidence.** Suite 2146 across 179 at `d2290c1` to 2201 across 180, zero failures, run first-hand; production build passes. Every task had an independent review, the assembled branch a whole-branch review. No migration (the final diff touches nothing under `prisma/`), so no deploy obligation. The real-phone pass is the owner's.
+
+**Debt this opens.**
+- A group whose main activity has no fixed place cannot be created without typing one.
+- A typed "idk" in either editor is accepted as a spot; one line in the shared validator would close it.
+- A combined question can come back asking only where; the next round then asks the time.
+- "Run" instead of "running" in extraction, pre-existing and possibly worse; queued.
+- The full-suite hook that runs when an agent stops reddened a read-only reviewer on another agent's unfinished work, because two ran at once. It did not malfunction; it cannot tell whose work is unfinished. Queued for the owner, since the hook is his.
+- The beers row still promises a day nobody picks; the cadence slice owns it.
