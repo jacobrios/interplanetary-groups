@@ -39,3 +39,14 @@ describe("extraction contract, the main activity's spot", () => {
     expect(FIELD_RULES).toMatch(/"idk"/)
   })
 })
+
+describe("extraction contract, the question is written last", () => {
+  it("clarifyingQuestion is the schema's last property, so the model has written every rhythm (venue included) before it decides whether to ask", () => {
+    const keys = Object.keys(EXTRACTION_SCHEMA.properties)
+    expect(keys.at(-1)).toBe("clarifyingQuestion")
+    expect(keys.indexOf("rhythms")).toBeLessThan(keys.indexOf("clarifyingQuestion"))
+  })
+  it("a full schedule with no place still gets a question", () => {
+    expect(FIELD_RULES).toMatch(/A full schedule with no venueName is not done: ask where they meet\./)
+  })
+})

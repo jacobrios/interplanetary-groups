@@ -27,13 +27,17 @@ const MODEL = "claude-haiku-4-5"
 // guardrail needs the model to flag "Tuesdays at 7" instead of silently
 // resolving it. clarifyingQuestion rides on the same response so the gap-ask
 // loop never needs a second call (and a second pause) to get its question.
+// clarifyingQuestion is deliberately the LAST property: the model writes
+// fields in schema order, so placed last it decides whether to ask only after
+// it has written every rhythm, venueName included. Placed before rhythms it
+// never asked about a missing place when the day and time were complete,
+// because a missing place, unlike a missing time, is not visible in the text.
 export const EXTRACTION_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: ["suggestedGroupName", "rhythms", "clarifyingQuestion"],
   properties: {
     suggestedGroupName: { type: ["string", "null"] },
-    clarifyingQuestion: { type: ["string", "null"] },
     rhythms: {
       type: "array",
       items: {
@@ -53,6 +57,7 @@ export const EXTRACTION_SCHEMA = {
         },
       },
     },
+    clarifyingQuestion: { type: ["string", "null"] },
   },
 } as const
 
@@ -66,7 +71,7 @@ export const FIELD_RULES = `- activity: one or two words in the founder's own wo
 - timeAmbiguous: true only when the founder gave a clock number with no am or pm and no context that settles it. "Tuesdays at 7" is ambiguous: set timeLocal to your best reading of it and timeAmbiguous to true. "7am", "7 in the evening", "noon", "midnight", "after work around 6", "Sunday mornings at 8" are not ambiguous: timeAmbiguous is false. When timeLocal is null, timeAmbiguous is false.
 - isPrimary: exactly one rhythm is primary, the group's main activity. If exactly one rhythm has both a stated day and a stated time, that rhythm must be the primary.
 - suggestedGroupName: a short plain name for the group, 2 or 3 words and never more than 3, built from the activity in the founder's own words. Letters, numbers and spaces only. Only name a group after a day of the week when the group meets on exactly one day: a group that meets on more than one day is not a Monday group. If the founder named a place, you may use it ("Summit Gym Climbers"). Otherwise pair the activity with a plain everyday word for a group of people ("Climbing Crew", "Board Game Club"). No jokes, no puns, no wordplay: the whole group sees this name and a clever one cannot be taken back.
-- clarifyingQuestion: null when the primary rhythm has a weekly cadence, at least one stated day, an unambiguous time, and a venueName. Otherwise write ONE question, and make it cover every gap the primary rhythm still has: a single short sentence ending in a question mark, under 120 characters, plain warm everyday words a 13 year old would understand, no dashes, no periods, no exclamation marks. First list the primary's gaps (day missing? time missing? time ambiguous? cadence unclear? place missing?), then ask about all of them in the one question. Only the primary rhythm's gaps matter: never ask about any other rhythm, including where it meets, they are allowed to stay loose. Examples: day missing and time ambiguous, "What day do you meet, and is 6 morning or evening?"; day and time both missing, "What day and time do you usually meet?"; only the time ambiguous, "Is 7 in the morning or the evening?" (name the number the founder used); only the day missing, "What days do you usually meet?"; time and place both missing, "What time do you meet, and where?"; only the place missing, "Where do you usually meet for climbing?" (name the activity).`
+- clarifyingQuestion: null when the primary rhythm has a weekly cadence, at least one stated day, an unambiguous time, and a venueName. A full schedule with no venueName is not done: ask where they meet. Otherwise write ONE question, and make it cover every gap the primary rhythm still has: a single short sentence ending in a question mark, under 120 characters, plain warm everyday words a 13 year old would understand, no dashes, no periods, no exclamation marks. First list the primary's gaps (day missing? time missing? time ambiguous? cadence unclear? place missing?), then ask about all of them in the one question. Only the primary rhythm's gaps matter: never ask about any other rhythm, including where it meets, they are allowed to stay loose. Examples: day missing and time ambiguous, "What day do you meet, and is 6 morning or evening?"; day and time both missing, "What day and time do you usually meet?"; only the time ambiguous, "Is 7 in the morning or the evening?" (name the number the founder used); only the day missing, "What days do you usually meet?"; time and place both missing, "What time do you meet, and where?"; only the place missing, "Where do you usually meet for climbing?" (name the activity).`
 
 const SYSTEM_PROMPT = `You read a founder's short description of their recurring group and extract its rhythms as structured data. Extract only what the founder actually said. Never invent a day, a time, or an activity.
 
