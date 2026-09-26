@@ -408,4 +408,8 @@ describe("copy rules", () => {
       expect(hint.startsWith("e.g. ")).toBe(true)
     }
   })
+
+  it("cadence hint does not suggest a monthly rhythm, which the product can't schedule", () => {
+    expect(GAP_HINT_EXAMPLES.cadence).toBe("e.g. “yep, every week”")
+  })
 })

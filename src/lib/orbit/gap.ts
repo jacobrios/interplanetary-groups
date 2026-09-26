@@ -188,7 +188,7 @@ export const GAP_HINT_EXAMPLES: Record<GapAskable, string> = {
   time: "e.g. “around 9am” · “we start at 7pm”",
   day: "e.g. “Tuesdays” · “Mon and Wed”",
   both: "e.g. “Tuesdays at 7pm” · “Saturday mornings at 9”",
-  cadence: "e.g. “yep, every week” · “once a month”",
+  cadence: "e.g. “yep, every week”",
   ambiguous_time: "e.g. “in the morning” · “7 at night”",
 }
 
