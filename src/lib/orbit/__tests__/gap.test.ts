@@ -24,7 +24,7 @@ import {
   resolveGapQuestion,
   validateQuestion,
 } from "../gap"
-import { needsSpot, scheduleGapOf, withSpot } from "../normalize"
+import { needsSpot, scheduleGapOf, withSpot, isNonAnswerVenue } from "../normalize"
 import type { NormalizedOnboarding } from "../normalize"
 import type { StoredRhythm } from "../rhythm"
 
@@ -472,6 +472,11 @@ describe("enforceVenueCarryOver", () => {
     const raw = mergedRaw([rhythm()])
     enforceVenueCarryOver(raw, prior)
     expect((raw.rhythms[0] as { venueName: unknown }).venueName).toBeNull()
+  })
+
+  it("a non-answer in the merged output never overwrites a spot already given", () => {
+    const out = enforceVenueCarryOver(mergedRaw([rhythm({ venueName: "idk yet" })]), prior) as { rhythms: Array<{ venueName: unknown }> }
+    expect(out.rhythms[0].venueName).toBe("Summit Gym")
   })
 })
 

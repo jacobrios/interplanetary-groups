@@ -10,7 +10,7 @@
 // phrasing. The templates are the fire exit, not the front door: they only
 // surface when generation fails or violates its constraints.
 
-import { needsSpot, type MissingField, type NormalizedOnboarding } from "./normalize"
+import { needsSpot, isNonAnswerVenue, type MissingField, type NormalizedOnboarding } from "./normalize"
 import type { StoredRhythm } from "./rhythm"
 
 /** Gaps the conversational loop can ask about. nothing_schedulable has no
@@ -170,14 +170,17 @@ export function enforceActivityCarryOver(
 
 /**
  * Venue carry-over on the raw merged claim, run right after the activity
- * guard. A gap answer is about time, day, or cadence; it never legitimately
- * removes a standing venue, so a merged rhythm that nulled a previously
- * captured venueName gets it restored — but only when the rhythm is
- * recognizably the same one (same activity), so a restructured list is
- * never "corrected" by position. A replacement venue (non-null) is the
- * founder's latest word and is left alone. Unlike the activity guard this
- * consults no answer text: there is no legitimate path from any answer to
- * "remove the venue", only to "replace it".
+ * guard. A gap answer can now be about the spot as well as time, day, or
+ * cadence, but it never legitimately removes a standing venue, so a merged
+ * rhythm that nulled a previously captured venueName gets it restored — but
+ * only when the rhythm is recognizably the same one (same activity), so a
+ * restructured list is never "corrected" by position. A replacement venue
+ * (non-null, and not itself a non-answer like "idk") is the founder's
+ * latest word and is left alone; a non-answer in the merged output is
+ * treated as empty so "idk" in an answer can never overwrite a spot the
+ * founder already gave. Unlike the activity guard this consults no answer
+ * text: there is no legitimate path from any answer to "remove the venue",
+ * only to "replace it".
  */
 export function enforceVenueCarryOver(raw: unknown, prior: StoredRhythm[]): unknown {
   if (raw === null || typeof raw !== "object") return raw
@@ -194,7 +197,7 @@ export function enforceVenueCarryOver(raw: unknown, prior: StoredRhythm[]): unkn
     if (!p.venueName) continue
 
     const merged = typeof o.venueName === "string" ? o.venueName.trim() : ""
-    if (merged) continue
+    if (merged && !isNonAnswerVenue(merged)) continue
 
     const activity = typeof o.activity === "string" ? o.activity.trim().toLowerCase() : ""
     if (activity === p.activity.toLowerCase()) o.venueName = p.venueName
