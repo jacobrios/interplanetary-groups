@@ -18,9 +18,9 @@ import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-export default function RhythmFields({ idPrefix, value, onChange, showPlace, showSchedule, disabled }: {
+export default function RhythmFields({ idPrefix, value, onChange, showSchedule, disabled }: {
   idPrefix: string; value: RhythmEdit; onChange: (next: RhythmEdit) => void
-  showPlace: boolean; showSchedule: boolean; disabled: boolean
+  showSchedule: boolean; disabled: boolean
 }) {
   const on = new Set(value.daysOfWeek ?? [])
   function toggle(d: number) {
@@ -63,14 +63,12 @@ export default function RhythmFields({ idPrefix, value, onChange, showPlace, sho
           </div>
         </>
       )}
-      {showPlace && (
-        <div style={{ marginBottom: "6px" }}>
-          <label htmlFor={`${idPrefix}-place`} style={labelStyle}>Place</label>
-          <input id={`${idPrefix}-place`} type="text" value={value.venueName ?? ""} maxLength={VENUE_NAME_MAX}
-            placeholder="Where do you meet?" disabled={disabled}
-            onChange={(e) => onChange({ ...value, venueName: e.target.value })} style={fieldStyle} />
-        </div>
-      )}
+      <div style={{ marginBottom: "6px" }}>
+        <label htmlFor={`${idPrefix}-place`} style={labelStyle}>Place</label>
+        <input id={`${idPrefix}-place`} type="text" value={value.venueName ?? ""} maxLength={VENUE_NAME_MAX}
+          placeholder="Where do you meet?" disabled={disabled}
+          onChange={(e) => onChange({ ...value, venueName: e.target.value })} style={fieldStyle} />
+      </div>
     </>
   )
 }

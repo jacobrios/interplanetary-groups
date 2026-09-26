@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 //
 // Final-review fix (group-details-editing slice, finding 1): every prior
-// test of "Change day or time" drove Step2Playback directly through a small
-// stateful harness that reproduced handleRhythmChange's wiring by hand
-// (Step2PlaybackDayTime.test.tsx). That harness never actually called the
-// real OnboardingWizard.handleRhythmChange, so nobody had exercised its
-// title re-derivation, and the real handleConfirm's own untrimmed activity
-// went unnoticed: "padel " (trailing space) reached createGroupAction as
-// is, only to be trimmed by the founder's first group-info save afterward,
-// which diffDetails then reported as a rename the founder never made.
+// test of step 2's editing drove Step2Playback through a harness that
+// reproduced the wizard's wiring by hand, so nobody exercised the real
+// OnboardingWizard handlers, and the real handleConfirm's untrimmed
+// activity went unnoticed: "padel " (trailing space) reached
+// createGroupAction as is, only to be trimmed by the founder's first
+// group-info save afterward, which diffDetails then reported as a rename
+// the founder never made.
 //
-// This test drives the real component end to end: submit Step 1, land on
-// the real playback step, open the real "Change day or time" editor, type
-// a trailing space into Activity, confirm, and read what actually reaches
-// createGroupAction.
+// This test drives the real component end to end through the path step 2
+// has as of the onboarding-step2-cleanup slice (Task 9): submit Step 1,
+// land on the read-only playback, open "Edit details" (group info's own
+// editor, in place), type a trailing space into Activity, tap Done,
+// confirm, and read what actually reaches createGroupAction.
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { cleanup, render, screen, fireEvent } from "@testing-library/react"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
@@ -73,14 +73,14 @@ describe("OnboardingWizard, the real handler, not a harness copy", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }))
     await vi.waitFor(() => expect(extractMock).toHaveBeenCalledTimes(1))
 
-    // Now on the real playback step. Open the real "Change day or time"
-    // editor and type the trailing space directly into the real
-    // handleRhythmChange's Activity field.
+    // Now on the real playback step. Open "Edit details" and type the
+    // trailing space into the real editor's Activity field, then Done.
     await vi.waitFor(() =>
-      expect(screen.getByRole("button", { name: "Change day or time" })).toBeTruthy()
+      expect(screen.getByRole("button", { name: "Edit details" })).toBeTruthy()
     )
-    fireEvent.click(screen.getByRole("button", { name: "Change day or time" }))
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }))
     fireEvent.change(screen.getByLabelText("Activity"), { target: { value: "padel " } })
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
 
     fireEvent.click(screen.getByRole("button", { name: /looks right, set up invites/i }))
     await vi.waitFor(() => expect(createMock).toHaveBeenCalledTimes(1))
@@ -90,5 +90,26 @@ describe("OnboardingWizard, the real handler, not a harness copy", () => {
     ]
     expect(payload.rhythms[0].activity).toBe("padel")
     expect(payload.rhythms[0].title).toBe("Padel")
+  })
+
+  it("carries a group renamed through Edit details into createGroupAction", async () => {
+    render(<OnboardingWizard knownName="Jacob" />)
+
+    fireEvent.change(screen.getByLabelText("About your group"), {
+      target: { value: "We play padel twice a week." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit details" })).toBeTruthy()
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Edit details" }))
+    fireEvent.change(screen.getByLabelText("Group name"), { target: { value: "Court Crew" } })
+    fireEvent.click(screen.getByRole("button", { name: "Done" }))
+
+    fireEvent.click(screen.getByRole("button", { name: /looks right, set up invites/i }))
+    await vi.waitFor(() => expect(createMock).toHaveBeenCalledTimes(1))
+
+    const [payload] = createMock.mock.calls[0] as [{ groupName: string }]
+    expect(payload.groupName).toBe("Court Crew")
   })
 })

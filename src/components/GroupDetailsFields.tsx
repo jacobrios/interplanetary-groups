@@ -63,7 +63,6 @@ export default function GroupDetailsFields({
             idPrefix={`${rhythmIdPrefix}-${i}`}
             value={r}
             onChange={(next) => onRhythmChange(i, next)}
-            showPlace
             showSchedule={cadences[i] === "weekly"}
             disabled={disabled}
           />
