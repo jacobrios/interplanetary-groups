@@ -71,6 +71,9 @@ afterEach(() => {
   cleanup()
   extractMock.mockClear()
   createMock.mockClear()
+  // Reset, not just cleared: the thread tests below queue per-round
+  // implementations, and a leftover Once from a failed test must not leak.
+  mergeGapMock.mockReset()
 })
 
 describe("OnboardingWizard, the real handler, not a harness copy", () => {
@@ -159,5 +162,163 @@ describe("OnboardingWizard — exhausting the gap loop names what is still missi
     await vi.waitFor(() => expect(screen.getByText(EXHAUSTED_COPY.spot)).toBeTruthy())
 
     expect(screen.queryByText(/Add the day and time/)).toBeNull()
+  })
+})
+
+// Task 3 (gap-ask-thread slice): the gap step keeps the whole conversation
+// on screen. The wizard owns the thread; each Orbit line is composed once,
+// when it arrives, and stored, so an earlier line can never re-render with a
+// later round's wording. These drive the real wizard, with extraction landing
+// incomplete on a time gap and mergeGapMock controlling each round.
+describe("OnboardingWizard, the gap-ask thread", () => {
+  const TIME_GAP = {
+    missing: "time" as const,
+    question: "What time do you usually play padel?",
+    groupName: "Padel Crew",
+    rhythms: [{ ...RHYTHMS[0], timeLocal: null }],
+    candidateTimeLocal: null,
+  }
+  const ROUND_0 = "Here's what I got, but what time do you usually play padel?"
+  const SPOT_QUESTION = "Where do you usually meet for padel?"
+
+  // A fresh object per call: useActionState routes a result once per
+  // reference, so a second extraction must be a different object to count
+  // as a new one (the back-to-step-1 test depends on this).
+  function incompleteExtract(): ExtractGroupState {
+    return { status: "incomplete", gap: { ...TIME_GAP } }
+  }
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>((r) => {
+      resolve = r
+    })
+    return { promise, resolve }
+  }
+
+  async function landOnGap() {
+    extractMock.mockResolvedValueOnce(incompleteExtract())
+    render(<OnboardingWizard knownName="Jacob" />)
+    fireEvent.change(screen.getByLabelText("About your group"), {
+      target: { value: "We play padel twice a week." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() => expect(screen.getByLabelText(/message orbit/i)).toBeTruthy())
+  }
+
+  function send(text: string) {
+    fireEvent.change(screen.getByLabelText(/message orbit/i), { target: { value: text } })
+    fireEvent.click(screen.getByRole("button", { name: "Send answer" }))
+  }
+
+  function box(): HTMLTextAreaElement {
+    return screen.getByLabelText(/message orbit/i) as HTMLTextAreaElement
+  }
+
+  function isBefore(a: HTMLElement, b: HTMLElement): boolean {
+    return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  }
+
+  it("lands on the gap with exactly one Orbit bubble carrying the round-0 line", async () => {
+    await landOnGap()
+    expect(screen.getAllByText(ROUND_0)).toHaveLength(1)
+    expect(screen.queryByText(/Thanks\. One more thing/)).toBeNull()
+  })
+
+  it("shows the answer as a bubble the moment it is sent, before the merge resolves, and empties the box", async () => {
+    await landOnGap()
+    const pending = deferred<unknown>()
+    mergeGapMock.mockImplementationOnce(() => pending.promise)
+
+    // Resolved in finally, pass or fail: React 19 entangles every transition
+    // with a still-pending async action, so a merge left hanging here would
+    // freeze the next test's extraction and fail it for an unrelated reason
+    // (seen while this test was red).
+    try {
+      send("we start at 7")
+
+      await vi.waitFor(() => expect(screen.getByText("we start at 7")).toBeTruthy())
+      expect(box().value).toBe("")
+      expect(mergeGapMock).toHaveBeenCalledTimes(1)
+      // The answer still reaches the merge even though the box was cleared.
+      expect((mergeGapMock.mock.calls[0][0] as { answer: string }).answer).toBe("we start at 7")
+    } finally {
+      pending.resolve({ status: "error" })
+    }
+  })
+
+  it("keeps both Orbit lines and the answer on screen, in order, after a round that moved something", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({
+      status: "incomplete",
+      round: 1,
+      progressed: true,
+      gap: { ...TIME_GAP, missing: "spot", question: SPOT_QUESTION },
+    })
+
+    send("we start at 7")
+
+    const second = await vi.waitFor(() => screen.getByText(`Thanks. One more thing: ${SPOT_QUESTION}`))
+    const first = screen.getByText(ROUND_0)
+    const answer = screen.getByText("we start at 7")
+    expect(isBefore(first, answer)).toBe(true)
+    expect(isBefore(answer, second)).toBe(true)
+  })
+
+  it("appends only the guess line, with no question, after a stalled round on a spot gap", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({
+      status: "incomplete",
+      round: 1,
+      progressed: false,
+      gap: { ...TIME_GAP, missing: "spot", question: SPOT_QUESTION },
+    })
+
+    send("idk")
+
+    await vi.waitFor(() =>
+      expect(screen.getByText("No problem. A best guess at a spot is fine for now.")).toBeTruthy()
+    )
+    expect(screen.queryByText(new RegExp(SPOT_QUESTION))).toBeNull()
+  })
+
+  it("rolls the answer back into the box and shows the error line when the merge fails", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({ status: "error" })
+
+    send("we start at 7")
+
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText("Hmm, that didn't go through. Give it another try in a moment.")
+      ).toBeTruthy()
+    )
+    expect(box().value).toBe("we start at 7")
+    // Only the box holds it now: no bubble carries the rolled-back answer.
+    expect(screen.queryAllByText("we start at 7").filter((el) => el.tagName !== "TEXTAREA")).toHaveLength(0)
+  })
+
+  it("starts a fresh on-screen conversation after going back to step 1 and continuing again", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({
+      status: "incomplete",
+      round: 1,
+      progressed: true,
+      gap: { ...TIME_GAP, missing: "spot", question: SPOT_QUESTION },
+    })
+    send("we start at 7")
+    await vi.waitFor(() =>
+      expect(screen.getByText(`Thanks. One more thing: ${SPOT_QUESTION}`)).toBeTruthy()
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }))
+    extractMock.mockResolvedValueOnce(incompleteExtract())
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() => expect(extractMock).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(screen.getByLabelText(/message orbit/i)).toBeTruthy())
+
+    expect(screen.getAllByText(ROUND_0)).toHaveLength(1)
+    expect(screen.queryByText("we start at 7")).toBeNull()
+    expect(screen.queryByText(/Thanks\. One more thing/)).toBeNull()
   })
 })

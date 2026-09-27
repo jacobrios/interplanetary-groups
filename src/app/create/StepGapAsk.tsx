@@ -1,9 +1,12 @@
 // src/app/create/StepGapAsk.tsx
 //
 // The gap-ask step (mockup screen 03): the playback card with a lime marker
-// on the one gap, Orbit's question in a feed-style bubble, and a message
-// input with example answers as hint text. Presentational — the wizard owns
-// state and the merge call.
+// on the one gap, the conversation so far (Orbit's questions in feed-style
+// bubbles, the founder's answers in their own), and a message input with
+// example answers as hint text. Presentational — the wizard owns state, the
+// thread, and the merge call (gap-ask-thread slice, task 3: the whole
+// conversation stays on screen, so a founder's answer no longer vanishes
+// the moment they send it).
 //
 // Recorded deviations, per the approved plan: the name row is read-only
 // here (each merge round can return a new suggestion, which would silently
@@ -20,12 +23,13 @@
 
 import { useEffect, useRef } from "react"
 import type { GapPayload } from "@/app/actions/extract-group"
-import { GAP_HINT_EXAMPLES, gapBubbleLine } from "@/lib/orbit/gap"
+import { GAP_HINT_EXAMPLES } from "@/lib/orbit/gap"
 import { formatGapRhythmRow, formatRhythmRow } from "@/lib/orbit/playback"
 import { UNAVAILABLE_COPY } from "@/lib/orbit/unavailable-copy"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import OrbitPause from "./OrbitPause"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import { SelfBubble } from "@/components/SelfBubble"
 import SendCircleButton from "@/components/SendCircleButton"
 import {
   PlaybackCard,
@@ -69,6 +73,19 @@ function autoGrow(el: HTMLTextAreaElement) {
   el.style.height = `${el.scrollHeight + border}px`
 }
 
+/** One line of the gap-ask conversation. Orbit's text is composed once, by
+ * the wizard, at the moment the line arrives (gapBubbleLine) and stored, so
+ * an earlier line can never re-render with a later round's wording. */
+export type GapTurn = { from: "orbit"; text: string } | { from: "founder"; text: string }
+
+// Both voices share one text style: chat body, never shrunk (CLAUDE.md, §7).
+const turnTextStyle = {
+  fontSize: "var(--type-body)",
+  lineHeight: "var(--leading-normal)",
+  color: "var(--text-primary)",
+  margin: 0,
+} as const
+
 /** Which flavor of failure the last merge attempt hit. "generic" keeps the
  * old one-size retry line; the other two carry the honest reason. */
 export type MergeErrorKind = "generic" | ModelFailureReason
@@ -76,9 +93,9 @@ export type MergeErrorKind = "generic" | ModelFailureReason
 interface Props {
   founderName: string
   gap: GapPayload
-  round: number
-  /** Last answer moved nothing: the lead-in acknowledges instead of thanks. */
-  stalled: boolean
+  /** The conversation so far, oldest first; always opens with Orbit's
+   * round-0 line. */
+  thread: GapTurn[]
   answer: string
   onAnswerChange: (v: string) => void
   onSubmit: () => void
@@ -89,8 +106,7 @@ interface Props {
 export default function StepGapAsk({
   founderName,
   gap,
-  round,
-  stalled,
+  thread,
   answer,
   onAnswerChange,
   onSubmit,
@@ -99,7 +115,6 @@ export default function StepGapAsk({
 }: Props) {
   const gapRow = formatGapRhythmRow(gap.rhythms[0], gap.missing, gap.candidateTimeLocal)
   const hasText = answer.trim().length > 0
-  const bubbleLine = gapBubbleLine(gap.question, round, stalled, gap.missing)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Runs on every value change, whichever direction: growing while the
@@ -172,21 +187,39 @@ export default function StepGapAsk({
         </PlaybackCard>
       </div>
 
-      {/* Orbit's question: deterministic lead-in composed by code around the
-          one validated (or fire-exit template) sentence. */}
-      <div style={{ width: "100%", marginBottom: "1.5rem" }}>
-        <OrbitBubble>
-          <p
-            style={{
-              fontSize: "var(--type-body)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--text-primary)",
-              margin: 0,
-            }}
-          >
-            {bubbleLine}
-          </p>
-        </OrbitBubble>
+      {/* The conversation: Orbit's lines (each a deterministic lead-in
+          composed by code around the one validated or fire-exit sentence,
+          composed once by the wizard) and the founder's answers, oldest
+          first. Orbit speaks with its avatar; the founder speaks right-
+          aligned in the viewer's own bubble, exactly as in the group chat
+          (SelfBubble leaves alignment to the caller). Index keys are safe
+          here: turns are only ever appended, and the one removal (a failed
+          merge rolling its answer back) takes the last item. While the
+          merge runs, Orbit's labeled pause is the thread's last item, where
+          its reply is about to land. */}
+      <div
+        style={{
+          width: "100%",
+          marginBottom: "1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.75rem",
+        }}
+      >
+        {thread.map((turn, i) =>
+          turn.from === "orbit" ? (
+            <OrbitBubble key={i}>
+              <p style={turnTextStyle}>{turn.text}</p>
+            </OrbitBubble>
+          ) : (
+            <div key={i} style={{ display: "flex", justifyContent: "flex-end" }}>
+              <SelfBubble>
+                <p style={turnTextStyle}>{turn.text}</p>
+              </SelfBubble>
+            </div>
+          )
+        )}
+        {isMerging && <OrbitPause copy={MERGE_PAUSE_COPY} />}
       </div>
 
       {mergeError && (
@@ -250,28 +283,25 @@ export default function StepGapAsk({
         />
       </form>
 
-      {/* One line below the input: hint examples normally, the labeled pause
-          while the one merge call per answer runs. */}
+      {/* One line below the input: the hint examples, always. The merge
+          pause used to swap in here; it now sits at the end of the thread,
+          where Orbit's reply will appear. */}
       <div style={{ marginTop: "0.5rem", minHeight: "2.75rem" }}>
-        {isMerging ? (
-          <OrbitPause copy={MERGE_PAUSE_COPY} />
-        ) : (
-          <p
-            style={{
-              textAlign: "center",
-              // Meta, not eyebrow: the role map reserves the 13px eyebrow
-              // floor for uppercase eyebrows and puts sentence-case
-              // reference text at meta, which is where step 1's own hint
-              // line already sits.
-              fontSize: "var(--type-meta)",
-              lineHeight: "var(--leading-normal)",
-              color: "var(--placeholder)",
-              margin: "0.375rem 0 0",
-            }}
-          >
-            {GAP_HINT_EXAMPLES[gap.missing]}
-          </p>
-        )}
+        <p
+          style={{
+            textAlign: "center",
+            // Meta, not eyebrow: the role map reserves the 13px eyebrow
+            // floor for uppercase eyebrows and puts sentence-case
+            // reference text at meta, which is where step 1's own hint
+            // line already sits.
+            fontSize: "var(--type-meta)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--placeholder)",
+            margin: "0.375rem 0 0",
+          }}
+        >
+          {GAP_HINT_EXAMPLES[gap.missing]}
+        </p>
       </div>
     </div>
   )
