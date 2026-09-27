@@ -8372,3 +8372,18 @@ Orbit posts one message per save, naming the founder, and when the plan moves th
 **Queue after this merge, the owner's order (27 Sept):** (1) the gap-ask conversation view, (2) spontaneous activities explained rather than stored, (3) the home-screen web app, both halves at once: the "not broken" fix recorded 4 Sept plus a real installable app (icon, name, composer clear of the home bar), because the owner wants to start suggesting it and the first thing a person sees is the icon, (4) verbal group one. The three accepted bench misses sit behind these; recommended: drop the invisible stray question, bundle "run versus running" with the two final-review minors as one small fix after verbal group one, and drop the misspelling unless seen again.
 
 **Also from that QA, carried into the conversation-view slice rather than fixed here.** On iPhone Chrome, the gap-ask's message box sits partly under Chrome's address bar, which floats just above the keyboard where the page cannot see it (fairly sure, not device-confirmed); pre-existing, and the next slice rebuilds exactly that part of the screen, so its phone pass checks it. Declined on the owner's agreement: styling "what time" and "where" inside Orbit's sentence (capitals shout, teal would read as a button, and the words move because Orbit writes the sentence); the lime marker on the card already carries it.
+
+## §11 entry: the gap-ask keeps the conversation on screen (opened 27 September 2026)
+
+**Why this slice, and why now.** The owner's 27 Sept phone QA of the step 2 cleanup found his own answer vanishing the moment he sent it: the gap-ask looks like a chat but keeps none, so only the card and Orbit's sentence change and a founder cannot tell what they already said. He put this first in his 27 Sept queue order, ahead of spontaneous activities and the home-screen web app.
+
+**Baseline, recorded before anything landed on the branch:** 2205 passing of 2205 across 180 files, zero failures, on `main` at `617d8b4`, cut into branch `gap-ask-thread` in its own worktree. Cross-check noted absent: the step 2 cleanup slice recorded no finishing count, only its starting count of 2146 across 179, so there is nothing to check this baseline against.
+
+**Settled with the owner, 27 Sept 2026, before any code, and not to be relitigated:**
+1. The whole back-and-forth stays on screen, every Orbit question and every founder answer, the founder's rendered as the group chat's own "you" bubble.
+2. The card sits at the top of the conversation and scrolls with it, no longer pinned; the message box stays pinned to the bottom, like the group chat.
+3. Going back to step 1 and continuing starts a fresh conversation on screen, but Orbit keeps the founder's earlier answers and uses them to fill any gap before asking again.
+4. An answer appears the moment it is sent; on failure it comes back out and its text returns to the box.
+5. A re-ask after an answer that moved nothing drops the question for a spot gap ("No problem. A best guess at a spot is fine for now.") while a time gap keeps "No worries. Let me ask again:" plus the question.
+6. Phone-width pictures of the new screen were approved 27 Sept, with five changes applied before build.
+7. **Where a new description and an earlier answer disagree, the description wins, enforced in code** (a build ruling made in the owner's absence, his to confirm or overturn).
