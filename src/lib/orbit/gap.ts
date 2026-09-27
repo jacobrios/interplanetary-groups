@@ -41,6 +41,13 @@ export const GAP_REASK_COPY: Record<GapAskable, string> = {
   ambiguous_time_spot: "Is that morning or evening, and where do you meet?",
 }
 
+/** Longest a single gap answer may be, in characters. One definition shared
+ * by the live merge action and the prior-answer replay in replay.ts, so a
+ * remembered answer can never be longer than the answer it once was. Lives
+ * here rather than in merge-gap.ts because a "use server" module may export
+ * only async functions. */
+export const ANSWER_MAX = 500
+
 /** All eleven askable kinds, in a fixed order used to drive per-kind checks. */
 export const GAP_ASKABLE_KINDS = [
   "time",
