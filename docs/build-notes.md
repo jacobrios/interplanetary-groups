@@ -8360,3 +8360,5 @@ Orbit posts one message per save, naming the founder, and when the plan moves th
 - "Run" instead of "running" in extraction, pre-existing and possibly worse; queued.
 - The full-suite hook that runs when an agent stops reddened a read-only reviewer on another agent's unfinished work, because two ran at once. It did not malfunction; it cannot tell whose work is unfinished. Queued for the owner, since the hook is his.
 - The beers row still promises a day nobody picks; the cadence slice owns it.
+
+**Decided 27 September 2026, the owner: the three bench misses are accepted, not tuned further.** The stray question on a complete description (never shown to a founder), "run" for "running" (pre-existing), and one misspelled place in five (fixable in "Edit details"). All three are queued, with the owner's note that their priority against the rest of the queue is not yet settled and he wants a recommendation on it.
