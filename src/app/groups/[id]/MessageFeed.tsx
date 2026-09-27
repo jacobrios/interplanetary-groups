@@ -22,6 +22,7 @@ import GaugeChips, { GaugeTally, type FeedGauge } from "./GaugeChips"
 import ProposalChips, { type FeedProposal } from "./ProposalChips"
 import GroupProposalChips, { type FeedGroupProposal } from "./GroupProposalChips"
 import { OrbitBubble } from "@/components/OrbitBubble"
+import { SelfBubble } from "@/components/SelfBubble"
 import { groupMessagesByDay } from "@/lib/messages/day-groups"
 import { FORMER_MEMBER_LABEL } from "@/lib/people/former-member-label"
 
@@ -366,36 +367,23 @@ export default function MessageFeed({
                   </div>
                 )}
 
-                {/* Self (viewer): right-aligned, strongest neutral fill. The
-                    hairline border here is deliberate, not a stray leftover:
-                    walkthrough.css's later "CONTRAST + CONSISTENCY PASS"
-                    (around line 622) adds `1px solid var(--hairline)` to
-                    every raised chat surface including `.gh-self .smsg`,
-                    overriding an earlier "no border" rule by plain cascade
-                    order. Do not remove it again on the strength of the
-                    earlier block; the later block is the one that wins. */}
+                {/* Self (viewer): right-aligned, strongest neutral fill.
+                    Bubble itself lives in SelfBubble (see that file for the
+                    hairline-border note); right-alignment is this row's own
+                    flex layout above, not SelfBubble's job. */}
                 {isSelf && (
-                  <div style={{ maxWidth: "93%" }}>
-                    <div
+                  <SelfBubble>
+                    <p
                       style={{
-                        backgroundColor: "var(--surface-self)",
-                        border: "1px solid var(--hairline)",
-                        borderRadius: "16px 16px 5px 16px",
-                        padding: "11px 14px",
+                        fontSize: "var(--type-body)",
+                        lineHeight: "var(--leading-normal)",
+                        color: "var(--text-primary)",
+                        margin: 0,
                       }}
                     >
-                      <p
-                        style={{
-                          fontSize: "var(--type-body)",
-                          lineHeight: "var(--leading-normal)",
-                          color: "var(--text-primary)",
-                          margin: 0,
-                        }}
-                      >
-                        {msg.body}
-                      </p>
-                    </div>
-                  </div>
+                      {msg.body}
+                    </p>
+                  </SelfBubble>
                 )}
               </div>
             )
