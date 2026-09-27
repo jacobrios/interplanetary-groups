@@ -83,7 +83,7 @@ describe("formatRhythmRow", () => {
 
   it("loose (no cadence)", () => {
     expect(formatRhythmRow(rhythm({ activity: "camping" })).value).toBe(
-      "We'll sort out timing later"
+      "No set schedule yet"
     )
   })
 

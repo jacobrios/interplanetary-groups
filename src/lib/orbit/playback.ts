@@ -53,7 +53,7 @@ export function formatRhythmRow(r: StoredRhythm): { label: string; value: string
     const parts = [dayPart, timePart].filter(Boolean).join(" ")
     value = parts ? `${parts}, once a month` : "once a month, no set day yet"
   } else {
-    value = "we'll sort out timing later"
+    value = "no set schedule yet"
   }
 
   return { label, value: value.charAt(0).toUpperCase() + value.slice(1) }
