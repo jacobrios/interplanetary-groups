@@ -143,6 +143,65 @@ describe("enforceFreshFieldsWin", () => {
     expect(kept.suggestedGroupName).toBe("Merged Name")
   })
 
+  it("pairs by position when the merge renamed the activity and changed the days, so the description still wins", () => {
+    // I-1: earlier answer "tuesdays at 7pm", new description "we climb
+    // Thursdays". The merge drifts the name to "climb" and brings Tuesday
+    // back; the activity guard skips because the days changed, so a
+    // name-only pairing would find nothing and Tuesday would win.
+    const raw = { rhythms: [rawRhythm({ activity: "climb", daysOfWeek: [2], timeLocal: "19:00" })] }
+    const out = enforceFreshFieldsWin(
+      raw,
+      [stored({ activity: "climbing", daysOfWeek: [4], timeLocal: null, venueName: null })],
+      null
+    ) as { rhythms: Record<string, unknown>[] }
+    expect(out.rhythms[0].activity).toBe("climbing")
+    expect(out.rhythms[0].daysOfWeek).toEqual([4])
+    // The time is the gap the remembered answer is for, so it stays.
+    expect(out.rhythms[0].timeLocal).toBe("19:00")
+  })
+
+  it("pairs by position when an answer named a different activity, restoring the fresh name, days and time", () => {
+    const raw = { rhythms: [rawRhythm({ activity: "bouldering", daysOfWeek: [2], timeLocal: "07:00" })] }
+    const out = enforceFreshFieldsWin(
+      raw,
+      [stored({ activity: "climbing", daysOfWeek: [4], timeLocal: "19:00", venueName: null })],
+      null
+    ) as { rhythms: Record<string, unknown>[] }
+    expect(out.rhythms[0]).toMatchObject({ activity: "climbing", daysOfWeek: [4], timeLocal: "19:00" })
+  })
+
+  it("does not pair by position when the rhythm counts differ", () => {
+    const raw = {
+      rhythms: [
+        rawRhythm({ activity: "bouldering", daysOfWeek: [2] }),
+        rawRhythm({ activity: "beers", daysOfWeek: [5], isPrimary: false }),
+      ],
+    }
+    const out = enforceFreshFieldsWin(raw, [stored({ daysOfWeek: [4] })], null) as {
+      rhythms: Record<string, unknown>[]
+    }
+    expect(out.rhythms[0]).toMatchObject({ activity: "bouldering", daysOfWeek: [2] })
+  })
+
+  it("never pairs by position onto a fresh rhythm another merged rhythm already matched by name", () => {
+    // Counts are equal, but merged [0] drifted while merged [1] is named
+    // exactly like fresh [0]... the positional fallback must not also pull
+    // fresh [0]'s fields onto merged [0].
+    const raw = {
+      rhythms: [
+        rawRhythm({ activity: "bouldering", daysOfWeek: [2] }),
+        rawRhythm({ activity: "climbing", daysOfWeek: [6], isPrimary: false }),
+      ],
+    }
+    const out = enforceFreshFieldsWin(
+      raw,
+      [stored({ activity: "climbing", daysOfWeek: [4] }), stored({ activity: "beers", daysOfWeek: [5] })],
+      null
+    ) as { rhythms: Record<string, unknown>[] }
+    expect(out.rhythms[0]).toMatchObject({ activity: "bouldering", daysOfWeek: [2] })
+    expect(out.rhythms[1]).toMatchObject({ activity: "climbing", daysOfWeek: [4] })
+  })
+
   it("does not mutate its input and passes non-objects through", () => {
     const raw = { rhythms: [rawRhythm({ timeLocal: "08:00" })] }
     enforceFreshFieldsWin(raw, [stored()], null)
@@ -228,6 +287,58 @@ describe("extractWithPriorAnswers", () => {
     }
     expect(out.rhythms[0].daysOfWeek).toEqual([4])
     expect(out.rhythms[0].timeLocal).toBe("19:00")
+  })
+
+  it("lets the description win end to end when the merge also renamed the activity", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce({
+      ...INCOMPLETE,
+      rhythms: [rawRhythm({ daysOfWeek: [4], timeLocal: null, venueName: null })],
+    })
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: "Tuesday Climbers",
+      clarifyingQuestion: null,
+      rhythms: [rawRhythm({ activity: "climb", daysOfWeek: [2], timeLocal: "19:00", venueName: null })],
+    })
+
+    const out = (await extractWithPriorAnswers("we climb thursdays", ["tuesdays at 7pm"])) as {
+      rhythms: Record<string, unknown>[]
+    }
+    expect(out.rhythms[0]).toMatchObject({ activity: "climbing", daysOfWeek: [4], timeLocal: "19:00" })
+  })
+
+  it("falls back to the extraction claim when the merge returns no rhythms", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(INCOMPLETE)
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: null,
+      clarifyingQuestion: null,
+      rhythms: [],
+    })
+    await expect(extractWithPriorAnswers("we climb tuesdays", ["7pm"])).resolves.toBe(INCOMPLETE)
+  })
+
+  it("falls back to the extraction claim when the merge returns something unparseable", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(INCOMPLETE)
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({ rhythms: "nope" })
+    await expect(extractWithPriorAnswers("we climb tuesdays", ["7pm"])).resolves.toBe(INCOMPLETE)
+  })
+
+  it("falls back to the extraction claim when the merge drops a rhythm the description had", async () => {
+    const twoRhythms = {
+      ...INCOMPLETE,
+      rhythms: [
+        rawRhythm({ timeLocal: null, venueName: null }),
+        rawRhythm({ activity: "beers", cadence: "monthly", daysOfWeek: null, timeLocal: null, isPrimary: false }),
+      ],
+    }
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(twoRhythms)
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: null,
+      clarifyingQuestion: null,
+      rhythms: [rawRhythm({ timeLocal: "19:00", venueName: "Movement" })],
+    })
+    await expect(extractWithPriorAnswers("we climb tuesdays, beers monthly", ["7pm, Movement"])).resolves.toBe(
+      twoRhythms
+    )
   })
 
   it("falls back to the extraction claim when the merge throws", async () => {

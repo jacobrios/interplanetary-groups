@@ -64,9 +64,20 @@ export function parsePriorAnswers(raw: unknown): string[] {
  * matches a rhythm from the fresh extraction (case-insensitive, trimmed),
  * every field the fresh rhythm actually stated (non-null) is put back:
  * days, time, spot, cadence. A field the fresh rhythm left empty is exactly
- * what a remembered answer is for, so it stays as merged. A merged rhythm
- * with no fresh match is left alone, like the other guards, so nothing is
- * ever "corrected" onto a rhythm it does not belong to.
+ * what a remembered answer is for, so it stays as merged.
+ *
+ * A merged rhythm with no name match is paired by position instead, but
+ * only when the merged and fresh lists are the same length (so the list was
+ * not restructured; the primary is index 0 on both) and only onto a fresh
+ * rhythm no other merged rhythm already matched by name. That covers the
+ * merge renaming the activity ("climbing" drifting to "climb", or an answer
+ * saying "bouldering at 7") while also changing the days, which is exactly
+ * when enforceActivityCarryOver declines to restore the name; without this
+ * the description would lose on every field. A positional pairing also
+ * restores the fresh activity, because the name is something the
+ * description said. When the lengths differ, an unmatched merged rhythm is
+ * left alone, like the other guards, so nothing is ever "corrected" onto a
+ * rhythm it does not belong to.
  *
  * A restored time also clears `timeAmbiguous`: a non-null fresh time is a
  * definite one (normalize nulls ambiguous guesses into candidateTimeLocal),
@@ -88,13 +99,22 @@ export function enforceFreshFieldsWin(
   const out = structuredClone(raw) as Record<string, unknown> & { rhythms: unknown[] }
   if (freshGroupName !== null) out.suggestedGroupName = freshGroupName
 
-  for (const item of out.rhythms) {
-    if (item === null || typeof item !== "object") continue
+  const key = (a: unknown) => (typeof a === "string" ? a.trim().toLowerCase() : "")
+  const freshKeys = fresh.map((r) => key(r.activity))
+  const mergedKeys = out.rhythms.map((item) =>
+    item !== null && typeof item === "object" ? key((item as Record<string, unknown>).activity) : ""
+  )
+  const samePositions = out.rhythms.length === fresh.length
+
+  out.rhythms.forEach((item, i) => {
+    if (item === null || typeof item !== "object") return
     const o = item as Record<string, unknown>
-    const activity = typeof o.activity === "string" ? o.activity.trim().toLowerCase() : ""
-    if (!activity) continue
-    const f = fresh.find((r) => r.activity.trim().toLowerCase() === activity)
-    if (!f) continue
+    let f = mergedKeys[i] ? fresh.find((_, j) => freshKeys[j] === mergedKeys[i]) : undefined
+    if (!f && samePositions && !mergedKeys.includes(freshKeys[i])) {
+      f = fresh[i]
+      o.activity = f.activity
+    }
+    if (!f) return
 
     if (f.daysOfWeek !== null) o.daysOfWeek = [...f.daysOfWeek]
     if (f.timeLocal !== null) {
@@ -103,7 +123,7 @@ export function enforceFreshFieldsWin(
     }
     if (f.venueName) o.venueName = f.venueName
     if (f.cadence !== null) o.cadence = f.cadence
-  }
+  })
   return out
 }
 
@@ -120,8 +140,13 @@ function isGapAskable(m: string): m is GapAskable {
  * extraction is already ready or has nothing schedulable: a complete
  * description needs no help, and an unusable one gives the merge nothing to
  * anchor to. A failed replay is fail-soft (the founder is simply asked, as
- * before this existed); a failed extraction, including ModelUnavailableError,
- * propagates unchanged so the action's existing error states still apply.
+ * before this existed), and "failed" covers more than a thrown merge: a
+ * merged claim that normalizes to nothing schedulable, or to fewer rhythms
+ * than the description alone gave (an empty or unparseable list, a dropped
+ * primary), is discarded for the plain extraction too, so a replay can never
+ * leave the founder worse off than the description would have. A failed
+ * extraction, including ModelUnavailableError, propagates unchanged so the
+ * action's existing error states still apply.
  */
 export async function extractWithPriorAnswers(
   description: string,
@@ -149,7 +174,14 @@ export async function extractWithPriorAnswers(
     })
     raw = enforceActivityCarryOver(raw, fresh.rhythms, answer)
     raw = enforceVenueCarryOver(raw, fresh.rhythms)
-    return enforceFreshFieldsWin(raw, fresh.rhythms, fresh.groupName)
+    raw = enforceFreshFieldsWin(raw, fresh.rhythms, fresh.groupName)
+
+    const merged = normalizeExtraction(raw)
+    const worse =
+      merged.rhythms.length === 0 ||
+      merged.rhythms.length < fresh.rhythms.length ||
+      (merged.status === "incomplete" && merged.missing === "nothing_schedulable")
+    return worse ? extracted : raw
   } catch (err) {
     console.error("[onboarding] prior-answer replay failed:", err)
     return extracted
