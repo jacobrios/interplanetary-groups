@@ -139,16 +139,21 @@ export default function OnboardingWizard({ knownName }: Props) {
     setMergeError(null)
     // The answer shows the moment it is sent, like any chat, and the box
     // empties; a failed merge below rolls both back.
-    setThread((t) => [...t, { from: "founder", text: shown }])
+    // Kept by reference so a failed merge can take back exactly this turn.
+    const turn: GapTurn = { from: "founder", text: shown }
+    setThread((t) => [...t, turn])
     setAnswerDraft("")
     startMerge(async () => {
       const result = await mergeGapAction({ description, answer, round, gap })
       if (result.status === "error" || result.status === "unavailable") {
         // Soft retry: the answer comes off the thread and back into the box
-        // so nothing typed is lost, and the round is not consumed. The
-        // founder turn just sent is always the last item (the composer is
-        // disabled while a merge runs), so dropping the last item is exact.
-        setThread((t) => t.slice(0, -1))
+        // so nothing typed is lost, and the round is not consumed. The turn
+        // is removed by identity, never by position: "the last item" is only
+        // the turn this send added for as long as nothing else has touched
+        // the thread, and that is a promise about the rest of this file, not
+        // something this line can check. If the thread was replaced in the
+        // meantime, the filter finds nothing and removes nothing.
+        setThread((t) => t.filter((x) => x !== turn))
         setAnswerDraft(answer)
         // Generic retry line, or the honest reason (credits or trouble).
         setMergeError(result.status === "error" ? "generic" : result.reason)
@@ -265,20 +270,58 @@ export default function OnboardingWizard({ knownName }: Props) {
   }
 
   if (step === "gap" && gap) {
+    // The gap step is its own full-height screen (gap-ask-thread slice, task
+    // 4): the header fixed at the top, the card and the conversation
+    // scrolling together in the middle, the composer pinned at the bottom,
+    // the way a chat reads. Steps 1 to 3 keep the page's own layout, and
+    // create/page.tsx is deliberately untouched, so this step covers the
+    // page's padding with a fixed layer rather than asking the page to
+    // change shape for one step. Nothing else renders on the page at this
+    // step, so nothing sits hidden underneath it. The column uses 100dvh,
+    // the group home's pattern, so the height tracks the phone's visible
+    // area as its browser bars come and go.
     return (
-      <>
-        <WizardHeader step={2} onBack={() => setStep("describe")} />
-        <StepGapAsk
-          founderName={founderName}
-          gap={gap}
-          thread={thread}
-          answer={answerDraft}
-          onAnswerChange={setAnswerDraft}
-          onSubmit={handleAnswerSubmit}
-          isMerging={isMerging}
-          mergeError={mergeError}
-        />
-      </>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "var(--surface-base)",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            height: "100dvh",
+            width: "100%",
+            maxWidth: "28rem",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* The page's own top and side padding, so the header lands exactly
+              where it sits on every other step. */}
+          <div style={{ padding: "2rem 1.5rem 0", flexShrink: 0 }}>
+            {/* No onBack mid-merge, the same rule as the playback step's
+                mid-create chevron above. With it live, a founder could go
+                back while a merge ran and its stale result still landed: a
+                "ready" moved them off step 1 onto the playback they had just
+                left, and an "incomplete" appended to a conversation that was
+                about to be replaced. */}
+            <WizardHeader step={2} onBack={isMerging ? undefined : () => setStep("describe")} />
+          </div>
+          <StepGapAsk
+            founderName={founderName}
+            gap={gap}
+            thread={thread}
+            answer={answerDraft}
+            onAnswerChange={setAnswerDraft}
+            onSubmit={handleAnswerSubmit}
+            isMerging={isMerging}
+            mergeError={mergeError}
+          />
+        </div>
+      </div>
     )
   }
 

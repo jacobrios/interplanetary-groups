@@ -354,3 +354,68 @@ describe("StepGapAsk, the thread", () => {
     expect(screen.getByText(/around 9am/)).toBeTruthy()
   })
 })
+
+// Task 4 (gap-ask-thread slice): the gap step is its own full-height screen,
+// the card and the thread scrolling together above a pinned composer, and
+// the view following the newest line. jsdom has no layout engine, so these
+// hold to structure (what sits inside the scrolling region and what does
+// not) and to the scroll call itself; how it looks and moves on a phone is
+// the real-phone pass's to judge.
+describe("StepGapAsk, the pinned composer", () => {
+  function scrollRegion(container: HTMLElement): HTMLElement {
+    const region = container.querySelector("[data-gap-scroll]")
+    expect(region).not.toBeNull()
+    return region as HTMLElement
+  }
+
+  it("keeps the card and the thread inside the scrolling region, and the composer outside it", () => {
+    const { container } = renderStepGapAsk({
+      thread: [...thread, { from: "founder", text: "we start at 7" }],
+    })
+    const region = scrollRegion(container)
+    expect(region.contains(screen.getByText("Tennis Club"))).toBe(true)
+    expect(region.contains(screen.getByText(thread[0].text))).toBe(true)
+    expect(region.contains(screen.getByText("we start at 7"))).toBe(true)
+    expect(region.contains(screen.getByLabelText(/message orbit/i))).toBe(false)
+    expect(region.contains(screen.getByRole("button", { name: "Send answer" }))).toBe(false)
+  })
+
+  it("scrolls the newest line into view on arrival, and when the merge pause appears", () => {
+    // jsdom has no scrollIntoView; install a spy for this test and put the
+    // prototype back exactly as it was afterwards.
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown }
+    const had = Object.prototype.hasOwnProperty.call(proto, "scrollIntoView")
+    const original = proto.scrollIntoView
+    const spy = vi.fn()
+    proto.scrollIntoView = spy
+    try {
+      const { rerender, onAnswerChange, onSubmit } = renderStepGapAsk()
+      // First mount lands on the newest line too.
+      expect(spy).toHaveBeenCalled()
+      spy.mockClear()
+
+      const withAnswer: GapTurn[] = [...thread, { from: "founder", text: "we start at 7" }]
+      rerenderWith(rerender, { thread: withAnswer, onAnswerChange, onSubmit })
+      expect(spy).toHaveBeenCalledWith({ block: "end" })
+      spy.mockClear()
+
+      rerenderWith(rerender, { thread: withAnswer, onAnswerChange, onSubmit, isMerging: true })
+      expect(spy).toHaveBeenCalledWith({ block: "end" })
+      spy.mockClear()
+
+      // Re-rendering with nothing new (a keystroke in the box) does not
+      // yank the view.
+      rerenderWith(rerender, {
+        thread: withAnswer,
+        answer: "x",
+        onAnswerChange,
+        onSubmit,
+        isMerging: true,
+      })
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      if (had) proto.scrollIntoView = original
+      else delete proto.scrollIntoView
+    }
+  })
+})

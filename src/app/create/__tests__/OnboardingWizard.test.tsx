@@ -321,4 +321,23 @@ describe("OnboardingWizard, the gap-ask thread", () => {
     expect(screen.queryByText("we start at 7")).toBeNull()
     expect(screen.queryByText(/Thanks\. One more thing/)).toBeNull()
   })
+  // Task 4 carry-in A: while a merge is in flight the header back arrow is
+  // hidden, the same rule the playback step applies during creation. With
+  // it live, a founder could go back mid-merge and the stale result would
+  // still land: a "ready" moved them from step 1 to the playback they had
+  // just left, an "incomplete" appended to a conversation about to reset.
+  it("hides the header back arrow while a merge is in flight, and brings it back after", async () => {
+    await landOnGap()
+    expect(screen.getByRole("button", { name: "Back" })).toBeTruthy()
+    const pending = deferred<unknown>()
+    mergeGapMock.mockImplementationOnce(() => pending.promise)
+    try {
+      send("we start at 7")
+      await vi.waitFor(() => expect(screen.getByText("we start at 7")).toBeTruthy())
+      expect(screen.queryByRole("button", { name: "Back" })).toBeNull()
+    } finally {
+      pending.resolve({ status: "error" })
+    }
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Back" })).toBeTruthy())
+  })
 })
