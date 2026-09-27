@@ -14,8 +14,9 @@
 "use server"
 
 import { mergeGapAnswer } from "@/lib/orbit/merge"
-import { normalizeExtraction } from "@/lib/orbit/normalize"
+import { normalizeExtraction, type MissingField } from "@/lib/orbit/normalize"
 import {
+  GAP_ASKABLE_KINDS,
   MAX_GAP_ROUNDS,
   decideGapOutcome,
   enforceActivityCarryOver,
@@ -32,12 +33,11 @@ import type { GapPayload } from "./extract-group"
 const DESCRIPTION_MAX = 2000
 const ANSWER_MAX = 500
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
-const GAP_KINDS: readonly GapAskable[] = ["time", "day", "both", "cadence", "ambiguous_time"]
 
 export interface MergeGapInput {
   description: string
   answer: string
-  /** Answers given before this one: 0 or 1. */
+  /** Answers given before this one: 0, 1 or 2. */
   round: number
   gap: {
     missing: GapAskable
@@ -59,14 +59,14 @@ export type MergeGapResult =
        * that plainly instead of thanking the founder for nothing. */
       progressed: boolean
     }
-  | { status: "exhausted" }
+  | { status: "exhausted"; missing: MissingField }
 
 export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResult> {
   const description = (input.description ?? "").trim().slice(0, DESCRIPTION_MAX)
   const answer = (input.answer ?? "").trim().slice(0, ANSWER_MAX)
   if (!description || !answer) return { status: "error" }
 
-  if (!GAP_KINDS.includes(input.gap?.missing)) return { status: "error" }
+  if (!GAP_ASKABLE_KINDS.includes(input.gap?.missing)) return { status: "error" }
   const currentState = parseStoredRhythms(input.gap.rhythms)
   if (currentState === null || currentState.length === 0) return { status: "error" }
 
@@ -125,7 +125,15 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
     }
   }
 
-  if (outcome.kind === "escape") return { status: "exhausted" }
+  if (outcome.kind === "escape") {
+    return {
+      status: "exhausted",
+      missing:
+        normalized.status === "incomplete" && normalized.rhythms.length > 0
+          ? normalized.missing
+          : "nothing_schedulable",
+    }
+  }
 
   if (normalized.status !== "incomplete") return { status: "error" } // unreachable; type guard
   return {

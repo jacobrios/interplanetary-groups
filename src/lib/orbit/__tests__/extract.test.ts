@@ -26,3 +26,27 @@ describe("extraction contract — venueName", () => {
     expect(FIELD_RULES).toMatch(/climbing at the gym/i)
   })
 })
+
+describe("extraction contract, the main activity's spot", () => {
+  it("the clarifying question lists a missing place among the primary's gaps", () => {
+    expect(FIELD_RULES).toMatch(/place missing\?/)
+    expect(FIELD_RULES).toMatch(/What time do you meet, and where\?/)
+  })
+  it("never asks about another rhythm's place", () => {
+    expect(FIELD_RULES).toMatch(/never ask about any other rhythm, including where it meets/)
+  })
+  it("a word that only says the place is not settled is not a place", () => {
+    expect(FIELD_RULES).toMatch(/"idk"/)
+  })
+})
+
+describe("extraction contract, the question is written last", () => {
+  it("clarifyingQuestion is the schema's last property, so the model has written every rhythm (venue included) before it decides whether to ask", () => {
+    const keys = Object.keys(EXTRACTION_SCHEMA.properties)
+    expect(keys.at(-1)).toBe("clarifyingQuestion")
+    expect(keys.indexOf("rhythms")).toBeLessThan(keys.indexOf("clarifyingQuestion"))
+  })
+  it("a full schedule with no place still gets a question", () => {
+    expect(FIELD_RULES).toMatch(/A full schedule with no venueName is not done: ask where they meet\./)
+  })
+})

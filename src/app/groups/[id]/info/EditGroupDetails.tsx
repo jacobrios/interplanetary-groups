@@ -16,7 +16,6 @@
 import { useEffect, useRef, useState, useTransition } from "react"
 import { updateGroupDetailsAction } from "@/app/actions/update-group-details"
 import {
-  GROUP_NAME_MAX,
   diffDetails,
   firstRhythmChanged,
   toRhythmEdit,
@@ -24,10 +23,10 @@ import {
 } from "@/lib/groups/details-edit"
 import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
-import RhythmFields from "@/components/RhythmFields"
+import GroupDetailsFields from "@/components/GroupDetailsFields"
 import { ErrorLine } from "@/components/choice"
 import { visuallyHiddenStyle } from "@/components/visually-hidden"
-import { fieldStyle, labelStyle, neverMindButton, saveButton } from "@/components/form-fields"
+import { neverMindButton, saveButton } from "@/components/form-fields"
 import { pairPill, pairRow } from "@/app/events/[id]/pills"
 import { detailsBodyStyle, detailsBandStyle } from "@/app/events/[id]/details-card"
 import { infoCardStyle } from "./info-card"
@@ -186,41 +185,18 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
           Editing group details
         </h2>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label htmlFor="group-details-name" style={labelStyle}>
-            Group name
-          </label>
-          <input
-            id="group-details-name"
-            type="text"
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            maxLength={GROUP_NAME_MAX}
-            disabled={isPending}
-            style={fieldStyle}
-          />
-        </div>
-
-        {rhythmValues.map((r, i) => (
-          <div
-            key={i}
-            style={
-              i > 0
-                ? { borderTop: "1.4px solid var(--hairline)", paddingTop: "10px", marginTop: "10px" }
-                : undefined
-            }
-          >
-            <RhythmFields
-              idPrefix={`rhythm-${i}`}
-              value={r}
-              onChange={(next) =>
-                setRhythmValues((prev) => prev.map((v, idx) => (idx === i ? next : v)))
-              }
-              showPlace
-              disabled={isPending}
-            />
-          </div>
-        ))}
+        <GroupDetailsFields
+          nameInputId="group-details-name"
+          rhythmIdPrefix="rhythm"
+          name={nameValue}
+          onNameChange={setNameValue}
+          rhythms={rhythmValues}
+          cadences={rhythms.map((r) => r.cadence)}
+          onRhythmChange={(index, next) =>
+            setRhythmValues((prev) => prev.map((v, idx) => (idx === index ? next : v)))
+          }
+          disabled={isPending}
+        />
 
         <ErrorLine msg={errorMsg} />
       </div>

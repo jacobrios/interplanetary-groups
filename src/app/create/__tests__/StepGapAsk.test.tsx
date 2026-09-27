@@ -77,7 +77,6 @@ function renderStepGapAsk(overrides: RenderOverrides = {}) {
       answer={overrides.answer ?? ""}
       onAnswerChange={onAnswerChange}
       onSubmit={onSubmit}
-      onEditDescription={() => {}}
       isMerging={overrides.isMerging ?? false}
       mergeError={null}
     />
@@ -98,7 +97,6 @@ function rerenderWith(
       answer={overrides.answer ?? ""}
       onAnswerChange={overrides.onAnswerChange}
       onSubmit={overrides.onSubmit}
-      onEditDescription={() => {}}
       isMerging={overrides.isMerging ?? false}
       mergeError={null}
     />
@@ -198,7 +196,6 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
-        onEditDescription={() => {}}
         isMerging={false}
         mergeError={null}
       />
@@ -217,7 +214,6 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
-        onEditDescription={() => {}}
         isMerging={false}
         mergeError={null}
       />
@@ -250,12 +246,49 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
-        onEditDescription={() => {}}
         isMerging={false}
         mergeError={null}
       />
     )
 
     expect(screen.getByText(/the tap room/i)).toBeTruthy()
+  })
+})
+
+// Task 10 (onboarding-step2-cleanup slice): the header back arrow does what
+// this link used to do, so the link is redundant and gone.
+describe("StepGapAsk — no edit-description link (the header back arrow covers it)", () => {
+  it("has no Edit my description link (decision 6: the header back arrow does the same)", () => {
+    renderStepGapAsk()
+    expect(screen.queryByRole("button", { name: "Edit my description" })).toBeNull()
+  })
+
+  it("renders a spot gap: the whole schedule, the lime where? marker, and the spot hint", () => {
+    const spotGap: GapPayload = {
+      ...gap,
+      missing: "spot",
+      question: "Where do you usually meet for tennis?",
+      rhythms: [{ ...rhythm, timeLocal: "09:00" }],
+    }
+    render(
+      <StepGapAsk
+        founderName="Riley"
+        gap={spotGap}
+        round={0}
+        stalled={false}
+        answer=""
+        onAnswerChange={() => {}}
+        onSubmit={() => {}}
+        isMerging={false}
+        mergeError={null}
+      />
+    )
+
+    expect(screen.getByText("where?")).toBeTruthy()
+    expect(screen.getByText(/Sat at 9am/)).toBeTruthy()
+    expect(
+      screen.getByText("Here's what I got, but where do you usually meet for tennis?")
+    ).toBeTruthy()
+    expect(screen.getByText("e.g. “Movement Gowanus” · “Sam’s place”")).toBeTruthy()
   })
 })

@@ -1,51 +1,45 @@
 // src/app/create/Step2Playback.tsx
 //
-// Onboarding Step 2: Orbit plays back what it understood as rows inside its
-// bubble. The bubble now shares Step 1's tailed treatment (extracted as
-// TailedOrbitBubble): no avatar, tail pointing up at the header's own
-// Orbit mark, so a step sitting directly under the header never shows two
-// Orbit faces stacked on top of each other (polish slice two phone QA).
-// The group-name row is inline-editable (recorded deviation from the
-// read-only mockup: rename exists nowhere else in the product yet). Every
-// string here is composed deterministically from normalized fields.
+// Onboarding Step 2: Orbit plays back what it understood, read-only
+// (decision 5, onboarding-step2-cleanup slice, 26 Sept 2026). The bubble
+// shares Step 1's tailed treatment (TailedOrbitBubble): no avatar, tail
+// pointing up at the header's own Orbit mark, so a step sitting directly
+// under the header never shows two Orbit faces stacked (polish slice two
+// phone QA). Everything Orbit understood (the group name, each activity's
+// name, days, time and spot) is changed only through the quiet "Edit
+// details" link, which opens group info's own editor in place
+// (EditDetailsCard). Every string on the read-only card is composed
+// deterministically from normalized fields.
 
 "use client"
 
-import { useState } from "react"
-import { VENUE_NAME_MAX, type StoredRhythm } from "@/lib/orbit/rhythm"
+import { useEffect, useRef, useState } from "react"
+import type { StoredRhythm } from "@/lib/orbit/rhythm"
 import { formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import { PlaybackCard, PlaybackNameRow, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
-import RhythmFields from "@/components/RhythmFields"
+import EditDetailsCard from "./EditDetailsCard"
 import { toRhythmEdit, validateDetailsEdit } from "@/lib/groups/details-edit"
-import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
 
 const INTRO_COPY = "Here's what I understood."
 
 interface Props {
   founderName: string
   groupName: string
-  onGroupNameChange: (v: string) => void
   rhythms: StoredRhythm[]
-  /** Per-rhythm standing-place edit; index matches the rhythms array. */
-  onVenueNameChange: (index: number, value: string) => void
-  /** Per-rhythm day/time edit, from the "Change day or time" block; index
-   * matches the rhythms array. Cadence is never touched here (task 9,
-   * group-details-editing slice): the founder can fix a day or time Orbit
-   * misread, but adding or changing how often something recurs stays out
-   * of this control. */
-  onRhythmChange: (index: number, next: RhythmEdit) => void
+  /** Called with validateDetailsEdit's ok output when the founder taps Done
+   * in the editor; the wizard stores both, nothing is saved until confirm. */
+  onDetailsChange: (name: string, rhythms: StoredRhythm[]) => void
   /**
    * The founder's browser-inferred IANA zone (or null before detection / when
    * it produced nothing). This is the only place a wrong inference becomes
-   * visible before confirm, so the reference line renders on every path — the
+   * visible before confirm, so the reference line renders on every path: the
    * null/UTC case reads "Times in UTC", which is itself the signal to a founder
    * in another zone that something is off.
    */
   timeZone: string | null
   onConfirm: () => void
-  onBack: () => void
   isCreating: boolean
   error: string | null
 }
@@ -53,13 +47,10 @@ interface Props {
 export default function Step2Playback({
   founderName,
   groupName,
-  onGroupNameChange,
   rhythms,
-  onVenueNameChange,
-  onRhythmChange,
+  onDetailsChange,
   timeZone,
   onConfirm,
-  onBack,
   isCreating,
   error,
 }: Props) {
@@ -67,102 +58,69 @@ export default function Step2Playback({
   // (never teal, never lime). Falls back to "UTC" before detection resolves.
   const zoneLabel = formatTimeZoneLabel(timeZone ?? "UTC")
 
-  // Editing vs collecting (product decision, 22 July 2026, revised after the
-  // always-on treatment was tried and seen): a captured venue gets the inline
-  // input because that is editing something Orbit understood, matching the
-  // group-name row precedent. An empty venue is not something Orbit
-  // understood, so it renders as a `<button>` rather than a persistent
-  // `<input>` on a card whose thesis is "setup is a conversation, not a
-  // form." That distinction still holds and is why this stays a button.
-  //
-  // What changed 4 Sept 2026 (venue-on-playback slice): the button used to
-  // be a small underlined text link, easy to miss, and there is nowhere
-  // after group creation to add a venue if a founder misses it — so the
-  // button now fills the group-name row's own visual language (full width,
-  // bordered box) instead of reading as an afterthought. It is still a
-  // button, not an input: tapping it focuses nothing, which is also what
-  // keeps iOS from force-zooming a control that was never a text field.
-  //
-  // Seeded indexes are computed once at mount so clearing a captured venue
-  // mid-edit never collapses the input under the founder's cursor; tapped
-  // indexes are one-way for the same reason.
-  const [seededVenueIdx] = useState<ReadonlySet<number>>(
-    () => new Set(rhythms.flatMap((r, i) => (r.venueName ? [i] : [])))
-  )
-  const [tappedVenueIdx, setTappedVenueIdx] = useState<ReadonlySet<number>>(new Set())
+  const [editing, setEditing] = useState(false)
 
-  // Which rhythms' "Change day or time" block is open (task 9,
-  // group-details-editing slice). One-way like the venue reveal above:
-  // once opened, a block stays open for the rest of this step, with no
-  // close control (the approved picture has none).
-  const [openDayTimeIdx, setOpenDayTimeIdx] = useState<ReadonlySet<number>>(new Set())
+  // Focus returns to "Edit details" after Done or Never mind (the
+  // EditGroupDetails convention). The editor focuses its own hidden heading
+  // when it opens, so only the close direction is handled here.
+  const editLinkRef = useRef<HTMLButtonElement>(null)
+  const focusLinkAfterClose = useRef(false)
+  useEffect(() => {
+    if (!editing && focusLinkAfterClose.current) {
+      editLinkRef.current?.focus()
+      focusLinkAfterClose.current = false
+    }
+  }, [editing])
 
-  // The primary rhythm's venue is required as of 4 Sept 2026
-  // (venue-on-playback slice, task 8): there is nowhere after group
-  // creation to add a venue, so a founder who skips it here can never fix
-  // it. This amends the standing "venue never gates anything" rule
-  // narrowly — the model's own guess still never blocks anyone, only the
-  // founder's own empty box does — and it reverts the day the editable
-  // event card ships, the owner's named trigger. Secondary rhythms stay
-  // optional: gating them would trade a blank (honest) for a founder typing
-  // "idk" to get past, and that string would ride venue inheritance onto a
-  // real event later.
-  //
-  // Amended 23 Sept 2026 (editable-event-card slice): the revert trigger
-  // moved to the group-details slice. The editable event card fixes one
-  // occurrence's place, never the rhythm's, so a group created without a
-  // venue would have it missing again on every weekly plan the hourly job
-  // creates. Whether the requirement stays permanently is settled in that
-  // slice (owner leaning yes).
-  const primaryVenueFilled = (rhythms[0]?.venueName ?? "").trim().length > 0
-
-  // Re-validated on every render against the rhythms currently on screen
-  // (task 9): a founder can now edit a rhythm's day or time in place, and
-  // that edit must not be confirmable into an unschedulable group. `stored`
-  // and the edit are the same array here (there is no separate "before"
-  // state on this step the way the group-info editor has one), so this
-  // reads as "is what's on screen right now valid," which subsumes the
-  // primaryVenueFilled check above for the schedule half.
-  const detailsValidation = validateDetailsEdit(rhythms, {
-    name: groupName,
-    rhythms: rhythms.map(toRhythmEdit),
-  })
+  function close() {
+    focusLinkAfterClose.current = true
+    setEditing(false)
+  }
 
   // One source for "can this be pressed", so the disabled attribute and the
-  // dimmed appearance can never disagree (they did: the opacity keyed off
-  // isCreating alone, so a confirm blocked by an empty group name still
-  // rendered as a live teal band).
+  // dimmed appearance can never disagree. Validating what is on screen with
+  // the editor's own rules covers the group name, the primary activity being
+  // schedulable, and its required spot in one check; with the card read-only
+  // it can only fail on a forged path, never on a founder's typing.
   const canConfirm =
-    !isCreating && groupName.trim().length > 0 && primaryVenueFilled && detailsValidation.ok
+    !isCreating &&
+    validateDetailsEdit(rhythms, { name: groupName, rhythms: rhythms.map(toRhythmEdit) }).ok
 
-  // detailsValidation.error only earns a place in the card's error slot
-  // while a day/time editor is open (task 9 brief): closed, the step reads
-  // exactly as it did before this slice, and the pre-existing required-spot
-  // messaging (the venue button's own "(required)" copy) stays the only
-  // signal for that case. This is not only the unschedulable message: any
-  // validateDetailsEdit refusal can land here while an editor is open,
-  // including detailsNoSpot's "Add where you meet for X." if the founder
-  // clears a spot from the same card while a day/time block is open.
-  const dayTimeErrorMsg =
-    openDayTimeIdx.size > 0 && !detailsValidation.ok ? detailsValidation.error : null
+  const bubble = (
+    <div style={{ width: "100%", marginBottom: "1rem" }}>
+      <TailedOrbitBubble>
+        <p style={{ margin: 0 }}>{INTRO_COPY}</p>
+      </TailedOrbitBubble>
+    </div>
+  )
+
+  if (editing) {
+    return (
+      <div style={{ width: "100%", maxWidth: "28rem" }}>
+        {bubble}
+        <EditDetailsCard
+          groupName={groupName}
+          rhythms={rhythms}
+          onDone={(n, r) => {
+            onDetailsChange(n, r)
+            close()
+          }}
+          onCancel={close}
+        />
+      </div>
+    )
+  }
 
   return (
     <div style={{ width: "100%", maxWidth: "28rem" }}>
       {/* Tailed Orbit bubble, shared with Step 1 (TailedOrbitBubble): the
           header's own Orbit mark sits directly above this step, so the
           bubble drops its avatar and points a tail up at the header
-          instead, same as Step 1. The width:100% wrapper is the same
-          pattern MessageFeed uses so the bubble's content area fills the
-          available width rather than shrinking to its content's intrinsic
-          size. Task 4 moves the schedule rows onto their own card below;
-          the bubble now carries only Orbit's spoken line. */}
-      <div style={{ width: "100%", marginBottom: "1rem" }}>
-        <TailedOrbitBubble>
-          <p style={{ margin: 0 }}>{INTRO_COPY}</p>
-        </TailedOrbitBubble>
-      </div>
+          instead. The width:100% wrapper is the same pattern MessageFeed
+          uses so the bubble's content area fills the available width. */}
+      {bubble}
 
-      {/* The playback card (walkthrough.css .cardX / .s2-srow, task 4). The
+      {/* The playback card (walkthrough.css .cardX / .s2-srow). The
           confirm button renders as the card's own footer band (.cfA), so it
           is passed as `footer` rather than nested in the row list below. */}
       <PlaybackCard
@@ -186,7 +144,7 @@ export default function Step2Playback({
               // while pending; the new palette has no second teal, so this
               // dims instead, matching MessageFeed's optimistic-message idiom
               // (0.65, greyscale-safe, no new token).
-              // Not yet submittable (the group name is empty): 0.5, the same
+              // Not yet submittable (what is on screen would not validate): 0.5, the same
               // dim step 1's Continue button already uses for exactly this,
               // so a button that cannot be pressed never renders as a live
               // teal band. No transition: this slice is no-animation, so the
@@ -235,32 +193,19 @@ export default function Step2Playback({
           </button>
         }
       >
-        {/* Group name row, full width, label stacked above the input
-            (PlaybackNameRow), inline editable. The input keeps its own box
-            so the row still reads as tappable rather than a static
-            headline. */}
-        <PlaybackNameRow htmlForLabel="groupName">
-          <input
-            id="groupName"
-            type="text"
-            value={groupName}
-            onChange={(e) => onGroupNameChange(e.target.value)}
-            disabled={isCreating}
-            aria-label="Group name"
+        {/* Group name row, read-only text: the gap-ask's own treatment
+            (StepGapAsk.tsx), heading size and weight. */}
+        <PlaybackNameRow>
+          <p
             style={{
-              width: "100%",
-              padding: "0.375rem 0.5rem",
-              backgroundColor: "var(--surface-base)",
-              border: "1px solid var(--hairline)",
-              borderRadius: "0.375rem",
-              color: "var(--text-primary)",
+              ...rowValueTextStyle,
               fontSize: "var(--type-heading)",
               lineHeight: "var(--leading-tight)",
               fontWeight: 600,
-              outline: "none",
-              boxSizing: "border-box",
             }}
-          />
+          >
+            {groupName}
+          </p>
         </PlaybackNameRow>
 
         {/* WHO row. */}
@@ -268,164 +213,17 @@ export default function Step2Playback({
           <p style={rowValueTextStyle}>{founderName}</p>
         </PlaybackRow>
 
-        {/* One row per rhythm, primary first; loose rhythms read as
-            understood-but-not-scheduled. Below each label/value line: a
-            captured venue renders the inline standing-place input (editing,
-            the group-name precedent, but quieter: label scale, subtle
-            border); an empty venue renders a full-width button styled like
-            an empty field (collecting; see the editing-vs-collecting note
-            above), which expands into the same input on tap. Passed as
-            PlaybackRow's `venue` slot rather than nested inside this row's
-            own value column, so it spans the same width as the group-name
-            input above rather than being offset by the label column
-            (venue-on-playback slice, task 7 — the prior shape did not line
-            up with the group-name field, which the owner caught rendered).
-            Neutral colors on purpose, never lime. As of 4 Sept 2026 the
-            PRIMARY rhythm's venue (index 0) is required — canConfirm above
-            gates on it — because there is nowhere to add one after creation;
-            secondary rhythms stay optional (see primaryVenueFilled's own
-            comment for why gating them would be worse than leaving them
-            blank). Venue is never called "optional" in the empty-state copy
-            either way: for the primary that would now be false, and for a
-            secondary the word was already dropped and just isn't needed to
-            keep the copy honest. */}
+        {/* One row per activity, primary first; loose and monthly ones read
+            as understood-but-not-scheduled. A spot, when there is one, is
+            appended as " · spot", the suffix the gap-ask, the join screen
+            and group info already use. */}
         {rhythms.map((r, i) => {
           const row = formatRhythmRow(r)
-          const venueRevealed = seededVenueIdx.has(i) || tappedVenueIdx.has(i)
-          const isPrimary = i === 0
-          const venueControl = venueRevealed ? (
-            <input
-              id={`venueName-${i}`}
-              type="text"
-              value={r.venueName ?? ""}
-              onChange={(e) => onVenueNameChange(i, e.target.value)}
-              disabled={isCreating}
-              maxLength={VENUE_NAME_MAX}
-              placeholder="Where do you meet?"
-              aria-label={`Where you usually meet for ${r.activity}`}
-              // Focus only the tap-revealed input; seeded inputs must
-              // not steal focus from the card on mount.
-              autoFocus={tappedVenueIdx.has(i)}
-              style={{
-                width: "100%",
-                marginTop: "0.25rem",
-                padding: "0.25rem 0.5rem",
-                backgroundColor: "var(--surface-base)",
-                border: "1px solid var(--hairline)",
-                borderRadius: "0.375rem",
-                color: "var(--text-primary)",
-                // 16px, not --type-label (14px): iOS Safari force-zooms
-                // the whole page on focusing any input under 16px and
-                // never zooms back out, which is the bug this slice
-                // exists to close. Raised here (not just kept off the
-                // button below) so the trap cannot return by tapping
-                // into the revealed input either.
-                fontSize: "16px",
-                lineHeight: "var(--leading-normal)",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          ) : (
-            // Full-width button styled in the group-name input's own
-            // visual language (padding, border, radius, background,
-            // box-sizing lifted from that input above), so a missable
-            // venue prompt becomes a box impossible to miss. Reusing
-            // rather than inventing per the owner's standing note that a
-            // prior slice designed new elements where existing ones
-            // already served. Text-only, not left/right layout, because
-            // this reads as an empty field rather than a call to action:
-            // the label sits in --placeholder color at the input's own
-            // size, the way empty-field text reads everywhere else in
-            // the product (the ::placeholder rule in globals.css), even
-            // though a <button> has no real placeholder pseudo-element
-            // to hook. The primary's copy names "(required)" — safe now
-            // that the box is full card width rather than the old
-            // indented value column, where the same word was the thing
-            // that truncated ("(op").
-            <button
-              type="button"
-              onClick={() => setTappedVenueIdx(new Set([...tappedVenueIdx, i]))}
-              disabled={isCreating}
-              aria-label={`Add where you meet for ${r.activity}`}
-              style={{
-                width: "100%",
-                marginTop: "0.25rem",
-                padding: "0.375rem 0.5rem",
-                backgroundColor: "var(--surface-base)",
-                border: "1px solid var(--hairline)",
-                borderRadius: "0.375rem",
-                boxSizing: "border-box",
-                display: "block",
-                textAlign: "left",
-                color: "var(--placeholder)",
-                fontSize: "16px",
-                lineHeight: "var(--leading-normal)",
-                cursor: isCreating ? "not-allowed" : "pointer",
-              }}
-            >
-              {isPrimary ? "Where do you meet? (required)" : "Where do you meet?"}
-            </button>
-          )
-
-          // Task 9 (group-details-editing slice): a quiet "Change day or
-          // time" link under the spot control, opening in place into
-          // RhythmFields (no Place field, the spot box above is it
-          // already). One-way like the venue reveal above: once opened for
-          // a rhythm, the block stays open (the approved picture has no
-          // close control), and the link is simply gone for that rhythm.
-          const dayTimeOpen = openDayTimeIdx.has(i)
-          const dayTimeControl = dayTimeOpen ? (
-            <div
-              style={{
-                marginTop: "10px",
-                paddingTop: "10px",
-                borderTop: "1.4px solid var(--hairline)",
-              }}
-            >
-              <RhythmFields
-                idPrefix={`daytime-${i}`}
-                value={toRhythmEdit(r)}
-                onChange={(next) => onRhythmChange(i, next)}
-                showPlace={false}
-                disabled={isCreating}
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOpenDayTimeIdx(new Set([...openDayTimeIdx, i]))}
-              disabled={isCreating}
-              style={{
-                display: "block",
-                marginTop: "8px",
-                background: "none",
-                border: "none",
-                padding: "0.25rem 0.5rem",
-                color: "var(--text-secondary)",
-                fontSize: "var(--type-meta)",
-                lineHeight: "var(--leading-normal)",
-                textDecoration: "underline",
-                cursor: isCreating ? "not-allowed" : "pointer",
-              }}
-            >
-              Change day or time
-            </button>
-          )
-
           return (
-            <PlaybackRow
-              key={i}
-              label={row.label}
-              isLast={i === rhythms.length - 1}
-              venue={
-                <>
-                  {venueControl}
-                  {dayTimeControl}
-                </>
-              }
-            >
-              <p style={rowValueTextStyle}>{row.value}</p>
+            <PlaybackRow key={i} label={row.label} isLast={i === rhythms.length - 1}>
+              <p style={rowValueTextStyle}>
+                {r.venueName ? `${row.value} · ${r.venueName}` : row.value}
+              </p>
             </PlaybackRow>
           )
         })}
@@ -446,7 +244,7 @@ export default function Step2Playback({
           Times in {zoneLabel}
         </p>
 
-        {(error ?? dayTimeErrorMsg) && (
+        {error && (
           <p
             style={{
               fontSize: "var(--type-meta)",
@@ -455,14 +253,15 @@ export default function Step2Playback({
               margin: "0.75rem 0 0",
             }}
           >
-            {error ?? dayTimeErrorMsg}
+            {error}
           </p>
         )}
       </PlaybackCard>
 
       <button
+        ref={editLinkRef}
         type="button"
-        onClick={onBack}
+        onClick={() => setEditing(true)}
         disabled={isCreating}
         style={{
           display: "block",
@@ -477,7 +276,7 @@ export default function Step2Playback({
           cursor: isCreating ? "not-allowed" : "pointer",
         }}
       >
-        Edit my description
+        Edit details
       </button>
     </div>
   )

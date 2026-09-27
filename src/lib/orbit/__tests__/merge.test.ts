@@ -57,3 +57,14 @@ describe("mergeGapAnswer re-encode", () => {
     expect(sentUnderstanding().rhythms[0].venueName).toBeNull()
   })
 })
+
+describe("mergeGapAnswer prompt, the main activity's spot", () => {
+  it("the merge prompt tells the model an answer can carry the place", async () => {
+    await mergeGapAnswer({ description: "we climb tuesdays at 7pm", groupName: null,
+      currentState: [{ activity: "climbing", title: "Climbing", cadence: "weekly", daysOfWeek: [2], timeLocal: "19:00", venueName: null }],
+      candidateTimeLocal: null, askedAbout: "spot", answer: "Movement Gowanus" })
+    const [system, user] = vi.mocked(callExtractionModel).mock.calls.at(-1)!
+    expect(system).toMatch(/put it in the primary rhythm's venueName/)
+    expect(user).toMatch(/WE ASKED: about where they usually meet/)
+  })
+})

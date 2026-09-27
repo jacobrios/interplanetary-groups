@@ -4,18 +4,36 @@
 // (a fact) — CLAUDE.md guardrail: nothing branches on model output until it
 // has been validated and normalized here. Structured outputs enforces the wire
 // shape; this layer owns semantics: range checks, cadence whitelist, primary
-// promotion, the position-zero guarantee, and the completeness gate.
+// promotion, the position-zero guarantee, and the completeness gate (which
+// now includes the main activity's spot, checked after primary selection).
 // Pure and synchronous by design so every rule is unit-testable.
 
 import { cleanVenueName, titleCaseActivity, type StoredRhythm } from "./rhythm"
 
-export type MissingField =
-  | "time"
-  | "day"
-  | "both"
-  | "cadence"
-  | "ambiguous_time"
-  | "nothing_schedulable"
+/** The schedule-only gap kinds: everything classifyGap can return. */
+export type ScheduleGap = "time" | "day" | "both" | "cadence" | "ambiguous_time"
+
+/** A schedule gap kind, or the main activity's spot alone. */
+export type SpotGap = "spot" | `${ScheduleGap}_spot`
+
+export type MissingField = ScheduleGap | SpotGap | "nothing_schedulable"
+
+/** True for every kind that still needs the main activity's spot. */
+export function needsSpot(m: MissingField): boolean {
+  return m === "spot" || m.endsWith("_spot")
+}
+
+/** "time" -> "time_spot". */
+export function withSpot(g: ScheduleGap): `${ScheduleGap}_spot` {
+  return `${g}_spot`
+}
+
+/** The schedule half of a kind: "time_spot" -> "time", "spot" and
+ * "nothing_schedulable" -> null (neither has a schedule half). */
+export function scheduleGapOf(m: MissingField): ScheduleGap | null {
+  if (m === "spot" || m === "nothing_schedulable") return null
+  return m.endsWith("_spot") ? (m.slice(0, -"_spot".length) as ScheduleGap) : (m as ScheduleGap)
+}
 
 export type NormalizedOnboarding =
   | { status: "ready"; groupName: string; rhythms: StoredRhythm[] }
@@ -40,6 +58,53 @@ export type NormalizedOnboarding =
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const NAME_MAX = 50
+
+/**
+ * Phrases that mean "I haven't decided" rather than naming an actual place.
+ * Exact membership only, checked after normalizing punctuation and case away
+ * (so "Not sure yet." and "not sure" match the same entry), which is why
+ * "Somewhere Coffee" and "Anywhere Fitness" are untouched: they are not
+ * exact matches even though they contain a listed word.
+ */
+const NON_ANSWER_VENUES = new Set([
+  "idk",
+  "i dont know",
+  "dont know",
+  "dunno",
+  "not sure",
+  "no idea",
+  "tbd",
+  "tba",
+  "to be decided",
+  "undecided",
+  "somewhere",
+  "anywhere",
+  "wherever",
+  "varies",
+  "it varies",
+  "well figure it out",
+  "we will figure it out",
+  "figure it out",
+])
+
+/**
+ * True when a venue string is a non-answer ("idk", "not sure yet") rather
+ * than an actual place. Lower-cases, folds curly and straight apostrophes
+ * away, turns every other non-letter into a space, collapses whitespace,
+ * and strips one trailing "yet" or "later" before checking exact membership
+ * in NON_ANSWER_VENUES, so "we'll figure it out later" and "We’ll figure it
+ * out" both normalize to the same entry.
+ */
+export function isNonAnswerVenue(v: string): boolean {
+  const folded = v
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+  const trimmed = folded.replace(/ (yet|later)$/, "")
+  return NON_ANSWER_VENUES.has(trimmed)
+}
 
 interface Candidate {
   activity: string
@@ -93,6 +158,11 @@ function sanitize(raw: unknown): { rhythms: Candidate[]; suggestedName: string |
     // or a flag with no parsed time, degrades to false (just a missing time).
     const timeAmbiguous = o.timeAmbiguous === true && timeLocal !== null
 
+    // The venue is carried data, sanitized like everything else
+    // (trim/cap/empty→null), and a non-answer ("idk", "not sure") is not a
+    // venue: it degrades to null the same as an empty string, so it can
+    // never satisfy the main activity's spot requirement below.
+    const venue = cleanVenueName(o.venueName)
     rhythms.push({
       activity,
       cadence,
@@ -100,9 +170,7 @@ function sanitize(raw: unknown): { rhythms: Candidate[]; suggestedName: string |
       timeLocal,
       timeAmbiguous,
       isPrimary: o.isPrimary === true,
-      // Venue never participates in the completeness gate below; it is
-      // carried data, sanitized like everything else (trim/cap/empty→null).
-      venueName: cleanVenueName(o.venueName),
+      venueName: venue !== null && isNonAnswerVenue(venue) ? null : venue,
     })
   }
   return { rhythms, suggestedName }
@@ -218,7 +286,7 @@ function rejectWeekdayNameOnMultiDay(
  * guessing (guessing wrong would silently create weekly events for a
  * monthly group).
  */
-function classifyGap(primary: Candidate): MissingField {
+function classifyGap(primary: Candidate): ScheduleGap | "nothing_schedulable" {
   const timeStated = primary.timeLocal !== null
   const timeKnown = timeStated && !primary.timeAmbiguous
   if (primary.cadence === null && primary.daysOfWeek !== null && timeKnown) {
@@ -286,13 +354,29 @@ export function normalizeExtraction(raw: unknown): NormalizedOnboarding {
   const ordered = [primary, ...rhythms.filter((_, i) => i !== primaryIdx)]
   const stored = ordered.map(toStored)
 
+  // The main activity's spot (onboarding step 2 cleanup, 26 Sept 2026): a
+  // separate requirement on position 0 only, checked AFTER primary
+  // selection so it can never change which rhythm is the main one, and kept
+  // out of isSchedulable, which parseRhythm and reconcile rely on meaning
+  // "the schedule is complete" and nothing more.
+  const spotMissing = primary.venueName === null
   if (!isSchedulable(primary)) {
+    const schedule = classifyGap(primary)
     return {
       status: "incomplete",
-      missing: classifyGap(primary),
+      missing: schedule === "nothing_schedulable" || !spotMissing ? schedule : withSpot(schedule),
       rhythms: stored,
       groupName: rejectWeekdayNameOnMultiDay(cleanSuggestedName(suggestedName), primary.daysOfWeek),
       candidateTimeLocal: primary.timeAmbiguous ? primary.timeLocal : null,
+    }
+  }
+  if (spotMissing) {
+    return {
+      status: "incomplete",
+      missing: "spot",
+      rhythms: stored,
+      groupName: rejectWeekdayNameOnMultiDay(cleanSuggestedName(suggestedName), primary.daysOfWeek),
+      candidateTimeLocal: null,
     }
   }
 

@@ -40,3 +40,31 @@ describe("extractGroupAction failure states", () => {
     expect(result).toEqual({ status: "error" })
   })
 })
+
+describe("extractGroupAction, the spot gap", () => {
+  it("a full schedule with no spot asks for the spot, naming the activity when the model asked nothing", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce({
+      suggestedGroupName: "Climbing Crew",
+      clarifyingQuestion: null,
+      rhythms: [
+        {
+          activity: "climbing",
+          cadence: "weekly",
+          daysOfWeek: [2, 4],
+          timeLocal: "19:00",
+          timeAmbiguous: false,
+          isPrimary: true,
+          venueName: null,
+        },
+      ],
+    })
+    const result = await extractGroupAction(
+      { status: "idle" },
+      form("we climb tuesdays and thursdays at 7pm")
+    )
+    expect(result).toMatchObject({
+      status: "incomplete",
+      gap: { missing: "spot", question: "Where do you usually meet for climbing?" },
+    })
+  })
+})

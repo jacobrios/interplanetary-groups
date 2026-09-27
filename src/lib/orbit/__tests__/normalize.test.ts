@@ -5,7 +5,7 @@
 // No database, no async, no API.
 
 import { describe, it, expect } from "vitest"
-import { normalizeExtraction } from "../normalize"
+import { normalizeExtraction, isNonAnswerVenue } from "../normalize"
 import { VENUE_NAME_MAX } from "../rhythm"
 
 const CLIMB = {
@@ -14,6 +14,7 @@ const CLIMB = {
   daysOfWeek: [0],
   timeLocal: "08:00",
   isPrimary: true,
+  venueName: "Summit Gym",
 }
 
 const BEERS = {
@@ -460,7 +461,8 @@ describe("normalizeExtraction — venueName", () => {
   it("absent, null, wrong-type, and empty venueName all become null", () => {
     for (const venueName of [undefined, null, 42, ""]) {
       const r = normalizeExtraction(raw([{ ...CLIMB, venueName }]))
-      if (r.status !== "ready") throw new Error("expected ready")
+      if (r.status !== "incomplete") throw new Error("expected incomplete")
+      expect(r.missing).toBe("spot")
       expect(r.rhythms[0].venueName).toBeNull()
     }
   })
@@ -487,31 +489,109 @@ describe("normalizeExtraction — venueName", () => {
   })
 })
 
-// Regression pins, not TDD tests: these pass on first run by design, because
-// isSchedulable and classifyGap do not read venueName and this slice forbids
-// touching them. They exist so any future change that lets venue participate
-// in the completeness gate fails loudly. Nothing environmental (timezone,
-// locale, clock) affects them.
-describe("normalizeExtraction — venue never gates (regression pins)", () => {
-  it("a full schedule with no venue is still ready", () => {
-    expect(normalizeExtraction(raw([{ ...CLIMB, venueName: null }])).status).toBe("ready")
+// The main activity's spot is required (onboarding step 2 cleanup, 26 Sept
+// 2026, owner's decision). These replace the "venue never gates" pins that
+// guarded the opposite rule; the promotion pin below is new and is what
+// keeps the spot from quietly changing WHICH rhythm is the main one.
+describe("normalizeExtraction, the main activity's spot", () => {
+  it("a full schedule with no spot asks for the spot", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, venueName: null }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "spot", candidateTimeLocal: null })
   })
 
-  it("venueName does not change gap classification", () => {
-    const gapCases: Array<[Record<string, unknown>, string]> = [
-      [{ ...CLIMB, timeLocal: null, venueName: "Summit Gym" }, "time"],
-      [{ ...CLIMB, daysOfWeek: null, venueName: "Summit Gym" }, "day"],
-      [{ ...CLIMB, daysOfWeek: null, timeLocal: null, venueName: "Summit Gym" }, "both"],
-      [{ ...CLIMB, cadence: null, venueName: "Summit Gym" }, "cadence"],
-      [
-        { ...CLIMB, timeLocal: "07:00", timeAmbiguous: true, venueName: "Summit Gym" },
-        "ambiguous_time",
-      ],
+  it("a full schedule with a spot is ready", () => {
+    expect(normalizeExtraction(raw([CLIMB])).status).toBe("ready")
+  })
+
+  it("a schedule gap with no spot becomes the combined kind", () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ ...CLIMB, timeLocal: null, venueName: null }, "time_spot"],
+      [{ ...CLIMB, daysOfWeek: null, venueName: null }, "day_spot"],
+      [{ ...CLIMB, daysOfWeek: null, timeLocal: null, venueName: null }, "both_spot"],
+      [{ ...CLIMB, cadence: null, venueName: null }, "cadence_spot"],
+      [{ ...CLIMB, timeLocal: "07:00", timeAmbiguous: true, venueName: null }, "ambiguous_time_spot"],
     ]
-    for (const [rhythm, expected] of gapCases) {
+    for (const [rhythm, expected] of cases) {
       const r = normalizeExtraction(raw([rhythm]))
       if (r.status !== "incomplete") throw new Error(`expected incomplete for ${expected}`)
       expect(r.missing).toBe(expected)
     }
+  })
+
+  it("a schedule gap WITH a spot stays the plain kind", () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [{ ...CLIMB, timeLocal: null }, "time"],
+      [{ ...CLIMB, daysOfWeek: null }, "day"],
+      [{ ...CLIMB, daysOfWeek: null, timeLocal: null }, "both"],
+      [{ ...CLIMB, cadence: null }, "cadence"],
+      [{ ...CLIMB, timeLocal: "07:00", timeAmbiguous: true }, "ambiguous_time"],
+    ]
+    for (const [rhythm, expected] of cases) {
+      const r = normalizeExtraction(raw([rhythm]))
+      if (r.status !== "incomplete") throw new Error(`expected incomplete for ${expected}`)
+      expect(r.missing).toBe(expected)
+    }
+  })
+
+  it("the ambiguous guess still travels in candidateTimeLocal on the combined kind", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, timeLocal: "07:00", timeAmbiguous: true, venueName: null }]))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.candidateTimeLocal).toBe("07:00")
+  })
+
+  it("never asks about a secondary activity's spot", () => {
+    expect(normalizeExtraction(raw([CLIMB, { ...BEERS, venueName: null }])).status).toBe("ready")
+  })
+
+  it("the spot does not change which rhythm is promoted", () => {
+    // A monthly rhythm WITH a spot, and a schedulable rhythm WITHOUT one:
+    // the schedulable one is still the main activity, and it is the one asked about.
+    const r = normalizeExtraction(
+      raw([{ ...BEERS, isPrimary: true, venueName: "Lucky Lab" }, { ...CLIMB, isPrimary: false, venueName: null }])
+    )
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.missing).toBe("spot")
+    expect(r.rhythms[0].activity).toBe("climbing")
+    expect(r.rhythms[1].venueName).toBe("Lucky Lab")
+  })
+
+  it("a designated primary that is schedulable but spotless is not demoted for a spotted secondary", () => {
+    const TENNIS = { ...CLIMB, activity: "tennis", isPrimary: false, venueName: "Court 3" }
+    const r = normalizeExtraction(raw([{ ...CLIMB, venueName: null }, TENNIS]))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.rhythms[0].activity).toBe("climbing")
+  })
+
+  it("nothing schedulable stays nothing schedulable, spot or no spot", () => {
+    const r = normalizeExtraction(raw([{ ...BEERS, venueName: null }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "nothing_schedulable" })
+  })
+
+  it("a spot-only gap keeps the cleaned name suggestion, guarded like every incomplete path", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, venueName: null }], "Climbing Crew"))
+    if (r.status !== "incomplete") throw new Error("expected incomplete")
+    expect(r.groupName).toBe("Climbing Crew")
+  })
+})
+
+describe("isNonAnswerVenue and the non-answer guard", () => {
+  it("recognises the ways people say the place is not settled", () => {
+    for (const v of ["idk", "IDK yet", "not sure", "Not sure yet.", "we'll figure it out", "We’ll figure it out later", "TBD", "somewhere", "it varies", "dunno"]) {
+      expect(isNonAnswerVenue(v)).toBe(true)
+    }
+  })
+  it("leaves real places alone, including ones that contain a non-answer word", () => {
+    for (const v of ["Movement Gowanus", "Somewhere Coffee", "the gym", "Sam's place", "Anywhere Fitness"]) {
+      expect(isNonAnswerVenue(v)).toBe(false)
+    }
+  })
+  it("a non-answer extracted as the main spot counts as no spot", () => {
+    const r = normalizeExtraction(raw([{ ...CLIMB, venueName: "idk yet" }]))
+    expect(r).toMatchObject({ status: "incomplete", missing: "spot" })
+  })
+  it("a non-answer on a secondary is nulled too, and never gates", () => {
+    const r = normalizeExtraction(raw([CLIMB, { ...BEERS, venueName: "tbd" }]))
+    if (r.status !== "ready") throw new Error("expected ready")
+    expect(r.rhythms[1].venueName).toBeNull()
   })
 })

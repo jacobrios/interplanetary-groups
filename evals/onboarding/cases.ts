@@ -17,7 +17,7 @@
 // them without their history would be cargo cult. If a case turns out to have
 // no right answer, that is a conversation, not a looser assertion.
 
-import { readClarifyingQuestion, validateQuestion } from "../../src/lib/orbit/gap"
+import { PLACE_WORD_RE, readClarifyingQuestion, validateQuestion } from "../../src/lib/orbit/gap"
 import type { MergeGapCallInput } from "../../src/lib/orbit/merge"
 import {
   normalizeExtraction,
@@ -287,6 +287,41 @@ const questionIsAskable: Assertion = {
   check: (o) => o.question !== null,
 }
 
+function venueIs(want: string): Assertion {
+  return {
+    name: `venue holds "${want}"`,
+    check: (o) => (primaryOf(o.normalized)?.venueName ?? "").toLowerCase().includes(want),
+  }
+}
+
+/**
+ * Reuses `gap.ts`'s own `PLACE_WORD_RE` rather than a second copy: that is
+ * the exact regex `resolveGapQuestion` runs over a model question to decide
+ * whether it asks where, so this assertion grades the model against the
+ * product's own gate rather than against a lookalike written twice.
+ */
+const questionMentionsPlace: Assertion = {
+  name: "question asks where",
+  check: (o) => o.question !== null && PLACE_WORD_RE.test(o.question),
+}
+
+const questionMentionsTime: Assertion = {
+  name: "question asks the time",
+  check: (o) => o.question !== null && /\b(time|when)\b/i.test(o.question),
+}
+
+function questionDoesNotName(word: string): Assertion {
+  return {
+    name: `question does not mention "${word}"`,
+    check: (o) => o.question === null || !new RegExp(`\\b${word}`, "i").test(o.question),
+  }
+}
+
+const noQuestionAsked: Assertion = {
+  name: "no question asked",
+  check: (o) => o.question === null,
+}
+
 export const CASES: OnboardingCase[] = [
   {
     id: "extract-multi-day",
@@ -295,7 +330,7 @@ export const CASES: OnboardingCase[] = [
       "The case the whole slice exists for: a rhythm on three days at once. The title must be the activity alone, and the group name must not pick one of the three days and call the group after it.",
     founderDescription: "we climb on Mondays, Wednesdays and Fridays at 8 AM",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([1, 3, 5]),
@@ -314,7 +349,7 @@ export const CASES: OnboardingCase[] = [
       "One day, one clear time, and a two-word activity. The title is the title-cased activity and nothing else, which is the behavior the title task shipped.",
     founderDescription: "we play board games every Thursday at 7pm",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("board games"),
       cadenceWeekly,
       daysAre([4]),
@@ -330,14 +365,16 @@ export const CASES: OnboardingCase[] = [
     id: "extract-no-time",
     kind: "extract",
     description:
-      "A stated day with no time at all. The completeness gate must hold the founder at the time gap, and the model's own question must be good enough to put on the screen rather than falling back to the template.",
+      "A stated day with no time at all. The completeness gate must hold the founder at the time gap, and the model's own question must be good enough to put on the screen rather than falling back to the template. Since 26 Sept 2026 the place is missing too, so the one question must ask both.",
     founderDescription: "we climb every Tuesday",
     assertions: [
-      statusIncomplete("time"),
+      statusIncomplete("time_spot"),
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([2]),
       questionIsAskable,
+      questionMentionsPlace,
+      questionMentionsTime,
       // Tuesday only: one day, so a weekday name is allowed, not required.
       ...nameAssertions([2]),
     ],
@@ -364,6 +401,7 @@ export const CASES: OnboardingCase[] = [
       daysAre([2]),
       timeIs("19:00"),
       timeNotAmbiguous,
+      noQuestionAsked,
       // Tuesday only: one day, so a weekday name is allowed, not required.
       ...nameAssertions([2]),
     ],
@@ -372,10 +410,17 @@ export const CASES: OnboardingCase[] = [
     id: "extract-no-venue",
     kind: "extract",
     description:
-      "No place mentioned anywhere. Guards 'never invent a venue', a prompt rule nothing currently proves.",
+      "No place mentioned anywhere. Guards both 'never invent a venue' and, since 26 Sept 2026, that Orbit asks where the group meets.",
     founderDescription: "we climb every Sunday at 9am",
     // Sunday only: one day, so a weekday name is allowed, not required.
-    assertions: [statusReady, venueIsNull, daysAre([0]), ...nameAssertions([0])],
+    assertions: [
+      statusIncomplete("spot"),
+      venueIsNull,
+      daysAre([0]),
+      questionMentionsPlace,
+      questionDoesNotName("day"),
+      ...nameAssertions([0]),
+    ],
   },
   {
     id: "extract-two-rhythms",
@@ -384,7 +429,7 @@ export const CASES: OnboardingCase[] = [
       "Two activities where only the second one stated is schedulable. Guards primary promotion and the position-zero guarantee: the schedulable rhythm must be at [0] and the loose one must survive rather than being dropped.",
     founderDescription: "we do beers once a month, and we climb every Wednesday at 6pm",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       {
         name: "both rhythms survive",
         check: (o) => o.normalized.rhythms.length === 2,
@@ -428,7 +473,7 @@ export const CASES: OnboardingCase[] = [
       "The single most important case in this set. The day is the most distinctive word in the description, ahead of the activity. Originally added to catch a weekday-bearing group name (probe: 5 of 5 runs, \"Saturday Running\" x2, \"Saturday Morning Runners\" x3); narrowed 20 Aug 2026 once the owner ruled that a single-day group naming itself after that day is correct, not a bug. What still counts as a failure here: the activity itself slipping from the naming form \"running\" to the doing-word \"run\" (probe: 1 of 5), which drags the title down with it.",
     founderDescription: "a few of us run on Saturday mornings at 7am",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("running"),
       cadenceWeekly,
       daysAre([6]),
@@ -447,7 +492,7 @@ export const CASES: OnboardingCase[] = [
       "A second day-prominent shape from the same probe (5 runs), so the finding reads as a shape rather than one word's quirk. The founder names the day before the activity needs any qualifying at all. The probe found a weekday-bearing name (\"Friday Beers\") on 1 of 5 runs, with \"Beer Crew\" and \"Beer Grab\" filling the other four; the activity and title held clean on all 5. Narrowed 20 Aug 2026 alongside the run case: \"Friday Beers\" is a fine name for a group that only meets on Friday, so this case no longer bars a weekday word either.",
     founderDescription: "we grab beers every Friday at 7pm",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("beers"),
       cadenceWeekly,
       daysAre([5]),
@@ -482,7 +527,7 @@ export const CASES: OnboardingCase[] = [
       "Day-prominent and multi-day at once, the one cell the bench never had a case for until this fix wave. The founder names both days before the activity needs any qualifying, the same shape that tempted a weekday name in the single-day probe cases above, except here a weekday name would actually be wrong, so this is the case where the narrowed rule earns its keep rather than the case where it stays out of the way.",
     founderDescription: "Tuesdays and Thursdays we run at 6am",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("running"),
       cadenceWeekly,
       daysAre([2, 4]),
@@ -502,7 +547,7 @@ export const CASES: OnboardingCase[] = [
       "The founder's own words already spell out a fine group name, so there is nothing for a weekday to displace. The probe (20 Aug 2026, 5 runs) found this one flawless, \"Book Club\" 5 of 5, and it is pinned to that exact string on purpose: a bench that only ever holds failures cannot show a later fix helping, and this case is what the day-prominent cases above should look like if the weekday problem goes away.",
     founderDescription: "we have book club on Sundays at 4pm",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("book club"),
       cadenceWeekly,
       daysAre([0]),
@@ -523,7 +568,7 @@ export const CASES: OnboardingCase[] = [
       "A second own-words case, kept beside book club for the same reason the two day-prominent cases are kept together: one clean pass could be luck, two is a shape. \"Family dinner\" is already a usable name with nothing for a weekday to crowd out. The probe (20 Aug 2026, 5 runs) found this flawless too, \"Family Dinner\" 5 of 5. Note on the activity field, found while writing this case rather than guessed: the model reads \"family\" as a qualifier to drop, the same way it drops a stated venue out of activity, and consistently (9 of 10 runs across the two verification passes) extracts activity \"dinner\" rather than \"family dinner\". That is a separate, stable behavior from the weekday question this case exists to test, so the activity and title assertions are pinned to what the model actually and repeatably returns rather than to a guess.",
     founderDescription: "family dinner every Sunday at 6pm",
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("dinner"),
       cadenceWeekly,
       daysAre([0]),
@@ -552,6 +597,14 @@ export const CASES: OnboardingCase[] = [
   // every other single-day case: a weekday name is allowed here too, not
   // just in extraction, since the merge prompt shares FIELD_RULES verbatim
   // with extraction and the two calls cannot be held to different rules.
+  //
+  // Since 26 Sept 2026 a spotless merge state is never ready on its own: the
+  // main rhythm's venue is now required at position 0, so an answer that
+  // settles only the day, time, or ambiguity still lands the group on
+  // statusIncomplete("spot") rather than statusReady, and each case's
+  // `askedAbout` is restated to the spot-combined kind that gap.ts would
+  // actually have sent for that same round (the founder was never asked
+  // about time alone once the spot was also outstanding).
   // -------------------------------------------------------------------------
 
   {
@@ -573,11 +626,11 @@ export const CASES: OnboardingCase[] = [
         },
       ],
       candidateTimeLocal: null,
-      askedAbout: "time",
+      askedAbout: "time_spot",
       answer: "7pm",
     },
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([2]),
@@ -607,11 +660,11 @@ export const CASES: OnboardingCase[] = [
         },
       ],
       candidateTimeLocal: "19:00",
-      askedAbout: "ambiguous_time",
+      askedAbout: "ambiguous_time_spot",
       answer: "in the morning",
     },
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([2]),
@@ -641,11 +694,11 @@ export const CASES: OnboardingCase[] = [
         },
       ],
       candidateTimeLocal: null,
-      askedAbout: "time",
+      askedAbout: "time_spot",
       answer: "actually Saturdays at 10am",
     },
     assertions: [
-      statusReady,
+      statusIncomplete("spot"),
       activityIs("climbing"),
       cadenceWeekly,
       daysAre([6]),
@@ -656,5 +709,188 @@ export const CASES: OnboardingCase[] = [
       // allowed, not required.
       ...nameAssertions([6]),
     ],
+  },
+
+  // -------------------------------------------------------------------------
+  // The main activity's spot (onboarding step 2 cleanup, 26 Sept 2026). These
+  // cases exercise the spot gap on its own: a secondary rhythm's spotlessness
+  // never gates (extract-secondary-spotless), the primary's does
+  // (extract-spot-missing-with-secondary), and the merge cases cover a spot
+  // answer settling the gap, a non-answer leaving it open two different ways,
+  // and a spot already on record surviving an unrelated answer untouched.
+  // -------------------------------------------------------------------------
+
+  {
+    id: "extract-secondary-spotless",
+    kind: "extract",
+    description:
+      "The primary rhythm states its own venue; the secondary rhythm names none. Guards that a secondary's missing spot never gates confirm, only the primary's does.",
+    founderDescription:
+      "we climb at Movement Gowanus every Tuesday at 7pm, and we grab beers once a month",
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      venueIs("movement gowanus"),
+      daysAre([2]),
+      timeIs("19:00"),
+      {
+        name: "both rhythms survive",
+        check: (o) => o.normalized.rhythms.length === 2,
+      },
+      noQuestionAsked,
+      ...nameAssertions([2]),
+    ],
+  },
+  {
+    id: "extract-spot-missing-with-secondary",
+    kind: "extract",
+    description:
+      "The primary rhythm's spot is missing while a secondary rhythm (beers) is also in play. Guards that the question asks about the primary's place and never gets pulled toward the secondary activity's name.",
+    founderDescription: "we climb every Tuesday at 7pm, and we grab beers once a month",
+    assertions: [
+      statusIncomplete("spot"),
+      activityIs("climbing"),
+      daysAre([2]),
+      timeIs("19:00"),
+      venueIsNull,
+      questionMentionsPlace,
+      questionDoesNotName("beer"),
+      ...nameAssertions([2]),
+    ],
+  },
+  {
+    id: "merge-time-and-spot",
+    kind: "merge",
+    description:
+      "A single answer settles both the time and the spot in one round, the shape a founder actually produces when Orbit asks for both at once. Guards that a compound answer is parsed into both fields rather than only the first one mentioned.",
+    input: {
+      description: "we climb tuesdays and thursdays",
+      groupName: "Climbing Crew",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2, 4],
+          timeLocal: null,
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "time_spot",
+      answer: "7pm at Movement Gowanus",
+    },
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      daysAre([2, 4]),
+      timeIs("19:00"),
+      timeNotAmbiguous,
+      venueIs("movement gowanus"),
+      ...nameAssertions([2, 4]),
+    ],
+  },
+  {
+    id: "merge-spot-only",
+    kind: "merge",
+    description:
+      "The schedule is already complete; the only outstanding gap is the spot, and the answer names one plainly. Guards the simplest possible spot-settling round on its own, with no other field in play.",
+    input: {
+      description: "we climb tuesdays and thursdays at 7pm",
+      groupName: "Climbing Crew",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2, 4],
+          timeLocal: "19:00",
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "spot",
+      answer: "Movement Gowanus",
+    },
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      daysAre([2, 4]),
+      timeIs("19:00"),
+      venueIs("movement gowanus"),
+      ...nameAssertions([2, 4]),
+    ],
+  },
+  {
+    id: "merge-spot-idk",
+    kind: "merge",
+    description:
+      "A non-answer to the spot question ('idk yet') must leave the gap open rather than being read as a place name. Written out in full rather than sharing merge-spot-only's input by reference, so the case reads on its own.",
+    input: {
+      description: "we climb tuesdays and thursdays at 7pm",
+      groupName: "Climbing Crew",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2, 4],
+          timeLocal: "19:00",
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "spot",
+      answer: "idk yet",
+    },
+    assertions: [statusIncomplete("spot"), daysAre([2, 4]), timeIs("19:00"), venueIsNull, questionMentionsPlace],
+  },
+  {
+    id: "merge-spot-figure-it-out",
+    kind: "merge",
+    description:
+      "A second phrasing of the same non-answer shape as merge-spot-idk ('we'll figure it out'), so the guard reads as a class of phrase rather than one string's quirk. Also written out in full rather than by reference.",
+    input: {
+      description: "we climb tuesdays and thursdays at 7pm",
+      groupName: "Climbing Crew",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2, 4],
+          timeLocal: "19:00",
+          venueName: null,
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "spot",
+      answer: "we'll figure it out",
+    },
+    assertions: [statusIncomplete("spot"), venueIsNull, questionMentionsPlace],
+  },
+  {
+    id: "merge-spot-kept",
+    kind: "merge",
+    description:
+      "The spot was already on record and the round asks about something else entirely (the time). Guards the carry-verbatim rule from the spot's own side: an unrelated answer must never blank a venue the founder already gave.",
+    input: {
+      description: "we climb tuesdays at Movement Gowanus",
+      groupName: "Climbing Crew",
+      currentState: [
+        {
+          activity: "climbing",
+          title: "Climbing",
+          cadence: "weekly",
+          daysOfWeek: [2],
+          timeLocal: null,
+          venueName: "Movement Gowanus",
+        },
+      ],
+      candidateTimeLocal: null,
+      askedAbout: "time",
+      answer: "7pm",
+    },
+    assertions: [statusReady, timeIs("19:00"), venueIs("movement gowanus"), ...nameAssertions([2])],
   },
 ]

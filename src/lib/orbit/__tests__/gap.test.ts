@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from "vitest"
 import {
+  GAP_ASKABLE_KINDS,
   GAP_HINT_EXAMPLES,
   GAP_REASK_COPY,
   GAP_ROUND_INTRO,
@@ -18,10 +19,12 @@ import {
   enforceVenueCarryOver,
   gapAnswerMoved,
   gapBubbleLine,
+  gapFallbackQuestion,
   readClarifyingQuestion,
   resolveGapQuestion,
   validateQuestion,
 } from "../gap"
+import { needsSpot, scheduleGapOf, withSpot, isNonAnswerVenue } from "../normalize"
 import type { NormalizedOnboarding } from "../normalize"
 import type { StoredRhythm } from "../rhythm"
 
@@ -101,17 +104,19 @@ describe("validateQuestion", () => {
 
 describe("resolveGapQuestion", () => {
   it("passes a valid model question through", () => {
-    expect(resolveGapQuestion("time", "What time do you usually climb?")).toBe(
+    expect(resolveGapQuestion("time", "What time do you usually climb?", "climbing")).toBe(
       "What time do you usually climb?"
     )
   })
 
   it("falls back to the template when the question is invalid", () => {
-    expect(resolveGapQuestion("time", "Got it. What time?")).toBe(GAP_REASK_COPY.time)
+    expect(resolveGapQuestion("time", "Got it. What time?", "climbing")).toBe(GAP_REASK_COPY.time)
   })
 
   it("falls back to the template when the question is null", () => {
-    expect(resolveGapQuestion("ambiguous_time", null)).toBe(GAP_REASK_COPY.ambiguous_time)
+    expect(resolveGapQuestion("ambiguous_time", null, "climbing")).toBe(
+      GAP_REASK_COPY.ambiguous_time
+    )
   })
 
   it("every fire-exit template passes the validator (self-consistency)", () => {
@@ -160,7 +165,7 @@ describe("decideGapOutcome", () => {
     expect(outcome).toEqual({ kind: "ask", missing: "time", question: GAP_REASK_COPY.time })
   })
 
-  it("escapes after two answers still leave the rhythm unschedulable", () => {
+  it("escapes once the cap is reached", () => {
     expect(decideGapOutcome(incomplete(), "What time do you meet?", MAX_GAP_ROUNDS)).toEqual({
       kind: "escape",
     })
@@ -176,20 +181,136 @@ describe("decideGapOutcome", () => {
   })
 })
 
-describe("gapBubbleLine", () => {
-  it("first ask leads with what Orbit got", () => {
-    expect(gapBubbleLine("What time do you meet?", 0, false)).toBe(
-      "Here's what I got. One question: What time do you meet?"
+describe("the spot kinds (onboarding step 2 cleanup)", () => {
+  it("lists every askable kind exactly once, matching every per-kind table", () => {
+    const keys = Object.keys(GAP_REASK_COPY).sort()
+    expect([...GAP_ASKABLE_KINDS].sort()).toEqual(keys)
+    expect(Object.keys(GAP_HINT_EXAMPLES).sort()).toEqual(keys)
+    expect(GAP_ASKABLE_KINDS).toHaveLength(11)
+  })
+
+  it("splits and joins kinds", () => {
+    expect(needsSpot("spot")).toBe(true)
+    expect(needsSpot("time_spot")).toBe(true)
+    expect(needsSpot("time")).toBe(false)
+    expect(needsSpot("nothing_schedulable")).toBe(false)
+    expect(withSpot("ambiguous_time")).toBe("ambiguous_time_spot")
+    expect(scheduleGapOf("both_spot")).toBe("both")
+    expect(scheduleGapOf("spot")).toBeNull()
+    expect(scheduleGapOf("nothing_schedulable")).toBeNull()
+    expect(scheduleGapOf("cadence")).toBe("cadence")
+  })
+
+  it("the spot fallback names the activity", () => {
+    expect(gapFallbackQuestion("spot", "climbing")).toBe("Where do you usually meet for climbing?")
+  })
+
+  it("the spot fallback degrades to the generic question when the activity would break the validator", () => {
+    expect(gapFallbackQuestion("spot", "st. patrick's parade")).toBe("Where do you usually meet?")
+  })
+
+  it("combined kinds fall back to one question asking both", () => {
+    expect(gapFallbackQuestion("time_spot", "climbing")).toBe("What time do you meet, and where?")
+    expect(resolveGapQuestion("time_spot", null, "climbing")).toBe("What time do you meet, and where?")
+  })
+
+  it("a valid model question that forgets the place is replaced for a spot kind (decision 2: one message asks for everything)", () => {
+    expect(resolveGapQuestion("time_spot", "What time do you usually climb?", "climbing")).toBe(
+      "What time do you meet, and where?"
+    )
+    expect(resolveGapQuestion("spot", "Is that every week?", "climbing")).toBe(
+      "Where do you usually meet for climbing?"
     )
   })
 
-  it("a round that moved state says thanks", () => {
+  it("a valid model question that names the place passes through for a spot kind", () => {
+    expect(resolveGapQuestion("time_spot", "What time do you climb, and where?", "climbing")).toBe(
+      "What time do you climb, and where?"
+    )
+  })
+
+  it("a schedule-only kind never demands a place word", () => {
+    expect(resolveGapQuestion("time", "What time do you usually climb?", "climbing")).toBe(
+      "What time do you usually climb?"
+    )
+  })
+
+  it("every new template passes the validator", () => {
+    for (const k of GAP_ASKABLE_KINDS) expect(validateQuestion(gapFallbackQuestion(k, "climbing"))).not.toBeNull()
+  })
+})
+
+describe("decideGapOutcome, the three-answer cap", () => {
+  it("asks after two answers", () => {
+    expect(decideGapOutcome(incomplete(), "What time do you meet?", 2).kind).toBe("ask")
+  })
+  it("escapes after three", () => {
+    expect(MAX_GAP_ROUNDS).toBe(3)
+    expect(decideGapOutcome(incomplete(), "What time do you meet?", 3)).toEqual({ kind: "escape" })
+  })
+  it("asks a spot gap with the activity-specific fallback when the model gave no question", () => {
+    const spot = incomplete({
+      missing: "spot",
+      rhythms: [{ ...PARTIAL_RHYTHM, timeLocal: "19:00", venueName: null }],
+    })
+    expect(decideGapOutcome(spot, null, 0)).toEqual({
+      kind: "ask",
+      missing: "spot",
+      question: "Where do you usually meet for climbing?",
+    })
+  })
+})
+
+describe("gapBubbleLine", () => {
+  it("first ask folds the question into one sentence, lowercasing its first letter", () => {
+    expect(gapBubbleLine("What time do you meet?", 0, false)).toBe(
+      "Here's what I got, but what time do you meet?"
+    )
+  })
+
+  it("first ask, real examples from the owner's spec", () => {
+    expect(
+      gapBubbleLine("What time do you play tennis, and where?", 0, false)
+    ).toBe("Here's what I got, but what time do you play tennis, and where?")
+    expect(gapBubbleLine("Where do you usually meet for tennis?", 0, false)).toBe(
+      "Here's what I got, but where do you usually meet for tennis?"
+    )
+    expect(gapBubbleLine("Is that every week, and where do you meet?", 0, false)).toBe(
+      "Here's what I got, but is that every week, and where do you meet?"
+    )
+  })
+
+  it("first ask never lowercases a leading standalone \"I\" (I'm, I'll, I've...)", () => {
+    expect(gapBubbleLine("I'm curious what time you meet?", 0, false)).toBe(
+      "Here's what I got, but I'm curious what time you meet?"
+    )
+    expect(gapBubbleLine("I've got a question, what time?", 0, false)).toBe(
+      "Here's what I got, but I've got a question, what time?"
+    )
+  })
+
+  it("first ask never lowercases an opener whose first two letters are both uppercase (an acronym)", () => {
+    expect(gapBubbleLine("OK if it's just weekends?", 0, false)).toBe(
+      "Here's what I got, but OK if it's just weekends?"
+    )
+    expect(gapBubbleLine("NYC or Brooklyn, which spot?", 0, false)).toBe(
+      "Here's what I got, but NYC or Brooklyn, which spot?"
+    )
+  })
+
+  it("first ask still lowercases an ordinary capitalized opener (not an acronym)", () => {
+    expect(gapBubbleLine("Where do you usually meet?", 0, false)).toBe(
+      "Here's what I got, but where do you usually meet?"
+    )
+  })
+
+  it("a round that moved state says thanks, question unchanged", () => {
     expect(gapBubbleLine("What days do you meet?", 1, false)).toBe(
       "Thanks. One more thing: What days do you meet?"
     )
   })
 
-  it("a stalled round acknowledges plainly instead of thanking", () => {
+  it("a stalled round acknowledges plainly instead of thanking, question unchanged", () => {
     expect(gapBubbleLine("What time do you meet?", 1, true)).toBe(
       `${GAP_STALLED_INTRO} What time do you meet?`
     )
@@ -198,7 +319,7 @@ describe("gapBubbleLine", () => {
 
   it("the stalled flag is ignored on the first ask (nothing to stall on)", () => {
     expect(gapBubbleLine("What time do you meet?", 0, true)).toBe(
-      "Here's what I got. One question: What time do you meet?"
+      "Here's what I got, but what time do you meet?"
     )
   })
 })
@@ -387,6 +508,11 @@ describe("enforceVenueCarryOver", () => {
     const raw = mergedRaw([rhythm()])
     enforceVenueCarryOver(raw, prior)
     expect((raw.rhythms[0] as { venueName: unknown }).venueName).toBeNull()
+  })
+
+  it("a non-answer in the merged output never overwrites a spot already given", () => {
+    const out = enforceVenueCarryOver(mergedRaw([rhythm({ venueName: "idk yet" })]), prior) as { rhythms: Array<{ venueName: unknown }> }
+    expect(out.rhythms[0].venueName).toBe("Summit Gym")
   })
 })
 

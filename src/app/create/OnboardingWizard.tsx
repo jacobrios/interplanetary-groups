@@ -22,8 +22,8 @@ import {
 import { mergeGapAction } from "@/app/actions/merge-gap"
 import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
-import { titleCaseActivity } from "@/lib/orbit/rhythm"
-import type { RhythmEdit } from "@/lib/groups/rhythm-edit"
+import type { MissingField } from "@/lib/orbit/normalize"
+import { EXHAUSTED_COPY } from "@/lib/orbit/playback"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
@@ -31,12 +31,6 @@ import StepGapAsk, { type MergeErrorKind } from "./StepGapAsk"
 import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
-
-// Shown on Step 1 after two answers still left the rhythm unschedulable (or
-// a merge round lost everything schedulable): the escape hatch is the
-// existing edit-description flow, explained in Orbit's voice.
-const EXHAUSTED_COPY =
-  "I'm still missing a few details. Add the day and time to your description and I'll take another look."
 
 interface Props {
   /** The signed-in founder's stored `User.name`, or null for a first-time
@@ -87,7 +81,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // True when the last answer moved nothing; the lead-in acknowledges that
   // plainly instead of thanking the founder for nothing.
   const [stalled, setStalled] = useState(false)
-  const [gapExhausted, setGapExhausted] = useState(false)
+  const [exhaustedMissing, setExhaustedMissing] = useState<MissingField | null>(null)
   const [mergeError, setMergeError] = useState<MergeErrorKind | null>(null)
   const [isMerging, startMerge] = useTransition()
 
@@ -104,7 +98,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // branch runs once per dispatch — which is also what keeps a stale
   // incomplete result from re-opening the gap step after a merge already
   // moved past it. The profile is copied into wizard state so the
-  // group-name row is editable without mutating the action result.
+  // step 2 editor can change it without mutating the action result.
   const [handledExtract, setHandledExtract] = useState<ExtractGroupState | null>(null)
   if (extractState !== handledExtract && extractState.status === "ready") {
     setHandledExtract(extractState)
@@ -119,7 +113,7 @@ export default function OnboardingWizard({ knownName }: Props) {
     setAnswerDraft("")
     setStalled(false)
     setMergeError(null)
-    setGapExhausted(false)
+    setExhaustedMissing(null)
     setStep("gap")
   }
 
@@ -154,10 +148,11 @@ export default function OnboardingWizard({ knownName }: Props) {
         setAnswerDraft("")
         return
       }
-      // Exhausted: two answers spent (or a merge lost everything
-      // schedulable). Back to describe with the explainer; the description
-      // is still in state, ready to edit.
-      setGapExhausted(true)
+      // Exhausted: three answers spent (or a merge lost everything
+      // schedulable). Back to describe with the explainer, naming what is
+      // actually still missing; the description is still in state, ready
+      // to edit.
+      setExhaustedMissing(result.missing)
       setStep("describe")
     })
   }
@@ -165,39 +160,8 @@ export default function OnboardingWizard({ knownName }: Props) {
   // A fresh extraction starts a clean loop: clear the exhausted explainer
   // before dispatching.
   function extractFormActionClearingExhausted(formData: FormData) {
-    setGapExhausted(false)
+    setExhaustedMissing(null)
     extractFormAction(formData)
-  }
-
-  // The Step 2 venue input writes the raw editing string into rhythm state
-  // (typing is never fought); trim-or-null happens once at confirm below.
-  function handleVenueNameChange(index: number, value: string) {
-    setRhythms((prev) =>
-      prev ? prev.map((r, i) => (i === index ? { ...r, venueName: value } : r)) : prev
-    )
-  }
-
-  // Task 9 (group-details-editing slice): the "Change day or time" block's
-  // onChange. Only activity/days/time flow through here; venue keeps its
-  // own path via handleVenueNameChange above, and cadence is never touched
-  // by this control (adding or changing how often something recurs is out
-  // of scope for a founder fixing a misread day or time).
-  function handleRhythmChange(index: number, next: RhythmEdit) {
-    setRhythms((prev) =>
-      prev
-        ? prev.map((r, i) =>
-            i === index
-              ? {
-                  ...r,
-                  activity: next.activity,
-                  title: titleCaseActivity(next.activity.trim() || r.activity),
-                  daysOfWeek: next.daysOfWeek,
-                  timeLocal: next.timeLocal,
-                }
-              : r
-          )
-        : prev
-    )
   }
 
   function handleConfirm() {
@@ -208,15 +172,14 @@ export default function OnboardingWizard({ knownName }: Props) {
         founderName,
         groupName,
         description,
-        // Trim the activity here too, not just venueName: handleRhythmChange
-        // below already derives `title` from a trimmed activity, so an
-        // untrimmed `activity` traveling to the server is the one field left
-        // disagreeing with its own title. Left alone, "padel " (trailing
-        // space) creates the group, and the founder's first group-info save
-        // afterward trims it there, which diffDetails then reports as a
-        // rename the founder never made (CLAUDE.md: stored state is not
-        // display, carry it, do not regenerate it — the inverse failure
-        // here is a value nobody actually changed reading as changed).
+        // Trim the activity and venue here too. Since Task 9
+        // (onboarding-step2-cleanup slice) every edit reaches wizard state
+        // through the step 2 editor's Done, which hands over
+        // validateDetailsEdit's already-trimmed output, so these trims are
+        // redundant on that path and kept as a harmless belt: an untrimmed
+        // "padel " reaching the server would be trimmed by the founder's
+        // first group-info save, which diffDetails then reports as a rename
+        // the founder never made (CLAUDE.md: stored state is not display).
         rhythms: rhythms.map((r) => ({
           ...r,
           activity: r.activity.trim(),
@@ -249,20 +212,20 @@ export default function OnboardingWizard({ knownName }: Props) {
   if (step === "playback" && rhythms) {
     return (
       <>
-        {/* No onBack mid-create: Step2Playback's own edit link already disables
+        {/* No onBack mid-create: Step2Playback's own Edit details link disables
             during isCreating, and the header chevron must match it so a
             founder can't navigate away from an in-flight creation. */}
         <WizardHeader step={2} onBack={isCreating ? undefined : () => setStep("describe")} />
         <Step2Playback
           founderName={founderName}
           groupName={groupName}
-          onGroupNameChange={setGroupName}
           rhythms={rhythms}
-          onVenueNameChange={handleVenueNameChange}
-          onRhythmChange={handleRhythmChange}
+          onDetailsChange={(name, next) => {
+            setGroupName(name)
+            setRhythms(next)
+          }}
           timeZone={timeZone}
           onConfirm={handleConfirm}
-          onBack={() => setStep("describe")}
           isCreating={isCreating}
           error={createError}
         />
@@ -282,7 +245,6 @@ export default function OnboardingWizard({ knownName }: Props) {
           answer={answerDraft}
           onAnswerChange={setAnswerDraft}
           onSubmit={handleAnswerSubmit}
-          onEditDescription={() => setStep("describe")}
           isMerging={isMerging}
           mergeError={mergeError}
         />
@@ -302,7 +264,7 @@ export default function OnboardingWizard({ knownName }: Props) {
         formAction={extractFormActionClearingExhausted}
         isExtracting={isExtracting}
         extractState={extractState}
-        bubbleOverride={gapExhausted ? EXHAUSTED_COPY : undefined}
+        bubbleOverride={exhaustedMissing ? EXHAUSTED_COPY[exhaustedMissing] : undefined}
       />
     </>
   )

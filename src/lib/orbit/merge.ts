@@ -19,13 +19,23 @@ import { FIELD_RULES, callExtractionModel } from "./extract"
 import type { GapAskable } from "./gap"
 import type { StoredRhythm } from "./rhythm"
 
-/** Human phrase for the WE ASKED section, per gap. */
+/** Human phrase for the WE ASKED section, per gap. The six spot-combined
+ * entries cover the primary activity's now-required spot: the gap-ask
+ * asks for it alongside whatever else is missing (time, day, cadence, or
+ * an ambiguous time), so a founder who left out both a time and a spot
+ * sees one combined question rather than two separate ones. */
 const ASKED_ABOUT: Record<GapAskable, string> = {
   time: "the time",
   day: "the days",
   both: "the day and time",
   cadence: "whether it repeats every week",
   ambiguous_time: "whether the time is morning or evening",
+  spot: "where they usually meet",
+  time_spot: "the time, and where they usually meet",
+  day_spot: "the days, and where they usually meet",
+  both_spot: "the day and time, and where they usually meet",
+  cadence_spot: "whether it repeats every week, and where they usually meet",
+  ambiguous_time_spot: "whether the time is morning or evening, and where they usually meet",
 }
 
 const MERGE_SYSTEM_PROMPT = `You are updating your understanding of a founder's recurring group. You asked the founder one clarifying question and they just answered. Merge the answer into the current understanding and return the complete updated extraction.
@@ -34,6 +44,8 @@ Merge rules:
 - Latest word wins. If the answer contradicts anything in CURRENT UNDERSTANDING (a day, a time, the cadence, even the activity), the answer is right and the old value is replaced. "Actually Saturdays at 10am" replaces both the days and the time.
 - Copy every field the answer does not touch character for character from CURRENT UNDERSTANDING, including activity wording. Never re-read DESCRIPTION to redo a field CURRENT UNDERSTANDING already has; DESCRIPTION is only context for reading the answer.
 - The answer often settles the asked-about gap indirectly. If we asked whether a time was morning or evening and CANDIDATE TIME is "19:00", then "evening" or "at night" means timeLocal "19:00" with timeAmbiguous false, and "morning" means "07:00" with timeAmbiguous false.
+- The answer can name where the group meets, alone or with a day or time ("7pm at Movement Gowanus", or just "Movement Gowanus"): put it in the primary rhythm's venueName.
+- If the answer only says the place is not settled ("idk yet", "we'll figure it out"), venueName stays null, and the question asks where again.
 - If the answer does not settle the gap ("hmm not sure", "whenever works"), keep the fields as they were.
 - Each distinct recurring activity is one rhythm.
 
@@ -47,7 +59,11 @@ CURRENT UNDERSTANDING: {"suggestedGroupName":"Climbing Crew","clarifyingQuestion
 CANDIDATE TIME: 19:00
 WE ASKED: about whether the time is morning or evening
 ANSWER: "actually saturdays at 10am"
-Correct output: rhythms[0] has daysOfWeek [6], timeLocal "10:00", timeAmbiguous false, and clarifyingQuestion is null.`
+Correct output: rhythms[0] has daysOfWeek [6], timeLocal "10:00", timeAmbiguous false, and clarifyingQuestion is null.
+
+WE ASKED: about where they usually meet
+ANSWER: "Movement Gowanus"
+Correct output: rhythms[0].venueName is "Movement Gowanus", every other field copied, clarifyingQuestion is null.`
 
 export interface MergeGapCallInput {
   /** The founder's original free-text description (client-held; not yet in the DB). */
