@@ -57,9 +57,13 @@ export const GAP_ASKABLE_KINDS = [
 ] as const satisfies readonly GapAskable[]
 
 /** Deterministic bubble lead-ins per round, composed by code around the one
- * validated model sentence (structured-extract-then-format). */
+ * validated model sentence (structured-extract-then-format). Round 0's
+ * lead-in folds straight into the question as one sentence ("...but what
+ * time do you meet?"), so it carries no trailing colon and its question is
+ * lowercased at the join (see foldQuestionIntoLeadIn). Later rounds keep
+ * the question as its own sentence after a colon. */
 export const GAP_ROUND_INTRO: [string, string] = [
-  "Here's what I got. One question:",
+  "Here's what I got, but",
   "Thanks. One more thing:",
 ]
 
@@ -68,14 +72,47 @@ export const GAP_ROUND_INTRO: [string, string] = [
  * repeat is a new question, and no scolding — Orbit re-asks softly. */
 export const GAP_STALLED_INTRO = "No worries. Let me ask again:"
 
+/** True when a question opens with the standalone word "I" (I'm, I've,
+ * I'd...), which must never be lowercased even at the start of a folded
+ * sentence: "i'm" is not a word. */
+function startsWithStandaloneI(question: string): boolean {
+  return /^I['’]|^I\s/.test(question)
+}
+
+/** True when the question opens with an acronym or other all-caps word
+ * (its first two characters both uppercase letters: "OK", "NYC"...).
+ * Lowercasing only the first letter of an acronym produces a non-word
+ * ("oK", "nYC"), so these are left exactly as the model or fallback wrote
+ * them, same as the standalone "I" case. */
+function startsWithAcronym(question: string): boolean {
+  return /^[A-Z]{2}/.test(question)
+}
+
+/**
+ * Round 0's lead-in folds directly into the question as one sentence
+ * ("Here's what I got, but what time..."), so the question's first letter
+ * is lowercased to read as a continuation rather than a second sentence.
+ * Two exceptions: a question that opens with the standalone word "I"
+ * (lowercasing would produce "i'm", never a real word), and one that opens
+ * with an acronym or other all-caps word (lowercasing only its first
+ * letter would produce "oK" or "nYC", not the real word either).
+ */
+function foldQuestionIntoLeadIn(question: string): string {
+  if (startsWithStandaloneI(question) || startsWithAcronym(question)) return question
+  return question.charAt(0).toLowerCase() + question.slice(1)
+}
+
 /**
  * The full bubble line: deterministic lead-in plus the one validated (or
- * template) question. The first ask always introduces the card; later
- * rounds thank the founder only when their answer actually moved state.
+ * template) question. Round 0 folds the question into the lead-in as one
+ * sentence; later rounds thank the founder (or, if stalled, acknowledge
+ * plainly) and keep the question as its own sentence, unchanged.
  */
 export function gapBubbleLine(question: string, answersGiven: number, stalled: boolean): string {
-  const intro =
-    answersGiven === 0 ? GAP_ROUND_INTRO[0] : stalled ? GAP_STALLED_INTRO : GAP_ROUND_INTRO[1]
+  if (answersGiven === 0) {
+    return `${GAP_ROUND_INTRO[0]} ${foldQuestionIntoLeadIn(question)}`
+  }
+  const intro = stalled ? GAP_STALLED_INTRO : GAP_ROUND_INTRO[1]
   return `${intro} ${question}`
 }
 

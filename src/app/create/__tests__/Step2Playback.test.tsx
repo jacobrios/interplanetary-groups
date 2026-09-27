@@ -78,7 +78,7 @@ describe("Step2Playback, read-only with Edit details", () => {
     expect(screen.queryAllByRole("textbox")).toHaveLength(0)
     expect(screen.getByText("Climbing Crew")).toBeTruthy()
     expect(screen.getByText("Tue & Thu at 7pm, every week · Movement Gowanus")).toBeTruthy()
-    const beersRow = screen.getByText("Once a month, we'll pick a day later")
+    const beersRow = screen.getByText("Once a month, no set day yet")
     expect(beersRow.textContent).not.toContain(" · ")
     expect(screen.getByText(/Times in/)).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Change day or time" })).toBeNull()

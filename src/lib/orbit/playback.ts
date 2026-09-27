@@ -51,7 +51,7 @@ export function formatRhythmRow(r: StoredRhythm): { label: string; value: string
     const dayPart = r.daysOfWeek !== null ? formatDays(r.daysOfWeek) : null
     const timePart = r.timeLocal !== null ? `at ${formatTimeLocal(r.timeLocal)}` : null
     const parts = [dayPart, timePart].filter(Boolean).join(" ")
-    value = parts ? `${parts}, once a month` : "once a month, we'll pick a day later"
+    value = parts ? `${parts}, once a month` : "once a month, no set day yet"
   } else {
     value = "we'll sort out timing later"
   }

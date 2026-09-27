@@ -262,19 +262,55 @@ describe("decideGapOutcome, the three-answer cap", () => {
 })
 
 describe("gapBubbleLine", () => {
-  it("first ask leads with what Orbit got", () => {
+  it("first ask folds the question into one sentence, lowercasing its first letter", () => {
     expect(gapBubbleLine("What time do you meet?", 0, false)).toBe(
-      "Here's what I got. One question: What time do you meet?"
+      "Here's what I got, but what time do you meet?"
     )
   })
 
-  it("a round that moved state says thanks", () => {
+  it("first ask, real examples from the owner's spec", () => {
+    expect(
+      gapBubbleLine("What time do you play tennis, and where?", 0, false)
+    ).toBe("Here's what I got, but what time do you play tennis, and where?")
+    expect(gapBubbleLine("Where do you usually meet for tennis?", 0, false)).toBe(
+      "Here's what I got, but where do you usually meet for tennis?"
+    )
+    expect(gapBubbleLine("Is that every week, and where do you meet?", 0, false)).toBe(
+      "Here's what I got, but is that every week, and where do you meet?"
+    )
+  })
+
+  it("first ask never lowercases a leading standalone \"I\" (I'm, I'll, I've...)", () => {
+    expect(gapBubbleLine("I'm curious what time you meet?", 0, false)).toBe(
+      "Here's what I got, but I'm curious what time you meet?"
+    )
+    expect(gapBubbleLine("I've got a question, what time?", 0, false)).toBe(
+      "Here's what I got, but I've got a question, what time?"
+    )
+  })
+
+  it("first ask never lowercases an opener whose first two letters are both uppercase (an acronym)", () => {
+    expect(gapBubbleLine("OK if it's just weekends?", 0, false)).toBe(
+      "Here's what I got, but OK if it's just weekends?"
+    )
+    expect(gapBubbleLine("NYC or Brooklyn, which spot?", 0, false)).toBe(
+      "Here's what I got, but NYC or Brooklyn, which spot?"
+    )
+  })
+
+  it("first ask still lowercases an ordinary capitalized opener (not an acronym)", () => {
+    expect(gapBubbleLine("Where do you usually meet?", 0, false)).toBe(
+      "Here's what I got, but where do you usually meet?"
+    )
+  })
+
+  it("a round that moved state says thanks, question unchanged", () => {
     expect(gapBubbleLine("What days do you meet?", 1, false)).toBe(
       "Thanks. One more thing: What days do you meet?"
     )
   })
 
-  it("a stalled round acknowledges plainly instead of thanking", () => {
+  it("a stalled round acknowledges plainly instead of thanking, question unchanged", () => {
     expect(gapBubbleLine("What time do you meet?", 1, true)).toBe(
       `${GAP_STALLED_INTRO} What time do you meet?`
     )
@@ -283,7 +319,7 @@ describe("gapBubbleLine", () => {
 
   it("the stalled flag is ignored on the first ask (nothing to stall on)", () => {
     expect(gapBubbleLine("What time do you meet?", 0, true)).toBe(
-      "Here's what I got. One question: What time do you meet?"
+      "Here's what I got, but what time do you meet?"
     )
   })
 })

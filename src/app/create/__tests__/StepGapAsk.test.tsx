@@ -287,7 +287,7 @@ describe("StepGapAsk — no edit-description link (the header back arrow covers 
     expect(screen.getByText("where?")).toBeTruthy()
     expect(screen.getByText(/Sat at 9am/)).toBeTruthy()
     expect(
-      screen.getByText("Here's what I got. One question: Where do you usually meet for tennis?")
+      screen.getByText("Here's what I got, but where do you usually meet for tennis?")
     ).toBeTruthy()
     expect(screen.getByText("e.g. “Movement Gowanus” · “Sam’s place”")).toBeTruthy()
   })

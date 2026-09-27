@@ -63,7 +63,7 @@ describe("formatRhythmRow", () => {
 
   it("monthly with nothing stated", () => {
     expect(formatRhythmRow(rhythm({ activity: "beers", cadence: "monthly" })).value).toBe(
-      "Once a month, we'll pick a day later"
+      "Once a month, no set day yet"
     )
   })
 
