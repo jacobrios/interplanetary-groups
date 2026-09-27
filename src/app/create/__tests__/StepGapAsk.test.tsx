@@ -36,11 +36,11 @@
 // requirement change). The Enter test below asserts the current, corrected
 // behaviour.
 import { describe, it, expect, vi } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render, screen, fireEvent, act } from "@testing-library/react"
 import StepGapAsk, { type GapTurn } from "../StepGapAsk"
 import type { GapPayload } from "@/app/actions/extract-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
-import { gapBubbleLine } from "@/lib/orbit/gap"
+import { gapBubbleLine, GAP_HINT_EXAMPLES } from "@/lib/orbit/gap"
 
 const rhythm: StoredRhythm = {
   activity: "tennis",
@@ -431,5 +431,110 @@ describe("StepGapAsk, the pinned composer", () => {
       if (had) proto.scrollIntoView = original
       else delete proto.scrollIntoView
     }
+  })
+})
+
+// The first tap into the box (owner's iPhone Chrome pass, 27 Sept 2026):
+// iOS's own focus scroll ignores Chrome's floating address bar, which sits
+// just above the keyboard, so the composer and hint landed partly under it.
+// After a send the thread's own scrollIntoView lifted everything clear, which
+// is why later rounds looked right. The fix scrolls the pinned bottom into
+// view once the keyboard has opened. These are structural checks only: jsdom
+// has no keyboard, no visual viewport and no address bar, so whether the box
+// actually clears Chrome's bar is judged on the owner's phone and nowhere
+// else.
+describe("StepGapAsk, lifting the composer clear of the keyboard on first focus", () => {
+  function pinned(container: HTMLElement): HTMLElement {
+    const el = container.querySelector("[data-gap-pinned]")
+    expect(el).not.toBeNull()
+    return el as HTMLElement
+  }
+
+  // Installs a scrollIntoView spy that records which element it was called
+  // on (the thread's end sentinel also calls it on mount), and optionally a
+  // visualViewport stub. Restores both exactly as they were.
+  function withStubs(
+    viewport: EventTarget | undefined,
+    body: (spy: ReturnType<typeof vi.fn>) => void
+  ) {
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown }
+    const hadScroll = Object.prototype.hasOwnProperty.call(proto, "scrollIntoView")
+    const originalScroll = proto.scrollIntoView
+    const spy = vi.fn()
+    proto.scrollIntoView = spy
+    const vvDescriptor = Object.getOwnPropertyDescriptor(window, "visualViewport")
+    Object.defineProperty(window, "visualViewport", { value: viewport, configurable: true })
+    vi.useFakeTimers()
+    try {
+      body(spy)
+    } finally {
+      vi.useRealTimers()
+      if (vvDescriptor) Object.defineProperty(window, "visualViewport", vvDescriptor)
+      else delete (window as unknown as { visualViewport?: unknown }).visualViewport
+      if (hadScroll) proto.scrollIntoView = originalScroll
+      else delete proto.scrollIntoView
+    }
+  }
+
+  function callsOn(spy: ReturnType<typeof vi.fn>, el: Element) {
+    return spy.mock.contexts
+      .map((ctx, i) => ({ ctx, args: spy.mock.calls[i] }))
+      .filter(({ ctx }) => ctx === el)
+  }
+
+  it("scrolls the pinned bottom into view once, when the keyboard resizes the visual viewport", () => {
+    const viewport = new EventTarget()
+    withStubs(viewport, (spy) => {
+      const { container } = renderStepGapAsk()
+      const bottom = pinned(container)
+      expect(bottom.contains(textarea())).toBe(true)
+      expect(bottom.textContent).toContain(GAP_HINT_EXAMPLES[gap.missing])
+
+      fireEvent.focus(textarea())
+      expect(callsOn(spy, bottom)).toHaveLength(0)
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"))
+      })
+      const calls = callsOn(spy, bottom)
+      expect(calls).toHaveLength(1)
+      expect(calls[0].args).toEqual([{ block: "end" }])
+
+      // Once per focus: the fallback timer and a second resize add nothing.
+      act(() => {
+        vi.advanceTimersByTime(1000)
+        viewport.dispatchEvent(new Event("resize"))
+      })
+      expect(callsOn(spy, bottom)).toHaveLength(1)
+    })
+  })
+
+  it("falls back to a timer when there is no visual viewport", () => {
+    withStubs(undefined, (spy) => {
+      const { container } = renderStepGapAsk()
+      const bottom = pinned(container)
+      fireEvent.focus(textarea())
+      expect(callsOn(spy, bottom)).toHaveLength(0)
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      const calls = callsOn(spy, bottom)
+      expect(calls).toHaveLength(1)
+      expect(calls[0].args).toEqual([{ block: "end" }])
+    })
+  })
+
+  it("does nothing if the box loses focus before the keyboard opens", () => {
+    const viewport = new EventTarget()
+    withStubs(viewport, (spy) => {
+      const { container } = renderStepGapAsk()
+      const bottom = pinned(container)
+      fireEvent.focus(textarea())
+      fireEvent.blur(textarea())
+      act(() => {
+        viewport.dispatchEvent(new Event("resize"))
+        vi.advanceTimersByTime(1000)
+      })
+      expect(callsOn(spy, bottom)).toHaveLength(0)
+    })
   })
 })

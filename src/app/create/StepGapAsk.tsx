@@ -59,6 +59,12 @@ const MAX_LINES = 5
 const LINE_HEIGHT = "var(--leading-normal)"
 const MAX_HEIGHT = `calc(${LINE_HEIGHT} * ${MAX_LINES} * 1em)`
 
+// How long to wait for the keyboard to resize the visual viewport before
+// lifting the composer anyway. Long enough for iOS's keyboard animation
+// (roughly 250ms) to finish, short enough that a founder whose keyboard was
+// already up does not see the box jump late. See armKeyboardLift below.
+const KEYBOARD_LIFT_FALLBACK_MS = 350
+
 // Same auto-grow-then-shrink logic as ChatInput.tsx's autoGrow: resize to
 // content on every value change, which covers both a founder typing past one
 // line and the field being cleared out from under it (a merge round starting
@@ -140,6 +146,49 @@ export default function StepGapAsk({
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "end" })
   }, [thread.length, isMerging])
+
+  // The first tap into the box (owner's iPhone Chrome pass, 27 Sept 2026).
+  // Chrome on iOS floats its address bar just above the keyboard, and iOS's
+  // own scroll-the-focused-field-into-view ignores that bar, so on the first
+  // focus the composer and the hint line landed partly underneath it. Later
+  // rounds already looked right, and that is the clue: after a send, the
+  // effect above calls scrollIntoView while the keyboard is up, and
+  // scrollIntoView scrolls every scrollable ancestor, the page and the visual
+  // viewport included, which lifts the pinned bottom clear of the bar. So the
+  // fix does the same thing on focus, aimed at the pinned bottom itself (the
+  // composer row AND the hint, so both clear the bar), once the keyboard has
+  // actually opened: scrolling before then would measure a viewport the
+  // keyboard is about to shrink.
+  //
+  // "Once the keyboard has opened" is the visual viewport's first resize
+  // after focus, since the keyboard is what shrinks it. A fallback timer
+  // covers the cases where no resize comes: the keyboard was already up (a
+  // re-focus after tapping the send button), a desktop browser with no
+  // on-screen keyboard, or a browser with no visualViewport at all. Whichever
+  // fires first does the scroll and disarms the other, so it happens once per
+  // focus. Blur and unmount disarm both, since this repo's hooks refuse a
+  // timer or listener left dangling. Like the effect above, the optional call
+  // is for jsdom, which has no scrollIntoView. Verified structurally only:
+  // whether the box truly clears Chrome's bar is judged on a real phone.
+  const pinnedRef = useRef<HTMLDivElement>(null)
+  const disarmKeyboardLift = useRef<(() => void) | null>(null)
+  function armKeyboardLift() {
+    disarmKeyboardLift.current?.()
+    const viewport = typeof window !== "undefined" ? window.visualViewport : undefined
+    const lift = () => {
+      disarm()
+      pinnedRef.current?.scrollIntoView?.({ block: "end" })
+    }
+    const timer = setTimeout(lift, KEYBOARD_LIFT_FALLBACK_MS)
+    viewport?.addEventListener("resize", lift)
+    function disarm() {
+      clearTimeout(timer)
+      viewport?.removeEventListener("resize", lift)
+      if (disarmKeyboardLift.current === disarm) disarmKeyboardLift.current = null
+    }
+    disarmKeyboardLift.current = disarm
+  }
+  useEffect(() => () => disarmKeyboardLift.current?.(), [])
 
   return (
     <>
@@ -260,6 +309,8 @@ export default function StepGapAsk({
           rather than a new value. The bottom padding adds the phone's safe
           area so the hint clears the home indicator. */}
       <div
+        ref={pinnedRef}
+        data-gap-pinned
         style={{
           flexShrink: 0,
           backgroundColor: "var(--surface-base)",
@@ -297,6 +348,8 @@ export default function StepGapAsk({
             placeholder="Message Orbit"
             value={answer}
             onChange={(e) => onAnswerChange(e.target.value)}
+            onFocus={armKeyboardLift}
+            onBlur={() => disarmKeyboardLift.current?.()}
             // Never disabled, even mid-merge: on iOS a disabled field
             // dismisses the keyboard and does not bring it back, the reason
             // the group chat stopped disabling its input (message-send-latency
