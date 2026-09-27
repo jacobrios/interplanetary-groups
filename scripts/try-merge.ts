@@ -40,7 +40,7 @@ async function main() {
     console.log("NORMALIZED:", JSON.stringify(normalized, null, 2))
     console.log("OUTCOME:", JSON.stringify(outcome))
     if (outcome.kind === "ask") {
-      console.log("BUBBLE:", gapBubbleLine(outcome.question, answersGiven, stalled))
+      console.log("BUBBLE:", gapBubbleLine(outcome.question, answersGiven, stalled, outcome.missing))
     }
     return { normalized, outcome }
   }

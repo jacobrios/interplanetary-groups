@@ -99,7 +99,7 @@ export default function StepGapAsk({
 }: Props) {
   const gapRow = formatGapRhythmRow(gap.rhythms[0], gap.missing, gap.candidateTimeLocal)
   const hasText = answer.trim().length > 0
-  const bubbleLine = gapBubbleLine(gap.question, round, stalled)
+  const bubbleLine = gapBubbleLine(gap.question, round, stalled, gap.missing)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Runs on every value change, whichever direction: growing while the

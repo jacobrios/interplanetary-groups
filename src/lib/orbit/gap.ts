@@ -67,10 +67,56 @@ export const GAP_ROUND_INTRO: [string, string] = [
   "Thanks. One more thing:",
 ]
 
-/** Lead-in for a round whose answer moved nothing. Honest instead of
+/** Lead-in for a round whose answer moved nothing, on a kind with nothing
+ * guessable to fall back to (see GAP_STALLED_REASK below). Honest instead of
  * grateful: no thanks for an answer that gave nothing, no pretending the
  * repeat is a new question, and no scolding — Orbit re-asks softly. */
 export const GAP_STALLED_INTRO = "No worries. Let me ask again:"
+
+/**
+ * What a stalled round says, per kind. Seven kinds (everything but the four
+ * that ask about cadence or an ambiguous time of day) can be guessed at:
+ * "sometime in the evening" is a real fallback for a missing time, but there
+ * is no comparable fallback for "is that every week?" or "morning or
+ * evening?", so those four kinds keep repeating the question under
+ * GAP_STALLED_INTRO instead.
+ *
+ * A guessable kind's stalled bubble is the guess line ALONE, with no
+ * question after it: the owner's two-row limit at 390px leaves no room for
+ * both, and the hint line under the message box already carries a worked
+ * example, so the founder is not left guessing what "a best guess" means.
+ * both_spot drops the day/time/spot naming entirely ("a day, time and spot"
+ * measured three rows) and falls back to the fully generic line; that is a
+ * declared build choice, not an oversight, surfaced to the owner in the go
+ * summary for this task.
+ *
+ * A Record over GAP_ASKABLE_KINDS (rather than two separate arrays) is what
+ * makes a new kind fail loudly: TypeScript refuses a Record missing an
+ * entry, and the "every kind has an entry" test in gap.test.ts is the
+ * runtime backstop for the same guarantee.
+ */
+export const GAP_STALLED_REASK: Record<
+  GapAskable,
+  { kind: "guess"; line: string } | { kind: "repeat" }
+> = {
+  time: { kind: "guess", line: "No problem. A best guess at a time is fine for now." },
+  day: { kind: "guess", line: "No problem. A best guess at a day is fine for now." },
+  both: { kind: "guess", line: "No problem. A best guess at a day and time is fine for now." },
+  spot: { kind: "guess", line: "No problem. A best guess at a spot is fine for now." },
+  time_spot: {
+    kind: "guess",
+    line: "No problem. A best guess at a time and a spot is fine for now.",
+  },
+  day_spot: {
+    kind: "guess",
+    line: "No problem. A best guess at a day and a spot is fine for now.",
+  },
+  both_spot: { kind: "guess", line: "No problem. A best guess is fine for now." },
+  cadence: { kind: "repeat" },
+  ambiguous_time: { kind: "repeat" },
+  cadence_spot: { kind: "repeat" },
+  ambiguous_time_spot: { kind: "repeat" },
+}
 
 /** True when a question opens with the standalone word "I" (I'm, I've,
  * I'd...), which must never be lowercased even at the start of a folded
@@ -105,15 +151,33 @@ function foldQuestionIntoLeadIn(question: string): string {
 /**
  * The full bubble line: deterministic lead-in plus the one validated (or
  * template) question. Round 0 folds the question into the lead-in as one
- * sentence; later rounds thank the founder (or, if stalled, acknowledge
- * plainly) and keep the question as its own sentence, unchanged.
+ * sentence, ignoring `stalled` (there is nothing to have stalled on yet).
+ * A later round that moved state thanks the founder and keeps the question
+ * as its own sentence, unchanged.
+ *
+ * A later round that stalled looks at `missing` to decide how to respond.
+ * For a guessable kind (GAP_STALLED_REASK[missing].kind === "guess") the
+ * bubble is the guess line ALONE: no lead-in, no question, because the
+ * owner's two-row limit at 390px leaves no room for both and the hint line
+ * under the box already carries a worked example. For the four kinds with
+ * nothing guessable, the bubble falls back to today's behavior: the
+ * GAP_STALLED_INTRO lead-in plus the question, unchanged.
  */
-export function gapBubbleLine(question: string, answersGiven: number, stalled: boolean): string {
+export function gapBubbleLine(
+  question: string,
+  answersGiven: number,
+  stalled: boolean,
+  missing: GapAskable
+): string {
   if (answersGiven === 0) {
     return `${GAP_ROUND_INTRO[0]} ${foldQuestionIntoLeadIn(question)}`
   }
-  const intro = stalled ? GAP_STALLED_INTRO : GAP_ROUND_INTRO[1]
-  return `${intro} ${question}`
+  if (stalled) {
+    const reask = GAP_STALLED_REASK[missing]
+    if (reask.kind === "guess") return reask.line
+    return `${GAP_STALLED_INTRO} ${question}`
+  }
+  return `${GAP_ROUND_INTRO[1]} ${question}`
 }
 
 /** The fields a founder's answer can genuinely move. Titles are derived
