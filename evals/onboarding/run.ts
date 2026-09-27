@@ -24,6 +24,7 @@ import { extractGroupProfile } from "../../src/lib/orbit/extract"
 import { enforceActivityCarryOver, enforceVenueCarryOver } from "../../src/lib/orbit/gap"
 import { mergeGapAnswer } from "../../src/lib/orbit/merge"
 import type { NormalizedOnboarding } from "../../src/lib/orbit/normalize"
+import { extractWithPriorAnswers } from "../../src/lib/orbit/replay"
 import { toOutcome, type OnboardingCase, type OnboardingOutcome } from "./cases"
 
 export interface AssertionResult {
@@ -84,6 +85,8 @@ async function runOnce(c: OnboardingCase): Promise<OnboardingOutcome> {
       raw = enforceVenueCarryOver(raw, c.input.currentState)
       return toOutcome(raw)
     }
+    case "replay":
+      return toOutcome(await extractWithPriorAnswers(c.founderDescription, c.priorAnswers))
   }
 }
 
