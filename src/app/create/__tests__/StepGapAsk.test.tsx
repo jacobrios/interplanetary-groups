@@ -380,6 +380,20 @@ describe("StepGapAsk, the pinned composer", () => {
     expect(region.contains(screen.getByRole("button", { name: "Send answer" }))).toBe(false)
   })
 
+  it("keeps the box open while the merge runs, so the phone keyboard stays up, and still refuses a second send", () => {
+    // A disabled field dismisses the iOS keyboard, which is why the group
+    // chat stopped disabling its input (message-send-latency slice one).
+    // The double-send guard lives on the send button and the form instead.
+    const { onSubmit, onAnswerChange } = renderStepGapAsk({ answer: "and Movement", isMerging: true })
+    expect(textarea().disabled).toBe(false)
+    fireEvent.change(textarea(), { target: { value: "and Movement!" } })
+    expect(onAnswerChange).toHaveBeenCalledWith("and Movement!")
+    const send = screen.getByRole("button", { name: "Send answer" }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    fireEvent.submit(textarea().closest("form")!)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it("scrolls the newest line into view on arrival, and when the merge pause appears", () => {
     // jsdom has no scrollIntoView; install a spy for this test and put the
     // prototype back exactly as it was afterwards.

@@ -218,9 +218,12 @@ export default function StepGapAsk({
             aligned in the viewer's own bubble, exactly as in the group chat
             (SelfBubble leaves alignment to the caller). Index keys are safe
             here: turns are only ever appended, and the one removal (a failed
-            merge rolling its answer back) takes the last item. While the
-            merge runs, Orbit's labeled pause is the thread's last item, where
-            its reply is about to land. */}
+            merge rolling its answer back) takes that turn out by identity.
+            It is always the newest turn in practice, because the send button
+            refuses a second answer mid-merge and the header hides its back
+            arrow mid-merge, so nothing else can change the thread while that
+            merge runs. While the merge runs, Orbit's labeled pause is the
+            thread's last item, where its reply is about to land. */}
         <div
           style={{
             width: "100%",
@@ -294,7 +297,11 @@ export default function StepGapAsk({
             placeholder="Message Orbit"
             value={answer}
             onChange={(e) => onAnswerChange(e.target.value)}
-            disabled={isMerging}
+            // Never disabled, even mid-merge: on iOS a disabled field
+            // dismisses the keyboard and does not bring it back, the reason
+            // the group chat stopped disabling its input (message-send-latency
+            // slice one). A second answer is refused by the send button and by
+            // the form's submit handler above instead.
             rows={1}
             style={{
               flex: 1,
