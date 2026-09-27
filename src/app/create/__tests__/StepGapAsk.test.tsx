@@ -482,11 +482,7 @@ describe("StepGapAsk, lifting the composer clear of the keyboard on first focus"
       .filter(({ ctx }) => ctx === el)
   }
 
-  // Trailing, not leading (owner's second phone pass on f529984): scrolling
-  // on the FIRST resize lifted the box "for a hot moment", then iOS's own
-  // end-of-animation adjustment put it back under the bar. So the lift waits
-  // for the resize and scroll events to go quiet.
-  it("waits for a burst of viewport events to go quiet, then scrolls the pinned bottom once", () => {
+  it("scrolls the pinned bottom into view once, when the keyboard resizes the visual viewport", () => {
     const viewport = new EventTarget()
     withStubs(viewport, (spy) => {
       const { container } = renderStepGapAsk()
@@ -495,55 +491,18 @@ describe("StepGapAsk, lifting the composer clear of the keyboard on first focus"
       expect(bottom.textContent).toContain(GAP_HINT_EXAMPLES[gap.missing])
 
       fireEvent.focus(textarea())
-      // The keyboard animating: resizes and scrolls 100ms apart.
-      act(() => {
-        viewport.dispatchEvent(new Event("resize"))
-        vi.advanceTimersByTime(100)
-        viewport.dispatchEvent(new Event("resize"))
-        vi.advanceTimersByTime(100)
-        viewport.dispatchEvent(new Event("scroll"))
-        vi.advanceTimersByTime(200)
-      })
-      // Still inside the quiet period after the last event: nothing yet.
       expect(callsOn(spy, bottom)).toHaveLength(0)
       act(() => {
-        vi.advanceTimersByTime(60)
+        viewport.dispatchEvent(new Event("resize"))
       })
       const calls = callsOn(spy, bottom)
       expect(calls).toHaveLength(1)
       expect(calls[0].args).toEqual([{ block: "end" }])
 
-      // Once per focus: later events and timers add nothing.
+      // Once per focus: the fallback timer and a second resize add nothing.
       act(() => {
+        vi.advanceTimersByTime(1000)
         viewport.dispatchEvent(new Event("resize"))
-        vi.advanceTimersByTime(2000)
-      })
-      expect(callsOn(spy, bottom)).toHaveLength(1)
-    })
-  })
-
-  it("fires by the hard cap even if viewport events never stop", () => {
-    const viewport = new EventTarget()
-    withStubs(viewport, (spy) => {
-      const { container } = renderStepGapAsk()
-      const bottom = pinned(container)
-      fireEvent.focus(textarea())
-      const tick = () => {
-        viewport.dispatchEvent(new Event("resize"))
-        vi.advanceTimersByTime(100)
-      }
-      act(() => {
-        // Eleven ticks: 1100ms of nonstop events, still under the cap.
-        for (let t = 0; t < 1100; t += 100) tick()
-      })
-      expect(callsOn(spy, bottom)).toHaveLength(0)
-      act(() => {
-        tick()
-      })
-      expect(callsOn(spy, bottom)).toHaveLength(1)
-      act(() => {
-        for (let t = 0; t < 1000; t += 100) tick()
-        vi.advanceTimersByTime(2000)
       })
       expect(callsOn(spy, bottom)).toHaveLength(1)
     })
