@@ -59,11 +59,18 @@ const MAX_LINES = 5
 const LINE_HEIGHT = "var(--leading-normal)"
 const MAX_HEIGHT = `calc(${LINE_HEIGHT} * ${MAX_LINES} * 1em)`
 
-// How long to wait for the keyboard to resize the visual viewport before
-// lifting the composer anyway. Long enough for iOS's keyboard animation
-// (roughly 250ms) to finish, short enough that a founder whose keyboard was
-// already up does not see the box jump late. See armKeyboardLift below.
+// Timings for lifting the composer clear of the keyboard; see
+// armKeyboardLift below for the why.
+// How long the visual viewport must go quiet (no resize or scroll) before we
+// treat the keyboard as settled. iOS fires these through its ~250ms keyboard
+// animation, so a gap this long means it has finished.
+const KEYBOARD_QUIET_MS = 250
+// If no viewport event ever arrives (keyboard already up, a desktop browser,
+// no visualViewport at all), lift after this long anyway.
 const KEYBOARD_LIFT_FALLBACK_MS = 350
+// Never later than this after focus, even if events keep coming, so a
+// viewport that never goes quiet still gets the lift.
+const KEYBOARD_LIFT_CAP_MS = 1200
 
 // Same auto-grow-then-shrink logic as ChatInput.tsx's autoGrow: resize to
 // content on every value change, which covers both a founder typing past one
@@ -160,16 +167,24 @@ export default function StepGapAsk({
   // actually opened: scrolling before then would measure a viewport the
   // keyboard is about to shrink.
   //
-  // "Once the keyboard has opened" is the visual viewport's first resize
-  // after focus, since the keyboard is what shrinks it. A fallback timer
-  // covers the cases where no resize comes: the keyboard was already up (a
-  // re-focus after tapping the send button), a desktop browser with no
-  // on-screen keyboard, or a browser with no visualViewport at all. Whichever
-  // fires first does the scroll and disarms the other, so it happens once per
-  // focus. Blur and unmount disarm both, since this repo's hooks refuse a
-  // timer or listener left dangling. Like the effect above, the optional call
-  // is for jsdom, which has no scrollIntoView. Verified structurally only:
-  // whether the box truly clears Chrome's bar is judged on a real phone.
+  // "Once the keyboard has opened" means once it has SETTLED, and that is a
+  // trailing wait, not the first sign of movement. The first version of this
+  // fix scrolled on the visual viewport's first resize, and the owner's
+  // second phone pass showed why that loses: the box lifted clear "for a hot
+  // moment" and then jittered back under the bar, because iOS makes its own
+  // adjustment at the END of the keyboard animation and undoes any scroll
+  // made during it. The send path never had this problem because by then the
+  // keyboard was already still. So every resize or scroll of the visual
+  // viewport restarts a short quiet timer, and the lift happens only when
+  // that timer runs out with nothing further arriving. Two backstops: a
+  // fallback for when no event comes at all (keyboard already up, a desktop
+  // browser with no on-screen keyboard, a browser with no visualViewport),
+  // and a hard cap after focus so a viewport that never goes quiet still gets
+  // lifted. It happens once per focus. Firing, blur and unmount all disarm
+  // every timer and listener, since this repo's hooks refuse one left
+  // dangling. Like the effect above, the optional call is for jsdom, which
+  // has no scrollIntoView. Verified structurally only: whether the box truly
+  // clears Chrome's bar is judged on a real phone.
   const pinnedRef = useRef<HTMLDivElement>(null)
   const disarmKeyboardLift = useRef<(() => void) | null>(null)
   function armKeyboardLift() {
@@ -179,11 +194,19 @@ export default function StepGapAsk({
       disarm()
       pinnedRef.current?.scrollIntoView?.({ block: "end" })
     }
-    const timer = setTimeout(lift, KEYBOARD_LIFT_FALLBACK_MS)
-    viewport?.addEventListener("resize", lift)
+    let quiet = setTimeout(lift, KEYBOARD_LIFT_FALLBACK_MS)
+    const cap = setTimeout(lift, KEYBOARD_LIFT_CAP_MS)
+    const onViewportChange = () => {
+      clearTimeout(quiet)
+      quiet = setTimeout(lift, KEYBOARD_QUIET_MS)
+    }
+    viewport?.addEventListener("resize", onViewportChange)
+    viewport?.addEventListener("scroll", onViewportChange)
     function disarm() {
-      clearTimeout(timer)
-      viewport?.removeEventListener("resize", lift)
+      clearTimeout(quiet)
+      clearTimeout(cap)
+      viewport?.removeEventListener("resize", onViewportChange)
+      viewport?.removeEventListener("scroll", onViewportChange)
       if (disarmKeyboardLift.current === disarm) disarmKeyboardLift.current = null
     }
     disarmKeyboardLift.current = disarm
