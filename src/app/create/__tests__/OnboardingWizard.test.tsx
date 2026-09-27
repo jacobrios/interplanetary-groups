@@ -340,4 +340,58 @@ describe("OnboardingWizard, the gap-ask thread", () => {
     }
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Back" })).toBeTruthy())
   })
+
+  // Task 7: remembered answers. The step 1 form carries every answer the
+  // founder gave Orbit that a merge actually accepted, so going back and
+  // continuing does not ask again for what was already said. Read off the
+  // FormData extractGroupAction receives, which is the only place the
+  // server sees them.
+  function priorAnswersSent(call: number): unknown {
+    const formData = extractMock.mock.calls[call][1] as FormData
+    const raw = formData.get("priorAnswers")
+    return typeof raw === "string" ? JSON.parse(raw) : raw
+  }
+
+  async function backAndContinue() {
+    fireEvent.click(screen.getByRole("button", { name: "Back" }))
+    extractMock.mockResolvedValueOnce(incompleteExtract())
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() => expect(extractMock).toHaveBeenCalledTimes(2))
+  }
+
+  it("sends an empty priorAnswers list on the first extraction", async () => {
+    await landOnGap()
+    expect(priorAnswersSent(0)).toEqual([])
+  })
+
+  it("sends an answer a merge accepted, trimmed, when the founder goes back and continues", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({
+      status: "incomplete",
+      round: 1,
+      progressed: true,
+      gap: { ...TIME_GAP, missing: "spot", question: SPOT_QUESTION },
+    })
+    send("  we start at 7  ")
+    await vi.waitFor(() =>
+      expect(screen.getByText(`Thanks. One more thing: ${SPOT_QUESTION}`)).toBeTruthy()
+    )
+
+    await backAndContinue()
+    expect(priorAnswersSent(1)).toEqual(["we start at 7"])
+  })
+
+  it("does not send an answer whose merge errored", async () => {
+    await landOnGap()
+    mergeGapMock.mockResolvedValueOnce({ status: "error" })
+    send("we start at 7")
+    await vi.waitFor(() =>
+      expect(
+        screen.getByText("Hmm, that didn't go through. Give it another try in a moment.")
+      ).toBeTruthy()
+    )
+
+    await backAndContinue()
+    expect(priorAnswersSent(1)).toEqual([])
+  })
 })

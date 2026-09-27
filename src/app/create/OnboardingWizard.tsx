@@ -33,6 +33,12 @@ import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
 
+// How many remembered gap answers the wizard keeps and sends. Mirrors
+// PRIOR_ANSWERS_MAX in src/lib/orbit/replay.ts, which the server enforces
+// regardless; restated rather than imported because that module reaches
+// the model call code and this file ships to the browser.
+const PRIOR_ANSWERS_KEPT = 6
+
 interface Props {
   /** The signed-in founder's stored `User.name`, or null for a first-time
    * founder. Threaded straight into `founderName` state so every downstream
@@ -86,6 +92,15 @@ export default function OnboardingWizard({ knownName }: Props) {
   // in the latest round's words. A fresh extraction resets it, which is
   // what makes going back to step 1 start a new on-screen conversation.
   const [thread, setThread] = useState<GapTurn[]>([])
+  // Answers the founder gave Orbit that a merge accepted (gap-ask-thread
+  // slice, task 7), oldest first, trimmed, the last PRIOR_ANSWERS_KEPT of
+  // them. Sent with every step 1 extraction, so going back to rephrase the
+  // description does not make Orbit ask again for what the founder already
+  // told it; the server replays them only into what the new description
+  // still leaves missing, and the description wins where the two disagree.
+  // Deliberately never cleared during the wizard's life: a fresh extraction
+  // resets the on-screen conversation, not what the founder has said.
+  const [priorAnswers, setPriorAnswers] = useState<string[]>([])
   const [exhaustedMissing, setExhaustedMissing] = useState<MissingField | null>(null)
   const [mergeError, setMergeError] = useState<MergeErrorKind | null>(null)
   const [isMerging, startMerge] = useTransition()
@@ -159,6 +174,12 @@ export default function OnboardingWizard({ knownName }: Props) {
         setMergeError(result.status === "error" ? "generic" : result.reason)
         return
       }
+      // Any other outcome means the merge read the answer, so it is worth
+      // remembering, whether it moved anything or not: a stalled "idk" is
+      // still what the founder said, and the server's guards decide what it
+      // may fill. A failed merge above never reaches here, so an answer
+      // Orbit never read is never replayed.
+      setPriorAnswers((prev) => [...prev, shown].slice(-PRIOR_ANSWERS_KEPT))
       if (result.status === "ready") {
         setGroupName(result.profile.groupName)
         setRhythms(result.profile.rhythms)
@@ -197,6 +218,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // before dispatching.
   function extractFormActionClearingExhausted(formData: FormData) {
     setExhaustedMissing(null)
+    formData.set("priorAnswers", JSON.stringify(priorAnswers))
     extractFormAction(formData)
   }
 
