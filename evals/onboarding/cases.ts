@@ -933,21 +933,22 @@ export const CASES: OnboardingCase[] = [
   // goes back to onboarding step 1 and re-describes the group should not
   // lose answers they already gave Orbit. These three run through
   // `extractWithPriorAnswers` (src/lib/orbit/replay.ts), the seam this
-  // feature calls, rather than through plain `extractGroupProfile`. Task 5
-  // ships that seam as a stub that ignores `priorAnswers` and just calls
-  // extraction, so these three cases are expected RED against today's
-  // behaviour (case 3 is the exception: it needs nothing from the prior
-  // answers to pass, so it is green even against the stub, and stays that
-  // way once Task 6 lands to prove the feature did not break the case where
-  // there is nothing to remember). Task 6 replaces the stub's body; these
-  // cases and their ids are not expected to change.
+  // feature calls, rather than through plain `extractGroupProfile`. They
+  // were written first, against a stub of that seam that ignored
+  // `priorAnswers` and just called extraction, and read red there: 10/30
+  // assertion-runs, with case 1 at 0/5 on all three assertions, case 2's
+  // venue at 0/5, and only case 2's time and case 3 green, since neither
+  // needs anything from the prior answers. The stub was then replaced by the
+  // real replay (merge call plus carry-over guards plus "the description
+  // wins"), and all three read 30/30. Case 3 stays in to prove the feature
+  // did not break the case where there is nothing useful to remember.
   // -------------------------------------------------------------------------
 
   {
     id: "replay-fills-time-and-spot",
     kind: "replay",
     description:
-      "The plain case the feature exists for: a new description leaves both time and spot missing, and both were already answered earlier. Against today's stub (which ignores priorAnswers) this must be red on both assertions, since nothing in the description states either one.",
+      "The plain case the feature exists for: a new description leaves both time and spot missing, and both were already answered earlier. Red on all three assertions against the stub that preceded the real replay (it ignored priorAnswers, and nothing in the description states either one); green once the replay landed.",
     founderDescription: "We climb Tuesdays and Thursdays",
     priorAnswers: ["around 7pm", "Movement Gowanus"],
     assertions: [statusReady, timeIs("19:00"), venueIs("movement")],
@@ -956,7 +957,7 @@ export const CASES: OnboardingCase[] = [
     id: "replay-description-wins",
     kind: "replay",
     description:
-      "The new description states a time that conflicts with an earlier answer; the description must win. Against today's stub, the time assertion is trivially green (the description states 6pm and nothing folds the prior 7pm in to contradict it), but the spot is still missing from the description alone, so the venue assertion is red.",
+      "The new description states a time that conflicts with an earlier answer; the description must win. Against the stub that preceded the real replay, the time assertion was trivially green (the description states 6pm and nothing folded the prior 7pm in to contradict it) and the venue assertion red (the spot is missing from the description alone); with the real replay the time assertion is the one that proves the description wins.",
     founderDescription: "We climb Tuesdays and Thursdays at 6pm",
     priorAnswers: ["around 7pm", "Movement Gowanus"],
     assertions: [timeIs("18:00"), venueIs("movement")],
@@ -965,7 +966,7 @@ export const CASES: OnboardingCase[] = [
     id: "replay-idk-stays-missing",
     kind: "replay",
     description:
-      "A non-answer among the prior answers ('idk, we'll figure it out') must not manufacture a spot; the gap stays open. Green even against today's stub, because the description alone already leaves the spot missing and the stub does nothing to change that outcome.",
+      "A non-answer among the prior answers ('idk, we'll figure it out') must not manufacture a spot; the gap stays open. Green even against the stub that preceded the real replay, because the description alone already leaves the spot missing; it stays green with the replay, which is what it guards.",
     founderDescription: "We climb Tuesdays and Thursdays at 7pm",
     priorAnswers: ["idk, we'll figure it out"],
     assertions: [statusIncompleteNeedsSpot],
