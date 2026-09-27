@@ -16,6 +16,7 @@
 import { mergeGapAnswer } from "@/lib/orbit/merge"
 import { normalizeExtraction, type MissingField } from "@/lib/orbit/normalize"
 import {
+  ANSWER_MAX,
   GAP_ASKABLE_KINDS,
   MAX_GAP_ROUNDS,
   decideGapOutcome,
@@ -31,7 +32,6 @@ import { parseStoredRhythms, type StoredRhythm } from "@/lib/orbit/rhythm"
 import type { GapPayload } from "./extract-group"
 
 const DESCRIPTION_MAX = 2000
-const ANSWER_MAX = 500
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export interface MergeGapInput {

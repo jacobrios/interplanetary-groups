@@ -12,6 +12,7 @@ import {
   GAP_REASK_COPY,
   GAP_ROUND_INTRO,
   GAP_STALLED_INTRO,
+  GAP_STALLED_REASK,
   MAX_GAP_ROUNDS,
   QUESTION_MAX,
   decideGapOutcome,
@@ -24,6 +25,7 @@ import {
   resolveGapQuestion,
   validateQuestion,
 } from "../gap"
+import type { GapAskable } from "../gap"
 import { needsSpot, scheduleGapOf, withSpot, isNonAnswerVenue } from "../normalize"
 import type { NormalizedOnboarding } from "../normalize"
 import type { StoredRhythm } from "../rhythm"
@@ -263,64 +265,117 @@ describe("decideGapOutcome, the three-answer cap", () => {
 
 describe("gapBubbleLine", () => {
   it("first ask folds the question into one sentence, lowercasing its first letter", () => {
-    expect(gapBubbleLine("What time do you meet?", 0, false)).toBe(
+    expect(gapBubbleLine("What time do you meet?", 0, false, "time")).toBe(
       "Here's what I got, but what time do you meet?"
     )
   })
 
   it("first ask, real examples from the owner's spec", () => {
     expect(
-      gapBubbleLine("What time do you play tennis, and where?", 0, false)
+      gapBubbleLine("What time do you play tennis, and where?", 0, false, "time_spot")
     ).toBe("Here's what I got, but what time do you play tennis, and where?")
-    expect(gapBubbleLine("Where do you usually meet for tennis?", 0, false)).toBe(
+    expect(gapBubbleLine("Where do you usually meet for tennis?", 0, false, "spot")).toBe(
       "Here's what I got, but where do you usually meet for tennis?"
     )
-    expect(gapBubbleLine("Is that every week, and where do you meet?", 0, false)).toBe(
-      "Here's what I got, but is that every week, and where do you meet?"
-    )
+    expect(
+      gapBubbleLine("Is that every week, and where do you meet?", 0, false, "cadence_spot")
+    ).toBe("Here's what I got, but is that every week, and where do you meet?")
   })
 
   it("first ask never lowercases a leading standalone \"I\" (I'm, I'll, I've...)", () => {
-    expect(gapBubbleLine("I'm curious what time you meet?", 0, false)).toBe(
+    expect(gapBubbleLine("I'm curious what time you meet?", 0, false, "time")).toBe(
       "Here's what I got, but I'm curious what time you meet?"
     )
-    expect(gapBubbleLine("I've got a question, what time?", 0, false)).toBe(
+    expect(gapBubbleLine("I've got a question, what time?", 0, false, "time")).toBe(
       "Here's what I got, but I've got a question, what time?"
     )
   })
 
   it("first ask never lowercases an opener whose first two letters are both uppercase (an acronym)", () => {
-    expect(gapBubbleLine("OK if it's just weekends?", 0, false)).toBe(
+    expect(gapBubbleLine("OK if it's just weekends?", 0, false, "cadence")).toBe(
       "Here's what I got, but OK if it's just weekends?"
     )
-    expect(gapBubbleLine("NYC or Brooklyn, which spot?", 0, false)).toBe(
+    expect(gapBubbleLine("NYC or Brooklyn, which spot?", 0, false, "spot")).toBe(
       "Here's what I got, but NYC or Brooklyn, which spot?"
     )
   })
 
   it("first ask still lowercases an ordinary capitalized opener (not an acronym)", () => {
-    expect(gapBubbleLine("Where do you usually meet?", 0, false)).toBe(
+    expect(gapBubbleLine("Where do you usually meet?", 0, false, "spot")).toBe(
       "Here's what I got, but where do you usually meet?"
     )
   })
 
   it("a round that moved state says thanks, question unchanged", () => {
-    expect(gapBubbleLine("What days do you meet?", 1, false)).toBe(
+    expect(gapBubbleLine("What days do you meet?", 1, false, "day")).toBe(
       "Thanks. One more thing: What days do you meet?"
     )
   })
 
-  it("a stalled round acknowledges plainly instead of thanking, question unchanged", () => {
-    expect(gapBubbleLine("What time do you meet?", 1, true)).toBe(
-      `${GAP_STALLED_INTRO} What time do you meet?`
-    )
-    expect(GAP_STALLED_INTRO).not.toContain("Thanks")
-  })
-
   it("the stalled flag is ignored on the first ask (nothing to stall on)", () => {
-    expect(gapBubbleLine("What time do you meet?", 0, true)).toBe(
+    expect(gapBubbleLine("What time do you meet?", 0, true, "time")).toBe(
       "Here's what I got, but what time do you meet?"
     )
+  })
+
+  // The four non-guessable kinds keep today's behavior: stalled repeats the
+  // question after a plain acknowledgement, never a guess line, because
+  // there is nothing guessable to fall back to (a cadence or an ambiguous
+  // time has no "best guess" phrasing that means anything).
+  describe("a stalled round on a non-guessable kind repeats the question", () => {
+    const NON_GUESSABLE: GapAskable[] = [
+      "cadence",
+      "ambiguous_time",
+      "cadence_spot",
+      "ambiguous_time_spot",
+    ]
+
+    it.each(NON_GUESSABLE)("%s repeats after the stalled intro", (kind) => {
+      expect(gapBubbleLine("Is that every week?", 1, true, kind)).toBe(
+        `${GAP_STALLED_INTRO} Is that every week?`
+      )
+    })
+
+    it("keeps the stalled intro free of any thanks", () => {
+      expect(GAP_STALLED_INTRO).not.toContain("Thanks")
+    })
+  })
+
+  // The seven guessable kinds drop the question entirely on a stalled round:
+  // the guess line alone is the whole bubble, per the owner-approved table
+  // in the task brief. Asserting the result does not contain the question
+  // is what would catch a regression back to "intro + question".
+  describe("a stalled round on a guessable kind is the guess line alone", () => {
+    const GUESS_TABLE: Record<
+      Extract<
+        GapAskable,
+        "time" | "day" | "both" | "spot" | "time_spot" | "day_spot" | "both_spot"
+      >,
+      string
+    > = {
+      time: "No problem. A best guess at a time is fine for now.",
+      day: "No problem. A best guess at a day is fine for now.",
+      both: "No problem. A best guess at a day and time is fine for now.",
+      spot: "No problem. A best guess at a spot is fine for now.",
+      time_spot: "No problem. A best guess at a time and a spot is fine for now.",
+      day_spot: "No problem. A best guess at a day and a spot is fine for now.",
+      both_spot: "No problem. A best guess is fine for now.",
+    }
+
+    for (const [kind, line] of Object.entries(GUESS_TABLE)) {
+      it(`${kind} -> "${line}"`, () => {
+        const question = "What time do you usually meet, and where?"
+        const result = gapBubbleLine(question, 1, true, kind as GapAskable)
+        expect(result).toBe(line)
+        expect(result).not.toContain(question)
+      })
+    }
+  })
+
+  it("every askable kind has a stalled-reask entry (a new kind fails loudly)", () => {
+    for (const kind of GAP_ASKABLE_KINDS) {
+      expect(GAP_STALLED_REASK[kind]).toBeDefined()
+    }
   })
 })
 
@@ -522,6 +577,7 @@ describe("copy rules", () => {
       ...Object.values(GAP_REASK_COPY),
       ...GAP_ROUND_INTRO,
       GAP_STALLED_INTRO,
+      ...Object.values(GAP_STALLED_REASK).map((r) => (r.kind === "guess" ? r.line : GAP_STALLED_INTRO)),
       ...Object.values(GAP_HINT_EXAMPLES),
     ]
     for (const copy of all) {

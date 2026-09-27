@@ -20,6 +20,7 @@
 import { PLACE_WORD_RE, readClarifyingQuestion, validateQuestion } from "../../src/lib/orbit/gap"
 import type { MergeGapCallInput } from "../../src/lib/orbit/merge"
 import {
+  needsSpot,
   normalizeExtraction,
   type MissingField,
   type NormalizedOnboarding,
@@ -86,7 +87,29 @@ export interface MergeCase {
   assertions: Assertion[]
 }
 
-export type OnboardingCase = ExtractCase | MergeCase
+/**
+ * A "remembered answers" round: a founder went back to step 1, re-described
+ * the group, and answers they already gave Orbit in an earlier gap-ask
+ * conversation should fill whatever the new `founderDescription` still
+ * leaves missing. `priorAnswers` is the raw list of those earlier answers,
+ * in the order the founder gave them, exactly the shape
+ * `extractWithPriorAnswers` (src/lib/orbit/replay.ts) takes. Its own case
+ * kind rather than reusing `ExtractCase`, because the thing being graded is
+ * not extraction alone: it is extraction plus the carry-over of prior
+ * answers, which extraction by itself has no input for.
+ */
+export interface ReplayCase {
+  id: string
+  kind: "replay"
+  description: string
+  /** Free text, exactly as a founder would type it back into onboarding step 1. */
+  founderDescription: string
+  /** The founder's earlier gap-ask answers, in the order they were given. */
+  priorAnswers: string[]
+  assertions: Assertion[]
+}
+
+export type OnboardingCase = ExtractCase | MergeCase | ReplayCase
 
 // ---------------------------------------------------------------------------
 // Shared readers. Assertions stay one expression long so a case reads as a
@@ -218,6 +241,17 @@ function statusIncomplete(missing: MissingField): Assertion {
     name: `status is incomplete, gap "${missing}"`,
     check: (o) => o.normalized.status === "incomplete" && o.normalized.missing === missing,
   }
+}
+
+/**
+ * Looser than `statusIncomplete`: only that the group is incomplete and the
+ * gap still needs a spot, without pinning the exact `MissingField` value.
+ * Used where a case cares that the spot stayed open, not which sibling gap
+ * (if any) rode along with it.
+ */
+const statusIncompleteNeedsSpot: Assertion = {
+  name: "status is incomplete, missing needs a spot",
+  check: (o) => o.normalized.status === "incomplete" && needsSpot(o.normalized.missing),
 }
 
 function activityIs(want: string): Assertion {
@@ -892,5 +926,49 @@ export const CASES: OnboardingCase[] = [
       answer: "7pm",
     },
     assertions: [statusReady, timeIs("19:00"), venueIs("movement gowanus"), ...nameAssertions([2])],
+  },
+
+  // -------------------------------------------------------------------------
+  // Replay cases ("remembered answers", gap-ask-thread slice): a founder who
+  // goes back to onboarding step 1 and re-describes the group should not
+  // lose answers they already gave Orbit. These three run through
+  // `extractWithPriorAnswers` (src/lib/orbit/replay.ts), the seam this
+  // feature calls, rather than through plain `extractGroupProfile`. They
+  // were written first, against a stub of that seam that ignored
+  // `priorAnswers` and just called extraction, and read red there: 10/30
+  // assertion-runs, with case 1 at 0/5 on all three assertions, case 2's
+  // venue at 0/5, and only case 2's time and case 3 green, since neither
+  // needs anything from the prior answers. The stub was then replaced by the
+  // real replay (merge call plus carry-over guards plus "the description
+  // wins"), and all three read 30/30. Case 3 stays in to prove the feature
+  // did not break the case where there is nothing useful to remember.
+  // -------------------------------------------------------------------------
+
+  {
+    id: "replay-fills-time-and-spot",
+    kind: "replay",
+    description:
+      "The plain case the feature exists for: a new description leaves both time and spot missing, and both were already answered earlier. Red on all three assertions against the stub that preceded the real replay (it ignored priorAnswers, and nothing in the description states either one); green once the replay landed.",
+    founderDescription: "We climb Tuesdays and Thursdays",
+    priorAnswers: ["around 7pm", "Movement Gowanus"],
+    assertions: [statusReady, timeIs("19:00"), venueIs("movement")],
+  },
+  {
+    id: "replay-description-wins",
+    kind: "replay",
+    description:
+      "The new description states a time that conflicts with an earlier answer; the description must win. Against the stub that preceded the real replay, the time assertion was trivially green (the description states 6pm and nothing folded the prior 7pm in to contradict it) and the venue assertion red (the spot is missing from the description alone); with the real replay the time assertion is the one that proves the description wins.",
+    founderDescription: "We climb Tuesdays and Thursdays at 6pm",
+    priorAnswers: ["around 7pm", "Movement Gowanus"],
+    assertions: [timeIs("18:00"), venueIs("movement")],
+  },
+  {
+    id: "replay-idk-stays-missing",
+    kind: "replay",
+    description:
+      "A non-answer among the prior answers ('idk, we'll figure it out') must not manufacture a spot; the gap stays open. Green even against the stub that preceded the real replay, because the description alone already leaves the spot missing; it stays green with the replay, which is what it guards.",
+    founderDescription: "We climb Tuesdays and Thursdays at 7pm",
+    priorAnswers: ["idk, we'll figure it out"],
+    assertions: [statusIncompleteNeedsSpot],
   },
 ]

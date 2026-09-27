@@ -37,9 +37,10 @@
 // behaviour.
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
-import StepGapAsk from "../StepGapAsk"
+import StepGapAsk, { type GapTurn } from "../StepGapAsk"
 import type { GapPayload } from "@/app/actions/extract-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
+import { gapBubbleLine } from "@/lib/orbit/gap"
 
 const rhythm: StoredRhythm = {
   activity: "tennis",
@@ -58,11 +59,18 @@ const gap: GapPayload = {
   candidateTimeLocal: null,
 }
 
+// The wizard composes each Orbit line once and hands the step the thread;
+// the default here is the one round-0 line the step opens with.
+const thread: GapTurn[] = [
+  { from: "orbit", text: gapBubbleLine(gap.question, 0, false, gap.missing) },
+]
+
 interface RenderOverrides {
   answer?: string
   onAnswerChange?: (v: string) => void
   onSubmit?: () => void
   isMerging?: boolean
+  thread?: GapTurn[]
 }
 
 function renderStepGapAsk(overrides: RenderOverrides = {}) {
@@ -72,8 +80,7 @@ function renderStepGapAsk(overrides: RenderOverrides = {}) {
     <StepGapAsk
       founderName="Riley"
       gap={gap}
-      round={1}
-      stalled={false}
+      thread={overrides.thread ?? thread}
       answer={overrides.answer ?? ""}
       onAnswerChange={onAnswerChange}
       onSubmit={onSubmit}
@@ -92,8 +99,7 @@ function rerenderWith(
     <StepGapAsk
       founderName="Riley"
       gap={gap}
-      round={1}
-      stalled={false}
+      thread={overrides.thread ?? thread}
       answer={overrides.answer ?? ""}
       onAnswerChange={overrides.onAnswerChange}
       onSubmit={overrides.onSubmit}
@@ -191,8 +197,7 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
       <StepGapAsk
         founderName="Riley"
         gap={{ ...gap, rhythms: [{ ...rhythm, venueName: "Riverside courts" }] }}
-        round={1}
-        stalled={false}
+        thread={thread}
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
@@ -209,8 +214,7 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
       <StepGapAsk
         founderName="Riley"
         gap={gap}
-        round={1}
-        stalled={false}
+        thread={thread}
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
@@ -241,8 +245,7 @@ describe("StepGapAsk — shows a captured venue instead of silently dropping it"
       <StepGapAsk
         founderName="Riley"
         gap={{ ...gap, rhythms: [rhythm, secondary] }}
-        round={1}
-        stalled={false}
+        thread={thread}
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
@@ -274,8 +277,7 @@ describe("StepGapAsk — no edit-description link (the header back arrow covers 
       <StepGapAsk
         founderName="Riley"
         gap={spotGap}
-        round={0}
-        stalled={false}
+        thread={[{ from: "orbit", text: gapBubbleLine(spotGap.question, 0, false, spotGap.missing) }]}
         answer=""
         onAnswerChange={() => {}}
         onSubmit={() => {}}
@@ -290,5 +292,144 @@ describe("StepGapAsk — no edit-description link (the header back arrow covers 
       screen.getByText("Here's what I got, but where do you usually meet for tennis?")
     ).toBeTruthy()
     expect(screen.getByText("e.g. “Movement Gowanus” · “Sam’s place”")).toBeTruthy()
+  })
+})
+
+// Task 3 (gap-ask-thread slice): the step renders the conversation the
+// wizard keeps, founder turns in the viewer's own bubble, and Orbit's merge
+// pause as the thread's last item rather than under the composer.
+describe("StepGapAsk, the thread", () => {
+  it("renders a founder turn in a --surface-self bubble, right-aligned", () => {
+    renderStepGapAsk({
+      thread: [...thread, { from: "founder", text: "we start at 7" }],
+    })
+    const text = screen.getByText("we start at 7")
+    const bubble = text.closest("div") as HTMLElement
+    expect(bubble.style.backgroundColor).toBe("var(--surface-self)")
+    // SelfBubble's own wrapper sits inside the caller's alignment row.
+    const row = bubble.parentElement?.parentElement as HTMLElement
+    expect(row.style.justifyContent).toBe("flex-end")
+  })
+
+  it("renders every turn, in order", () => {
+    renderStepGapAsk({
+      thread: [
+        ...thread,
+        { from: "founder", text: "we start at 7" },
+        { from: "orbit", text: "Thanks. One more thing: Where do you meet?" },
+      ],
+    })
+    const first = screen.getByText(thread[0].text)
+    const answer = screen.getByText("we start at 7")
+    const second = screen.getByText("Thanks. One more thing: Where do you meet?")
+    expect(first.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(answer.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("shows Orbit's merge pause only while merging, after the last turn, and keeps the hint line either way", () => {
+    const { rerender, onAnswerChange, onSubmit } = renderStepGapAsk({
+      thread: [...thread, { from: "founder", text: "we start at 7" }],
+    })
+    expect(screen.queryByText("One sec, I'm updating your schedule.")).toBeNull()
+    expect(screen.getByText(/around 9am/)).toBeTruthy()
+
+    rerender(
+      <StepGapAsk
+        founderName="Riley"
+        gap={gap}
+        thread={[...thread, { from: "founder", text: "we start at 7" }]}
+        answer=""
+        onAnswerChange={onAnswerChange}
+        onSubmit={onSubmit}
+        isMerging
+        mergeError={null}
+      />
+    )
+    const pause = screen.getByText("One sec, I'm updating your schedule.")
+    const answer = screen.getByText("we start at 7")
+    expect(answer.compareDocumentPosition(pause) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The pause sits in the thread, above the composer, not below it.
+    const composer = screen.getByLabelText(/message orbit/i)
+    expect(pause.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText(/around 9am/)).toBeTruthy()
+  })
+})
+
+// Task 4 (gap-ask-thread slice): the gap step is its own full-height screen,
+// the card and the thread scrolling together above a pinned composer, and
+// the view following the newest line. jsdom has no layout engine, so these
+// hold to structure (what sits inside the scrolling region and what does
+// not) and to the scroll call itself; how it looks and moves on a phone is
+// the real-phone pass's to judge.
+describe("StepGapAsk, the pinned composer", () => {
+  function scrollRegion(container: HTMLElement): HTMLElement {
+    const region = container.querySelector("[data-gap-scroll]")
+    expect(region).not.toBeNull()
+    return region as HTMLElement
+  }
+
+  it("keeps the card and the thread inside the scrolling region, and the composer outside it", () => {
+    const { container } = renderStepGapAsk({
+      thread: [...thread, { from: "founder", text: "we start at 7" }],
+    })
+    const region = scrollRegion(container)
+    expect(region.contains(screen.getByText("Tennis Club"))).toBe(true)
+    expect(region.contains(screen.getByText(thread[0].text))).toBe(true)
+    expect(region.contains(screen.getByText("we start at 7"))).toBe(true)
+    expect(region.contains(screen.getByLabelText(/message orbit/i))).toBe(false)
+    expect(region.contains(screen.getByRole("button", { name: "Send answer" }))).toBe(false)
+  })
+
+  it("keeps the box open while the merge runs, so the phone keyboard stays up, and still refuses a second send", () => {
+    // A disabled field dismisses the iOS keyboard, which is why the group
+    // chat stopped disabling its input (message-send-latency slice one).
+    // The double-send guard lives on the send button and the form instead.
+    const { onSubmit, onAnswerChange } = renderStepGapAsk({ answer: "and Movement", isMerging: true })
+    expect(textarea().disabled).toBe(false)
+    fireEvent.change(textarea(), { target: { value: "and Movement!" } })
+    expect(onAnswerChange).toHaveBeenCalledWith("and Movement!")
+    const send = screen.getByRole("button", { name: "Send answer" }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    fireEvent.submit(textarea().closest("form")!)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it("scrolls the newest line into view on arrival, and when the merge pause appears", () => {
+    // jsdom has no scrollIntoView; install a spy for this test and put the
+    // prototype back exactly as it was afterwards.
+    const proto = Element.prototype as unknown as { scrollIntoView?: unknown }
+    const had = Object.prototype.hasOwnProperty.call(proto, "scrollIntoView")
+    const original = proto.scrollIntoView
+    const spy = vi.fn()
+    proto.scrollIntoView = spy
+    try {
+      const { rerender, onAnswerChange, onSubmit } = renderStepGapAsk()
+      // First mount lands on the newest line too.
+      expect(spy).toHaveBeenCalled()
+      spy.mockClear()
+
+      const withAnswer: GapTurn[] = [...thread, { from: "founder", text: "we start at 7" }]
+      rerenderWith(rerender, { thread: withAnswer, onAnswerChange, onSubmit })
+      expect(spy).toHaveBeenCalledWith({ block: "end" })
+      spy.mockClear()
+
+      rerenderWith(rerender, { thread: withAnswer, onAnswerChange, onSubmit, isMerging: true })
+      expect(spy).toHaveBeenCalledWith({ block: "end" })
+      spy.mockClear()
+
+      // Re-rendering with nothing new (a keystroke in the box) does not
+      // yank the view.
+      rerenderWith(rerender, {
+        thread: withAnswer,
+        answer: "x",
+        onAnswerChange,
+        onSubmit,
+        isMerging: true,
+      })
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      if (had) proto.scrollIntoView = original
+      else delete proto.scrollIntoView
+    }
   })
 })

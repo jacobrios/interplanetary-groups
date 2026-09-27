@@ -24,13 +24,20 @@ import { createGroupAction } from "@/app/actions/create-group"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
 import type { MissingField } from "@/lib/orbit/normalize"
 import { EXHAUSTED_COPY } from "@/lib/orbit/playback"
+import { gapBubbleLine } from "@/lib/orbit/gap"
 import { WizardHeader } from "@/components/WizardHeader"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
-import StepGapAsk, { type MergeErrorKind } from "./StepGapAsk"
+import StepGapAsk, { type GapTurn, type MergeErrorKind } from "./StepGapAsk"
 import Step3Share from "./Step3Share"
 
 const initialExtractState: ExtractGroupState = { status: "idle" }
+
+// How many remembered gap answers the wizard keeps and sends. Mirrors
+// PRIOR_ANSWERS_MAX in src/lib/orbit/replay.ts, which the server enforces
+// regardless; restated rather than imported because that module reaches
+// the model call code and this file ships to the browser.
+const PRIOR_ANSWERS_KEPT = 6
 
 interface Props {
   /** The signed-in founder's stored `User.name`, or null for a first-time
@@ -78,9 +85,22 @@ export default function OnboardingWizard({ knownName }: Props) {
   const [gap, setGap] = useState<GapPayload | null>(null)
   const [round, setRound] = useState(0)
   const [answerDraft, setAnswerDraft] = useState("")
-  // True when the last answer moved nothing; the lead-in acknowledges that
-  // plainly instead of thanking the founder for nothing.
-  const [stalled, setStalled] = useState(false)
+  // The gap-ask conversation as shown on screen (gap-ask-thread slice, task
+  // 3). Each Orbit line is composed here, once, when it arrives, and stored:
+  // gapBubbleLine picks its lead-in from the round and whether the answer
+  // stalled, so composing at render time would rewrite every earlier line
+  // in the latest round's words. A fresh extraction resets it, which is
+  // what makes going back to step 1 start a new on-screen conversation.
+  const [thread, setThread] = useState<GapTurn[]>([])
+  // Answers the founder gave Orbit that a merge accepted (gap-ask-thread
+  // slice, task 7), oldest first, trimmed, the last PRIOR_ANSWERS_KEPT of
+  // them. Sent with every step 1 extraction, so going back to rephrase the
+  // description does not make Orbit ask again for what the founder already
+  // told it; the server replays them only into what the new description
+  // still leaves missing, and the description wins where the two disagree.
+  // Deliberately never cleared during the wizard's life: a fresh extraction
+  // resets the on-screen conversation, not what the founder has said.
+  const [priorAnswers, setPriorAnswers] = useState<string[]>([])
   const [exhaustedMissing, setExhaustedMissing] = useState<MissingField | null>(null)
   const [mergeError, setMergeError] = useState<MergeErrorKind | null>(null)
   const [isMerging, startMerge] = useTransition()
@@ -111,7 +131,12 @@ export default function OnboardingWizard({ knownName }: Props) {
     setGap(extractState.gap)
     setRound(0)
     setAnswerDraft("")
-    setStalled(false)
+    setThread([
+      {
+        from: "orbit",
+        text: gapBubbleLine(extractState.gap.question, 0, false, extractState.gap.missing),
+      },
+    ])
     setMergeError(null)
     setExhaustedMissing(null)
     setStep("gap")
@@ -122,19 +147,39 @@ export default function OnboardingWizard({ knownName }: Props) {
   // than a second useActionState with its own handled marker.
   function handleAnswerSubmit() {
     if (!gap || answerDraft.trim().length === 0) return
+    // Captured before the box is cleared: the merge sends exactly what was
+    // typed (untrimmed, as before this slice), the bubble shows it trimmed.
+    const answer = answerDraft
+    const shown = answer.trim()
     setMergeError(null)
+    // The answer shows the moment it is sent, like any chat, and the box
+    // empties; a failed merge below rolls both back.
+    // Kept by reference so a failed merge can take back exactly this turn.
+    const turn: GapTurn = { from: "founder", text: shown }
+    setThread((t) => [...t, turn])
+    setAnswerDraft("")
     startMerge(async () => {
-      const result = await mergeGapAction({ description, answer: answerDraft, round, gap })
-      if (result.status === "error") {
-        // Soft retry: draft preserved, round not consumed.
-        setMergeError("generic")
+      const result = await mergeGapAction({ description, answer, round, gap })
+      if (result.status === "error" || result.status === "unavailable") {
+        // Soft retry: the answer comes off the thread and back into the box
+        // so nothing typed is lost, and the round is not consumed. The turn
+        // is removed by identity, never by position: "the last item" is only
+        // the turn this send added for as long as nothing else has touched
+        // the thread, and that is a promise about the rest of this file, not
+        // something this line can check. If the thread was replaced in the
+        // meantime, the filter finds nothing and removes nothing.
+        setThread((t) => t.filter((x) => x !== turn))
+        setAnswerDraft(answer)
+        // Generic retry line, or the honest reason (credits or trouble).
+        setMergeError(result.status === "error" ? "generic" : result.reason)
         return
       }
-      if (result.status === "unavailable") {
-        // Same contract, honest reason (credits or trouble).
-        setMergeError(result.reason)
-        return
-      }
+      // Any other outcome means the merge read the answer, so it is worth
+      // remembering, whether it moved anything or not: a stalled "idk" is
+      // still what the founder said, and the server's guards decide what it
+      // may fill. A failed merge above never reaches here, so an answer
+      // Orbit never read is never replayed.
+      setPriorAnswers((prev) => [...prev, shown].slice(-PRIOR_ANSWERS_KEPT))
       if (result.status === "ready") {
         setGroupName(result.profile.groupName)
         setRhythms(result.profile.rhythms)
@@ -144,8 +189,20 @@ export default function OnboardingWizard({ knownName }: Props) {
       if (result.status === "incomplete") {
         setGap(result.gap)
         setRound(result.round)
-        setStalled(!result.progressed)
-        setAnswerDraft("")
+        // A stalled round (the answer moved nothing) acknowledges plainly
+        // instead of thanking the founder for nothing.
+        setThread((t) => [
+          ...t,
+          {
+            from: "orbit",
+            text: gapBubbleLine(
+              result.gap.question,
+              result.round,
+              !result.progressed,
+              result.gap.missing
+            ),
+          },
+        ])
         return
       }
       // Exhausted: three answers spent (or a merge lost everything
@@ -161,6 +218,7 @@ export default function OnboardingWizard({ knownName }: Props) {
   // before dispatching.
   function extractFormActionClearingExhausted(formData: FormData) {
     setExhaustedMissing(null)
+    formData.set("priorAnswers", JSON.stringify(priorAnswers))
     extractFormAction(formData)
   }
 
@@ -234,21 +292,58 @@ export default function OnboardingWizard({ knownName }: Props) {
   }
 
   if (step === "gap" && gap) {
+    // The gap step is its own full-height screen (gap-ask-thread slice, task
+    // 4): the header fixed at the top, the card and the conversation
+    // scrolling together in the middle, the composer pinned at the bottom,
+    // the way a chat reads. Steps 1 to 3 keep the page's own layout, and
+    // create/page.tsx is deliberately untouched, so this step covers the
+    // page's padding with a fixed layer rather than asking the page to
+    // change shape for one step. Nothing else renders on the page at this
+    // step, so nothing sits hidden underneath it. The column uses 100dvh,
+    // the group home's pattern, so the height tracks the phone's visible
+    // area as its browser bars come and go.
     return (
-      <>
-        <WizardHeader step={2} onBack={() => setStep("describe")} />
-        <StepGapAsk
-          founderName={founderName}
-          gap={gap}
-          round={round}
-          stalled={stalled}
-          answer={answerDraft}
-          onAnswerChange={setAnswerDraft}
-          onSubmit={handleAnswerSubmit}
-          isMerging={isMerging}
-          mergeError={mergeError}
-        />
-      </>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "var(--surface-base)",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            height: "100dvh",
+            width: "100%",
+            maxWidth: "28rem",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* The page's own top and side padding, so the header lands exactly
+              where it sits on every other step. */}
+          <div style={{ padding: "2rem 1.5rem 0", flexShrink: 0 }}>
+            {/* No onBack mid-merge, the same rule as the playback step's
+                mid-create chevron above. With it live, a founder could go
+                back while a merge ran and its stale result still landed: a
+                "ready" moved them off step 1 onto the playback they had just
+                left, and an "incomplete" appended to a conversation that was
+                about to be replaced. */}
+            <WizardHeader step={2} onBack={isMerging ? undefined : () => setStep("describe")} />
+          </div>
+          <StepGapAsk
+            founderName={founderName}
+            gap={gap}
+            thread={thread}
+            answer={answerDraft}
+            onAnswerChange={setAnswerDraft}
+            onSubmit={handleAnswerSubmit}
+            isMerging={isMerging}
+            mergeError={mergeError}
+          />
+        </div>
+      </div>
     )
   }
 

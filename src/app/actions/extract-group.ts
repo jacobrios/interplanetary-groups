@@ -11,7 +11,7 @@
 
 "use server"
 
-import { extractGroupProfile } from "@/lib/orbit/extract"
+import { extractWithPriorAnswers, parsePriorAnswers } from "@/lib/orbit/replay"
 import { normalizeExtraction } from "@/lib/orbit/normalize"
 import { readClarifyingQuestion, resolveGapQuestion, type GapAskable } from "@/lib/orbit/gap"
 import { ModelUnavailableError } from "@/lib/orbit/model-errors"
@@ -44,9 +44,13 @@ export async function extractGroupAction(
   const description = (formData.get("description") as string | null)?.trim() ?? ""
   if (!description) return { status: "error" }
 
+  // Answers the founder already gave Orbit before coming back to step 1.
+  // Client-held, so parsed as a claim: anything malformed is simply none.
+  const priorAnswers = parsePriorAnswers(formData.get("priorAnswers"))
+
   let raw: unknown
   try {
-    raw = await extractGroupProfile(description)
+    raw = await extractWithPriorAnswers(description, priorAnswers)
   } catch (err) {
     if (err instanceof ModelUnavailableError) {
       // The service, not the founder: honest reason, same soft-retry contract.

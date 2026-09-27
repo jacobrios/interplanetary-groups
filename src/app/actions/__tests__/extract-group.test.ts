@@ -5,7 +5,13 @@ vi.mock("@/lib/orbit/extract", async (importOriginal) => {
   return { ...mod, extractGroupProfile: vi.fn() }
 })
 
+vi.mock("@/lib/orbit/merge", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/orbit/merge")>()
+  return { ...mod, mergeGapAnswer: vi.fn() }
+})
+
 import { extractGroupProfile } from "@/lib/orbit/extract"
+import { mergeGapAnswer } from "@/lib/orbit/merge"
 import { ExtractionError, ModelUnavailableError } from "@/lib/orbit/model-errors"
 import { extractGroupAction } from "../extract-group"
 
@@ -66,5 +72,56 @@ describe("extractGroupAction, the spot gap", () => {
       status: "incomplete",
       gap: { missing: "spot", question: "Where do you usually meet for climbing?" },
     })
+  })
+})
+
+describe("extractGroupAction, remembered answers", () => {
+  // Day but no time and no spot: incomplete, so remembered answers matter.
+  const incomplete = {
+    suggestedGroupName: "Tuesday Climbers",
+    clarifyingQuestion: null,
+    rhythms: [
+      {
+        activity: "climbing",
+        cadence: "weekly",
+        daysOfWeek: [2],
+        timeLocal: null,
+        timeAmbiguous: false,
+        isPrimary: true,
+        venueName: null,
+      },
+    ],
+  }
+
+  it("replays well-formed prior answers and returns the filled profile", async () => {
+    vi.mocked(mergeGapAnswer).mockReset()
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(incomplete)
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      ...incomplete,
+      rhythms: [{ ...incomplete.rhythms[0], timeLocal: "19:00", venueName: "Movement" }],
+    })
+    const f = form("we climb tuesdays")
+    f.set("priorAnswers", JSON.stringify(["7pm", "Movement"]))
+    const result = await extractGroupAction({ status: "idle" }, f)
+    expect(vi.mocked(mergeGapAnswer).mock.calls[0][0].answer).toBe("7pm\nMovement")
+    expect(result).toMatchObject({
+      status: "ready",
+      profile: { rhythms: [{ timeLocal: "19:00", venueName: "Movement" }] },
+    })
+  })
+
+  it("a malformed priorAnswers field behaves exactly like none", async () => {
+    vi.mocked(mergeGapAnswer).mockReset()
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(incomplete)
+    const without = await extractGroupAction({ status: "idle" }, form("we climb tuesdays"))
+
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(incomplete)
+    const f = form("we climb tuesdays")
+    f.set("priorAnswers", "{not json")
+    const malformed = await extractGroupAction({ status: "idle" }, f)
+
+    expect(malformed).toEqual(without)
+    expect(malformed).toMatchObject({ status: "incomplete" })
+    expect(mergeGapAnswer).not.toHaveBeenCalled()
   })
 })
