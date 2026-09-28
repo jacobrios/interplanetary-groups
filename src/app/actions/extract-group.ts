@@ -14,19 +14,26 @@
 import { extractWithPriorAnswers, parsePriorAnswers } from "@/lib/orbit/replay"
 import { normalizeExtraction } from "@/lib/orbit/normalize"
 import { readClarifyingQuestion, resolveGapQuestion, type GapAskable } from "@/lib/orbit/gap"
+import { splitMainActivity } from "@/lib/orbit/main-activity"
 import { ModelUnavailableError } from "@/lib/orbit/model-errors"
 import type { ModelFailureReason } from "@/lib/orbit/model-errors"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
 
 /** Everything the gap step needs: card state, the render-ready question
  * (validated model prose or the fire-exit template), and the merge call's
- * round-trip payload. */
+ * round-trip payload.
+ *
+ * `otherActivities` is optional: extraction always sets it (even to an empty
+ * array), but a merge-gap round never does, since the wizard keeps the names
+ * it already has from extraction rather than trusting a later round to
+ * repeat them (see merge-gap.ts). */
 export interface GapPayload {
   missing: GapAskable
   question: string
   groupName: string | null
   rhythms: StoredRhythm[]
   candidateTimeLocal: string | null
+  otherActivities?: string[]
 }
 
 export type ExtractGroupState =
@@ -35,7 +42,10 @@ export type ExtractGroupState =
   | { status: "unavailable"; reason: ModelFailureReason }
   | { status: "unusable" }
   | { status: "incomplete"; gap: GapPayload }
-  | { status: "ready"; profile: { groupName: string; rhythms: StoredRhythm[] } }
+  | {
+      status: "ready"
+      profile: { groupName: string; rhythms: StoredRhythm[]; otherActivities: string[] }
+    }
 
 export async function extractGroupAction(
   _prev: ExtractGroupState,
@@ -65,9 +75,14 @@ export async function extractGroupAction(
 
   const normalized = normalizeExtraction(raw)
   if (normalized.status === "ready") {
+    const split = splitMainActivity(normalized.rhythms)
     return {
       status: "ready",
-      profile: { groupName: normalized.groupName, rhythms: normalized.rhythms },
+      profile: {
+        groupName: normalized.groupName,
+        rhythms: split.rhythms,
+        otherActivities: split.otherActivities,
+      },
     }
   }
 
@@ -75,18 +90,24 @@ export async function extractGroupAction(
     return { status: "unusable" }
   }
 
+  // The gap question reads normalized.rhythms[0], which the split does not
+  // change (position 0 is always the main activity), so resolve it first.
+  const question = resolveGapQuestion(
+    normalized.missing,
+    readClarifyingQuestion(raw),
+    normalized.rhythms[0].activity
+  )
+  const split = splitMainActivity(normalized.rhythms)
+
   return {
     status: "incomplete",
     gap: {
       missing: normalized.missing,
-      question: resolveGapQuestion(
-        normalized.missing,
-        readClarifyingQuestion(raw),
-        normalized.rhythms[0].activity
-      ),
+      question,
       groupName: normalized.groupName,
-      rhythms: normalized.rhythms,
+      rhythms: split.rhythms,
       candidateTimeLocal: normalized.candidateTimeLocal,
+      otherActivities: split.otherActivities,
     },
   }
 }

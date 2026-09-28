@@ -44,9 +44,11 @@ afterEach(() => {
 function Harness({
   initialRhythms = [climbing, beers],
   isCreating = false,
+  otherActivities = [],
 }: {
   initialRhythms?: StoredRhythm[]
   isCreating?: boolean
+  otherActivities?: string[]
 }) {
   const [groupName, setGroupName] = useState("Climbing Crew")
   const [rhythms, setRhythms] = useState<StoredRhythm[]>(initialRhythms)
@@ -55,6 +57,7 @@ function Harness({
       founderName="Jacob"
       groupName={groupName}
       rhythms={rhythms}
+      otherActivities={otherActivities}
       onDetailsChange={(name, next) => {
         spy(name, next)
         setGroupName(name)
@@ -155,6 +158,15 @@ describe("Step2Playback, read-only with Edit details", () => {
     render(<Harness isCreating />)
     const edit = screen.getByRole("button", { name: "Edit details" }) as HTMLButtonElement
     expect(edit.disabled).toBe(true)
+  })
+
+  it("shows the other-activities note when there is at least one extra, and not when there are none", () => {
+    render(<Harness otherActivities={["beers"]} />)
+    expect(screen.getByText(/For beers, just say it in the group chat/)).toBeTruthy()
+
+    cleanup()
+    render(<Harness otherActivities={[]} />)
+    expect(screen.queryByText(/just say it in the group chat/)).toBeNull()
   })
 
   it("returns focus to Edit details after Done or Never mind", () => {

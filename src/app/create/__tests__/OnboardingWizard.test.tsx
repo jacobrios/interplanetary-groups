@@ -40,7 +40,7 @@ const RHYTHMS: StoredRhythm[] = [
 const extractMock = vi.fn(
   async (..._args: unknown[]): Promise<ExtractGroupState> => ({
     status: "ready" as const,
-    profile: { groupName: "Padel Crew", rhythms: RHYTHMS },
+    profile: { groupName: "Padel Crew", rhythms: RHYTHMS, otherActivities: [] },
   })
 )
 vi.mock("@/app/actions/extract-group", () => ({
@@ -393,5 +393,79 @@ describe("OnboardingWizard, the gap-ask thread", () => {
 
     await backAndContinue()
     expect(priorAnswersSent(1)).toEqual([])
+  })
+})
+
+// Task 4 (spontaneous-activities-design slice): the wizard holds
+// otherActivities from every extract result (ready and incomplete) and
+// carries it through a merge round untouched, since merge-gap.ts's results
+// never carry the field. A fresh extraction (including the back-to-step-1
+// path already covered above) replaces it.
+describe("OnboardingWizard, otherActivities carried to Step2Playback", () => {
+  it("carries otherActivities from an incomplete extraction through a merge round that resolves ready", async () => {
+    extractMock.mockResolvedValueOnce({
+      status: "incomplete",
+      gap: {
+        missing: "time",
+        question: "What time do you usually play padel?",
+        groupName: "Padel Crew",
+        rhythms: [{ ...RHYTHMS[0], timeLocal: null }],
+        candidateTimeLocal: null,
+        otherActivities: ["beers"],
+      },
+    })
+    render(<OnboardingWizard knownName="Jacob" />)
+    fireEvent.change(screen.getByLabelText("About your group"), {
+      target: { value: "We play padel twice a week, and grab beers sometimes." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() => expect(screen.getByLabelText(/message orbit/i)).toBeTruthy())
+
+    // The merge's own "ready" result carries no otherActivities field at
+    // all (MergeGapResult's ready variant has no such property), so the
+    // wizard must be the one remembering it, not the merge response.
+    mergeGapMock.mockResolvedValueOnce({
+      status: "ready",
+      profile: { groupName: "Padel Crew", rhythms: RHYTHMS },
+    })
+    fireEvent.change(screen.getByLabelText(/message orbit/i), { target: { value: "8pm" } })
+    fireEvent.click(screen.getByRole("button", { name: "Send answer" }))
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit details" })).toBeTruthy()
+    )
+    expect(screen.getByText(/For beers, just say it in the group chat/)).toBeTruthy()
+  })
+
+  it("replaces a remembered otherActivities set when a second extraction carries a different one", async () => {
+    // First extraction lands ready, straight to playback, with an extra
+    // activity: the note must show before it can be shown to disappear.
+    extractMock.mockResolvedValueOnce({
+      status: "ready",
+      profile: { groupName: "Padel Crew", rhythms: RHYTHMS, otherActivities: ["beers"] },
+    })
+    render(<OnboardingWizard knownName="Jacob" />)
+    fireEvent.change(screen.getByLabelText("About your group"), {
+      target: { value: "We play padel twice a week, and grab beers sometimes." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+    await vi.waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit details" })).toBeTruthy()
+    )
+    expect(screen.getByText(/For beers, just say it in the group chat/)).toBeTruthy()
+
+    // Back to step 1, rephrase, and this time the description names no
+    // other activity at all: the second extraction lands "ready" straight
+    // away with otherActivities: [], which must replace the first one
+    // rather than leaving it stuck around from before.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }))
+    extractMock.mockResolvedValueOnce({
+      status: "ready",
+      profile: { groupName: "Padel Crew", rhythms: RHYTHMS, otherActivities: [] },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+    await vi.waitFor(() => expect(extractMock).toHaveBeenCalledTimes(2))
+    expect(screen.queryByText(/just say it in the group chat/)).toBeNull()
   })
 })

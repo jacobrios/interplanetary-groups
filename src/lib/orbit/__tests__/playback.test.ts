@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest"
 import {
   EXHAUSTED_COPY,
   formatGapRhythmRow,
+  formatOtherActivitiesNote,
   formatRhythmRow,
   formatTimeLocal,
   REASK_COPY,
@@ -264,5 +265,62 @@ describe("copy rules", () => {
       ).marker,
     ]
     for (const m of markers) expect(m).not.toMatch(/[—–]/)
+  })
+})
+
+describe("formatOtherActivitiesNote", () => {
+  it("returns null for no others", () => {
+    expect(formatOtherActivitiesNote("climbing", [])).toBeNull()
+  })
+
+  it("one other activity", () => {
+    expect(formatOtherActivitiesNote("climbing", ["beers"])).toBe(
+      "I'll put climbing on the calendar every week. For beers, just say it in the group chat when someone's up for it, like \u201cbeers Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("two other activities join with and", () => {
+    expect(formatOtherActivitiesNote("climbing", ["beers", "board games"])).toBe(
+      "I'll put climbing on the calendar every week. For beers and board games, just say it in the group chat when someone's up for it, like \u201cbeers Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("three other activities join with commas and a final and", () => {
+    expect(
+      formatOtherActivitiesNote("climbing", ["beers", "board games", "brunch"])
+    ).toBe(
+      "I'll put climbing on the calendar every week. For beers, board games, and brunch, just say it in the group chat when someone's up for it, like \u201cbeers Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("four or more other activities collapse to a summary phrase, example still uses the first", () => {
+    expect(
+      formatOtherActivitiesNote("climbing", ["beers", "board games", "brunch", "hiking"])
+    ).toBe(
+      "I'll put climbing on the calendar every week. For the other things you mentioned, just say it in the group chat when someone's up for it, like \u201cbeers Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("never contains an em or en dash", () => {
+    const outputs = [
+      formatOtherActivitiesNote("climbing", ["beers"]),
+      formatOtherActivitiesNote("climbing", ["beers", "board games"]),
+      formatOtherActivitiesNote("climbing", ["beers", "board games", "brunch"]),
+      formatOtherActivitiesNote("climbing", ["beers", "board games", "brunch", "hiking"]),
+    ]
+    for (const out of outputs) {
+      expect(out).not.toMatch(/[\u2013\u2014]/)
+    }
+  })
+
+  it("drops an extra that matches the main activity (a later merge or edit can promote it)", () => {
+    expect(formatOtherActivitiesNote("beers", ["beers", "pizza"])).toBe(
+      "I'll put beers on the calendar every week. For pizza, just say it in the group chat when someone's up for it, like \u201cpizza Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("returns null when the only extra matches the main activity, case and whitespace insensitive", () => {
+    expect(formatOtherActivitiesNote("beers", ["Beers"])).toBeNull()
+    expect(formatOtherActivitiesNote("beers", [" beers "])).toBeNull()
   })
 })

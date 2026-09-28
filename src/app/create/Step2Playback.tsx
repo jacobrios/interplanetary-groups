@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type { StoredRhythm } from "@/lib/orbit/rhythm"
-import { formatRhythmRow } from "@/lib/orbit/playback"
+import { formatOtherActivitiesNote, formatRhythmRow } from "@/lib/orbit/playback"
 import { formatTimeZoneLabel } from "@/lib/groups/timezone"
 import { TailedOrbitBubble } from "@/components/TailedOrbitBubble"
 import { PlaybackCard, PlaybackNameRow, PlaybackRow, rowValueTextStyle } from "./PlaybackCard"
@@ -28,6 +28,13 @@ interface Props {
   founderName: string
   groupName: string
   rhythms: StoredRhythm[]
+  /** Every activity the founder mentioned besides the main one at position
+   * zero (Task 4, spontaneous-activities-design slice); [] when there were
+   * none. Never stored, never sent to the server past this screen; it only
+   * drives whether the intro bubble's second paragraph renders. Required:
+   * the real wizard always has an answer (even if empty), and formatting it
+   * before the founder ever sees the card is the whole point of the prop. */
+  otherActivities: string[]
   /** Called with validateDetailsEdit's ok output when the founder taps Done
    * in the editor; the wizard stores both, nothing is saved until confirm. */
   onDetailsChange: (name: string, rhythms: StoredRhythm[]) => void
@@ -48,6 +55,7 @@ export default function Step2Playback({
   founderName,
   groupName,
   rhythms,
+  otherActivities,
   onDetailsChange,
   timeZone,
   onConfirm,
@@ -86,10 +94,22 @@ export default function Step2Playback({
     !isCreating &&
     validateDetailsEdit(rhythms, { name: groupName, rhythms: rhythms.map(toRhythmEdit) }).ok
 
+  // Task 4 (spontaneous-activities-design slice): tells the founder, once,
+  // how everything besides the main weekly activity actually gets planned
+  // (float it in chat), since only the main rhythm is ever stored. null when
+  // there is nothing else to explain, per formatOtherActivitiesNote.
+  const otherActivitiesNote = formatOtherActivitiesNote(
+    rhythms[0]?.activity ?? "",
+    otherActivities
+  )
+
   const bubble = (
     <div style={{ width: "100%", marginBottom: "1rem" }}>
       <TailedOrbitBubble>
         <p style={{ margin: 0 }}>{INTRO_COPY}</p>
+        {otherActivitiesNote && (
+          <p style={{ margin: "0.5rem 0 0" }}>{otherActivitiesNote}</p>
+        )}
       </TailedOrbitBubble>
     </div>
   )

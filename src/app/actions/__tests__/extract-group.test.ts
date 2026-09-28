@@ -75,6 +75,72 @@ describe("extractGroupAction, the spot gap", () => {
   })
 })
 
+describe("extractGroupAction, spontaneous activities split off", () => {
+  const climbingPlusBeers = {
+    suggestedGroupName: "Climbing Crew",
+    clarifyingQuestion: null,
+    rhythms: [
+      {
+        activity: "climbing",
+        cadence: "weekly",
+        daysOfWeek: [2, 4],
+        timeLocal: "19:00",
+        timeAmbiguous: false,
+        isPrimary: true,
+        venueName: "Movement",
+      },
+      {
+        activity: "beers",
+        cadence: "monthly",
+        daysOfWeek: null,
+        timeLocal: null,
+        timeAmbiguous: false,
+        isPrimary: false,
+        venueName: null,
+      },
+    ],
+  }
+
+  it("a ready result stores only the main rhythm and names the rest as otherActivities", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce(climbingPlusBeers)
+    const result = await extractGroupAction(
+      { status: "idle" },
+      form("we climb tuesdays and thursdays at 7pm at movement, and grab beers sometimes")
+    )
+    expect(result).toMatchObject({
+      status: "ready",
+      profile: {
+        rhythms: [{ activity: "climbing" }],
+        otherActivities: ["beers"],
+      },
+    })
+    expect(result.status === "ready" && result.profile.rhythms).toHaveLength(1)
+  })
+
+  it("an incomplete result also stores only the main rhythm and names the rest as otherActivities", async () => {
+    vi.mocked(extractGroupProfile).mockResolvedValueOnce({
+      ...climbingPlusBeers,
+      rhythms: [
+        { ...climbingPlusBeers.rhythms[0], venueName: null },
+        climbingPlusBeers.rhythms[1],
+      ],
+    })
+    const result = await extractGroupAction(
+      { status: "idle" },
+      form("we climb tuesdays and thursdays at 7pm, and grab beers sometimes")
+    )
+    expect(result).toMatchObject({
+      status: "incomplete",
+      gap: {
+        missing: "spot",
+        rhythms: [{ activity: "climbing" }],
+        otherActivities: ["beers"],
+      },
+    })
+    expect(result.status === "incomplete" && result.gap.rhythms).toHaveLength(1)
+  })
+})
+
 describe("extractGroupAction, remembered answers", () => {
   // Day but no time and no spot: incomplete, so remembered answers matter.
   const incomplete = {

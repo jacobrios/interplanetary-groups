@@ -18,6 +18,7 @@
 // no right answer, that is a conversation, not a looser assertion.
 
 import { PLACE_WORD_RE, readClarifyingQuestion, validateQuestion } from "../../src/lib/orbit/gap"
+import { splitMainActivity } from "../../src/lib/orbit/main-activity"
 import type { MergeGapCallInput } from "../../src/lib/orbit/merge"
 import {
   needsSpot,
@@ -970,5 +971,91 @@ export const CASES: OnboardingCase[] = [
     founderDescription: "We climb Tuesdays and Thursdays at 7pm",
     priorAnswers: ["idk, we'll figure it out"],
     assertions: [statusIncompleteNeedsSpot],
+  },
+
+  // -------------------------------------------------------------------------
+  // Main-activity split cases (spontaneous-activities slice, 27 Sept 2026).
+  // `splitMainActivity` (src/lib/orbit/main-activity.ts) does the actual
+  // split in code, after the model has already answered, so these cases are
+  // not testing that split: it is a pure function over whatever rhythms
+  // extraction returned and needs no bench of its own. What they measure is
+  // upstream of it, the only part still riding on the model: whether
+  // extraction keeps naming every activity beyond the main one, so a founder
+  // who mentions a spontaneous "grab pizza now and then" alongside their real
+  // weekly rhythm still gets it explained back to them rather than silently
+  // dropped before the split ever sees it.
+  // -------------------------------------------------------------------------
+
+  {
+    id: "extract-others-single",
+    kind: "extract",
+    description:
+      "One schedulable rhythm plus one spontaneous, unscheduled activity mentioned in passing. Guards that the spontaneous mention survives extraction as an activity the split can name, rather than being read as noise.",
+    founderDescription:
+      "we climb at Movement Gowanus every Tuesday at 7pm, and grab pizza now and then",
+    assertions: [
+      statusReady,
+      activityIs("climbing"),
+      {
+        name: 'other activities are exactly ["pizza"]',
+        check: (o) => {
+          const others = splitMainActivity(o.normalized.rhythms).otherActivities
+          return (
+            others.length === 1 && others[0].trim().toLowerCase() === "pizza"
+          )
+        },
+      },
+    ],
+  },
+  {
+    id: "extract-others-second-schedulable",
+    kind: "extract",
+    description:
+      "Two activities that both carry a day, but only one carries a time. Guards that promotion still picks the one with a time as the main activity (position zero), and that the other, equally schedulable-looking activity still comes back nameable rather than being read as the main one.",
+    founderDescription:
+      "we climb Tuesdays at 7pm at Movement Gowanus and run Saturday mornings in Prospect Park",
+    assertions: [
+      activityIs("climbing"),
+      {
+        name: "other activities contain exactly one entry naming running",
+        check: (o) => {
+          const others = splitMainActivity(o.normalized.rhythms).otherActivities
+          return others.filter((a) => a.toLowerCase().includes("run")).length === 1
+        },
+      },
+    ],
+  },
+  {
+    id: "extract-others-three",
+    kind: "extract",
+    description:
+      "One schedulable main activity plus three spontaneous activities named in a single list. Guards that a list of loosely-mentioned activities is not truncated or collapsed to one.",
+    founderDescription:
+      "we play tennis Sundays at 10am at the Riverside courts, and sometimes do beers, board games, or a movie",
+    assertions: [
+      activityIs("tennis"),
+      {
+        name: "other activities has three entries",
+        check: (o) => splitMainActivity(o.normalized.rhythms).otherActivities.length === 3,
+      },
+    ],
+  },
+  {
+    id: "extract-others-loose-only",
+    kind: "extract",
+    description:
+      "Only a loose, unscheduled activity is named at all. Today's actual behavior: with nothing else to promote, the loose activity becomes the main one and Orbit asks for its day, time and place rather than treating the group as having nothing schedulable. Guards two things: this is never read as ready, and a loose activity that becomes the main one is never also listed as an \"other\" activity.",
+    founderDescription: "we get beers sometimes",
+    assertions: [
+      {
+        name: "status is not ready",
+        check: (o) => o.normalized.status !== "ready",
+      },
+      {
+        name: "other activities is empty",
+        check: (o) => splitMainActivity(o.normalized.rhythms).otherActivities.length === 0,
+      },
+      activityIs("beers"),
+    ],
   },
 ]

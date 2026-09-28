@@ -55,6 +55,14 @@ export default function OnboardingWizard({ knownName }: Props) {
   const [description, setDescription] = useState("")
   const [groupName, setGroupName] = useState("")
   const [rhythms, setRhythms] = useState<StoredRhythm[] | null>(null)
+  // Every activity the founder mentioned besides the main one (Task 4,
+  // spontaneous-activities-design slice): set from every extract result,
+  // ready or incomplete, including the prior-answers replay path, and reset
+  // to [] whenever a new extraction starts (the founder submits step 1
+  // again). A merge-gap round never touches it: merge-gap.ts's results
+  // never carry otherActivities, since the wizard already has the names
+  // from extraction and a later round has no reason to repeat them.
+  const [otherActivities, setOtherActivities] = useState<string[]>([])
 
   // Infer the founder's timezone silently from their browser (build-notes §11,
   // timezone-capture slice): no picker, no question. Detected once on mount and
@@ -124,11 +132,13 @@ export default function OnboardingWizard({ knownName }: Props) {
     setHandledExtract(extractState)
     setGroupName(extractState.profile.groupName)
     setRhythms(extractState.profile.rhythms)
+    setOtherActivities(extractState.profile.otherActivities)
     setStep("playback")
   }
   if (extractState !== handledExtract && extractState.status === "incomplete") {
     setHandledExtract(extractState)
     setGap(extractState.gap)
+    setOtherActivities(extractState.gap.otherActivities ?? [])
     setRound(0)
     setAnswerDraft("")
     setThread([
@@ -278,6 +288,7 @@ export default function OnboardingWizard({ knownName }: Props) {
           founderName={founderName}
           groupName={groupName}
           rhythms={rhythms}
+          otherActivities={otherActivities}
           onDetailsChange={(name, next) => {
             setGroupName(name)
             setRhythms(next)
