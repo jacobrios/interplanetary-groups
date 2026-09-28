@@ -211,11 +211,11 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
           scrolling up through it.
 
           A safe-area-aware paddingBottom (`calc(13px + env(safe-area-inset-
-          bottom))`) was tried and dropped here first: jsdom's CSSOM throws
-          computing getComputedStyle for any element whose inline style
-          holds calc() wrapping an unresolved var() or env() reference, and
-          that throw takes down every getByRole query in this file's tests,
-          not just this band's. The claim that used to stand here instead,
+          bottom))`) was tried and dropped here first: in this repo's jsdom a
+          longhand padding property holding calc() with an unresolved var()
+          or env() throws on a computed-style read, and that throw takes down
+          every getByRole query in this file's tests, not just this band's
+          (a shorthand `padding` string with such a calc() does not throw). The claim that used to stand here instead,
           that Safari's viewport-fit handling keeps a sticky/fixed element
           off the home indicator by default, was TRUE only without
           viewportFit: "cover"; the manifest task that turned "cover" on
@@ -225,10 +225,7 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
           slice: className="sticky-band-safe-bottom" (globals.css) adds the
           inset via a stylesheet !important rule instead of an inline
           calc(), which dodges the jsdom throw because globals.css is not
-          loaded by this project's isolated component tests at all, not
-          because a var() reference resolves any differently from an env()
-          one inside calc() (it does not; confirmed by hand against this
-          repo's own jsdom package). */}
+          loaded by this project's isolated component tests at all. */}
       <div
         className="sticky-band-safe-bottom"
         style={{

@@ -35,11 +35,13 @@ export const metadata: Metadata = {
   // page <title>; "Orbit" is shorter than the full SITE_TITLE and is what the
   // product's own icon and voice are named.
   //
-  // statusBarStyle "black", not "black-translucent" (28 Sept 2026 phone pass):
-  // with black-translucent the installed app's web view was 59px short at the
-  // bottom (innerHeight 793 on an 852pt screen), leaving an unpainted bar.
-  // "black" is the design's named fallback and is being tried on the owner's
-  // phone; revert this one commit to go back.
+  // statusBarStyle "black", not "black-translucent". Decision, 28 Sept 2026,
+  // the owner, after phone pass 4: with black-translucent the installed app's
+  // web view was 59px short at the bottom (innerHeight 793 on an 852pt
+  // screen), leaving an unpainted bar; "black" fills the screen. Go back to
+  // translucent only with a phone check. Under "black" the safe-area top
+  // inset reads 0 in the installed app, so the top-inset plumbing in
+  // globals.css and PageHeader is inert but deliberately kept.
   appleWebApp: {
     capable: true,
     title: "Orbit",
@@ -51,9 +53,11 @@ export const metadata: Metadata = {
 // it, `env(safe-area-inset-*)` resolves to 0 everywhere and the safe-area
 // padding Tasks 2-3 added to the three locked screens has nothing to react
 // to. themeColor/colorScheme match manifest.ts's background_color/theme_color
-// (the product's dark tile, #15161e): themeColor paints the iOS status bar
-// and Android's system UI to match rather than defaulting to white, and
-// colorScheme keeps native form controls, scrollbars, and the browser's own
+// (the product's dark tile, #15161e): themeColor tints browser chrome such as
+// Android's address bar and system UI rather than defaulting to white (not
+// 100% sure how iOS Safari uses it). It does NOT set the installed iOS app's
+// status bar: with statusBarStyle "black" that bar is black, whatever
+// themeColor says. colorScheme keeps native form controls, scrollbars, and the browser's own
 // UI dark instead of guessing light from a missing signal.
 export const viewport: Viewport = {
   viewportFit: "cover",

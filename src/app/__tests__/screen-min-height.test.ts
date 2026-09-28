@@ -1,16 +1,19 @@
 // src/app/__tests__/screen-min-height.test.ts
 //
-// WHY THIS FILE EXISTS. Task 4 turned on viewportFit: "cover" and a
-// translucent status bar, so in the installed app every page now draws
-// under the status bar. A page whose top-level wrapper is sized to a bare
+// WHY THIS FILE EXISTS. Written for viewportFit: "cover" with a translucent
+// status bar. Under statusBarStyle "black" the top inset reads 0 in the
+// installed app (phone pass 4, 28 Sept 2026), so this is inert today and
+// kept so a return to translucent has it. With translucent, every page
+// draws under the status bar. A page whose top-level wrapper is sized to a bare
 // "100dvh" therefore scrolls by the status bar's height: the wrapper is one
 // status-bar-height too tall for what body's own inset padding leaves
 // available below it. `--screen-min-height` (globals.css) and body's own
 // `padding-top: env(safe-area-inset-top)` are the fix; this file pins both
 // halves so a future edit cannot drop one without a red test.
 //
-// WHAT THIS FILE CANNOT DO. jsdom cannot resolve a `calc()` that wraps
-// `env()` (VisibleViewport.test.tsx's header names the same limit), and it
+// WHAT THIS FILE CANNOT DO. jsdom throws on a longhand padding property
+// holding an unresolved calc() (VisibleViewport.test.tsx's header names the
+// same limit), and it
 // has no real notion of a safe-area inset to render against in the first
 // place. A rendered assertion of the actual pixel effect is therefore
 // impractical here; every assertion below is a source-level read of

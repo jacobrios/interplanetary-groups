@@ -179,7 +179,7 @@ describe("ChatInput — composer wraps instead of scrolling sideways", () => {
 // keyboard when it's up. Asserted on the raw style string, per the task
 // brief, rather than on a computed pixel value jsdom cannot resolve for a
 // var() it never receives a value for.
-describe("ChatInput — bottom padding clears the home bar", () => {
+describe("ChatInput: bottom padding clears the home bar", () => {
   it("carries var(--bottom-inset) in its outer padding", () => {
     const { container } = renderChatInput()
     const outer = container.querySelector("form")!.parentElement!

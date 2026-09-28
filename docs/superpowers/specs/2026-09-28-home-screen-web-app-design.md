@@ -19,7 +19,9 @@ build-notes §11 at the end of the slice.
 2. **Installable:** name "Interplanetary Groups", icon label **"Orbit"**,
    opens at **`/`** (the session-aware front door), dark `#15161e` for the
    status bar area, launch and browser tint, status bar translucent over the
-   page, composer clearing the home bar.
+   page, composer clearing the home bar. *(Amended 28 Sept 2026, phone pass
+   4: translucent left the installed app 59pt short at the bottom; the status
+   bar is solid black by the owner's call after seeing it on his phone.)*
 3. **No install hint in the product.** He suggests it in person. Queued with
    a trigger: strangers onboarding without him in the room. Cheapest form
    when it comes: one quiet text line on group info, browser-only.
@@ -42,7 +44,9 @@ over the LAN, against a production build.
 paint uses today's sizing until it runs. iPhone's home-screen behaviour
 shifts between iOS versions with no automated guard. Every future
 full-screen page must use the shared top-inset token or it will sit under
-the status bar in the installed app.
+the status bar in the installed app. *(Amended 28 Sept 2026: moot while the
+status bar is solid black, since the inset reads 0; the token stays for a
+return to translucent.)*
 
 ---
 

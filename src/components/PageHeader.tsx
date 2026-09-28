@@ -27,7 +27,9 @@
 // strip is the other half of this fix: it is what scrolling content passes
 // behind, in the one frame this bar is still in transit toward its stuck
 // position, rather than in front of, since a translucent status bar would
-// otherwise show that transit through. Inside a VisibleViewport
+// otherwise show that transit through. Inert under statusBarStyle "black"
+// (inset reads 0, phone pass 4, 28 Sept 2026), kept so a return to
+// translucent has it. Inside a VisibleViewport
 // the real inset must NOT be used: that box pads its own top with
 // env(safe-area-inset-top) and is itself the scroll container, so a sticky
 // offset is measured from the padding-reduced edge and the inset would be

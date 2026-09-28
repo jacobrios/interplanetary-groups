@@ -442,7 +442,7 @@ describe("StepGapAsk, the pinned composer", () => {
 // up and the safe-area value while it's closed, so this reads that variable
 // instead. Asserted on the raw style string per the task brief, since jsdom
 // cannot resolve a var() it never receives a value for.
-describe("StepGapAsk — bottom padding clears the home bar", () => {
+describe("StepGapAsk: bottom padding clears the home bar", () => {
   it("carries var(--bottom-inset) in its pinned-bottom padding", () => {
     const { container } = renderStepGapAsk()
     const pinnedBottom = container.querySelector("form")!.parentElement!

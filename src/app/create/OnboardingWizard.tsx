@@ -320,7 +320,7 @@ export default function OnboardingWizard({ knownName }: Props) {
     // VisibleViewport pads its own top with the safe-area inset; the inner
     // column below never carried any top padding of its own to begin with
     // (that lives one level down, on its header child, and is unrelated to
-    // the safe area — see the comment there).
+    // the safe area, see the comment there).
     return (
       <VisibleViewport
         style={{
