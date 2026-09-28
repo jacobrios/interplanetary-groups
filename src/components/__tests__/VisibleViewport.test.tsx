@@ -350,4 +350,17 @@ describe("VisibleViewport", () => {
     expect(el.style.backgroundColor).toBe("var(--surface-base)")
     expect(el.style.position).toBe("fixed")
   })
+  // The box pads its own top with the safe-area inset and is a scroll
+  // container, so a sticky descendant's offset is measured from the
+  // padding-reduced edge. Without this reset PageHeader's top: var(--safe-top)
+  // applied the inset a second time (28 Sept 2026 phone pass, 59px too low).
+  it("zeroes --safe-top for its descendants, since the box already pads the inset", () => {
+    render(
+      <VisibleViewport>
+        <p>child</p>
+      </VisibleViewport>,
+    )
+    const el = screen.getByText("child").parentElement as HTMLElement
+    expect(el.style.getPropertyValue("--safe-top")).toBe("0px")
+  })
 })

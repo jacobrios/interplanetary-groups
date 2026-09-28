@@ -27,10 +27,14 @@
 // strip is the other half of this fix: it is what scrolling content passes
 // behind, in the one frame this bar is still in transit toward its stuck
 // position, rather than in front of, since a translucent status bar would
-// otherwise show that transit through. The group home's own PageHeader is
-// unaffected either way: it renders inside VisibleViewport, a fixed
-// container with no ancestor scroll of its own, so this bar is never
-// mid-transit there in the first place.
+// otherwise show that transit through. Inside a VisibleViewport
+// the real inset must NOT be used: that box pads its own top with
+// env(safe-area-inset-top) and is itself the scroll container, so a sticky
+// offset is measured from the padding-reduced edge and the inset would be
+// applied twice (28 Sept 2026 phone pass: 59px too low, overlapping the
+// event card). VisibleViewport sets --safe-top to 0px on its root, so this
+// same top: var(--safe-top) resolves to 0 there and to the real inset on
+// document-scrolling pages.
 //
 // It has no title slot, no trailing-action slot, and no opinion about what
 // any screen's header contains. That boundary is the point: the alternative

@@ -65,6 +65,18 @@
 // comparison; nothing here claims to know its behaviour on any other
 // device or browser, so it stays out of this component entirely.
 //
+// --safe-top IS RESET TO 0px HERE (28 Sept 2026 phone pass)
+//
+// This box pads its own top with env(safe-area-inset-top) and is a scroll
+// container (overflow hidden). A position: sticky descendant measures its
+// "top" from the padding-reduced edge of its scroll container, so
+// PageHeader's top: var(--safe-top) added the inset a second time: in the
+// installed iPhone app (inset 59px) the group home's header sat about 59px
+// too low and overlapped the event card. The box therefore sets --safe-top
+// to 0px on its own root, so nothing inside it adds the inset again. Pages
+// that scroll the document instead of living under a VisibleViewport are
+// untouched and still read the real inset from globals.css.
+//
 // WHY --bottom-inset EXISTS RATHER THAN A HARDCODED PADDING
 //
 // With the keyboard open, the home bar it would otherwise sit above is
@@ -261,11 +273,13 @@ export default function VisibleViewport({ children, style }: Props) {
 
   const dynamic: StyleWithCustomProperties = measurement
     ? {
+        "--safe-top": "0px",
         top: `${measurement.top}px`,
         height: `${measurement.height}px`,
         "--bottom-inset": measurement.bottomInset,
       }
     : {
+        "--safe-top": "0px",
         top: 0,
         height: "100dvh",
         "--bottom-inset": "env(safe-area-inset-bottom)",
