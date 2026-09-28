@@ -143,9 +143,16 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
   return {
     status: "incomplete",
     round: round + 1,
+    // Compare position-0 only on both sides: currentState is already
+    // main-only (it round-trips through GapPayload.rhythms), but
+    // normalized.rhythms is the model's full, unsplit claim, which re-adds
+    // any spontaneous activity (e.g. beers) from the description on every
+    // round. Comparing the full array against the main-only prior made that
+    // re-addition alone read as progress, even when the main activity itself
+    // was untouched.
     progressed: gapAnswerMoved(
-      { rhythms: currentState, groupName },
-      { rhythms: normalized.rhythms, groupName: normalized.groupName }
+      { rhythms: splitMainActivity(currentState).rhythms, groupName },
+      { rhythms: splitMainActivity(normalized.rhythms).rhythms, groupName: normalized.groupName }
     ),
     gap: {
       missing: outcome.missing,

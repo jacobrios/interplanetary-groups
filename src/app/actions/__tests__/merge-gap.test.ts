@@ -178,4 +178,31 @@ describe("mergeGapAction, spontaneous activities split off", () => {
     expect(result.gap.rhythms).toHaveLength(1)
     expect(result.gap).not.toHaveProperty("otherActivities")
   })
+
+  it("a re-added beers rhythm does not by itself count as progress, since the model re-adds it from the description every round", async () => {
+    // The main rhythm (climbing) comes back byte-for-byte unchanged; only
+    // beers is re-added. `progressed` must read false: nothing about the
+    // founder's answer moved anything on the activity actually being asked
+    // about. Before the fix, comparing the always-main-only `currentState`
+    // against the full unsplit `normalized.rhythms` made the length
+    // difference alone (1 vs 2) read as progress.
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: GAP_INPUT.gap.groupName,
+      clarifyingQuestion: null,
+      rhythms: [
+        rawRhythm({ timeLocal: null, venueName: null }), // identical to GAP_INPUT.gap.rhythms[0]
+        {
+          activity: "beers",
+          cadence: "monthly",
+          daysOfWeek: null,
+          timeLocal: null,
+          timeAmbiguous: false,
+          isPrimary: false,
+          venueName: null,
+        },
+      ],
+    })
+    const result = await mergeGapAction(GAP_INPUT)
+    expect(result).toMatchObject({ status: "incomplete", progressed: false })
+  })
 })
