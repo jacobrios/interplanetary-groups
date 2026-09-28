@@ -43,6 +43,7 @@ import type { FeedGauge } from "./GaugeChips"
 import type { FeedProposal } from "./ProposalChips"
 import type { FeedGroupProposal } from "./GroupProposalChips"
 import PageHeader from "@/components/PageHeader"
+import VisibleViewport from "@/components/VisibleViewport"
 import { deriveIdeaItems } from "@/lib/pending/derive"
 import { composeCardRegion, CARD_REGION_CAP } from "@/lib/cards/region"
 import { GroupHomeHeader } from "./GroupHomeHeader"
@@ -324,10 +325,17 @@ export default async function GroupPage({ params }: Props) {
   }))
 
   return (
-    <div
+    // VisibleViewport (home-screen-web-app slice, task 2) replaces the old
+    // height: 100dvh root. This is a server component, and VisibleViewport
+    // is a client one; passing everything below as `children` is fine under
+    // App Router, since the server still renders that subtree, it's only
+    // the fixed positioning and measurement wrapping it that runs client
+    // side. `height` and `overflow` are dropped from this style object:
+    // VisibleViewport sets both itself (a measured pixel height, and
+    // overflow: hidden), so restating them here would either be redundant
+    // or, for height, wrong.
+    <VisibleViewport
       style={{
-        height: "100dvh",
-        overflow: "hidden",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",
@@ -409,6 +417,6 @@ export default async function GroupPage({ params }: Props) {
           bootedDeploymentId={bootedDeploymentId}
         />
       </FeedSeam>
-    </div>
+    </VisibleViewport>
   )
 }

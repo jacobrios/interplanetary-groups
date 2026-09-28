@@ -121,7 +121,13 @@ export default function ChatInput({
       style={{
         backgroundColor: "var(--surface-base)",
         backgroundImage: "linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0))",
-        padding: "12px 16px 4px",
+        // The bottom 4px used to be flat, which sits under the iPhone home
+        // bar's safe area once the keyboard is closed. VisibleViewport
+        // (mounted on this screen's ancestor) publishes --bottom-inset: the
+        // safe-area value with the keyboard closed, 0px the moment it's
+        // open, so this clears the bar without opening a gap above the
+        // keyboard when it's up.
+        padding: "12px 16px calc(4px + var(--bottom-inset, 0px))",
         flexShrink: 0,
       }}
     >

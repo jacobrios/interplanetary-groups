@@ -225,8 +225,12 @@ export function YourGroupsScreen({
           that route for real, so either place could have been proven. The
           reason is page.tsx's own flex chain. Its header explains at length
           that <main> has ONE flex-item child, and that this child's default
-          flex-shrink is what carries the 100dvh bound down into the scroll
-          region below. A second child there would falsify that comment
+          flex-shrink is what carries <main>'s own definite-height bound
+          down into the scroll region below (<main> now reads height:
+          "100%" against VisibleViewport's measured pixel height, not a
+          literal 100dvh, but it is still <main> that is the bounded flex
+          container here, one level inside VisibleViewport's own div). A
+          second child there would falsify that comment
           rather than merely sit beside it. Placed here the footer joins the
           same column the scroll region is in, inherits the screen's 20px
           gutter, and leaves that mechanism intact. It renders on /groups
@@ -236,8 +240,13 @@ export function YourGroupsScreen({
           flex 1 1 auto with minHeight 0, and a shrinkable footer would let
           the browser squeeze this instead of the list it is supposed to
           bound. Quiet, not a new section: no heading, no rule above it, and
-          LegalFooter's own type is the eyebrow floor in --text-faint. */}
-      <div style={{ flex: "0 0 auto", padding: "18px 0 16px" }}>
+          LegalFooter's own type is the eyebrow floor in --text-faint.
+
+          Bottom padding reads --bottom-inset (home-screen-web-app slice,
+          task 3), published by the VisibleViewport the /groups route now
+          mounts, so these links clear the iPhone home bar instead of
+          sitting under it; a flat 16px never accounted for the bar at all. */}
+      <div style={{ flex: "0 0 auto", padding: "18px 0 calc(16px + var(--bottom-inset, 0px))" }}>
         <LegalFooter />
       </div>
     </div>

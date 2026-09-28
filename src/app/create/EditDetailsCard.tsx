@@ -91,8 +91,15 @@ export default function EditDetailsCard({ groupName, rhythms, onDone, onCancel }
       {/* Sticky band, matching the comment on EditGroupDetails.tsx's own
           sticky band div: pinned to the viewport's bottom edge once the
           form outgrows the screen, opaque so fields never scroll up
-          through it. */}
+          through it. className="sticky-band-safe-bottom" (globals.css,
+          task 5 of the home-screen-web-app slice) adds the home-indicator
+          inset to this band's bottom padding under viewportFit: "cover";
+          see that rule's own comment for why the addition lives in a
+          stylesheet class rather than in an inline longhand (jsdom throws
+          on a longhand padding holding an unresolved calc(); it does not
+          on a shorthand). */}
       <div
+        className="sticky-band-safe-bottom"
         style={{
           ...detailsBandStyle,
           position: "sticky",

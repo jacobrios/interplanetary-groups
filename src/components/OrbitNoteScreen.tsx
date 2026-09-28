@@ -53,7 +53,7 @@ export default function OrbitNoteScreen({
   return (
     <main
       style={{
-        minHeight: "100dvh",
+        minHeight: "var(--screen-min-height)",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",

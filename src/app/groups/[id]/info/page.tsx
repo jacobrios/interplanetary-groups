@@ -118,7 +118,7 @@ export default async function GroupInfoPage({ params }: Props) {
   return (
     <main
       style={{
-        minHeight: "100dvh",
+        minHeight: "var(--screen-min-height)",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",

@@ -568,8 +568,20 @@ export default function EmailAskNote({
         />
 
         {/* The pad scrolls inside the sheet, which is what keeps Save reachable
-            at an enlarged device text size instead of clipping it. */}
+            at an enlarged device text size instead of clipping it.
+            className="email-ask-safe-bottom" (globals.css, task 5 of the
+            home-screen-web-app slice) adds the home indicator's inset to
+            the 20px bottom pad under viewportFit: "cover", via --bottom-inset
+            (inherited from the group home's VisibleViewport, falling back
+            to --safe-bottom). That is for consistency with the screen
+            beneath, not to prevent a keyboard gap: the sheet's scrim is
+            fixed to the full layout area, so its bottom sits behind the
+            keyboard either way. The class also pads the sides for the
+            landscape notch. The addition lives in that stylesheet class,
+            not this inline style object, for the same jsdom reason named at
+            the two sticky bands (EditDetailsCard.tsx, EditGroupDetails.tsx). */}
         <div
+          className="email-ask-safe-bottom"
           style={{
             padding: "4px 18px 20px",
             display: "flex",

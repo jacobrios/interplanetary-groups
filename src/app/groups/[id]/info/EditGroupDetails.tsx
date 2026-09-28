@@ -211,19 +211,23 @@ export default function EditGroupDetails({ groupId, groupName, rhythms, nextPlan
           scrolling up through it.
 
           A safe-area-aware paddingBottom (`calc(13px + env(safe-area-inset-
-          bottom))`) was tried and dropped: jsdom's inline-style CSSOM cannot
-          resolve `calc()` wrapping `env()` and throws while computing every
-          element's accessibility role in this file's tests, not just this
-          band's, so it does not meet the brief's own condition ("only if it
-          can be done without changing... otherwise leave padding as is and
-          say so"; the failure here is a testability break rather than a
-          visual one, but the instruction's fallback is the right call
-          either way). Padding stays the unmodified 13px from
-          detailsBandStyle; the sticky band still sits above the home
-          indicator on most iPhones because Safari's own viewport-fit
-          handling already keeps a sticky/fixed element off it by default,
-          just without the extra breathing room a safe-area inset would add. */}
+          bottom))`) was tried and dropped here first: in this repo's jsdom a
+          longhand padding property holding calc() with an unresolved var()
+          or env() throws on a computed-style read, and that throw takes down
+          every getByRole query in this file's tests, not just this band's
+          (a shorthand `padding` string with such a calc() does not throw). The claim that used to stand here instead,
+          that Safari's viewport-fit handling keeps a sticky/fixed element
+          off the home indicator by default, was TRUE only without
+          viewportFit: "cover"; the manifest task that turned "cover" on
+          made it false, because "cover" is what pulls the safe area back
+          inside the viewport for every element to draw under, sticky bands
+          included. Fixed properly in task 5 of the home-screen-web-app
+          slice: className="sticky-band-safe-bottom" (globals.css) adds the
+          inset via a stylesheet !important rule instead of an inline
+          calc(), which dodges the jsdom throw because globals.css is not
+          loaded by this project's isolated component tests at all. */}
       <div
+        className="sticky-band-safe-bottom"
         style={{
           ...detailsBandStyle,
           position: "sticky",

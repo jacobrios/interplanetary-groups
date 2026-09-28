@@ -24,7 +24,17 @@ export default async function CreateGroupPage() {
   return (
     <main
       style={{
-        minHeight: "100dvh",
+        // Not double-padded against the gap step's VisibleViewport (task 1,
+        // mounted by OnboardingWizard for that one step only): VisibleViewport
+        // is position: fixed, so it is positioned against the viewport, not
+        // against this <main>'s padding box, and it pads its own top with the
+        // same env(safe-area-inset-top) independently. This <main> keeps
+        // rendering underneath it during the gap step (React does not unmount
+        // it, OnboardingWizard just returns a different tree), but nothing of
+        // it is visible then; on every other step it is the only thing on
+        // screen and var(--screen-min-height) applies the ordinary way, same
+        // as the other eight whole-page sites.
+        minHeight: "var(--screen-min-height)",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
         display: "flex",

@@ -169,3 +169,20 @@ describe("ChatInput — composer wraps instead of scrolling sideways", () => {
     expect(el.style.height).toBe(expectedHeight(el, 26))
   })
 })
+
+// Home-screen-web-app slice, task 3: the composer's bottom padding used to
+// be a flat 4px, which sits under the iPhone home bar's inset once the
+// keyboard is closed. VisibleViewport (Task 1) sets --bottom-inset to the
+// safe-area value with the keyboard closed and to 0px the moment the
+// keyboard is open, so this composer reads that variable instead of the
+// bare 4px, and clears the bar without opening a visible gap above the
+// keyboard when it's up. Asserted on the raw style string, per the task
+// brief, rather than on a computed pixel value jsdom cannot resolve for a
+// var() it never receives a value for.
+describe("ChatInput: bottom padding clears the home bar", () => {
+  it("carries var(--bottom-inset) in its outer padding", () => {
+    const { container } = renderChatInput()
+    const outer = container.querySelector("form")!.parentElement!
+    expect(outer.getAttribute("style")).toContain("var(--bottom-inset")
+  })
+})

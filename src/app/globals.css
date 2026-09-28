@@ -50,6 +50,61 @@
 
   --leading-tight:  1.15;
   --leading-normal: 1.5;
+
+  /* Inert under statusBarStyle "black" (safe-area-inset-top reads 0 in the
+     installed app, phone pass 4, 28 Sept 2026), kept so a return to
+     translucent has it. Written for viewportFit: "cover" with a translucent
+     status bar, where the installed app draws under it. body's own padding-top (below)
+     already pushes normal-flow content clear of the inset; a whole-page
+     wrapper that still asks for a flat 100dvh then ends up one inset-height
+     too tall for what is left below that padding, so the page scrolls by
+     exactly the status bar's height. --screen-min-height is 100dvh with
+     that same inset subtracted, so a wrapper sized to it plus body's
+     padding together add up to one screen, not one screen plus a sliver.
+     Real browsers resolve calc() wrapping env() natively; this is a plain
+     custom property in a stylesheet no component test loads, so jsdom's
+     longhand-padding calc() throw (see .sticky-band-safe-bottom below) never
+     comes into play. */
+  --screen-min-height: calc(100dvh - env(safe-area-inset-top));
+
+  /* Task 5, fix round 1. Named tokens for the same two insets, used where a
+     bare env() cannot be the whole story: PageHeader's sticky top offset (a
+     plain var() reference, no calc(), so a source-level test can pin it),
+     the status-bar
+     backdrop, and the two sticky-band and one sheet safe-bottom pads
+     further down this file. */
+  --safe-top: env(safe-area-inset-top);
+  --safe-bottom: env(safe-area-inset-bottom);
+  /* Landscape: viewportFit "cover" makes the left and right insets nonzero
+     when the phone is turned, and nothing else pads them. body and
+     VisibleViewport use these. Never seen on a device (source-tested only). */
+  --safe-left: env(safe-area-inset-left);
+  --safe-right: env(safe-area-inset-right);
+}
+
+/* Inert under statusBarStyle "black" (inset reads 0, phone pass 4, 28 Sept
+   2026), kept so a return to translucent has it.
+   The status-bar backdrop (task 5, fix round 1). PageHeader now sticks at
+   top: var(--safe-top), which correctly keeps it off the status bar at
+   rest, but a sticky element still slides THROUGH the space above its own
+   stuck position while it is still in transit (a translucent status bar
+   over scrolling content for one frame, on the way to stuck). This strip
+   is what that content passes behind instead of through: a fixed slab the
+   exact height of the inset, painted the page surface, sitting between the
+   header (z-index 10) and any modal scrim (EmailAskNote's is 40) so a
+   sheet still covers it correctly. env(safe-area-inset-top) is 0 in an
+   ordinary browser tab, so height: var(--safe-top) collapses this to
+   nothing everywhere the app is not installed. */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background-color: var(--surface-base);
+  z-index: 20;
+  pointer-events: none;
 }
 
 @theme inline {
@@ -63,6 +118,18 @@ body {
   background: var(--surface-base);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* The other half of --screen-min-height, above: this is what actually
+     clears normal-flow content of the status bar in the installed app.
+     env(safe-area-inset-top) resolves to 0 in an ordinary browser tab and,
+     under statusBarStyle "black", in the installed app too (phone pass 4,
+     28 Sept 2026), so this is inert today and kept for a return to
+     translucent. VisibleViewport
+     (position: fixed) is unaffected either way; fixed positioning is not
+     shifted by an ancestor's padding. */
+  padding-top: env(safe-area-inset-top);
+  /* Landscape side insets (see --safe-left). VisibleViewport pads its own. */
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 /* The one thing inline styles cannot express: WebKit scrollbar hiding for
@@ -132,3 +199,39 @@ input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 
    Colour-free and layout-free: pointer-events changes no box. */
 .tap-card-ask { pointer-events: none; }
 .tap-card-ask button { pointer-events: auto; }
+
+/* Task 5, fix round 1: viewportFit: "cover" puts these two bottom-anchored
+   sticky bands (EditDetailsCard.tsx, EditGroupDetails.tsx) under the iPhone
+   home indicator, where before "cover" the safe area was simply outside
+   the viewport and Safari kept a fixed/sticky element off it for free. A
+   prior attempt put `calc(13px + env(safe-area-inset-bottom))` directly in
+   the div's inline paddingBottom and was dropped: in this repo's jsdom a
+   LONGHAND padding property (paddingBottom) holding calc() with an
+   unresolved var() or env() throws on a computed-style read, taking down
+   every getByRole query in whichever test file rendered it. (A SHORTHAND
+   `padding` string containing such a calc() does not throw: ChatInput,
+   StepGapAsk and YourGroupsScreen ship that inline and pass. The split is
+   longhand versus shorthand, not var() versus env().)
+   globals.css is not loaded by this project's isolated component tests
+   (only layout.tsx imports it), so a class defined here and referenced by
+   className, with no calc() anywhere in the inline style object, is inert
+   in those tests and only takes effect in a real browser that actually
+   loads this stylesheet. !important is what lets it win over
+   detailsBandStyle's inline `padding: "13px 16px"` shorthand in that real
+   browser: an author stylesheet's !important declaration is the one thing
+   the cascade lets outrank an inline style. */
+.sticky-band-safe-bottom { padding-bottom: calc(13px + var(--safe-bottom)) !important; }
+
+/* The email-ask sheet's own scrolling pad (EmailAskNote.tsx) needs the same
+   treatment, for the same jsdom reason above. It reads --bottom-inset,
+   inherited from the group home's VisibleViewport (custom properties inherit
+   regardless of the sheet's own position: fixed), falling back to
+   --safe-bottom where no VisibleViewport is above it. This is for
+   consistency with the screen it sits on, NOT to prevent a keyboard gap: the
+   sheet's scrim is fixed to the full layout area, so its bottom sits behind
+   the keyboard either way. The side paddings clear the landscape notch. */
+.email-ask-safe-bottom {
+  padding-bottom: calc(20px + var(--bottom-inset, var(--safe-bottom))) !important;
+  padding-left: calc(18px + var(--safe-left)) !important;
+  padding-right: calc(18px + var(--safe-right)) !important;
+}

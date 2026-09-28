@@ -342,7 +342,7 @@ export default function JoinForm({
   return (
     <main
       style={{
-        minHeight: "100dvh",
+        minHeight: "var(--screen-min-height)",
         // The .jn-body source also carries `flex: 1 1 auto`. It's inert
         // here (this <main> is body's sole flex child, so there is no
         // sibling to grow past and no free space to claim beyond what
@@ -350,9 +350,11 @@ export default function JoinForm({
         // the task report for the measurements that confirm it), but it's
         // a distinct property from min-height so it's added anyway with
         // no cost. `min-height: 0` from the same source rule is NOT
-        // ported: it is the same CSS property as the minHeight: 100dvh
-        // below and would silently replace it, and 100dvh is the
-        // established, load-bearing convention behind every other
+        // ported: it is the same CSS property as the minHeight below
+        // and would silently replace it, and that minHeight (now
+        // var(--screen-min-height); see globals.css, task 5 of the
+        // home-screen-web-app slice) is the established, load-bearing
+        // convention behind every other
         // headerless screen in this codebase (front door, OrbitNoteScreen,
         // group info). Kept the value that renders correctly.
         flex: "1 1 auto",

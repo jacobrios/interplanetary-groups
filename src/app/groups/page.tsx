@@ -22,6 +22,7 @@ import { prisma } from "@/lib/prisma"
 import { getCurrentUser } from "@/lib/auth/current-user"
 import { orderGroupsByRecentlyOpened } from "@/lib/nav/group-order"
 import { YourGroupsScreen } from "@/components/YourGroupsScreen"
+import VisibleViewport from "@/components/VisibleViewport"
 
 export default async function GroupsPage() {
   const viewer = await getCurrentUser()
@@ -48,16 +49,20 @@ export default async function GroupsPage() {
   const ordered = orderGroupsByRecentlyOpened(memberships)
 
   return (
-    // height, not minHeight: this is what makes YourGroupsScreen's own
-    // scroll region (flex: 1 1 auto, minHeight: 0) actually bounded rather
-    // than merely willing to shrink. minHeight: 100dvh (src/app/page.tsx's
-    // pattern, for a page that scrolls as a whole) is a floor, not a bound
-    // a flex descendant can resolve against, so with minHeight here the
-    // chain below would just grow past the viewport instead.
+    // VisibleViewport (home-screen-web-app slice, task 2) replaces the old
+    // height: 100dvh <main>; <main> itself still exists, nested one level
+    // inside VisibleViewport's own div, and is still the flex container the
+    // comment below is about. The comment below, about a definite height
+    // being what makes YourGroupsScreen's own scroll region bounded, still
+    // holds: <main> now reads height: "100%" against VisibleViewport's
+    // definite (measured pixel) height rather than a literal 100dvh, so the
+    // same flex-shrink chain still carries that bound down into the scroll
+    // region. minHeight, not height, is still wrong on <main> for the same
+    // reason it always was.
     //
     // The mechanism, confirmed with a standalone browser reproduction during
     // review rather than assumed: it is default flex-shrink, not flex-grow,
-    // that carries this <main>'s bound down to the scroll region. Nothing
+    // that carries <main>'s bound down to the scroll region. Nothing
     // between the two is flex:1-stretched to claim space; instead, once
     // <main> has a definite height, its single flex-item child —
     // YourGroupsScreen's own root <div>, which sets no "flex" of its own and
@@ -67,18 +72,28 @@ export default async function GroupsPage() {
     // which is what finally lets it resolve a real pixel height instead of
     // growing to fit every row, and only then does overflow-y: auto have
     // anything to act on.
-    <main
+    <VisibleViewport
       style={{
-        height: "100dvh",
-        display: "flex",
-        flexDirection: "column",
         backgroundColor: "var(--surface-base)",
         color: "var(--text-primary)",
       }}
     >
-      <YourGroupsScreen
-        groups={ordered.map((m) => ({ id: m.group.id, name: m.group.name }))}
-      />
-    </main>
+      {/* Kept as its own <main>, nested rather than replaced by
+          VisibleViewport's own <div>, so this route keeps its main-landmark
+          role. height: "100%" against VisibleViewport's own measured pixel
+          height is what keeps this a definite height rather than a floor,
+          which is the whole thing the comment above is about. */}
+      <main
+        style={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <YourGroupsScreen
+          groups={ordered.map((m) => ({ id: m.group.id, name: m.group.name }))}
+        />
+      </main>
+    </VisibleViewport>
   )
 }

@@ -35,7 +35,7 @@
 // chat composer beats a marginal convenience here, his call, stated in the
 // requirement change). The Enter test below asserts the current, corrected
 // behaviour.
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, afterEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import StepGapAsk, { type GapTurn } from "../StepGapAsk"
 import type { GapPayload } from "@/app/actions/extract-group"
@@ -431,5 +431,69 @@ describe("StepGapAsk, the pinned composer", () => {
       if (had) proto.scrollIntoView = original
       else delete proto.scrollIntoView
     }
+  })
+})
+
+// Home-screen-web-app slice, task 3: this pinned bottom band used to add
+// env(safe-area-inset-bottom), which stays at its full value even with the
+// keyboard open, opening a visible gap between the keyboard and the hint
+// below it. VisibleViewport (Task 1, mounted on this step by Task 2) reads
+// the keyboard state and publishes --bottom-inset, 0px while the keyboard is
+// up and the safe-area value while it's closed, so this reads that variable
+// instead. Asserted on the raw style string per the task brief, since jsdom
+// cannot resolve a var() it never receives a value for.
+describe("StepGapAsk: bottom padding clears the home bar", () => {
+  it("carries var(--bottom-inset) in its pinned-bottom padding", () => {
+    const { container } = renderStepGapAsk()
+    const pinnedBottom = container.querySelector("form")!.parentElement!
+    expect(pinnedBottom.getAttribute("style")).toContain("var(--bottom-inset")
+  })
+})
+
+describe("StepGapAsk keeps its tail in view when the scroll region shrinks", () => {
+  // The keyboard opening shrinks the visible-area-sized screen, and with it
+  // the data-gap-scroll region, which keeps its old scrollTop. jsdom has no
+  // layout and no ResizeObserver, so both are stubbed and driven by hand.
+  let fire: () => void = () => {}
+  afterEach(() => vi.unstubAllGlobals())
+
+  function setup() {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          fire = cb
+        }
+        observe() {}
+        disconnect() {}
+      }
+    )
+    Element.prototype.scrollIntoView = vi.fn()
+    const { container } = renderStepGapAsk()
+    const region = container.querySelector("[data-gap-scroll]") as HTMLElement
+    let height = 600
+    Object.defineProperty(region, "clientHeight", { get: () => height, configurable: true })
+    Object.defineProperty(region, "scrollHeight", { value: 1200, configurable: true })
+    region.scrollTop = 0
+    const resize = (h: number) => {
+      height = h
+      fire()
+    }
+    // A real ResizeObserver reports once on observe(); that first report
+    // only records the starting height.
+    resize(600)
+    return { region, resize }
+  }
+
+  it("scrolls the region to its end when its height shrinks", () => {
+    const { region, resize } = setup()
+    resize(300)
+    expect(region.scrollTop).toBe(1200)
+  })
+
+  it("does nothing when the region grows", () => {
+    const { region, resize } = setup()
+    resize(900)
+    expect(region.scrollTop).toBe(0)
   })
 })
