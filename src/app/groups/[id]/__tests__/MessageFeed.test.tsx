@@ -282,3 +282,68 @@ describe("MessageFeed auto-scroll does not hijack a scrolled-up reader (LiveRefr
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
   })
 })
+
+describe("MessageFeed follows the tail when its region shrinks (keyboard opening)", () => {
+  let fire: () => void = () => {}
+  afterEach(() => vi.unstubAllGlobals())
+
+  function setup(scrolledUp: boolean) {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          fire = cb
+        }
+        observe() {}
+        disconnect() {}
+      }
+    )
+    Element.prototype.scrollIntoView = vi.fn()
+    const { container } = render(
+      <MessageFeed
+        viewerId="u-me"
+        timeZone="America/Chicago"
+        messages={[
+          {
+            id: "m1",
+            authorType: MessageAuthor.MEMBER,
+            authorId: "u-other",
+            authorName: "Someone",
+            body: "hi",
+            createdAt: new Date(),
+          },
+        ]}
+      />
+    )
+    const el = container.firstElementChild as HTMLElement
+    let height = 600
+    Object.defineProperty(el, "clientHeight", { get: () => height, configurable: true })
+    Object.defineProperty(el, "scrollHeight", { value: 2000, configurable: true })
+    Object.defineProperty(el, "scrollTop", { value: scrolledUp ? 0 : 1400, writable: true, configurable: true })
+    fireEvent.scroll(el)
+    const resize = (h: number) => {
+      height = h
+      fire()
+    }
+    resize(600)
+    return { el, resize }
+  }
+
+  it("scrolls to the end on shrink when the viewer was near the bottom", () => {
+    const { el, resize } = setup(false)
+    resize(300)
+    expect(el.scrollTop).toBe(2000)
+  })
+
+  it("leaves a scrolled-up reader alone on shrink", () => {
+    const { el, resize } = setup(true)
+    resize(300)
+    expect(el.scrollTop).toBe(0)
+  })
+
+  it("does nothing on growth", () => {
+    const { el, resize } = setup(false)
+    resize(900)
+    expect(el.scrollTop).toBe(1400)
+  })
+})

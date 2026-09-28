@@ -145,7 +145,30 @@ export default function MessageFeed({
       isNearBottomRef.current = distanceFromBottom < NEAR_BOTTOM_THRESHOLD_PX
     }
     el.addEventListener("scroll", handleScroll)
-    scrollCleanupRef.current = () => el.removeEventListener("scroll", handleScroll)
+
+    // Follow the tail when the region SHRINKS (the phone keyboard opening
+    // shrinks the visible-area-sized screen; scrollTop would otherwise stay
+    // put and hide the newest line). Only when the viewer was near the
+    // bottom, read from isNearBottomRef, which this observer never writes:
+    // a resize fires no scroll event, and only real scrolls may move that
+    // ref. Growth needs nothing. The first report records the start height.
+    // Optional check: jsdom has no ResizeObserver.
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== "undefined") {
+      let previousHeight: number | null = null
+      observer = new ResizeObserver(() => {
+        const height = el.clientHeight
+        if (previousHeight !== null && height < previousHeight && isNearBottomRef.current) {
+          el.scrollTop = el.scrollHeight
+        }
+        previousHeight = height
+      })
+      observer.observe(el)
+    }
+    scrollCleanupRef.current = () => {
+      el.removeEventListener("scroll", handleScroll)
+      observer?.disconnect()
+    }
   }, [])
 
   // Scroll to the bottom sentinel on mount (so the feed opens at the most

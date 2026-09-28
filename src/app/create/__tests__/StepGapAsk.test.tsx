@@ -35,7 +35,7 @@
 // chat composer beats a marginal convenience here, his call, stated in the
 // requirement change). The Enter test below asserts the current, corrected
 // behaviour.
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, afterEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import StepGapAsk, { type GapTurn } from "../StepGapAsk"
 import type { GapPayload } from "@/app/actions/extract-group"
@@ -447,5 +447,53 @@ describe("StepGapAsk — bottom padding clears the home bar", () => {
     const { container } = renderStepGapAsk()
     const pinnedBottom = container.querySelector("form")!.parentElement!
     expect(pinnedBottom.getAttribute("style")).toContain("var(--bottom-inset")
+  })
+})
+
+describe("StepGapAsk keeps its tail in view when the scroll region shrinks", () => {
+  // The keyboard opening shrinks the visible-area-sized screen, and with it
+  // the data-gap-scroll region, which keeps its old scrollTop. jsdom has no
+  // layout and no ResizeObserver, so both are stubbed and driven by hand.
+  let fire: () => void = () => {}
+  afterEach(() => vi.unstubAllGlobals())
+
+  function setup() {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          fire = cb
+        }
+        observe() {}
+        disconnect() {}
+      }
+    )
+    Element.prototype.scrollIntoView = vi.fn()
+    const { container } = renderStepGapAsk()
+    const region = container.querySelector("[data-gap-scroll]") as HTMLElement
+    let height = 600
+    Object.defineProperty(region, "clientHeight", { get: () => height, configurable: true })
+    Object.defineProperty(region, "scrollHeight", { value: 1200, configurable: true })
+    region.scrollTop = 0
+    const resize = (h: number) => {
+      height = h
+      fire()
+    }
+    // A real ResizeObserver reports once on observe(); that first report
+    // only records the starting height.
+    resize(600)
+    return { region, resize }
+  }
+
+  it("scrolls the region to its end when its height shrinks", () => {
+    const { region, resize } = setup()
+    resize(300)
+    expect(region.scrollTop).toBe(1200)
+  })
+
+  it("does nothing when the region grows", () => {
+    const { region, resize } = setup()
+    resize(900)
+    expect(region.scrollTop).toBe(0)
   })
 })

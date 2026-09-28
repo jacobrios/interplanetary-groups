@@ -141,6 +141,32 @@ export default function StepGapAsk({
     endRef.current?.scrollIntoView?.({ block: "end" })
   }, [thread.length, isMerging])
 
+  // Keep the tail in view when the scroll region SHRINKS. On a phone the
+  // wizard is sized to the visible area (VisibleViewport), so the keyboard
+  // opening shrinks this region while its scrollTop stays put, leaving the
+  // top of the card showing and Orbit's latest question below the fold.
+  // Same always-follow-the-tail rule as above, so no near-bottom check.
+  // This is deliberately NOT the reverted scroll-on-focus fixes (27 Sept
+  // build-notes): it reacts to the region's own resize, scrolls only this
+  // inner region (never the page, never scrollIntoView), and does nothing
+  // on growth (keyboard closing). The observer's first report just records
+  // the starting height. Optional check: jsdom has no ResizeObserver.
+  const scrollRegionRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = scrollRegionRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    let previousHeight: number | null = null
+    const observer = new ResizeObserver(() => {
+      const height = el.clientHeight
+      if (previousHeight !== null && height < previousHeight) {
+        el.scrollTop = el.scrollHeight
+      }
+      previousHeight = height
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <>
       {/* The scrolling middle: the card and the conversation move together,
@@ -148,6 +174,7 @@ export default function StepGapAsk({
           squeezing the thread under it. The composer below is outside this
           region, pinned. The wizard's column gives this its height. */}
       <div
+        ref={scrollRegionRef}
         data-gap-scroll
         style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 1.5rem" }}
       >
