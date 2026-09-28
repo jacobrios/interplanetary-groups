@@ -83,6 +83,13 @@ export async function createGroupAction(input: CreateGroupInput): Promise<Create
     user = data.user
   }
 
+  // Only the main weekly activity is ever stored (spontaneous-activities
+  // slice): a founder whose wizard was opened before this deploy may still
+  // hold two rows in their client-side state, so this truncates rather than
+  // refusing, which would strand them mid-flow. Everything past position 0
+  // was already returned as otherActivities for step 2 to explain instead.
+  const mainRhythmOnly = rhythms.slice(0, 1)
+
   let group: Awaited<ReturnType<typeof provisionFounderGroup>>["group"]
   try {
     const result = await provisionFounderGroup({
@@ -90,7 +97,7 @@ export async function createGroupAction(input: CreateGroupInput): Promise<Create
       founderName,
       groupName,
       description,
-      recurringActivities: rhythms,
+      recurringActivities: mainRhythmOnly,
       timeZone,
     })
     group = result.group

@@ -70,3 +70,22 @@ describe("createGroupAction, the main spot (decision 8)", () => {
     expect(provisionFounderGroup).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("createGroupAction, spontaneous activities are never stored", () => {
+  it("truncates a two-row payload to just the main activity before provisioning", async () => {
+    expect(await createGroupAction(input([climbing("Movement Gowanus"), beers]))).toEqual({
+      groupId: "grp_1",
+      inviteToken: "tok_1",
+    })
+    expect(provisionFounderGroup).toHaveBeenCalledTimes(1)
+    const call = provisionFounderGroup.mock.calls[0][0]
+    expect(call.recurringActivities).toHaveLength(1)
+    expect(call.recurringActivities[0].activity).toBe("climbing")
+  })
+
+  it("does not truncate a single-row payload", async () => {
+    await createGroupAction(input([climbing("Movement Gowanus")]))
+    const call = provisionFounderGroup.mock.calls[0][0]
+    expect(call.recurringActivities).toHaveLength(1)
+  })
+})
