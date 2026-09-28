@@ -1041,11 +1041,21 @@ export const CASES: OnboardingCase[] = [
     ],
   },
   {
-    id: "extract-others-nothing-schedulable",
+    id: "extract-others-loose-only",
     kind: "extract",
     description:
-      "Only a spontaneous, unscheduled activity, nothing schedulable at all. Guards that a group with no primary rhythm still sends the founder back to step 1 (today's behavior) rather than promoting the loose mention into a rhythm just because it is all there is.",
+      "Only a loose, unscheduled activity is named at all. Today's actual behavior: with nothing else to promote, the loose activity becomes the main one and Orbit asks for its day, time and place rather than treating the group as having nothing schedulable. Guards two things: this is never read as ready, and a loose activity that becomes the main one is never also listed as an \"other\" activity.",
     founderDescription: "we get beers sometimes",
-    assertions: [statusIncomplete("nothing_schedulable")],
+    assertions: [
+      {
+        name: "status is not ready",
+        check: (o) => o.normalized.status !== "ready",
+      },
+      {
+        name: "other activities is empty",
+        check: (o) => splitMainActivity(o.normalized.rhythms).otherActivities.length === 0,
+      },
+      activityIs("beers"),
+    ],
   },
 ]
