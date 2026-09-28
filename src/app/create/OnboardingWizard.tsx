@@ -26,6 +26,7 @@ import type { MissingField } from "@/lib/orbit/normalize"
 import { EXHAUSTED_COPY } from "@/lib/orbit/playback"
 import { gapBubbleLine } from "@/lib/orbit/gap"
 import { WizardHeader } from "@/components/WizardHeader"
+import VisibleViewport from "@/components/VisibleViewport"
 import Step1Describe from "./Step1Describe"
 import Step2Playback from "./Step2Playback"
 import StepGapAsk, { type GapTurn, type MergeErrorKind } from "./StepGapAsk"
@@ -310,14 +311,17 @@ export default function OnboardingWizard({ knownName }: Props) {
     // create/page.tsx is deliberately untouched, so this step covers the
     // page's padding with a fixed layer rather than asking the page to
     // change shape for one step. Nothing else renders on the page at this
-    // step, so nothing sits hidden underneath it. The column uses 100dvh,
-    // the group home's pattern, so the height tracks the phone's visible
-    // area as its browser bars come and go.
+    // step, so nothing sits hidden underneath it. The outer layer is
+    // VisibleViewport (home-screen-web-app slice, task 2), which sizes
+    // itself to the browser's actual visible area, tracking the on-screen
+    // keyboard rather than the static 100dvh this used to be: a static
+    // height put this step's composer under the keyboard on iPhone Chrome,
+    // which is the "first-tap keyboard overlap" this slice exists to close.
+    // VisibleViewport pads its own top with the safe-area inset, so the
+    // inner column no longer adds any of its own top padding here.
     return (
-      <div
+      <VisibleViewport
         style={{
-          position: "fixed",
-          inset: 0,
           backgroundColor: "var(--surface-base)",
           display: "flex",
           justifyContent: "center",
@@ -325,7 +329,7 @@ export default function OnboardingWizard({ knownName }: Props) {
       >
         <div
           style={{
-            height: "100dvh",
+            height: "100%",
             width: "100%",
             maxWidth: "28rem",
             display: "flex",
@@ -333,7 +337,9 @@ export default function OnboardingWizard({ knownName }: Props) {
           }}
         >
           {/* The page's own top and side padding, so the header lands exactly
-              where it sits on every other step. */}
+              where it sits on every other step. VisibleViewport pads for the
+              safe-area inset on top of this, not instead of it; this 2rem is
+              the step's own visual spacing, unrelated to the notch. */}
           <div style={{ padding: "2rem 1.5rem 0", flexShrink: 0 }}>
             {/* No onBack mid-merge, the same rule as the playback step's
                 mid-create chevron above. With it live, a founder could go
@@ -354,7 +360,7 @@ export default function OnboardingWizard({ knownName }: Props) {
             mergeError={mergeError}
           />
         </div>
-      </div>
+      </VisibleViewport>
     )
   }
 

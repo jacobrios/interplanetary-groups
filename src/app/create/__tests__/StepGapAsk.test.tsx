@@ -433,3 +433,19 @@ describe("StepGapAsk, the pinned composer", () => {
     }
   })
 })
+
+// Home-screen-web-app slice, task 3: this pinned bottom band used to add
+// env(safe-area-inset-bottom), which stays at its full value even with the
+// keyboard open, opening a visible gap between the keyboard and the hint
+// below it. VisibleViewport (Task 1, mounted on this step by Task 2) reads
+// the keyboard state and publishes --bottom-inset, 0px while the keyboard is
+// up and the safe-area value while it's closed, so this reads that variable
+// instead. Asserted on the raw style string per the task brief, since jsdom
+// cannot resolve a var() it never receives a value for.
+describe("StepGapAsk — bottom padding clears the home bar", () => {
+  it("carries var(--bottom-inset) in its pinned-bottom padding", () => {
+    const { container } = renderStepGapAsk()
+    const pinnedBottom = container.querySelector("form")!.parentElement!
+    expect(pinnedBottom.getAttribute("style")).toContain("var(--bottom-inset")
+  })
+})

@@ -174,4 +174,17 @@ describe("YourGroupsScreen", () => {
     expect(link.textContent).toBe("Climbing Crew")
     expect(link.querySelector("svg")).toBeNull()
   })
+
+  // Home-screen-web-app slice, task 3: the legal footer's bottom padding
+  // was a flat 16px, which sits under the iPhone home bar. VisibleViewport
+  // (Task 1, mounted on the /groups route by Task 2) publishes
+  // --bottom-inset for the page to read; this footer picks it up the same
+  // way the group chat composer and the gap-ask composer do. Asserted on
+  // the raw style string per the task brief.
+  it("carries var(--bottom-inset) in the legal footer's bottom padding", () => {
+    render(<YourGroupsScreen groups={TWO_GROUPS} />)
+    const privacy = screen.getByRole("link", { name: "Privacy" })
+    const footerWrapper = privacy.closest("p")!.parentElement!
+    expect(footerWrapper.getAttribute("style")).toContain("var(--bottom-inset")
+  })
 })

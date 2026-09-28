@@ -257,14 +257,19 @@ export default function StepGapAsk({
       {/* The pinned bottom: error line, composer and hint. Grounded with the
           group chat composer's own treatment (ChatInput.tsx: the page
           surface with a darkening scrim toward the bottom edge), reused
-          rather than a new value. The bottom padding adds the phone's safe
-          area so the hint clears the home indicator. */}
+          rather than a new value. The bottom padding reads --bottom-inset,
+          published by the VisibleViewport this step now mounts under
+          (Task 2): the safe-area value with the keyboard closed, so the
+          hint clears the home indicator, and 0px the moment the keyboard is
+          up, so no gap opens between the hint and the keyboard. This
+          replaces a flat env(safe-area-inset-bottom), which stayed at its
+          full value even with the keyboard open. */}
       <div
         style={{
           flexShrink: 0,
           backgroundColor: "var(--surface-base)",
           backgroundImage: "linear-gradient(0deg, rgba(0,0,0,.34), rgba(0,0,0,0))",
-          padding: "0.5rem 1.5rem calc(1rem + env(safe-area-inset-bottom))",
+          padding: "0.5rem 1.5rem calc(1rem + var(--bottom-inset, 0px))",
         }}
       >
         {mergeError && (
