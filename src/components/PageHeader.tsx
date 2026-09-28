@@ -17,6 +17,21 @@
 // (the page surface token), not just a visual claim: without the background,
 // scrolling content would show through the bar rather than disappear behind it.
 //
+// top: var(--safe-top), not a bare 0 (task 5, fix round 1). Confirmed
+// rendered at 375x812 with a simulated inset: a sticky element's "top"
+// offset is measured from its scroll container's scrollport, which for
+// every page that mounts this component through a document/window scroll
+// (no inner overflow wrapper) is the physical top of the viewport, inset
+// or not, so top: 0 slides this bar back under the status bar the moment
+// it scrolls past the inset it started below. globals.css's body::before
+// strip is the other half of this fix: it is what scrolling content passes
+// behind, in the one frame this bar is still in transit toward its stuck
+// position, rather than in front of, since a translucent status bar would
+// otherwise show that transit through. The group home's own PageHeader is
+// unaffected either way: it renders inside VisibleViewport, a fixed
+// container with no ancestor scroll of its own, so this bar is never
+// mid-transit there in the first place.
+//
 // It has no title slot, no trailing-action slot, and no opinion about what
 // any screen's header contains. That boundary is the point: the alternative
 // considered was one configurable header that knew every screen, and it is
@@ -42,7 +57,7 @@ export default function PageHeader({
         padding: "0.875rem 1rem",
         flexShrink: 0,
         position: "sticky",
-        top: 0,
+        top: "var(--safe-top)",
         zIndex: 10,
         backgroundColor: "var(--surface-base)",
       }}
