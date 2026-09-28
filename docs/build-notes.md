@@ -8428,3 +8428,7 @@ Orbit posts one message per save, naming the founder, and when the plan moves th
 **Debt.** A floated plan in a new group no longer picks up a place from a stored secondary activity ("beers at Lucky Lab"); it starts as Place TBD and anyone can set it on the plan's page. "Now and then" extras are missed about three times in ten. Older groups' secondary rows stay as they are, with nothing planned to tidy them.
 
 **Found in passing, not this slice's.** `EditEventDetails.test.tsx`, "returns focus to the Edit pill after a successful save", failed once under the full suite and passed alone and on a rerun; queued with the other intermittent-test history.
+
+## §11 entry: the home-screen web app (opened 28 September 2026)
+
+**Baseline, recorded before anything landed on the branch:** 2291 passing of 2291 across 183 files, zero failures, on `main` at `bb4022b`, cut into branch `home-screen-web-app` in its own worktree. Cross-check: the spontaneous-activities slice finished at 2291 across 183, an exact match. Slice document: `docs/superpowers/specs/2026-09-28-home-screen-web-app-design.md`.
