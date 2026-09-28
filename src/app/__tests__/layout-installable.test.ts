@@ -3,8 +3,8 @@
 // The two exports that turn the safe-area insets Tasks 2-3 built into
 // something iOS actually applies: `viewport` (which is what puts
 // `viewport-fit=cover` on the page at all) and `metadata.appleWebApp` (which
-// is what makes the home-screen launch full-screen with a translucent status
-// bar rather than opening the address bar and toolbar of a bookmarked tab).
+// is what makes the home-screen launch full-screen with a solid black status
+// bar (28 Sept 2026: was translucent, see layout.tsx) rather than opening the address bar and toolbar of a bookmarked tab).
 // Asserting the exported objects directly, not a render: layout.tsx is a
 // server component whose default export emits <html>/<body> and pulls in
 // next/font/google, neither of which this suite needs to touch to pin these
@@ -42,7 +42,7 @@ describe("layout: metadata.appleWebApp", () => {
     expect(metadata.appleWebApp).toMatchObject({
       capable: true,
       title: "Orbit",
-      statusBarStyle: "black-translucent",
+      statusBarStyle: "black",
     })
   })
 })

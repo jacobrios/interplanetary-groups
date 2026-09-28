@@ -34,10 +34,16 @@ export const metadata: Metadata = {
   // shows under the icon and in the app switcher when it differs from the
   // page <title>; "Orbit" is shorter than the full SITE_TITLE and is what the
   // product's own icon and voice are named.
+  //
+  // statusBarStyle "black", not "black-translucent" (28 Sept 2026 phone pass):
+  // with black-translucent the installed app's web view was 59px short at the
+  // bottom (innerHeight 793 on an 852pt screen), leaving an unpainted bar.
+  // "black" is the design's named fallback and is being tried on the owner's
+  // phone; revert this one commit to go back.
   appleWebApp: {
     capable: true,
     title: "Orbit",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
 };
 
