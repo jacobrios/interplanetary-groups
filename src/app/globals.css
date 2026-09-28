@@ -50,6 +50,19 @@
 
   --leading-tight:  1.15;
   --leading-normal: 1.5;
+
+  /* Task 4 turned on viewportFit: "cover" and a translucent status bar, so
+     the installed app now draws under it. body's own padding-top (below)
+     already pushes normal-flow content clear of the inset; a whole-page
+     wrapper that still asks for a flat 100dvh then ends up one inset-height
+     too tall for what is left below that padding, so the page scrolls by
+     exactly the status bar's height. --screen-min-height is 100dvh with
+     that same inset subtracted, so a wrapper sized to it plus body's
+     padding together add up to one screen, not one screen plus a sliver.
+     Real browsers resolve calc() wrapping env() natively; this is a plain
+     custom property, not an inline style, so it does not hit the jsdom
+     limitation VisibleViewport.test.tsx's header describes. */
+  --screen-min-height: calc(100dvh - env(safe-area-inset-top));
 }
 
 @theme inline {
@@ -63,6 +76,13 @@ body {
   background: var(--surface-base);
   color: var(--text-primary);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* The other half of --screen-min-height, above: this is what actually
+     clears normal-flow content of the status bar in the installed app.
+     env(safe-area-inset-top) resolves to 0 in an ordinary browser tab, so
+     this is a no-op everywhere the app is not installed. VisibleViewport
+     (position: fixed) is unaffected either way; fixed positioning is not
+     shifted by an ancestor's padding. */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* The one thing inline styles cannot express: WebKit scrollbar hiding for
