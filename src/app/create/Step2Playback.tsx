@@ -31,10 +31,10 @@ interface Props {
   /** Every activity the founder mentioned besides the main one at position
    * zero (Task 4, spontaneous-activities-design slice); [] when there were
    * none. Never stored, never sent to the server past this screen; it only
-   * drives whether the intro bubble's second paragraph renders. Optional,
-   * defaulting to [], only so a caller with nothing to report need not pass
-   * it; the real wizard always does. */
-  otherActivities?: string[]
+   * drives whether the intro bubble's second paragraph renders. Required:
+   * the real wizard always has an answer (even if empty), and formatting it
+   * before the founder ever sees the card is the whole point of the prop. */
+  otherActivities: string[]
   /** Called with validateDetailsEdit's ok output when the founder taps Done
    * in the editor; the wizard stores both, nothing is saved until confirm. */
   onDetailsChange: (name: string, rhythms: StoredRhythm[]) => void
@@ -55,7 +55,7 @@ export default function Step2Playback({
   founderName,
   groupName,
   rhythms,
-  otherActivities = [],
+  otherActivities,
   onDetailsChange,
   timeZone,
   onConfirm,

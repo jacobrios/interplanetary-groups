@@ -312,4 +312,15 @@ describe("formatOtherActivitiesNote", () => {
       expect(out).not.toMatch(/[\u2013\u2014]/)
     }
   })
+
+  it("drops an extra that matches the main activity (a later merge or edit can promote it)", () => {
+    expect(formatOtherActivitiesNote("beers", ["beers", "pizza"])).toBe(
+      "I'll put beers on the calendar every week. For pizza, just say it in the group chat when someone's up for it, like \u201cpizza Friday?\u201d I'll take it from there."
+    )
+  })
+
+  it("returns null when the only extra matches the main activity, case and whitespace insensitive", () => {
+    expect(formatOtherActivitiesNote("beers", ["Beers"])).toBeNull()
+    expect(formatOtherActivitiesNote("beers", [" beers "])).toBeNull()
+  })
 })

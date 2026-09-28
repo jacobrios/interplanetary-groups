@@ -161,16 +161,12 @@ describe("Step2Playback, read-only with Edit details", () => {
   })
 
   it("shows the other-activities note when there is at least one extra, and not when there are none", () => {
-    const { rerender } = render(<Harness otherActivities={["beers"]} />)
+    render(<Harness otherActivities={["beers"]} />)
     expect(screen.getByText(/For beers, just say it in the group chat/)).toBeTruthy()
 
     cleanup()
     render(<Harness otherActivities={[]} />)
     expect(screen.queryByText(/just say it in the group chat/)).toBeNull()
-    // rerender is unused on the second render path; keep the destructured
-    // binding so the first render's cleanup-then-fresh-render pattern reads
-    // plainly rather than reusing a stale root.
-    void rerender
   })
 
   it("returns focus to Edit details after Done or Never mind", () => {
