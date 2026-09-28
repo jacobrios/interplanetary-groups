@@ -128,3 +128,54 @@ describe("mergeGapAction, the spot kinds and the cap", () => {
     expect(result.gap.rhythms[0].venueName).toBe("Summit Gym")
   })
 })
+
+describe("mergeGapAction, spontaneous activities split off", () => {
+  it("a ready result keeps only the main rhythm when the model re-adds beers, and carries no otherActivities", async () => {
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: "Sunday Climbers",
+      clarifyingQuestion: null,
+      rhythms: [
+        rawRhythm({ venueName: "Summit Gym" }),
+        {
+          activity: "beers",
+          cadence: "monthly",
+          daysOfWeek: null,
+          timeLocal: null,
+          timeAmbiguous: false,
+          isPrimary: false,
+          venueName: null,
+        },
+      ],
+    })
+    const result = await mergeGapAction(GAP_INPUT)
+    expect(result.status).toBe("ready")
+    if (result.status !== "ready") return
+    expect(result.profile.rhythms).toHaveLength(1)
+    expect(result.profile.rhythms[0].activity).toBe("climbing")
+    expect(result.profile).not.toHaveProperty("otherActivities")
+  })
+
+  it("an incomplete result also keeps only the main rhythm when the model re-adds beers", async () => {
+    vi.mocked(mergeGapAnswer).mockResolvedValueOnce({
+      suggestedGroupName: "Sunday Climbers",
+      clarifyingQuestion: null,
+      rhythms: [
+        rawRhythm({ timeLocal: null, venueName: "Summit Gym" }),
+        {
+          activity: "beers",
+          cadence: "monthly",
+          daysOfWeek: null,
+          timeLocal: null,
+          timeAmbiguous: false,
+          isPrimary: false,
+          venueName: null,
+        },
+      ],
+    })
+    const result = await mergeGapAction(GAP_INPUT)
+    expect(result).toMatchObject({ status: "incomplete", gap: { missing: "time" } })
+    if (result.status !== "incomplete") return
+    expect(result.gap.rhythms).toHaveLength(1)
+    expect(result.gap).not.toHaveProperty("otherActivities")
+  })
+})

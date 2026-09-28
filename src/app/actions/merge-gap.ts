@@ -14,6 +14,7 @@
 "use server"
 
 import { mergeGapAnswer } from "@/lib/orbit/merge"
+import { splitMainActivity } from "@/lib/orbit/main-activity"
 import { normalizeExtraction, type MissingField } from "@/lib/orbit/normalize"
 import {
   ANSWER_MAX,
@@ -121,7 +122,10 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
     if (normalized.status !== "ready") return { status: "error" } // unreachable; type guard
     return {
       status: "ready",
-      profile: { groupName: normalized.groupName, rhythms: normalized.rhythms },
+      profile: {
+        groupName: normalized.groupName,
+        rhythms: splitMainActivity(normalized.rhythms).rhythms,
+      },
     }
   }
 
@@ -147,7 +151,7 @@ export async function mergeGapAction(input: MergeGapInput): Promise<MergeGapResu
       missing: outcome.missing,
       question: outcome.question,
       groupName: normalized.groupName,
-      rhythms: normalized.rhythms,
+      rhythms: splitMainActivity(normalized.rhythms).rhythms,
       candidateTimeLocal: normalized.candidateTimeLocal,
     },
   }
