@@ -52,13 +52,14 @@ export function CarouselRail({ peek, children }: { peek: boolean; children: Reac
         // Giving up the vertical pan costs nothing, but NOT for the reason
         // first written here. That reason ("the page still scrolls, because
         // that gesture belongs to the feed below") was wrong and is corrected
-        // rather than quietly deleted: page.tsx is height:100dvh with
-        // overflow:hidden, so the page does not scroll at all, and the feed is
-        // its own separate scroll container. The actual reason is that this
-        // rail never scrolled vertically to begin with: it is flexShrink:0
-        // inside that fixed-height page, and scrollHeight === clientHeight,
-        // measured. A vertical swipe here was already inert, so pan-x forbids
-        // something nobody could do.
+        // rather than quietly deleted: page.tsx's root is VisibleViewport
+        // (home-screen-web-app slice, task 2), which gives it a definite
+        // measured height and overflow:hidden, so the page does not scroll
+        // at all, and the feed is its own separate scroll container. The
+        // actual reason is that this rail never scrolled vertically to begin
+        // with: it is flexShrink:0 inside that fixed-height page, and
+        // scrollHeight === clientHeight, measured. A vertical swipe here was
+        // already inert, so pan-x forbids something nobody could do.
         //
         // pinch-zoom IS KEPT DELIBERATELY and must not be "simplified" away.
         // pan-x on its own does not include it, so a bare pan-x would refuse a

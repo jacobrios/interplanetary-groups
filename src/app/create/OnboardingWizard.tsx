@@ -317,8 +317,10 @@ export default function OnboardingWizard({ knownName }: Props) {
     // keyboard rather than the static 100dvh this used to be: a static
     // height put this step's composer under the keyboard on iPhone Chrome,
     // which is the "first-tap keyboard overlap" this slice exists to close.
-    // VisibleViewport pads its own top with the safe-area inset, so the
-    // inner column no longer adds any of its own top padding here.
+    // VisibleViewport pads its own top with the safe-area inset; the inner
+    // column below never carried any top padding of its own to begin with
+    // (that lives one level down, on its header child, and is unrelated to
+    // the safe area — see the comment there).
     return (
       <VisibleViewport
         style={{

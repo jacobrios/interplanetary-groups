@@ -50,18 +50,21 @@ export default async function GroupsPage() {
 
   return (
     // VisibleViewport (home-screen-web-app slice, task 2) replaces the old
-    // height: 100dvh <main>. The comment below, about a definite height
+    // height: 100dvh <main>; <main> itself still exists, nested one level
+    // inside VisibleViewport's own div, and is still the flex container the
+    // comment below is about. The comment below, about a definite height
     // being what makes YourGroupsScreen's own scroll region bounded, still
-    // holds: VisibleViewport also gives this subtree a definite (measured
-    // pixel) height rather than a mere floor, so the same flex-shrink chain
-    // still carries that bound down into the scroll region. minHeight, not
-    // height, is still wrong here for the same reason it always was.
+    // holds: <main> now reads height: "100%" against VisibleViewport's
+    // definite (measured pixel) height rather than a literal 100dvh, so the
+    // same flex-shrink chain still carries that bound down into the scroll
+    // region. minHeight, not height, is still wrong on <main> for the same
+    // reason it always was.
     //
     // The mechanism, confirmed with a standalone browser reproduction during
     // review rather than assumed: it is default flex-shrink, not flex-grow,
-    // that carries this root's bound down to the scroll region. Nothing
+    // that carries <main>'s bound down to the scroll region. Nothing
     // between the two is flex:1-stretched to claim space; instead, once
-    // the root has a definite height, its single flex-item child —
+    // <main> has a definite height, its single flex-item child —
     // YourGroupsScreen's own root <div>, which sets no "flex" of its own and
     // so gets the browser's initial flex-shrink: 1 — is allowed to shrink
     // below its content size to fit that bound. That shrink cascades one

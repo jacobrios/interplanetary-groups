@@ -225,10 +225,12 @@ export function YourGroupsScreen({
           that route for real, so either place could have been proven. The
           reason is page.tsx's own flex chain. Its header explains at length
           that <main> has ONE flex-item child, and that this child's default
-          flex-shrink is what carries the root's definite-height bound (now
-          VisibleViewport's measured pixel height, not a literal 100dvh) down
-          into the scroll region below. A second child there would falsify
-          that comment
+          flex-shrink is what carries <main>'s own definite-height bound
+          down into the scroll region below (<main> now reads height:
+          "100%" against VisibleViewport's measured pixel height, not a
+          literal 100dvh, but it is still <main> that is the bounded flex
+          container here, one level inside VisibleViewport's own div). A
+          second child there would falsify that comment
           rather than merely sit beside it. Placed here the footer joins the
           same column the scroll region is in, inherits the screen's 20px
           gutter, and leaves that mechanism intact. It renders on /groups
