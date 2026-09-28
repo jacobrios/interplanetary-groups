@@ -8,7 +8,8 @@
 // the measurement. Task 2 mounts it under the screens that need it (the
 // group chat composer, the onboarding gap-ask); it renders nothing of its
 // own beyond the fixed wrapper, and it has no opinion about what the caller
-// puts inside it.
+// puts inside it. Mounted under the three screens that need it: the group
+// home, /groups and the onboarding gap-ask.
 //
 // WHY THIS EXISTS, AND THE REJECTED FIX NAMED SO NOBODY RE-ADDS IT
 //
@@ -121,7 +122,8 @@
 // visualViewport can never contradict: the on-screen keyboard can only be
 // open while an editable element holds focus. So the measured values are
 // trusted only while document.activeElement is editable (a text-entry
-// input, a textarea, or [contenteditable]); the instant that stops being
+// enabled, writable input or textarea, or anything the browser reports as
+// isContentEditable); the instant that stops being
 // true, this component falls back to the full-height 100dvh style
 // regardless of what visualViewport last reported, and picks the
 // measurement back up the next time something editable is focused.
@@ -163,9 +165,15 @@ const NON_TEXT_INPUT_TYPES = new Set([
 // "THE FOCUS GATE" above for why.
 function isEditableElement(el: Element | null): boolean {
   if (!el) return false
-  if (el instanceof HTMLTextAreaElement) return true
-  if (el instanceof HTMLInputElement) return !NON_TEXT_INPUT_TYPES.has(el.type)
-  return el.getAttribute("contenteditable") === "true"
+  // A disabled or read-only field opens no keyboard, so it is not editable
+  // for this gate's purposes.
+  if (el instanceof HTMLTextAreaElement) return !el.disabled && !el.readOnly
+  if (el instanceof HTMLInputElement) {
+    return !NON_TEXT_INPUT_TYPES.has(el.type) && !el.disabled && !el.readOnly
+  }
+  // isContentEditable is the browser's own answer (it covers "", "true",
+  // "plaintext-only" and inheritance from an editable ancestor).
+  return el instanceof HTMLElement && el.isContentEditable
 }
 
 // CSSProperties has no index signature for custom properties (csstype does
@@ -207,9 +215,7 @@ export default function VisibleViewport({ children, style }: Props) {
 
       const viewport = window.visualViewport
       // No visualViewport at all: nothing to measure from, so this never
-      // leaves the null (100dvh fallback) state. See the window-resize
-      // fallback listener below for why a listener is still attached in
-      // this branch even though it never has anything to do here.
+      // leaves the null (100dvh fallback) state.
       if (!viewport) return
 
       // See "KEYBOARD-OPEN DETECTION" in the header for why this reads
@@ -236,16 +242,10 @@ export default function VisibleViewport({ children, style }: Props) {
       })
     }
 
+    // A browser without visualViewport simply keeps the 100dvh fallback.
     if (viewportAtMount) {
       viewportAtMount.addEventListener("resize", scheduleMeasure)
       viewportAtMount.addEventListener("scroll", scheduleMeasure)
-    } else {
-      // A fallback for a browser with no visualViewport at all. measureNow
-      // no-ops without one, so this listener never actually changes
-      // anything; it exists so a platform that gains visualViewport support
-      // mid-session (not something this codebase has observed, but cheap to
-      // cover) would still have something wired up to react to.
-      window.addEventListener("resize", scheduleMeasure)
     }
 
     // The focus gate's other half: re-run the same scheduled measurement
@@ -263,8 +263,6 @@ export default function VisibleViewport({ children, style }: Props) {
       if (viewportAtMount) {
         viewportAtMount.removeEventListener("resize", scheduleMeasure)
         viewportAtMount.removeEventListener("scroll", scheduleMeasure)
-      } else {
-        window.removeEventListener("resize", scheduleMeasure)
       }
       document.removeEventListener("focusin", scheduleMeasure)
       document.removeEventListener("focusout", scheduleMeasure)
@@ -294,6 +292,11 @@ export default function VisibleViewport({ children, style }: Props) {
         overflow: "hidden",
         boxSizing: "border-box",
         paddingTop: "env(safe-area-inset-top)",
+        // Landscape (viewportFit cover) makes the side insets nonzero; body's
+        // own side padding does not reach a position: fixed box. Plain var()
+        // longhands, no calc(), so jsdom reads them fine.
+        paddingLeft: "var(--safe-left)",
+        paddingRight: "var(--safe-right)",
         ...dynamic,
         ...style,
       }}

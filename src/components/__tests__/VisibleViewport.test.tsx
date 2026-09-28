@@ -7,10 +7,12 @@
 // test does not need real animation frames or fake timers to see the
 // scheduled measurement land within the test body.
 //
-// jsdom cannot resolve calc() wrapping env() in an inline style (see
-// EditGroupDetails.tsx's sticky-band comment, and this file avoids the
-// mistake for the same reason): assertions below read --bottom-inset's own
-// value directly, never a calc() built from it.
+// This repo's jsdom throws on a computed-style read of a LONGHAND padding
+// property (paddingBottom) holding calc() with an unresolved var()/env(); a
+// shorthand `padding` string containing such a calc() does not throw
+// (ChatInput, StepGapAsk and YourGroupsScreen ship that inline and pass).
+// Assertions below read --bottom-inset's own value directly, never a calc()
+// built from it.
 //
 // The keyboard-open comparison (28 Sept 2026, fix round 1) reads
 // document.documentElement.clientHeight rather than any self-recorded
@@ -31,14 +33,13 @@
 // hands it back so a test can blur or remove it later. One jsdom gap
 // worth knowing before extending this file: unlike focus()/blur(), jsdom
 // does NOT dispatch a "focusout" when a focused node is simply removed
-// from the document (verified by hand against jsdom 30 before writing the
-// removal test below) even though it does silently move
-// document.activeElement to <body>. Real WebKit fires it (the bug this
-// component fixes depends on that: iOS dismisses the keyboard exactly
-// when the focused field leaves the DOM). So the removal test below blurs
-// first, which is the one path jsdom and real browsers agree on, rather
-// than asserting a "remove with no blur" case jsdom cannot honestly
-// represent.
+// from the document (verified by hand against jsdom 30), even though it
+// does silently move document.activeElement to <body>. Real WebKit DOES
+// fire it: the owner's iPhone logs (28 Sept 2026) showed focusout at the
+// onboarding step 1 to gap-ask transition and on the group home when a
+// focused field was removed. So the removal test below blurs first, the
+// one path jsdom and real browsers agree on, rather than asserting a
+// "remove with no blur" case jsdom cannot honestly represent.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, render, screen } from "@testing-library/react"
@@ -341,14 +342,34 @@ describe("VisibleViewport", () => {
     expect(removeSpy).toHaveBeenCalledWith("scroll", expect.any(Function))
   })
 
+  it("removes its document focusin/focusout listeners on unmount", () => {
+    setVisualViewport(new FakeVisualViewport(844, 390, 0))
+    const removeSpy = vi.spyOn(document, "removeEventListener")
+
+    const { unmount } = render(<VisibleViewport>content</VisibleViewport>)
+    unmount()
+
+    expect(removeSpy).toHaveBeenCalledWith("focusin", expect.any(Function))
+    expect(removeSpy).toHaveBeenCalledWith("focusout", expect.any(Function))
+    removeSpy.mockRestore()
+  })
+
   it("lets the caller's own style win over the computed layout values", () => {
     setVisualViewport(undefined)
 
-    render(<VisibleViewport style={{ backgroundColor: "var(--surface-base)" }}>content</VisibleViewport>)
+    render(
+      <VisibleViewport style={{ backgroundColor: "var(--surface-base)", height: "50px", top: "7px" }}>
+        content
+      </VisibleViewport>,
+    )
     const el = rootOf("content")
 
     expect(el.style.backgroundColor).toBe("var(--surface-base)")
     expect(el.style.position).toBe("fixed")
+    // These two are computed by the component (fallback 100dvh / 0), so
+    // they only read the caller's values if the caller's style is spread last.
+    expect(el.style.height).toBe("50px")
+    expect(el.style.top).toBe("7px")
   })
   // The box pads its own top with the safe-area inset and is a scroll
   // container, so a sticky descendant's offset is measured from the
@@ -362,5 +383,86 @@ describe("VisibleViewport", () => {
     )
     const el = screen.getByText("child").parentElement as HTMLElement
     expect(el.style.getPropertyValue("--safe-top")).toBe("0px")
+  })
+
+  // Item 8 (final review): editable means what the browser says it is.
+  it("treats a contenteditable element as editable via isContentEditable, including contenteditable=\"\" and plaintext-only", () => {
+    setClientHeight(844)
+    setVisualViewport(new FakeVisualViewport(600, 390, 0))
+    render(<VisibleViewport>content</VisibleViewport>)
+
+    const div = document.createElement("div")
+    div.tabIndex = 0
+    // jsdom does not implement isContentEditable; stand in for the browser.
+    Object.defineProperty(div, "isContentEditable", { value: true })
+    document.body.appendChild(div)
+    act(() => {
+      div.focus()
+    })
+    expect(rootOf("content").style.height).toBe("600px")
+    div.remove()
+  })
+
+  it("does not treat a focused element as editable just because contenteditable=\"true\" is spelled on it when the browser says it is not", () => {
+    setVisualViewport(new FakeVisualViewport(600, 390, 0))
+    render(<VisibleViewport>content</VisibleViewport>)
+
+    const div = document.createElement("div")
+    div.tabIndex = 0
+    div.setAttribute("contenteditable", "true")
+    Object.defineProperty(div, "isContentEditable", { value: false })
+    document.body.appendChild(div)
+    act(() => {
+      div.focus()
+    })
+    expect(rootOf("content").style.height).toBe("100dvh")
+    div.remove()
+  })
+
+  it("treats a focused disabled or readOnly text field as not editable (no keyboard opens)", () => {
+    setVisualViewport(new FakeVisualViewport(600, 390, 0))
+    render(<VisibleViewport>content</VisibleViewport>)
+
+    const ro = document.createElement("textarea")
+    ro.readOnly = true
+    document.body.appendChild(ro)
+    act(() => {
+      ro.focus()
+    })
+    expect(rootOf("content").style.height).toBe("100dvh")
+    ro.remove()
+
+    const input = document.createElement("input")
+    input.type = "text"
+    input.readOnly = true
+    document.body.appendChild(input)
+    act(() => {
+      input.focus()
+    })
+    expect(rootOf("content").style.height).toBe("100dvh")
+    input.remove()
+
+    // A disabled field cannot take focus in a browser at all; the check
+    // still refuses it if something reports it as activeElement.
+    const dis = document.createElement("textarea")
+    dis.disabled = true
+    document.body.appendChild(dis)
+    Object.defineProperty(document, "activeElement", { value: dis, configurable: true })
+    act(() => {
+      document.dispatchEvent(new Event("focusin"))
+    })
+    expect(rootOf("content").style.height).toBe("100dvh")
+    delete (document as unknown as { activeElement?: Element }).activeElement
+    dis.remove()
+  })
+
+  // Item 5: landscape. viewportFit cover makes the left and right insets
+  // nonzero in landscape; the fixed box pads them itself.
+  it("pads its own left and right with the safe-area tokens", () => {
+    setVisualViewport(undefined)
+    render(<VisibleViewport>content</VisibleViewport>)
+    const el = rootOf("content")
+    expect(el.style.paddingLeft).toBe("var(--safe-left)")
+    expect(el.style.paddingRight).toBe("var(--safe-right)")
   })
 })
