@@ -159,6 +159,27 @@ export function formatGapRhythmRow(
   return { label, known, marker }
 }
 
+/** "a" / "a and b" / "a, b, and c" / "the other things you mentioned" (4+). */
+function formatActivityList(names: string[]): string {
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`
+  return "the other things you mentioned"
+}
+
+/**
+ * The onboarding note explaining that only the main activity gets stored and
+ * scheduled; everything else the founder mentioned is never stored as a
+ * rhythm, and this is Orbit telling them how to use it anyway: float it in
+ * chat when it comes up. Null when there is nothing else to explain.
+ */
+export function formatOtherActivitiesNote(main: string, others: string[]): string | null {
+  if (others.length === 0) return null
+
+  const list = formatActivityList(others)
+  return `I'll put ${main} on the calendar every week. For ${list}, just say it in the group chat when someone's up for it, like “${others[0]} Friday?” I'll take it from there.`
+}
+
 /**
  * Static re-ask templates, selected by which fields the completeness gate
  * found missing. Never model-written. The first three open with "Got it"
