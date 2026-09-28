@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { siteUrl } from "@/lib/site-url";
 import { SITE_TITLE as TITLE, SITE_DESCRIPTION as DESCRIPTION } from "@/lib/metadata";
@@ -29,6 +29,30 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
   },
+  // Makes a home-screen launch open as a standalone app (no Safari address
+  // bar or toolbar) rather than a bookmarked tab. `title` is the label iOS
+  // shows under the icon and in the app switcher when it differs from the
+  // page <title>; "Orbit" is shorter than the full SITE_TITLE and is what the
+  // product's own icon and voice are named.
+  appleWebApp: {
+    capable: true,
+    title: "Orbit",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+// `viewportFit: "cover"` is what turns viewport-fit=cover on at all: without
+// it, `env(safe-area-inset-*)` resolves to 0 everywhere and the safe-area
+// padding Tasks 2-3 added to the three locked screens has nothing to react
+// to. themeColor/colorScheme match manifest.ts's background_color/theme_color
+// (the product's dark tile, #15161e): themeColor paints the iOS status bar
+// and Android's system UI to match rather than defaulting to white, and
+// colorScheme keeps native form controls, scrollbars, and the browser's own
+// UI dark instead of guessing light from a missing signal.
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: "#15161e",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
