@@ -25,23 +25,45 @@
 // fix's place. Do not re-add a scroll-into-view here; it has already failed
 // twice on the real device this product is built for.
 //
-// KEYBOARD-OPEN DETECTION: A SELF-RECORDED BASELINE, NOT window.innerHeight
+// KEYBOARD-OPEN DETECTION: document.documentElement.clientHeight, NOT A
+// SELF-RECORDED BASELINE (fix round 1, 28 Sept 2026)
 //
-// The obvious comparison, visualViewport.height against window.innerHeight,
-// is deliberately not used. innerHeight's own behaviour with the keyboard
-// open on iOS is not something this codebase has verified, so leaning on it
-// would be trusting an assumption rather than a fact. A baseline this
-// component records itself, the largest visualViewport.height it has seen
-// since mount, needs no such assumption: by construction it is the height
-// with the keyboard closed, on this device, in this orientation, because
-// the keyboard can only ever shrink the visual viewport, never grow it past
-// its own closed size. The baseline resets when visualViewport.width
-// changes, which is what a rotation looks like: without the reset, a
-// baseline recorded in portrait would wrongly read a genuinely full-height
-// landscape viewport as keyboard-shrunk. The keyboard counts as open when
-// the current height is more than KEYBOARD_OPEN_THRESHOLD_PX below that
-// baseline, wide enough that ordinary browser-chrome changes (the address
-// bar showing or hiding) do not misread as a keyboard.
+// This used to compare visualViewport.height against a baseline the
+// component recorded itself (the largest visualViewport.height seen since
+// mount). That baseline had no focus gate of its own: it was set from
+// window.visualViewport at mount, whatever the report happened to be,
+// including the stale keyboard-open report this whole file exists to
+// distrust (see "THE FOCUS GATE" below). In the exact bug sequence, the
+// gap-ask step mounts while visualViewport is still stuck reporting the
+// previous screen's keyboard-open height, so the baseline latched onto
+// that stale, already-shrunk number. When the founder then focused the
+// gap-ask textarea and the real keyboard opened at that same height,
+// "shrink from baseline" read as zero, and --bottom-inset stayed
+// env(safe-area-inset-bottom): a gap opened above the real keyboard.
+// Patching the baseline was rejected in favour of removing it.
+//
+// The keyboard can only be open while an editable element is focused
+// (this is the whole basis of the focus gate below), so keyboard-open
+// detection only ever runs while that gate is satisfied, and while it is,
+// window.innerHeight moves with the keyboard (confirmed on the same real
+// iPhone readout: 441 with the keyboard up) while
+// document.documentElement.clientHeight does not (measured 652 across the
+// keyboard-open, keyboard-closed, and stale states alike). So
+// document.documentElement.clientHeight is a stable, live, already-
+// measured reference for "the layout viewport's own height right now",
+// with nothing for this component to record, poison, or remember to
+// invalidate on rotation: a rotation simply changes what clientHeight
+// itself reports, and the very next scheduled measurement reads the
+// current value. The keyboard counts as open when visualViewport.height
+// is more than KEYBOARD_OPEN_THRESHOLD_PX below clientHeight, wide enough
+// that ordinary browser-chrome changes (the address bar showing or
+// hiding) do not misread as a keyboard.
+//
+// window.innerHeight itself is still not used for the comparison. It
+// moves with the keyboard on this device (441 with it up, per the same
+// readout above), which is exactly why it isn't the stable side of this
+// comparison; nothing here claims to know its behaviour on any other
+// device or browser, so it stays out of this component entirely.
 //
 // WHY --bottom-inset EXISTS RATHER THAN A HARDCODED PADDING
 //
@@ -157,14 +179,6 @@ export default function VisibleViewport({ children, style }: Props) {
   useEffect(() => {
     const viewportAtMount = window.visualViewport
 
-    // The largest height seen since mount stands in for "keyboard closed";
-    // see header for why this reads visualViewport rather than innerHeight,
-    // and why a width change resets it.
-    const baseline = {
-      height: viewportAtMount ? viewportAtMount.height : 0,
-      width: viewportAtMount ? viewportAtMount.width : 0,
-    }
-
     let scheduled = false
     let rafId: number | null = null
 
@@ -186,14 +200,12 @@ export default function VisibleViewport({ children, style }: Props) {
       // this branch even though it never has anything to do here.
       if (!viewport) return
 
-      if (viewport.width !== baseline.width) {
-        baseline.width = viewport.width
-        baseline.height = viewport.height
-      } else if (viewport.height > baseline.height) {
-        baseline.height = viewport.height
-      }
-
-      const keyboardOpen = baseline.height - viewport.height > KEYBOARD_OPEN_THRESHOLD_PX
+      // See "KEYBOARD-OPEN DETECTION" in the header for why this reads
+      // document.documentElement.clientHeight, a live measurement, rather
+      // than a baseline this component would otherwise have to record and
+      // could otherwise poison.
+      const keyboardOpen =
+        document.documentElement.clientHeight - viewport.height > KEYBOARD_OPEN_THRESHOLD_PX
 
       setMeasurement({
         top: viewport.offsetTop,

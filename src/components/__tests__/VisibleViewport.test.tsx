@@ -12,6 +12,17 @@
 // mistake for the same reason): assertions below read --bottom-inset's own
 // value directly, never a calc() built from it.
 //
+// The keyboard-open comparison (28 Sept 2026, fix round 1) reads
+// document.documentElement.clientHeight rather than any self-recorded
+// baseline, so every test that focuses a field and cares about
+// --bottom-inset now stubs it with `setClientHeight()` first. jsdom never
+// runs real layout, so document.documentElement.clientHeight is 0 by
+// default; leaving it unstubbed would make every keyboard-open comparison
+// silently pass for the wrong reason (a huge negative number is never
+// greater than the threshold) rather than testing the real comparison, so
+// this file stubs it explicitly everywhere the comparison is exercised
+// instead of leaning on that default.
+//
 // Most cases below now need an editable element focused before the
 // component will report measured values at all (28 Sept 2026's focus
 // gate, see the component's own header). `focusTextarea()` creates a real
@@ -40,6 +51,16 @@ function focusTextarea(): HTMLTextAreaElement {
     textarea.focus()
   })
   return textarea
+}
+
+// Stubs the layout-viewport height the component now compares
+// visualViewport.height against. See this file's header for why every
+// test exercising the keyboard-open comparison sets this explicitly.
+function setClientHeight(value: number) {
+  Object.defineProperty(document.documentElement, "clientHeight", {
+    value,
+    configurable: true,
+  })
 }
 
 afterEach(cleanup)
@@ -86,6 +107,10 @@ afterEach(() => {
     writable: true,
   })
   vi.unstubAllGlobals()
+  // Undo any per-test setClientHeight() stub, falling back to jsdom's own
+  // (unrendered, always-zero) getter rather than leaking one test's stub
+  // into the next.
+  delete (document.documentElement as unknown as { clientHeight?: number }).clientHeight
 })
 
 // VisibleViewport's only child here is the bare string "content", so
@@ -166,14 +191,49 @@ describe("VisibleViewport", () => {
     textarea.remove()
   })
 
-  it("treats a resize more than 120px below the tallest height seen as the keyboard opening", () => {
+  // Fix round 1 (28 Sept 2026): a self-recorded baseline read
+  // window.visualViewport at mount with no focus gate of its own, so a
+  // mount that happened to land while visualViewport was already stale
+  // (the exact bug sequence: the gap-ask step mounts while the previous
+  // screen's keyboard-open numbers are still being reported) poisoned the
+  // baseline to the stale value. When the founder then focused the
+  // gap-ask textarea and the real keyboard opened at that same height,
+  // "shrink from baseline" read as zero and --bottom-inset stayed
+  // env(safe-area-inset-bottom), leaving a gap above the real keyboard.
+  // This fails against e90db55 and passes once the baseline is replaced
+  // with a live document.documentElement.clientHeight comparison, since
+  // clientHeight is unaffected by whatever visualViewport was reporting
+  // at mount.
+  it("does not poison the keyboard-open state at mount when visualViewport is already stale with nothing focused", () => {
+    // Real iPhone readout from the bug report: documentElement.clientHeight
+    // stayed 652 in the keyboard-open, keyboard-closed, and stale states.
+    setClientHeight(652)
+    const vv = new FakeVisualViewport(367, 390, 208) // stale keyboard-open numbers, nothing focused
+    setVisualViewport(vv)
+
+    render(<VisibleViewport>content</VisibleViewport>)
+    expect(rootOf("content").style.height).toBe("100dvh") // nothing focused yet: fallback
+
+    // The founder focuses the gap-ask textarea; the real keyboard opens
+    // and visualViewport keeps reporting the same 367 it already held.
+    const textarea = focusTextarea()
+
+    const el = rootOf("content")
+    expect(el.style.height).toBe("367px")
+    expect(el.style.getPropertyValue("--bottom-inset")).toBe("0px")
+
+    textarea.remove()
+  })
+
+  it("treats a visualViewport shrink of more than 120px below document.documentElement.clientHeight as the keyboard opening", () => {
+    setClientHeight(844) // the stable layout-viewport height; unaffected by the keyboard
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
     const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
-    // Keyboard opens: viewport shrinks by more than 120px from the baseline.
+    // Keyboard opens: visualViewport shrinks by more than 120px below clientHeight.
     vv.height = 500
     act(() => {
       vv.dispatchEvent(new Event("resize"))
@@ -187,13 +247,14 @@ describe("VisibleViewport", () => {
   })
 
   it("does not treat a shrink of 120px or less as the keyboard opening", () => {
+    setClientHeight(844)
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
     const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
-    vv.height = 724 // exactly 120px shorter than the baseline
+    vv.height = 724 // exactly 120px shorter than clientHeight
     act(() => {
       vv.dispatchEvent(new Event("resize"))
     })
@@ -206,6 +267,7 @@ describe("VisibleViewport", () => {
   })
 
   it("updates top on scroll without touching the keyboard state", () => {
+    setClientHeight(844)
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
     const textarea = focusTextarea()
@@ -225,15 +287,24 @@ describe("VisibleViewport", () => {
     textarea.remove()
   })
 
-  it("resets the keyboard baseline on a width change (rotation)", () => {
+  // Replaces the old "resets the keyboard baseline on a width change
+  // (rotation)" case: there is no baseline left to reset. Rotation is
+  // handled for free because document.documentElement.clientHeight is a
+  // live measurement of the current layout viewport, not something this
+  // component records and has to know to invalidate; this test exercises
+  // that by moving clientHeight itself as part of the simulated rotation,
+  // the same way a real device's layout viewport changes size on rotation.
+  it("keeps the keyboard-open comparison correct across a rotation, with no reset logic needed", () => {
+    setClientHeight(844) // portrait, full height, no keyboard
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
     const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
-    // Rotate: width changes and the new (landscape) height becomes the new
-    // baseline, even though it is far below the portrait height.
+    // Rotate: both the layout viewport and visualViewport report the new
+    // (landscape) full height, no keyboard.
+    setClientHeight(390)
     vv.width = 844
     vv.height = 390
     act(() => {
@@ -244,7 +315,8 @@ describe("VisibleViewport", () => {
     expect(el.style.height).toBe("390px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
 
-    // Now the keyboard opens in landscape, measured against the new baseline.
+    // Now the keyboard opens in landscape, measured against the
+    // landscape clientHeight.
     vv.height = 200
     act(() => {
       vv.dispatchEvent(new Event("resize"))
