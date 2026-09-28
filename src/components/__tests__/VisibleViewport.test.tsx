@@ -11,10 +11,36 @@
 // EditGroupDetails.tsx's sticky-band comment, and this file avoids the
 // mistake for the same reason): assertions below read --bottom-inset's own
 // value directly, never a calc() built from it.
+//
+// Most cases below now need an editable element focused before the
+// component will report measured values at all (28 Sept 2026's focus
+// gate, see the component's own header). `focusTextarea()` creates a real
+// `<textarea>` in the document, focuses it (which jsdom dispatches as a
+// genuine bubbling "focusin", exercised the same as a real browser), and
+// hands it back so a test can blur or remove it later. One jsdom gap
+// worth knowing before extending this file: unlike focus()/blur(), jsdom
+// does NOT dispatch a "focusout" when a focused node is simply removed
+// from the document (verified by hand against jsdom 30 before writing the
+// removal test below) even though it does silently move
+// document.activeElement to <body>. Real WebKit fires it (the bug this
+// component fixes depends on that: iOS dismisses the keyboard exactly
+// when the focused field leaves the DOM). So the removal test below blurs
+// first, which is the one path jsdom and real browsers agree on, rather
+// than asserting a "remove with no blur" case jsdom cannot honestly
+// represent.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { act, cleanup, render, screen } from "@testing-library/react"
 import VisibleViewport from "../VisibleViewport"
+
+function focusTextarea(): HTMLTextAreaElement {
+  const textarea = document.createElement("textarea")
+  document.body.appendChild(textarea)
+  act(() => {
+    textarea.focus()
+  })
+  return textarea
+}
 
 afterEach(cleanup)
 
@@ -81,21 +107,69 @@ describe("VisibleViewport", () => {
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
   })
 
-  it("matches the visualViewport's own top and height after mount", () => {
-    const vv = new FakeVisualViewport(600, 390, 20)
+  it("renders the full-height fallback when nothing is focused, no matter what visualViewport reports", () => {
+    // A fake keyboard-sized report (matches the real iPhone readout in the
+    // bug this gate fixes: height 367, offsetTop 208), with nothing
+    // focused. Before the 28 Sept focus gate this rendered the stale
+    // measured values; now it must stay on the fallback.
+    const vv = new FakeVisualViewport(367, 390, 208)
     setVisualViewport(vv)
 
     render(<VisibleViewport>content</VisibleViewport>)
     const el = rootOf("content")
 
+    expect(el.style.top).toBe("0px")
+    expect(el.style.height).toBe("100dvh")
+    expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
+  })
+
+  it("switches to the visualViewport measurement once an editable element is focused", () => {
+    const vv = new FakeVisualViewport(600, 390, 20)
+    setVisualViewport(vv)
+
+    render(<VisibleViewport>content</VisibleViewport>)
+    expect(rootOf("content").style.height).toBe("100dvh") // sanity: fallback before any focus
+
+    const textarea = focusTextarea()
+
+    const el = rootOf("content")
     expect(el.style.top).toBe("20px")
     expect(el.style.height).toBe("600px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
+
+    textarea.remove()
+  })
+
+  it("returns to the fallback once the focused field blurs, even though visualViewport never changes", () => {
+    const vv = new FakeVisualViewport(367, 390, 208)
+    setVisualViewport(vv)
+
+    const textarea = focusTextarea()
+    render(<VisibleViewport>content</VisibleViewport>)
+
+    expect(rootOf("content").style.height).toBe("367px") // measured while focused
+
+    act(() => {
+      textarea.blur()
+    })
+
+    const el = rootOf("content")
+    expect(el.style.top).toBe("0px")
+    expect(el.style.height).toBe("100dvh")
+    expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
+
+    // The stale-report bug this gate exists for: visualViewport itself
+    // never moved off the keyboard-sized numbers.
+    expect(vv.height).toBe(367)
+    expect(vv.offsetTop).toBe(208)
+
+    textarea.remove()
   })
 
   it("treats a resize more than 120px below the tallest height seen as the keyboard opening", () => {
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
+    const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
@@ -108,11 +182,14 @@ describe("VisibleViewport", () => {
     const el = rootOf("content")
     expect(el.style.height).toBe("500px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("0px")
+
+    textarea.remove()
   })
 
   it("does not treat a shrink of 120px or less as the keyboard opening", () => {
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
+    const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
@@ -124,11 +201,14 @@ describe("VisibleViewport", () => {
     const el = rootOf("content")
     expect(el.style.height).toBe("724px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
+
+    textarea.remove()
   })
 
   it("updates top on scroll without touching the keyboard state", () => {
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
+    const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
@@ -141,11 +221,14 @@ describe("VisibleViewport", () => {
     expect(el.style.top).toBe("44px")
     expect(el.style.height).toBe("844px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("env(safe-area-inset-bottom)")
+
+    textarea.remove()
   })
 
   it("resets the keyboard baseline on a width change (rotation)", () => {
     const vv = new FakeVisualViewport(844, 390, 0)
     setVisualViewport(vv)
+    const textarea = focusTextarea()
 
     render(<VisibleViewport>content</VisibleViewport>)
 
@@ -170,6 +253,8 @@ describe("VisibleViewport", () => {
     el = rootOf("content")
     expect(el.style.height).toBe("200px")
     expect(el.style.getPropertyValue("--bottom-inset")).toBe("0px")
+
+    textarea.remove()
   })
 
   it("removes its visualViewport listeners on unmount", () => {

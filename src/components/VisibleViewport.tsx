@@ -64,10 +64,75 @@
 // as the keyboard opens or closes). `scheduled` coalesces any number of
 // calls arriving before the next frame into a single measurement; `rafId`
 // exists only so an unmount mid-frame can cancel the pending one.
+//
+// THE FOCUS GATE (28 Sept 2026): visualViewport GOES STALE ON WEBKIT WHEN
+// THE FOCUSED FIELD LEAVES THE DOM
+//
+// Found on a real iPhone (Chrome on iOS, which is WebKit underneath): on
+// onboarding step 1, with the description textarea focused and the
+// keyboard up, visualViewport correctly read a shrunk height and a
+// nonzero offsetTop. Tapping Continue swaps step 1 out for the gap-ask
+// step, which unmounts that textarea. iOS dismisses the keyboard, exactly
+// as it should when focus is lost, but window.visualViewport kept
+// reporting the SAME keyboard-open height and offsetTop indefinitely, and
+// never fired another resize or scroll to say otherwise. This component
+// applied those stale numbers faithfully, so the gap-ask step rendered a
+// tall empty band up top and a short box, even though the keyboard was
+// gone. That measurement was correct until the moment it wasn't, and
+// nothing observable from visualViewport itself said so.
+//
+// The fix does not try to detect staleness from visualViewport's own
+// numbers (there is nothing in them to distinguish a genuinely short
+// visible area from a stale report of one). Instead it uses a fact
+// visualViewport can never contradict: the on-screen keyboard can only be
+// open while an editable element holds focus. So the measured values are
+// trusted only while document.activeElement is editable (a text-entry
+// input, a textarea, or [contenteditable]); the instant that stops being
+// true, this component falls back to the full-height 100dvh style
+// regardless of what visualViewport last reported, and picks the
+// measurement back up the next time something editable is focused.
+// Listeners on document's "focusin" and "focusout" (which fire on focus
+// changes anywhere in the document, not just inside this component's own
+// subtree) re-run the same scheduled measurement pass as a visualViewport
+// resize or scroll; the check itself reads document.activeElement inside
+// that scheduled frame rather than synchronously in the event handler, so
+// a focus move from one field straight to another (focusout then focusin
+// in the same tick) settles on the new field's state rather than
+// flashing the fallback in between.
+//
+// The rejected fix is still the same one, and still rejected for the
+// same reason: scrolling the composer into view once the keyboard's
+// resize settles was tried twice against a real iPhone (build-notes.md,
+// 27 Sept 2026, "Postscript... the owner's phone pass on the gap-ask
+// thread") and failed both times, so this component does not scroll
+// anything. Do not re-add a scroll-into-view here.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 const KEYBOARD_OPEN_THRESHOLD_PX = 120
+
+const NON_TEXT_INPUT_TYPES = new Set([
+  "button",
+  "checkbox",
+  "color",
+  "file",
+  "hidden",
+  "image",
+  "radio",
+  "range",
+  "reset",
+  "submit",
+])
+
+// The keyboard can only be open while an editable element holds focus, so
+// this is the gate everything else in this component is built on. See
+// "THE FOCUS GATE" above for why.
+function isEditableElement(el: Element | null): boolean {
+  if (!el) return false
+  if (el instanceof HTMLTextAreaElement) return true
+  if (el instanceof HTMLInputElement) return !NON_TEXT_INPUT_TYPES.has(el.type)
+  return el.getAttribute("contenteditable") === "true"
+}
 
 // CSSProperties has no index signature for custom properties (csstype does
 // not declare one), so a `--bottom-inset` key needs its own type rather than
@@ -104,6 +169,16 @@ export default function VisibleViewport({ children, style }: Props) {
     let rafId: number | null = null
 
     const measureNow = () => {
+      // The keyboard can only be open while something editable is
+      // focused; see "THE FOCUS GATE" in the header for why this is
+      // checked before trusting anything visualViewport reports, and why
+      // it is read here (inside the scheduled frame) rather than
+      // synchronously from the focusin/focusout handlers below.
+      if (!isEditableElement(document.activeElement)) {
+        setMeasurement(null)
+        return
+      }
+
       const viewport = window.visualViewport
       // No visualViewport at all: nothing to measure from, so this never
       // leaves the null (100dvh fallback) state. See the window-resize
@@ -149,6 +224,14 @@ export default function VisibleViewport({ children, style }: Props) {
       window.addEventListener("resize", scheduleMeasure)
     }
 
+    // The focus gate's other half: re-run the same scheduled measurement
+    // whenever focus moves anywhere in the document, not just inside this
+    // component. "focusin"/"focusout" bubble (unlike "focus"/"blur"), so
+    // document is the one place to listen that covers every field on the
+    // page without threading a ref through every caller.
+    document.addEventListener("focusin", scheduleMeasure)
+    document.addEventListener("focusout", scheduleMeasure)
+
     scheduleMeasure()
 
     return () => {
@@ -159,6 +242,8 @@ export default function VisibleViewport({ children, style }: Props) {
       } else {
         window.removeEventListener("resize", scheduleMeasure)
       }
+      document.removeEventListener("focusin", scheduleMeasure)
+      document.removeEventListener("focusout", scheduleMeasure)
     }
   }, [])
 
