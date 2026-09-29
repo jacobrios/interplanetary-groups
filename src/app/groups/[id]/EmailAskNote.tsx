@@ -147,7 +147,7 @@
 // ANSWERS. Nothing reads across, and the difference is on purpose.
 
 import { useEffect, useId, useRef, useState, useTransition } from "react"
-import { shouldOfferEmail, type EmailAskState } from "@/lib/auth/email-offer"
+import { emailOfferOnMount, type EmailAskState } from "@/lib/auth/email-offer"
 import { emailAskCookieIsFresh, markEmailAskShown } from "@/lib/auth/email-ask-cooldown"
 import { dismissEmailOfferAction } from "@/app/actions/email-ask"
 import { OrbitMark } from "@/components/OrbitMark"
@@ -279,7 +279,7 @@ export default function EmailAskNote({
    * asks underneath a member reading it. `answered` still outranks it, so
    * every exit still closes the sheet.
    */
-  const [shownUnder, setShownUnder] = useState<ReturnType<typeof shouldOfferEmail>>(null)
+  const [shownUnder, setShownUnder] = useState<ReturnType<typeof emailOfferOnMount>>(null)
   /**
    * THE MOUNT CHECK, and it looks redundant against `lastShownAt` above until
    * you know why it is here: the browser and phone back gesture does not
@@ -343,19 +343,25 @@ export default function EmailAskNote({
   // can test a component and cannot test a server-rendered screen. The page
   // gathers the facts; the one decision about whether a member is asked is made
   // here, where a test can hold it to it.
-  const offer = shouldOfferEmail({
-    user: askState,
-    latestContributionAt,
-    hasVerifiedEmail,
-    lastShownAt,
-    now,
-  })
+  // The cooldown cookie is folded into this same call (emailOfferOnMount), so
+  // the decision "does the sheet open on this visit" has one definition, shared
+  // with the install hint, which must step aside for exactly this answer.
+  const offer = emailOfferOnMount(
+    {
+      user: askState,
+      latestContributionAt,
+      hasVerifiedEmail,
+      lastShownAt,
+      now,
+    },
+    suppressedByCooldown
+  )
   // The ask this sheet actually opened under, or the live one if it has not
   // opened yet. The latch is read FIRST, not as a fallback: once the sheet is
   // up, the words on it are pinned, so a later render cannot switch a member
   // from one ask to the other mid-read. See the latch above.
   const activeOffer = shownUnder ?? offer
-  const showing = !answered && !suppressedByCooldown && activeOffer !== null
+  const showing = !answered && activeOffer !== null
 
   // Pin what appeared, on the first render that actually shows it. Two things
   // about the shape of this, because both look wrong at a glance and neither
@@ -382,7 +388,7 @@ export default function EmailAskNote({
   // gives back things borrowed from the page, and this write is not borrowed
   // and must never be undone on the way out.
   //
-  // GATED ON `showing`, WHICH ALREADY CARRIES `!suppressedByCooldown`, and that
+  // GATED ON `showing`, WHICH STILL CARRIES THE COOLDOWN (it is folded into `offer` above), and that
   // is load-bearing rather than incidental. A suppressed mount that wrote
   // anyway would push the deadline another 24 hours out on every back-gesture
   // return, so a member who navigates that way would never be asked again,

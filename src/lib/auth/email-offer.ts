@@ -198,13 +198,23 @@ export function shouldOfferEmail({
 }
 
 /**
- * Whether Orbit's email sheet will open on a mount, given the same inputs the
- * sheet decides on and whether the device's cooldown cookie is fresh. This is
- * the ONE definition of "the email ask is on this visit", shared by the sheet
- * and by anything that must step aside for it (the install hint), so the two
- * can never disagree. The caller reads the cookie (this module never does) and
- * must read it before the sheet's own mount effect rewrites it.
+ * The ask Orbit's email sheet will open on for a mount, or null when it will
+ * not open: shouldOfferEmail's answer, silenced when the device's cooldown
+ * cookie is fresh. This is the ONE place that decides whether the email sheet
+ * opens on a visit, used by the sheet itself (EmailAskNote) and by anything
+ * that must step aside for it (the install hint), so the two cannot drift. The
+ * caller reads the cookie (this module never does); a caller that must agree
+ * with the sheet reads it during first render, before the sheet's own mount
+ * effect rewrites it.
  */
+export function emailOfferOnMount(
+  input: ShouldOfferEmailInput,
+  cooldownCookieIsFresh: boolean
+): EmailOffer {
+  return cooldownCookieIsFresh ? null : shouldOfferEmail(input)
+}
+
+/** Boolean form of emailOfferOnMount, for callers that only need yes or no. */
 export function emailAskWillOpen(input: ShouldOfferEmailInput, cooldownCookieIsFresh: boolean): boolean {
-  return !cooldownCookieIsFresh && shouldOfferEmail(input) !== null
+  return emailOfferOnMount(input, cooldownCookieIsFresh) !== null
 }

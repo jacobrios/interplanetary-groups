@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor, act } from "@testing-library/react"
+import EmailAskNote from "../EmailAskNote"
 
 import InstallHintOnArrival from "../InstallHintOnArrival"
 import type { EmailAskNoteProps } from "../EmailAskNote"
@@ -84,6 +85,33 @@ describe("InstallHintOnArrival", () => {
     markEmailAskShown(new Date())
     render(<InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />)
     expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
+  })
+
+  it("agrees with EmailAskNote: for the same inputs exactly one of the two sheets is up", async () => {
+    stub(IPHONE_SAFARI)
+    // Due ask, fresh cookie: the email sheet stays closed, the hint opens.
+    markEmailAskShown(new Date())
+    const a = render(
+      <>
+        <EmailAskNote {...ASK_DUE} />
+        <InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />
+      </>
+    )
+    await screen.findByRole("dialog", { name: HEADING })
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    a.unmount()
+    // Due ask, no cookie: the email sheet opens, the hint stays away.
+    document.cookie = `${EMAIL_ASK_SHOWN_COOKIE}=; path=/; max-age=0`
+    window.localStorage.clear()
+    render(
+      <>
+        <EmailAskNote {...ASK_DUE} />
+        <InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />
+      </>
+    )
+    await act(async () => {})
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    expect(screen.queryByRole("dialog", { name: HEADING })).toBeNull()
   })
 
   it("opens when there is no viewer to ask (emailAsk null)", async () => {
