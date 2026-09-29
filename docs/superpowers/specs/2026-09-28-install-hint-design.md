@@ -296,7 +296,7 @@ button closes it. Escape and the scrim still close the sheet directly from
 either state, with no note (a free exit stays free). "Show me" is unchanged.
 
 Closing note, exactly:
-- Line: "No problem. You can find the steps anytime:" at `--type-body`,
+- Line: "No problem. Find the steps anytime:" *(shortened by the owner, 29 Sept, to fit one row; rows now 16px below it and 12px apart)* at `--type-body`,
   `--text-primary`.
 - Then two numbered rows, each a 24px numbered circle identical to the steps
   sheet's (surface-raised, hairline border, `--type-meta` 700) and text at
