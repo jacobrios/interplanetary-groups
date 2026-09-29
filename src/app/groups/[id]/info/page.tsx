@@ -10,7 +10,7 @@
 // here, never a change, so do not re-add a line promising one.
 //
 // Visibility (spec decisions 3 to 5):
-//   member          identity · invite+share · card · hint · Leave
+//   member          identity · invite+share · email · card · phone · Leave
 //   founder         identity · invite+share+reset · card(+manage) · hint, NO Leave
 // Viewing is members-only (share-readiness slice); every mutation still
 // re-verifies membership/founder server-side in its own action.
@@ -34,6 +34,7 @@ import BackLink from "@/components/BackLink"
 import MembersOnlyWall from "@/components/MembersOnlyWall"
 import ShareInviteLink from "@/components/ShareInviteLink"
 import LegalFooter from "@/components/LegalFooter"
+import InstallHintLink from "@/components/InstallHintLink"
 import LeaveGroupButton from "./LeaveGroupButton"
 import ManageMembers from "./ManageMembers"
 import ResetInviteLink from "./ResetInviteLink"
@@ -311,6 +312,22 @@ export default async function GroupInfoPage({ params }: Props) {
           <EmailStatusRow emailAddress={viewerEmailAddress} />
         </div>
 
+        {/* Eyebrow for the card, same style and same 7px gap to what follows
+            as the email heading above (the mock's gap read loose). */}
+        <p
+          style={{
+            fontSize: "var(--type-eyebrow)",
+            lineHeight: "var(--leading-normal)",
+            color: "var(--text-secondary)",
+            textTransform: "uppercase",
+            letterSpacing: "0.14em",
+            fontWeight: 700,
+            margin: "18px 2px 7px",
+          }}
+        >
+          About the group
+        </p>
+
         {/* ── The card: WHO + rhythm rows ───────────────────────────────── */}
         {/* Founder only: EditGroupDetails owns the card shell itself (task 8),
             so it can swap it for the in-place editor. A member gets the same
@@ -359,6 +376,13 @@ export default async function GroupInfoPage({ params }: Props) {
             ))}
           </div>
         )}
+
+        {/* Phone section: founders and members alike, under the card (and under
+            "Edit group details" for a founder). Its eyebrow is InstallHintLink's
+            own so the heading and the link appear and disappear together: on
+            anything but iPhone Safari or Chrome outside the installed app the
+            link renders nothing, and a heading over nothing would be an orphan. */}
+        <InstallHintLink eyebrow="On your phone" />
 
         {/* The line pointing a member at Orbit in the chat for changes used
             to sit here and is deleted (owner's phone QA, 3 Sept 2026): it

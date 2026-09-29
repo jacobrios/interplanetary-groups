@@ -40,7 +40,9 @@ export function useInstallHintBrowser(): InstallHintBrowser | null {
   const [browser, setBrowser] = useState<InstallHintBrowser | null>(null)
   useEffect(() => {
     const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
+      // Optional call: jsdom (and any very old browser) has no matchMedia, and
+      // the hint is a nicety that must never crash a screen it sits on.
+      window.matchMedia?.("(display-mode: standalone)")?.matches === true ||
       (navigator as { standalone?: boolean }).standalone === true
     // Effect-only by design: this is reading a browser fact after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect

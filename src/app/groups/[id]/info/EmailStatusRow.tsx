@@ -209,17 +209,23 @@ export default function EmailStatusRow({ emailAddress }: Props) {
 
   if (!expanded) {
     return address !== null ? (
-      // A column, so the address gets a line of its own. Addresses run long,
-      // this sits inside a 28rem page column, and the address plus the control
-      // on one line was cramped before the address was even in it.
+      // One row: "Change email" on the left, the address on the right (the
+      // owner's explicit call, 28 Sept 2026, after seeing both arrangements).
+      // It wraps, so a long address drops under the control rather than
+      // squeezing it, and the address itself may break mid-string.
       <span
         style={{
           display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-start",
-          gap: "3px",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          columnGap: "12px",
+          rowGap: "3px",
         }}
       >
+        <button type="button" onClick={() => setExpanded(true)} style={LINK_STYLE}>
+          Change email
+        </button>
         <span
           style={{
             fontSize: "var(--type-meta)",
@@ -235,9 +241,6 @@ export default function EmailStatusRow({ emailAddress }: Props) {
         >
           {address}
         </span>
-        <button type="button" onClick={() => setExpanded(true)} style={LINK_STYLE}>
-          Change email
-        </button>
       </span>
     ) : (
       <button type="button" onClick={() => setExpanded(true)} style={outlinedPill}>

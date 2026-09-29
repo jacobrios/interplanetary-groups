@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import ShareInviteLink from "@/components/ShareInviteLink"
 import { OrbitBubble } from "@/components/OrbitBubble"
 import Chevron from "@/components/Chevron"
+import InstallHintLink from "@/components/InstallHintLink"
 
 // Product-voice rule: no em dashes (the mockup's line carried one).
 const ORBIT_COPY =
@@ -160,6 +161,7 @@ export default function Step3Share({ groupId, inviteToken, groupName }: Props) {
       >
         You can invite people now or anytime later
       </p>
+      <InstallHintLink style={{ alignItems: "center", marginTop: "1.25rem" }} />
     </div>
   )
 }
