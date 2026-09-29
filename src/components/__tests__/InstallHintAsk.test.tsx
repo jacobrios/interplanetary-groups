@@ -61,7 +61,7 @@ describe("InstallHintAsk", () => {
     const dialog = screen.getByRole("dialog")
     const id = dialog.getAttribute("aria-labelledby")!
     expect(document.getElementById(id)?.textContent).toBe(
-      "No problem. You can find the steps anytime:",
+      "No problem. Find the steps anytime:",
     )
     expect(screen.queryByText("Use Orbit like an app?")).toBeNull()
     expect(screen.queryByRole("button", { name: "Show me" })).toBeNull()
@@ -130,7 +130,7 @@ describe("InstallHintAsk", () => {
     expect(scrim.style.backgroundColor.replace(/\s/g, "")).toBe("rgba(8,9,13,0.45)")
     fireEvent.click(scrim)
     expect(onClose).toHaveBeenCalledTimes(2)
-    expect(screen.queryByText("No problem. You can find the steps anytime:")).toBeNull()
+    expect(screen.queryByText("No problem. Find the steps anytime:")).toBeNull()
   })
 
   it("moves focus in, locks scroll, restores both on unmount", () => {

@@ -15,7 +15,7 @@
 // lighter than the steps sheet's so the group stays readable behind a small ask.
 //
 // The two buttons are equal weight and neither is teal: an open question never
-// leans. "Not now" swaps to a closing note ("No problem. You can find the steps anytime:"
+// leans. "Not now" swaps to a closing note ("No problem. Find the steps anytime:"
 // with two numbered rows) rather than closing; only "Got it" (or the direct exits:
 // Escape and scrim tap) closes. Escape and the scrim stay direct exits from both states,
 // free and without a note. Focus moves to the sheet on the swap, keeping it trapped.
@@ -128,10 +128,10 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
                     color: "var(--text-primary)",
                   }}
                 >
-                  No problem. You can find the steps anytime:
+                  No problem. Find the steps anytime:
                 </h2>
               </div>
-              <ol style={{ listStyle: "none", margin: "12px 0 0", padding: 0 }}>
+              <ol style={{ listStyle: "none", margin: "16px 0 0", padding: 0 }}>
                 {[
                   "Tap the group's name at the top of the screen",
                   "Look under \u201COn your phone\u201D",
@@ -142,7 +142,7 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
                       display: "flex",
                       alignItems: "flex-start",
                       gap: 12,
-                      marginTop: i === 0 ? 0 : 8,
+                      marginTop: i === 0 ? 0 : 12,
                     }}
                   >
                     <StepNumber n={i + 1} />
