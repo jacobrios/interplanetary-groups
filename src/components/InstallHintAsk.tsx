@@ -15,8 +15,12 @@
 // lighter than the steps sheet's so the group stays readable behind a small ask.
 //
 // The two buttons are equal weight and neither is teal: an open question never
-// leans. Bottom padding uses the shared email-ask-safe-bottom class (home-bar
-// inset), with only the top set inline, as in InstallHintSheet.
+// leans. "Not now" swaps to a closing note ("No problem. You can find the steps anytime:"
+// with two numbered rows) rather than closing; only "Got it" (or the direct exits:
+// Escape and scrim tap) closes. Escape and the scrim stay direct exits from both states,
+// free and without a note. Focus moves to the sheet on the swap, keeping it trapped.
+// Bottom padding uses the shared email-ask-safe-bottom class (home-bar inset), with only
+// the top set inline, as in InstallHintSheet.
 
 import { useEffect, useId, useState, type CSSProperties } from "react"
 import { useModalSheet } from "./useModalSheet"
