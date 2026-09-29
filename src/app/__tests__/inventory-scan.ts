@@ -1,4 +1,6 @@
 import { execFileSync } from "child_process"
+import { existsSync } from "fs"
+import { join } from "path"
 
 /**
  * Every file under src/ whose name matches one of `globs` and whose text
@@ -21,8 +23,13 @@ export function filesContaining(
   globs: string[],
   cwd: string = process.cwd()
 ): string[] {
+  // git grep exits 1 both for "no match" and for "no file matched the path",
+  // so a wrong working folder would read as a clean pass. The old grep -r
+  // failed loudly there; keep that.
+  if (!existsSync(join(cwd, "src"))) throw new Error(`no src/ folder in ${cwd}`)
   // `src/*.tsx` in a git pathspec matches at any depth under src/, since `*`
-  // crosses `/` there. `-F` keeps the parentheses in var(--...) literal.
+  // crosses `/` there. `-F` matches the pattern as plain text, so a `.` or `*`
+  // in a future pattern is not read as a regular expression.
   const pathspecs = globs.map((g) => `src/${g}`)
   try {
     const out = execFileSync(

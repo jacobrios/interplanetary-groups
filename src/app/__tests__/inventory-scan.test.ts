@@ -17,8 +17,15 @@ function write(path: string, body: string) {
   writeFileSync(join(repo, path), body)
 }
 
+// Inherited GIT_* variables (set when running inside a git hook) would point
+// these commands at the real repository instead of the scratch one.
+const cleanEnv = { ...process.env }
+for (const key of Object.keys(cleanEnv)) {
+  if (key.startsWith("GIT_")) delete cleanEnv[key]
+}
+
 function git(...args: string[]) {
-  execFileSync("git", args, { cwd: repo, stdio: "ignore" })
+  execFileSync("git", args, { cwd: repo, stdio: "ignore", env: cleanEnv })
 }
 
 beforeEach(() => {
@@ -26,7 +33,7 @@ beforeEach(() => {
   git("init", "-q")
   write("src/app/committed.tsx", "var(--x)")
   git("add", "-A")
-  git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed")
+  git("-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false", "commit", "-qm", "seed")
 })
 
 afterEach(() => rmSync(repo, { recursive: true, force: true }))
@@ -66,6 +73,10 @@ describe("filesContaining", () => {
     // literal too, which is why the first version of this test could not fail.)
     write("src/app/near.tsx", "var(--xzy)")
     expect(filesContaining("var(--x.y)", ["*.tsx"], repo)).toEqual([])
+  })
+
+  it("fails loudly rather than passing when run from a folder with no src/", () => {
+    expect(() => filesContaining("var(--x)", ["*.tsx"], join(repo, "src"))).toThrow(/no src/)
   })
 
   it("returns an empty list when nothing matches", () => {
