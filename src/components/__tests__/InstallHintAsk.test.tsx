@@ -45,16 +45,69 @@ describe("InstallHintAsk", () => {
     for (const b of [show, no]) expect(b.style.minWidth).toBe("140px")
   })
 
-  it("Show me calls onShowMe only; Not now calls onClose only", () => {
+  it("Show me calls onShowMe only", () => {
     const { onShowMe, onClose } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Show me" }))
     expect(onShowMe).toHaveBeenCalledTimes(1)
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it("Not now swaps to the closing note in the same single dialog without closing", () => {
+    const { onShowMe, onClose } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(onShowMe).not.toHaveBeenCalled()
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    const dialog = screen.getByRole("dialog")
+    const id = dialog.getAttribute("aria-labelledby")!
+    expect(document.getElementById(id)?.textContent).toBe(
+      "No problem. You can find the steps anytime:",
+    )
+    expect(screen.queryByText("Use Orbit like an app?")).toBeNull()
+    expect(screen.queryByRole("button", { name: "Show me" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Not now" })).toBeNull()
+    expect(screen.getByText("Tap the group's name at the top of the screen")).toBeTruthy()
+    expect(screen.getByText("Look under \u201COn your phone\u201D")).toBeTruthy()
+  })
+
+  it("the closing note has two 24px numbered circles and a full-width outlined Got it", () => {
+    setup()
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    const one = screen.getByText("1")
+    const two = screen.getByText("2")
+    for (const c of [one, two]) {
+      expect(c.style.width).toBe("24px")
+      expect(c.style.height).toBe("24px")
+      expect(c.style.fontWeight).toBe("700")
+      expect(c.style.backgroundColor).toBe("var(--surface-raised)")
+      expect(c.style.border).toBe("1px solid var(--hairline)")
+    }
+    const got = screen.getByRole("button", { name: "Got it" })
+    expect(got.style.width).toBe("100%")
+    expect(got.style.minHeight).toBe("48px")
+    expect(got.style.borderRadius).toBe("26px")
+    expect(got.style.border).toBe("1.6px solid var(--hairline)")
+    expect(got.style.backgroundColor).toBe("transparent")
+    expect(got.style.color).not.toMatch(/action|teal/)
+  })
+
+  it("Got it closes", () => {
+    const { onClose } = setup()
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it("closes on Escape and the scrim, not on a tap inside, and the scrim is lighter", () => {
+  it("Escape and the scrim close from the note state too", () => {
+    const { onClose } = setup()
+    fireEvent.click(screen.getByRole("button", { name: "Not now" }))
+    fireEvent.keyDown(document, { key: "Escape" })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole("dialog").parentElement!)
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it("closes on Escape and the scrim from the ask state without showing the note, not on a tap inside, and the scrim is lighter", () => {
     const { onClose } = setup()
     fireEvent.keyDown(document, { key: "Escape" })
     expect(onClose).toHaveBeenCalledTimes(1)
@@ -64,6 +117,7 @@ describe("InstallHintAsk", () => {
     expect(scrim.style.backgroundColor.replace(/\s/g, "")).toBe("rgba(8,9,13,0.45)")
     fireEvent.click(scrim)
     expect(onClose).toHaveBeenCalledTimes(2)
+    expect(screen.queryByText("No problem. You can find the steps anytime:")).toBeNull()
   })
 
   it("moves focus in, locks scroll, restores both on unmount", () => {

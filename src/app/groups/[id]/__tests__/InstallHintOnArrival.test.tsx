@@ -55,6 +55,8 @@ describe("InstallHintOnArrival", () => {
     expect(screen.getByText("Add it as an icon to your home screen.")).toBeTruthy()
     expect(window.localStorage.getItem(FLAG)).not.toBeNull()
     screen.getByRole("button", { name: "Not now" }).click()
+    // "Not now" now shows a closing note; "Got it" is what ends the sheet.
+    ;(await screen.findByRole("button", { name: "Got it" })).click()
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
@@ -223,6 +225,8 @@ describe("InstallHintOnArrival", () => {
     const { rerender, unmount } = render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await screen.findByRole("dialog")
     screen.getByRole("button", { name: "Not now" }).click()
+    // "Not now" now shows a closing note; "Got it" is what ends the sheet.
+    ;(await screen.findByRole("button", { name: "Got it" })).click()
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     window.localStorage.clear() // even with the flag gone, this mount already decided
     rerender(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)

@@ -18,9 +18,10 @@
 // leans. Bottom padding uses the shared email-ask-safe-bottom class (home-bar
 // inset), with only the top set inline, as in InstallHintSheet.
 
-import { useId, type CSSProperties } from "react"
+import { useId, useState, type CSSProperties } from "react"
 import { useModalSheet } from "./useModalSheet"
 import { OrbitMark } from "./OrbitMark"
+import StepNumber from "./StepNumber"
 
 export interface InstallHintAskProps {
   onShowMe: () => void
@@ -45,6 +46,10 @@ const BUTTON: CSSProperties = {
 export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProps) {
   const headingId = useId()
   const sheetRef = useModalSheet(onClose)
+  // "Not now" swaps the content for a closing note rather than closing; only
+  // "Got it" (or a free exit: Escape, scrim) closes. Local on purpose: the
+  // caller's once-only rules never see this state.
+  const [note, setNote] = useState(false)
 
   return (
     <div
@@ -96,42 +101,102 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
           className="email-ask-safe-bottom"
           style={{ paddingTop: 12 }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ flex: "0 0 auto", display: "flex" }}>
-              <OrbitMark size={36} label={null} />
-            </div>
-            <div style={{ flex: "1 1 0", minWidth: 0 }}>
-              <h2
-                id={headingId}
-                style={{
-                  margin: 0,
-                  fontSize: "var(--type-heading)",
-                  lineHeight: "var(--leading-tight)",
-                  fontWeight: 700,
-                  color: "var(--text-primary)",
-                }}
+          {note ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: "0 0 auto", display: "flex" }}>
+                  <OrbitMark size={36} label={null} />
+                </div>
+                <h2
+                  id={headingId}
+                  style={{
+                    flex: "1 1 0",
+                    minWidth: 0,
+                    margin: 0,
+                    fontSize: "var(--type-body)",
+                    fontWeight: 400,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  No problem. You can find the steps anytime:
+                </h2>
+              </div>
+              <ol style={{ listStyle: "none", margin: "12px 0 0", padding: 0 }}>
+                {[
+                  "Tap the group's name at the top of the screen",
+                  "Look under \u201COn your phone\u201D",
+                ].map((text, i) => (
+                  <li
+                    key={text}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      marginTop: i === 0 ? 0 : 8,
+                    }}
+                  >
+                    <StepNumber n={i + 1} />
+                    <span
+                      style={{
+                        flex: "1 1 0",
+                        minWidth: 0,
+                        fontSize: "var(--type-meta)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      {text}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{ ...BUTTON, flex: "0 0 auto", width: "100%", marginTop: 16 }}
               >
-                Use Orbit like an app?
-              </h2>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: "var(--type-meta)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                Add it as an icon to your home screen.
-              </p>
+                Got it
+              </button>
+            </>
+          ) : (
+            <>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: "0 0 auto", display: "flex" }}>
+                <OrbitMark size={36} label={null} />
+              </div>
+              <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                <h2
+                  id={headingId}
+                  style={{
+                    margin: 0,
+                    fontSize: "var(--type-heading)",
+                    lineHeight: "var(--leading-tight)",
+                    fontWeight: 700,
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Use Orbit like an app?
+                </h2>
+                <p
+                  style={{
+                    margin: "4px 0 0",
+                    fontSize: "var(--type-meta)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  Add it as an icon to your home screen.
+                </p>
+              </div>
             </div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
-            <button type="button" onClick={onShowMe} style={BUTTON}>
-              Show me
-            </button>
-            <button type="button" onClick={onClose} style={BUTTON}>
-              Not now
-            </button>
-          </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+              <button type="button" onClick={onShowMe} style={BUTTON}>
+                Show me
+              </button>
+              <button type="button" onClick={() => setNote(true)} style={BUTTON}>
+                Not now
+              </button>
+            </div>
+            </>
+          )}
         </div>
       </div>
     </div>
