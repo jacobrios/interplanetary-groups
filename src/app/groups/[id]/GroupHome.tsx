@@ -52,6 +52,7 @@ import type { FeedGroupProposal } from "./GroupProposalChips"
 import ChatInput from "./ChatInput"
 import OrbitDownNote from "./OrbitDownNote"
 import EmailAskNote, { type EmailAskNoteProps } from "./EmailAskNote"
+import InstallHintOnArrival from "./InstallHintOnArrival"
 import SeenMarker from "./SeenMarker"
 import LiveRefresh from "./LiveRefresh"
 import DeployWatch from "./DeployWatch"
@@ -239,6 +240,9 @@ interface Props {
    * to ask. Whether it is actually shown is EmailAskNote's own call, not this
    * component's and not the page's. */
   emailAsk: EmailAskNoteProps | null
+  /** Whether the viewer is this group's founder, who already met the install
+   * hint on onboarding step 3 and is not shown the sheet here. */
+  viewerIsFounder: boolean
   /** The deployment that server-rendered this document, for DeployWatch to
    * compare against what is live. Null off Vercel, which means detection is
    * off. Passed down rather than read here because only the server has it. */
@@ -256,6 +260,7 @@ export default function GroupHome({
   groupProposals,
   viewerIsMember,
   emailAsk,
+  viewerIsFounder,
   bootedDeploymentId,
 }: Props) {
   // The optimistic message list: flips to include the new message instantly,
@@ -669,6 +674,12 @@ export default function GroupHome({
               shares with OrbitDownNote above is unchanged: per viewer,
               rendered, never posted to the feed. */}
           {emailAsk && <EmailAskNote {...emailAsk} />}
+          {/* One-time home-screen how-to; steps aside whenever the email ask
+              is on offer this visit. See InstallHintOnArrival. */}
+          <InstallHintOnArrival
+            emailAskOffered={emailAsk !== null}
+            viewerIsFounder={viewerIsFounder}
+          />
           {/* onChange is handleInputChange, not setInputValue: it parks the
               draft as well as holding it. ChatInput is fully controlled and
               knows nothing about any of this, which is why it needed no
