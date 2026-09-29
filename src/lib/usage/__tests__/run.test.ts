@@ -67,7 +67,7 @@ const OWNER_ADDRESS = `owner-${stamp}@example.com`
 
 beforeEach(() => {
   sendEmailMock.mockReset()
-  sendEmailMock.mockResolvedValue("sent")
+  sendEmailMock.mockResolvedValue("ok")
   vi.stubEnv("USAGE_REPORT_TO", OWNER_ADDRESS)
 })
 
@@ -98,7 +98,7 @@ describe("runWeeklyUsageReport", () => {
 
     const result = await runWeeklyUsageReport(REPORT_HOUR, { groupIds: [group.id] })
 
-    expect(result).toEqual({ status: "sent", result: "sent" })
+    expect(result).toEqual({ status: "sent", result: "ok" })
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
     const arg = sendEmailMock.mock.calls[0][0]
     expect(arg.to).toBe(OWNER_ADDRESS)

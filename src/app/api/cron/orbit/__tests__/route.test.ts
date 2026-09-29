@@ -106,11 +106,11 @@ describe("the orbit cron's health report", () => {
   })
 
   it("returns the usage report result under usageReport", async () => {
-    vi.mocked(runWeeklyUsageReport).mockResolvedValueOnce({ status: "sent", result: "sent" })
+    vi.mocked(runWeeklyUsageReport).mockResolvedValueOnce({ status: "sent", result: "ok" })
 
     const body = await (await call()).json()
 
-    expect(body.usageReport).toEqual({ status: "sent", result: "sent" })
+    expect(body.usageReport).toEqual({ status: "sent", result: "ok" })
   })
 
   it("never lets an unauthorized caller touch the heartbeat", async () => {
