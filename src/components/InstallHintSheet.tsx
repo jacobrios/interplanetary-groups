@@ -92,7 +92,7 @@ function stepsFor(browser: "safari" | "chrome"): Step[] {
         </>
       ),
       src: "/install-hint/add-to-home-screen.png",
-      alt: "The Add to Home Screen row highlighted in the share menu",
+      alt: "The share menu's Add to Home Screen row with its plus icon circled",
       ratio: "790 / 95",
       ring: { kind: "circle", cx: 7.85, cy: 55, d: 10.5 },
     },

@@ -31,6 +31,7 @@ const BUTTON: CSSProperties = {
   // "0px" rather than a bare 0: identical in a browser, but jsdom drops the
   // bare form, which would leave the equal-width guarantee untestable.
   flex: "1 1 0px",
+  minWidth: 140,
   minHeight: 48,
   borderRadius: 26,
   border: "1.6px solid var(--hairline)",
@@ -123,7 +124,7 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
               </p>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
             <button type="button" onClick={onShowMe} style={BUTTON}>
               Show me
             </button>

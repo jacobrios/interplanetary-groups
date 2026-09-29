@@ -36,6 +36,15 @@ describe("InstallHintAsk", () => {
     expect(show.style.color).not.toMatch(/action|teal/)
   })
 
+  it("lets the button row wrap, each button keeping a minimum width, so they stack at large text", () => {
+    setup()
+    const show = screen.getByRole("button", { name: "Show me" })
+    const no = screen.getByRole("button", { name: "Not now" })
+    expect((show.parentElement as HTMLElement).style.flexWrap).toBe("wrap")
+    expect(no.parentElement).toBe(show.parentElement)
+    for (const b of [show, no]) expect(b.style.minWidth).toBe("140px")
+  })
+
   it("Show me calls onShowMe only; Not now calls onClose only", () => {
     const { onShowMe, onClose } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Show me" }))
