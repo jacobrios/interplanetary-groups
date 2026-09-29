@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest"
 import {
   shouldOfferEmail,
+  emailAskWillOpen,
   emailAskIsSettled,
   emailAskIsSnoozed,
   ASK_COOLDOWN_MS,
@@ -487,5 +488,24 @@ describe("emailAskIsSettled", () => {
     // be silently green.
     expect(settledSeen).toBeGreaterThan(0)
     expect(offersSeen).toBeGreaterThan(0)
+  })
+})
+
+describe("emailAskWillOpen: the shared 'is the email sheet on this visit' answer", () => {
+  const due = {
+    user: { emailAskCount: 0, emailAskedAt: null },
+    latestContributionAt: new Date("2026-08-25T18:00:00Z"),
+    hasVerifiedEmail: false,
+    lastShownAt: null,
+    now: new Date("2026-08-26T18:00:00Z"),
+  }
+  it("is true when the gate offers and the cookie is not fresh", () => {
+    expect(emailAskWillOpen(due, false)).toBe(true)
+  })
+  it("is false when the cookie is fresh, even though the gate offers", () => {
+    expect(emailAskWillOpen(due, true)).toBe(false)
+  })
+  it("is false when the gate says nothing (no contribution yet)", () => {
+    expect(emailAskWillOpen({ ...due, latestContributionAt: null }, false)).toBe(false)
   })
 })

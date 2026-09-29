@@ -677,7 +677,7 @@ export default function GroupHome({
           {/* One-time home-screen how-to; steps aside whenever the email ask
               is on offer this visit. See InstallHintOnArrival. */}
           <InstallHintOnArrival
-            emailAskOffered={emailAsk !== null}
+            emailAsk={emailAsk}
             viewerIsFounder={viewerIsFounder}
           />
           {/* onChange is handleInputChange, not setInputValue: it parks the

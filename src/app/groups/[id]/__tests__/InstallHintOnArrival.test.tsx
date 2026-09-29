@@ -7,6 +7,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor, act } from "@testing-library/react"
 
 import InstallHintOnArrival from "../InstallHintOnArrival"
+import type { EmailAskNoteProps } from "../EmailAskNote"
+import { EMAIL_ASK_SHOWN_COOKIE, markEmailAskShown } from "@/lib/auth/email-ask-cooldown"
+
+const NOW = new Date("2026-08-26T18:00:00Z")
+// Real-shaped inputs, as page.tsx builds them for every signed-in viewer. DUE
+// means shouldOfferEmail says "first"; NOT_DUE has no contribution yet.
+const ASK_DUE: EmailAskNoteProps = {
+  groupName: "Climbing Crew",
+  askState: { emailAskCount: 0, emailAskedAt: null },
+  latestContributionAt: new Date("2026-08-25T18:00:00Z"),
+  hasVerifiedEmail: false,
+  lastShownAt: null,
+  now: NOW,
+}
+const ASK_NOT_DUE: EmailAskNoteProps = { ...ASK_DUE, latestContributionAt: null }
 
 const FLAG = "orbit.installHintShown"
 const IPHONE_SAFARI =
@@ -27,13 +42,14 @@ describe("InstallHintOnArrival", () => {
     window.localStorage.clear()
   })
   afterEach(() => {
+    document.cookie = `${EMAIL_ASK_SHOWN_COOKIE}=; path=/; max-age=0`
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
   it("opens once for a non-founder on iPhone Safari and writes the flag at once", async () => {
     stub(IPHONE_SAFARI)
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
     expect(screen.getByText("Put it on your home screen. It opens full screen, one tap away.")).toBeTruthy()
     expect(window.localStorage.getItem(FLAG)).not.toBeNull()
@@ -44,36 +60,55 @@ describe("InstallHintOnArrival", () => {
   it("does not open when the flag is already set", async () => {
     stub(IPHONE_SAFARI)
     window.localStorage.setItem(FLAG, "1")
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
-  it("does not open when the email ask is offered, and leaves the flag unset", async () => {
+  it("does not open when the email ask is due, and leaves the flag unset", async () => {
     stub(IPHONE_SAFARI)
-    render(<InstallHintOnArrival emailAskOffered={true} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
     expect(window.localStorage.getItem(FLAG)).toBeNull()
   })
 
+  it("opens when the email ask is present but not due (no contribution yet)", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
+    expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
+  })
+
+  it("opens when the email ask is due but the snooze cookie says the sheet will not open", async () => {
+    stub(IPHONE_SAFARI)
+    markEmailAskShown(new Date())
+    render(<InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />)
+    expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
+  })
+
+  it("opens when there is no viewer to ask (emailAsk null)", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={null} viewerIsFounder={false} />)
+    expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
+  })
+
   it("does not open for the founder", async () => {
     stub(IPHONE_SAFARI)
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={true} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={true} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   it("does not open in the installed app", async () => {
     stub(IPHONE_SAFARI, true)
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   it("does not open on Android", async () => {
     stub(ANDROID_CHROME)
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
@@ -83,7 +118,7 @@ describe("InstallHintOnArrival", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked")
     })
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
@@ -93,34 +128,34 @@ describe("InstallHintOnArrival", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked")
     })
-    render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   it("holds its decision across re-renders: an open sheet stays open when the ask flips on", async () => {
     stub(IPHONE_SAFARI)
-    const { rerender } = render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    const { rerender } = render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await screen.findByRole("dialog")
-    rerender(<InstallHintOnArrival emailAskOffered={true} viewerIsFounder={false} />)
+    rerender(<InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />)
     expect(screen.getByRole("dialog")).toBeTruthy()
   })
 
   it("holds its decision across re-renders: a closed sheet does not reopen, and a skipped visit does not open later", async () => {
     stub(IPHONE_SAFARI)
-    const { rerender, unmount } = render(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    const { rerender, unmount } = render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await screen.findByRole("dialog")
     screen.getByRole("button", { name: "Not now" }).click()
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     window.localStorage.clear() // even with the flag gone, this mount already decided
-    rerender(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    rerender(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
     unmount()
 
-    const second = render(<InstallHintOnArrival emailAskOffered={true} viewerIsFounder={false} />)
+    const second = render(<InstallHintOnArrival emailAsk={ASK_DUE} viewerIsFounder={false} />)
     await act(async () => {})
-    second.rerender(<InstallHintOnArrival emailAskOffered={false} viewerIsFounder={false} />)
+    second.rerender(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
   })
