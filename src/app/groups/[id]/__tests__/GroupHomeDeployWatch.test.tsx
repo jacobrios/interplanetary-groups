@@ -82,6 +82,7 @@ function home(
       groupProposals={[]}
       viewerIsMember
       emailAsk={emailAsk}
+      viewerIsFounder={false}
       bootedDeploymentId={bootedDeploymentId}
     />
   )

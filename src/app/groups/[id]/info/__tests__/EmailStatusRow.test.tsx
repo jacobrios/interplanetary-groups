@@ -76,20 +76,24 @@ describe("EmailStatusRow, collapsed states", () => {
     expect(screen.queryByText(/Email reminders/i)).toBeNull()
   })
 
-  it("puts the address on a line of its own, above the control", () => {
-    // The owner's call, and it is about width rather than taste: addresses
-    // run long, the control sits under a 28rem column, and the two on one
-    // line was already cramped before an address was in it. Asserted on the
-    // DOM rather than on CSS, because "its own line" here means its own
-    // element in a column, which is what survives a style refactor.
+  it("puts \"Change email\" on the left and the address on the right, in one wrapping row", () => {
+    // The owner's explicit call, made after seeing both arrangements: one
+    // row, control left, address right, wrapping when a long address runs out
+    // of room. Asserted on the DOM (siblings in order) plus the two style
+    // facts that make it a row that wraps.
     render(<EmailStatusRow emailAddress="sam@example.com" />)
     const address = screen.getByText("sam@example.com")
     const control = screen.getByRole("button", { name: "Change email" })
 
     expect(address.contains(control)).toBe(false)
     expect(control.contains(address)).toBe(false)
-    expect(address.parentElement).toBe(control.parentElement)
-    expect(address.parentElement!.style.flexDirection).toBe("column")
+    const row = control.parentElement!
+    expect(address.parentElement).toBe(row)
+    expect(Array.from(row.children)).toEqual([control, address])
+    expect(row.style.justifyContent).toBe("space-between")
+    expect(row.style.flexWrap).toBe("wrap")
+    expect(row.style.flexDirection).not.toBe("column")
+    expect(address.style.overflowWrap).toBe("anywhere")
   })
 
   // Superseded 3 Sept 2026, owner's phone QA: "Add your email" used to be a

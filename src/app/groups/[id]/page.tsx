@@ -414,6 +414,7 @@ export default async function GroupPage({ params }: Props) {
           groupProposals={groupProposals}
           viewerIsMember={viewerIsMember}
           emailAsk={emailAsk}
+          viewerIsFounder={viewer?.id === group.founderId}
           bootedDeploymentId={bootedDeploymentId}
         />
       </FeedSeam>

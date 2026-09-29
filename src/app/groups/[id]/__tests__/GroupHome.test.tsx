@@ -99,6 +99,7 @@ function renderHome(messages: FeedMessage[] = []) {
       groupProposals={[]}
       viewerIsMember
       emailAsk={null}
+      viewerIsFounder={false}
       /* Detection off: with no booted deployment id, DeployWatch mounts,
          schedules nothing and requests nothing, so these tests are unaffected
          by it. */

@@ -230,6 +230,7 @@ input::placeholder, textarea::placeholder { color: var(--placeholder); opacity: 
    consistency with the screen it sits on, NOT to prevent a keyboard gap: the
    sheet's scrim is fixed to the full layout area, so its bottom sits behind
    the keyboard either way. The side paddings clear the landscape notch. */
+/* Used by EmailAskNote and, as its second user, InstallHintSheet. */
 .email-ask-safe-bottom {
   padding-bottom: calc(20px + var(--bottom-inset, var(--safe-bottom))) !important;
   padding-left: calc(18px + var(--safe-left)) !important;

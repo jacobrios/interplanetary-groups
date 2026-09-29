@@ -9,7 +9,9 @@
 import type { CSSProperties } from "react"
 
 export const infoCardStyle: CSSProperties = {
-  marginTop: "16px",
+  // No top margin: the page puts an eyebrow above the card and owns that gap
+  // (7px, the same as the email heading), and EditDetailsCard already zeroed it.
+  marginTop: 0,
   backgroundColor: "var(--surface-raised)",
   border: "1.7px solid var(--hairline)",
   borderRadius: "14px",
