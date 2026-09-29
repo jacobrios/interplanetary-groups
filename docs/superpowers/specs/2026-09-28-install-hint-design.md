@@ -25,6 +25,14 @@ of the slice.
 4. **Members:** the sheet itself opens once on the group home ("Use Orbit
    like an app?", "Not now"), once per phone, never over the email ask. Any
    way out ends it for good.
+   *(Amended 29 Sept 2026, the owner's phone QA of PR #147: the full steps
+   sheet on arrival was too much. Arrival now shows a small sheet sized to
+   its content, "Use Orbit like an app?" / "Add it as an icon to your home
+   screen." with Orbit's face and equal-weight "Show me" / "Not now"; "Show
+   me" opens the steps sheet. The steps sheet drops its title for "Follow the
+   3 steps below to add its icon.", frames each picture so none reads as a
+   button, circles the ⊕ on step 3, and recrops steps 2 and 3 inside their
+   rows. Task 4.)*
 5. **Group info:** a new "ON YOUR PHONE" section below the card with the same
    link; the card gains an "ABOUT THE GROUP" title; the email row puts
    "Change email" on the left and the address on the right, one row.
@@ -221,6 +229,63 @@ email ask is offered, for the founder, in the installed app, on Android, or
 when storage throws; survives a re-render without reopening.
 
 ---
+
+### Task 4: the small arrival sheet and the steps sheet's redesign (added 29 Sept 2026)
+
+Owner-approved over mocks at 390x661 rendered over a real group home.
+
+**4a. `InstallHintAsk`** (`src/components/InstallHintAsk.tsx`, client), a
+bottom sheet sized to its content (no min-height), same modal mechanics as
+`InstallHintSheet` (scrim, `role="dialog"`, `aria-modal`, focus in and back,
+Escape, scrim tap, focus trap, body scroll lock), scrim lighter at
+`rgba(8,9,13,.45)` so the group stays readable behind it. Sheet chrome as
+`InstallHintSheet` (`--surface-low`, top hairline, radius `22px 22px 0 0`,
+shadow, 38x4 grab bar). Content pad `12px 18px`, plus the home-bar inset via
+`email-ask-safe-bottom`. A row: `OrbitMark` size 36 (label null) then a text
+column: heading "Use Orbit like an app?" at `--type-heading` 700
+`--leading-tight`; subline "Add it as an icon to your home screen." at
+`--type-meta` `--text-secondary`, 4px above. Below, 16px gap, two buttons
+side by side, gap 10, each `flex: 1 1 0`, `minHeight: 48`, radius 26,
+`1.6px solid var(--hairline)`, transparent, `--type-body` 700, labels "Show
+me" and "Not now", equal weight (an open question never leans; neither is
+teal). Props: `onShowMe`, `onClose`. Escape and scrim tap call `onClose`.
+
+**4b. `InstallHintOnArrival`** opens `InstallHintAsk` instead of the steps
+sheet. "Show me" swaps to `InstallHintSheet` (the steps sheet with its
+"Got it" button); "Not now", Escape, scrim tap and "Got it" all end it. The
+flag, the once-per-phone rule, the founder and email-ask exclusions and the
+decide-once latch are unchanged (the flag is still written when the small
+sheet opens).
+
+**4c. `InstallHintSheet`** loses `heading` and `subline`. In their place, one
+lead line "Follow the 3 steps below to add its icon." as the dialog's
+labelled heading, `1.125rem`, weight 700, `--leading-tight`, margin
+`2px 0 16px`; it must fit one row at 390pt (it does at 1.125rem, measured).
+If 1.125rem is not an existing token, say so in the report and use the
+literal with a comment; do not add a token. Each picture sits in a frame:
+an outer box with `marginTop: 8`, `marginLeft: 36` (under the step text,
+not the number), `padding: 8`, `backgroundColor: var(--surface-base)`,
+`borderRadius: 14`; the picture box inside keeps its hairline border,
+radius 10. Button area gains `borderTop: 1px solid var(--hairline)`,
+`marginTop: 4`, `paddingTop: 20`. `InstallHintLink` passes only
+`browser`, `buttonLabel="Got it"`, `onClose`.
+
+**4d. Pictures**, recropped with `sips` from the same source folder as 1b:
+
+| File | Source | h | w | y | x | Ring |
+|---|---|---|---|---|---|---|
+| `add-to-home-screen.png` | 1.png | 95 | 790 | 1650 | 56 | circle, centre 7.85% / 55%, diameter 10.5% |
+
+and recrop both `*-view-more.png` so no rounded corner of the Share menu
+shows at the bottom-right (the current crops end at y 1960 and x 880; trim
+the bottom and right edges until the corner is gone, keep the View More
+button and its label whole), then recompute the View More ring so it still
+centres on the button. Update each picture's `ratio`. Look at every output
+image and confirm no corner remnant and nothing personal.
+
+Tests, red first: the small sheet's copy, equal buttons, Escape and scrim;
+"Show me" opens the steps sheet; the steps sheet shows the lead line and no
+old heading or subline; the arrival flow's existing rules still hold.
 
 ## Finish (controller, after review)
 
