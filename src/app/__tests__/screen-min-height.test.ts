@@ -23,9 +23,9 @@
 // slice's brief also raises is answered separately, by looking at a real
 // rendered page, not by a test in this file.
 
+import { filesContaining } from "./inventory-scan"
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "fs"
-import { execFileSync } from "child_process"
 import path from "path"
 
 const GLOBALS = path.join(process.cwd(), "src/app/globals.css")
@@ -67,37 +67,16 @@ const EXPECTED_SITES = [
 
 describe("the nine whole-page sites read the safe-area-aware token", () => {
   it("is still exactly the nine sites named in the task brief", () => {
-    // Route directories carry bracketed names ([id], [inviteToken]), which
-    // zsh glob-expands; execFileSync calls grep directly with no shell, so
-    // that trap (CLAUDE.md, "a shell-based scan can report clean for a
-    // false reason") does not apply here, but the file list below is still
-    // read by grep rather than by hand for the same reason token-contrast's
-    // inventory test reads its list by grep.
-    const out = execFileSync(
-      "grep",
-      ["-rl", "var(--screen-min-height)", "src", "--include=*.tsx"],
-      { cwd: process.cwd(), encoding: "utf8" }
-    )
-    const files = out.split("\n").filter(Boolean).sort()
-    expect(files).toEqual(EXPECTED_SITES)
+    // Read by a scan rather than by hand, like token-contrast's inventory.
+    // The scan calls git with no shell, so the bracketed route directories
+    // ([id], [inviteToken]) cannot be glob-expanded away (CLAUDE.md, "a
+    // shell-based scan can report clean for a false reason").
+    // Committed and uncommitted files, never git-excluded throwaways; see
+    // inventory-scan.ts.
+    expect(filesContaining("var(--screen-min-height)", ["*.tsx"])).toEqual(EXPECTED_SITES)
   })
 
   it("no longer has any bare 100dvh minHeight left on a whole-page site", () => {
-    // grep exits 1 (throwing here) when nothing matches, which is the
-    // passing case for this assertion; wrap it so a real remaining match
-    // (a nonzero exit for the wrong reason, or actual output) is what fails
-    // the test, not the throw itself.
-    let out = ""
-    try {
-      out = execFileSync(
-        "grep",
-        ["-rl", "minHeight: \"100dvh\"", "src", "--include=*.tsx"],
-        { cwd: process.cwd(), encoding: "utf8" }
-      )
-    } catch (err) {
-      const status = (err as { status?: number }).status
-      if (status !== 1) throw err
-    }
-    expect(out.split("\n").filter(Boolean)).toEqual([])
+    expect(filesContaining('minHeight: "100dvh"', ["*.tsx"])).toEqual([])
   })
 })
