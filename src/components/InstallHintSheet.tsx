@@ -23,16 +23,14 @@
 // inline calc(): jsdom throws on a longhand padding holding an unresolved
 // calc(), and the class already adds the home-bar inset.
 
-import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react"
+import { useId, type ReactNode } from "react"
+import { useModalSheet } from "./useModalSheet"
 
 export interface InstallHintSheetProps {
   browser: "safari" | "chrome"
   buttonLabel: string
   onClose: () => void
 }
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 type Ring =
   | { kind: "circle"; cx: number; cy: number; d: number }
@@ -137,57 +135,7 @@ export default function InstallHintSheet({
   onClose,
 }: InstallHintSheetProps) {
   const headingId = useId()
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const returnFocusTo = useRef<Element | null>(null)
-  const onCloseRef = useRef(onClose)
-  // Layout effect, not render: it runs before the browser can dispatch a key
-  // event for this commit, so Escape always calls the latest onClose.
-  useLayoutEffect(() => {
-    onCloseRef.current = onClose
-  })
-
-  useEffect(() => {
-    returnFocusTo.current = document.activeElement
-    sheetRef.current?.focus()
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    return () => {
-      document.body.style.overflow = previousOverflow
-      const back = returnFocusTo.current
-      if (back instanceof HTMLElement && back.isConnected) back.focus()
-    }
-  }, [])
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault()
-        onCloseRef.current()
-        return
-      }
-      if (event.key !== "Tab") return
-      const sheet = sheetRef.current
-      if (!sheet) return
-      const focusables = Array.from(sheet.querySelectorAll<HTMLElement>(FOCUSABLE))
-      if (focusables.length === 0) {
-        event.preventDefault()
-        sheet.focus()
-        return
-      }
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      const active = document.activeElement
-      if (event.shiftKey && (active === first || active === sheet)) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener("keydown", onKeyDown)
-    return () => document.removeEventListener("keydown", onKeyDown)
-  }, [])
+  const sheetRef = useModalSheet(onClose)
 
   const steps = stepsFor(browser)
 

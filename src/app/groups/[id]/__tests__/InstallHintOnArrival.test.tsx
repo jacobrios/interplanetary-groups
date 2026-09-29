@@ -60,9 +60,14 @@ describe("InstallHintOnArrival", () => {
 
   it("Show me swaps to the steps sheet; Got it ends it for good", async () => {
     stub(IPHONE_SAFARI)
+    document.body.style.overflow = "scroll"
+    const opener = document.createElement("button")
+    document.body.appendChild(opener)
+    opener.focus()
     render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await screen.findByRole("dialog", { name: HEADING })
     fireEvent.click(screen.getByRole("button", { name: "Show me" }))
+    expect(document.body.style.overflow).toBe("hidden")
     expect(screen.getAllByRole("dialog")).toHaveLength(1)
     expect(screen.getByRole("dialog", { name: "Follow the 3 steps below to add its icon." })).toBeTruthy()
     expect(screen.getAllByRole("img")).toHaveLength(3)
@@ -70,14 +75,27 @@ describe("InstallHintOnArrival", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     await act(async () => {})
     expect(screen.queryByRole("dialog")).toBeNull()
+    expect(document.body.style.overflow).toBe("scroll")
+    expect(document.activeElement).toBe(opener)
+    document.body.style.overflow = ""
+    opener.remove()
   })
 
-  it("Escape and the scrim end the steps sheet too", async () => {
+  it("Escape ends the steps sheet", async () => {
     stub(IPHONE_SAFARI)
     render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     await screen.findByRole("dialog", { name: HEADING })
     fireEvent.click(screen.getByRole("button", { name: "Show me" }))
     fireEvent.keyDown(document, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("the scrim ends the steps sheet", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
+    await screen.findByRole("dialog", { name: HEADING })
+    fireEvent.click(screen.getByRole("button", { name: "Show me" }))
+    fireEvent.click(screen.getByRole("dialog").parentElement!)
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 
