@@ -2,7 +2,7 @@
 //
 // Vercel Cron endpoint for Orbit's scheduled event reconciliation, gauge
 // endgame sweep, group time-change proposal endgame sweep, the daily digest,
-// and, as a fifth step, its own health report.
+// the weekly usage report, and, as a sixth step, its own health report.
 //
 // Vercel invokes this as HTTP GET once per hour (see vercel.json).
 // When CRON_SECRET is set, Vercel automatically sends it as
@@ -26,7 +26,13 @@
 // produced this hour, the same reasoning reconcile.ts's own per-group
 // try/catch is built on, one level up.
 //
-// The fifth step runs last and reports to Better Stack via reportHealth: it
+// The usage report is a fifth step on the same reasoning: once a week, in the
+// Monday 8am Chicago hour, it mails the owner counts and group names
+// (src/lib/usage/). It has its own nested try/catch as a sibling of the
+// digest's, so its failure costs neither the sweeps nor the digest result, and
+// raises no health alarm either: a missed weekly email is not the site down.
+//
+// The sixth step runs last and reports to Better Stack via reportHealth: it
 // runs the same health probes a signed-in member's own page would exercise
 // (src/lib/health/check.ts), then sends the verdict as a heartbeat regardless
 // of what the sweeps did. A broken data path still answers 200 here, because
@@ -40,6 +46,7 @@ import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 import { runGaugeEndgame } from "@/lib/orbit/endgame"
 import { runProposalEndgame } from "@/lib/proposals/endgame"
 import { runDailyDigest, type DigestRunResult } from "@/lib/digest/run"
+import { runWeeklyUsageReport, type UsageRunResult } from "@/lib/usage/run"
 import { runHealthCheck, describeError, type HealthVerdict } from "@/lib/health/check"
 import { reportHealth } from "@/lib/health/heartbeat"
 
@@ -76,6 +83,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   let endgame: Awaited<ReturnType<typeof runGaugeEndgame>> | undefined
   let proposalEndgame: Awaited<ReturnType<typeof runProposalEndgame>> | undefined
   let digest: DigestRunResult[] = []
+  let usageReport: UsageRunResult | null = null
   let sweepFailure: string | null = null
 
   try {
@@ -91,6 +99,13 @@ export async function GET(request: NextRequest): Promise<Response> {
       digest = await runDailyDigest(new Date())
     } catch (err) {
       console.error("[orbit-cron] digest step failed:", err)
+    }
+
+    // Same isolation and same reasoning as the digest above.
+    try {
+      usageReport = await runWeeklyUsageReport(new Date())
+    } catch (err) {
+      console.error("[orbit-cron] usage report step failed:", err)
     }
   } catch (err) {
     sweepFailure = describeError(err)
@@ -111,5 +126,5 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   if (sweepFailure) return new Response("Internal Server Error", { status: 500 })
 
-  return Response.json({ ok: true, results, endgame, proposalEndgame, digest, health: verdict })
+  return Response.json({ ok: true, results, endgame, proposalEndgame, digest, usageReport, health: verdict })
 }
