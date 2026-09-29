@@ -287,6 +287,33 @@ Tests, red first: the small sheet's copy, equal buttons, Escape and scrim;
 "Show me" opens the steps sheet; the steps sheet shows the lead line and no
 old heading or subline; the arrival flow's existing rules still hold.
 
+### Task 5: a closing line after "Not now" (added 29 Sept 2026)
+
+Owner-approved copy and layout. In `InstallHintAsk`, tapping **"Not now"**
+no longer closes the sheet; it swaps the sheet's content (same sheet, same
+chrome, Orbit's face kept) to a closing note, and only its **"Got it"**
+button closes it. Escape and the scrim still close the sheet directly from
+either state, with no note (a free exit stays free). "Show me" is unchanged.
+
+Closing note, exactly:
+- Line: "No problem. You can find the steps anytime:" at `--type-body`,
+  `--text-primary`.
+- Then two numbered rows, each a 24px numbered circle identical to the steps
+  sheet's (surface-raised, hairline border, `--type-meta` 700) and text at
+  `--type-meta` `--text-primary`, gap 12, rows 8px apart, wrapped text
+  aligned under the text, never under the number:
+  1. "Tap the group's name at the top of the screen"
+  2. "Look under “On your phone”" (curly quotes as written)
+- Then one full-width outlined button "Got it" (`minHeight: 48`, radius 26,
+  `1.6px solid var(--hairline)`, `--type-body` 700), 16px above.
+- The dialog's accessible name follows the visible heading of each state.
+
+Nothing about when the ask appears changes: the flag is still written when
+the ask opens, so the note is shown at most once. Tests, red first: Not now
+shows the note and does not close; Got it closes; Escape and scrim close
+from both states without the note; Show me unchanged; exactly one dialog
+throughout.
+
 ## Finish (controller, after review)
 
 - Whole-branch review by an independent read-only agent; its report goes in
