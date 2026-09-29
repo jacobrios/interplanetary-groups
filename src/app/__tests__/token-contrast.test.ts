@@ -23,9 +23,9 @@
 // that adding a use of --text-faint on a lighter surface than any listed here
 // makes somebody stop and check rather than ship it.
 
+import { filesContaining } from "./inventory-scan"
 import { describe, it, expect } from "vitest"
 import { readFileSync } from "fs"
-import { execFileSync } from "child_process"
 import path from "path"
 
 const GLOBALS = path.join(process.cwd(), "src/app/globals.css")
@@ -186,20 +186,11 @@ describe("the inventory this arithmetic was computed against", () => {
   ]
 
   it("is still exactly the files the surface list above was read from", () => {
-    // -l for filenames only; a file is listed once however often it uses it.
-    // grep exits 1 on no matches, which would throw here, and a zero-match run
-    // is itself a failure worth throwing on.
-    const out = execFileSync(
-      "grep",
-      ["-rl", "var(--text-faint)", "src", "--include=*.tsx", "--include=*.ts"],
-      { cwd: process.cwd(), encoding: "utf8" }
+    // Committed and uncommitted files, never git-excluded throwaways; see
+    // inventory-scan.ts. A zero-match run fails the comparison below.
+    const files = filesContaining("var(--text-faint)", ["*.tsx", "*.ts"]).filter(
+      (f) => !f.includes("__tests__")
     )
-
-    const files = out
-      .split("\n")
-      .filter(Boolean)
-      .filter((f) => !f.includes("__tests__"))
-      .sort()
 
     expect(files).toEqual(EXPECTED_FILES)
   })
