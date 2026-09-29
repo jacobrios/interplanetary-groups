@@ -18,7 +18,7 @@
 // leans. Bottom padding uses the shared email-ask-safe-bottom class (home-bar
 // inset), with only the top set inline, as in InstallHintSheet.
 
-import { useId, useState, type CSSProperties } from "react"
+import { useEffect, useId, useState, type CSSProperties } from "react"
 import { useModalSheet } from "./useModalSheet"
 import { OrbitMark } from "./OrbitMark"
 import StepNumber from "./StepNumber"
@@ -50,6 +50,11 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
   // "Got it" (or a free exit: Escape, scrim) closes. Local on purpose: the
   // caller's once-only rules never see this state.
   const [note, setNote] = useState(false)
+  // The focused "Not now" button unmounts with the swap, which would drop focus
+  // to <body>, outside the modal. Put it back on the sheet, as at mount.
+  useEffect(() => {
+    if (note) sheetRef.current?.focus()
+  }, [note, sheetRef])
 
   return (
     <div
@@ -114,6 +119,7 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
                     minWidth: 0,
                     margin: 0,
                     fontSize: "var(--type-body)",
+                    lineHeight: "var(--leading-tight)",
                     fontWeight: 400,
                     color: "var(--text-primary)",
                   }}
@@ -159,42 +165,42 @@ export default function InstallHintAsk({ onShowMe, onClose }: InstallHintAskProp
             </>
           ) : (
             <>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: "0 0 auto", display: "flex" }}>
-                <OrbitMark size={36} label={null} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: "0 0 auto", display: "flex" }}>
+                  <OrbitMark size={36} label={null} />
+                </div>
+                <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                  <h2
+                    id={headingId}
+                    style={{
+                      margin: 0,
+                      fontSize: "var(--type-heading)",
+                      lineHeight: "var(--leading-tight)",
+                      fontWeight: 700,
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    Use Orbit like an app?
+                  </h2>
+                  <p
+                    style={{
+                      margin: "4px 0 0",
+                      fontSize: "var(--type-meta)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    Add it as an icon to your home screen.
+                  </p>
+                </div>
               </div>
-              <div style={{ flex: "1 1 0", minWidth: 0 }}>
-                <h2
-                  id={headingId}
-                  style={{
-                    margin: 0,
-                    fontSize: "var(--type-heading)",
-                    lineHeight: "var(--leading-tight)",
-                    fontWeight: 700,
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  Use Orbit like an app?
-                </h2>
-                <p
-                  style={{
-                    margin: "4px 0 0",
-                    fontSize: "var(--type-meta)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
-                  Add it as an icon to your home screen.
-                </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+                <button type="button" onClick={onShowMe} style={BUTTON}>
+                  Show me
+                </button>
+                <button type="button" onClick={() => setNote(true)} style={BUTTON}>
+                  Not now
+                </button>
               </div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
-              <button type="button" onClick={onShowMe} style={BUTTON}>
-                Show me
-              </button>
-              <button type="button" onClick={() => setNote(true)} style={BUTTON}>
-                Not now
-              </button>
-            </div>
             </>
           )}
         </div>

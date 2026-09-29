@@ -91,6 +91,19 @@ describe("InstallHintAsk", () => {
     expect(got.style.color).not.toMatch(/action|teal/)
   })
 
+  it("moves focus to the dialog when the note appears, and the trap still holds", () => {
+    setup()
+    const no = screen.getByRole("button", { name: "Not now" })
+    no.focus()
+    fireEvent.click(no)
+    expect(document.activeElement).toBe(screen.getByRole("dialog"))
+    const got = screen.getByRole("button", { name: "Got it" })
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true })
+    expect(document.activeElement).toBe(got)
+    fireEvent.keyDown(document, { key: "Tab" })
+    expect(document.activeElement).toBe(got)
+  })
+
   it("Got it closes", () => {
     const { onClose } = setup()
     fireEvent.click(screen.getByRole("button", { name: "Not now" }))
