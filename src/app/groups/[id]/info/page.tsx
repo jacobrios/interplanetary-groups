@@ -11,7 +11,7 @@
 //
 // Visibility (spec decisions 3 to 5):
 //   member          identity · invite+share · email · card · phone · Leave
-//   founder         identity · invite+share+reset · card(+manage) · hint, NO Leave
+//   founder         identity · invite+share+reset · email · ABOUT THE GROUP card(+manage) · ON YOUR PHONE, NO Leave
 // Viewing is members-only (share-readiness slice); every mutation still
 // re-verifies membership/founder server-side in its own action.
 //

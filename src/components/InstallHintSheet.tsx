@@ -23,7 +23,7 @@
 // inline calc(): jsdom throws on a longhand padding holding an unresolved
 // calc(), and the class already adds the home-bar inset.
 
-import { useEffect, useId, useRef, type ReactNode } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react"
 
 export interface InstallHintSheetProps {
   browser: "safari" | "chrome"
@@ -144,7 +144,11 @@ export default function InstallHintSheet({
   const sheetRef = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<Element | null>(null)
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  // Layout effect, not render: it runs before the browser can dispatch a key
+  // event for this commit, so Escape always calls the latest onClose.
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     returnFocusTo.current = document.activeElement
@@ -324,8 +328,10 @@ export default function InstallHintSheet({
         </div>
 
         <div
+          // The class owns bottom and side padding (with !important), so only
+          // the top is set inline. Reused for its home-bar and notch insets.
           className="email-ask-safe-bottom"
-          style={{ padding: "12px 18px 18px", flex: "0 0 auto" }}
+          style={{ paddingTop: 12, flex: "0 0 auto" }}
         >
           <button
             type="button"

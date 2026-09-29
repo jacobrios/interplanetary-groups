@@ -21,6 +21,12 @@
 // unset, so the install hint gets its turn on a later visit rather than
 // stacking two sheets. DeployWatch already refuses to reload under any
 // [role="dialog"], so this sheet is covered without wiring.
+//
+// REMOUNT NOTE. The "never over the email sheet" guarantee relies on this
+// component mounting in the same render as EmailAskNote: both read the snooze
+// cookie in state initializers before EmailAskNote's effect writes it. A future
+// refactor that remounts this independently (say, under a different
+// conditional) could open it on top of an open email sheet.
 
 import { useEffect, useState } from "react"
 import { useInstallHintBrowser } from "@/lib/install-hint/platform"
