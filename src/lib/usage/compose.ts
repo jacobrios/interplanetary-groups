@@ -49,11 +49,15 @@ function headerLine(): string {
   return "".padEnd(LABEL_WIDTH) + "this week".padEnd(COLUMN_WIDTH) + "all time"
 }
 
-/** Every line of a metrics block after the (overall-only) groups line. */
-function metricsLines(m: UsageMetrics): string[] {
+/**
+ * Every line of a metrics block after the (overall-only) groups line. The
+ * duplicate-identity caveat is printed once, under the overall People line
+ * only; repeating it per group would bury the numbers.
+ */
+function metricsLines(m: UsageMetrics, withCaveat: boolean): string[] {
   return [
-    countLine("People", m.people),
-    CAVEAT,
+    countLine("People (new, total)", m.people),
+    ...(withCaveat ? [CAVEAT] : []),
     weekOnlyLine("Active, opened (7 days)", m.openedActive),
     weekOnlyLine("Active, did something (7 days)", m.didSomethingActive),
     countLine("Member messages", m.memberMessages),
@@ -94,12 +98,12 @@ export function composeUsageReport(
       "OVERALL",
       headerLine(),
       countLine("Groups", report.groups),
-      ...metricsLines(report.overall),
+      ...metricsLines(report.overall, true),
       "",
       exclusion
     )
     for (const g of report.perGroup) {
-      lines.push("", `${g.name} (created ${longDate(g.createdAt)})`, headerLine(), ...metricsLines(g.metrics))
+      lines.push("", `${g.name} (created ${longDate(g.createdAt)})`, headerLine(), ...metricsLines(g.metrics, false))
     }
   }
 

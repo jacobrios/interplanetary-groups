@@ -54,9 +54,28 @@ describe("composeUsageReport", () => {
 
   it("puts the caveat directly under the people line", () => {
     const lines = composeUsageReport(report(), { ownerRecognised: true }).text.split("\n")
-    const i = lines.findIndex((l) => l.startsWith("People"))
+    const i = lines.findIndex((l) => l.startsWith("People (new, total)"))
     expect(i).toBeGreaterThan(-1)
     expect(lines[i + 1]).toBe(CAVEAT)
+  })
+
+  it("prints the caveat exactly once, under the overall People line", () => {
+    const { text } = composeUsageReport(report(), { ownerRecognised: true })
+    expect(text.split(CAVEAT).length - 1).toBe(1)
+    const lines = text.split("\n")
+    expect(lines.findIndex((l) => l === CAVEAT)).toBe(
+      lines.findIndex((l) => l.startsWith("People (new, total)")) + 1
+    )
+  })
+
+  it("labels the People row in every block", () => {
+    const { text } = composeUsageReport(report(), { ownerRecognised: true })
+    expect(text.match(/^People \(new, total\)\s+1\s+4$/gm)).toHaveLength(3)
+  })
+
+  it("uses the singular for one excluded group", () => {
+    const { text } = composeUsageReport(report({ excludedGroupCount: 1 }), { ownerRecognised: true })
+    expect(text).toContain("Excluded 1 group you are a member of.")
   })
 
   it("words the exclusion line both ways", () => {
