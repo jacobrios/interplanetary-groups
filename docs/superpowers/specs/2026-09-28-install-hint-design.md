@@ -119,7 +119,7 @@ name, photo or personal detail is in frame (the contacts row sits above
 these crops). Report each file's size; if any is over 150KB, say so rather
 than silently recompressing.
 
-**1c. `InstallHintSheet`** (`src/components/InstallHintSheet.tsx`, client).
+**1c. `InstallHintSheet`** *(Partly superseded by Task 4, 29 Sept 2026: heading and subline removed, the arrival flow opens a small ask first, pictures framed and recropped. Task 4 wins where they differ.)* (`src/components/InstallHintSheet.tsx`, client).
 Props: `browser: "safari" | "chrome"`, `heading`, `subline`,
 `buttonLabel`, `onClose`. It copies `src/app/groups/[id]/EmailAskNote.tsx`'s
 modal precedent, which is this product's only other modal and whose header
@@ -164,7 +164,7 @@ button all call `onClose`; dialog semantics; focus moves in and returns.
 
 ### Task 2: the two quiet links (step 3 and group info) plus group info's reorder
 
-**2a. `InstallHintLink`** (`src/components/InstallHintLink.tsx`, client):
+**2a. `InstallHintLink`** *(Partly superseded by Task 4, 29 Sept 2026: heading and subline removed, the arrival flow opens a small ask first, pictures framed and recropped. Task 4 wins where they differ.)* (`src/components/InstallHintLink.tsx`, client):
 renders nothing until mounted and nothing when `useInstallHintBrowser()` is
 `null`; otherwise an underlined text button "Use Orbit like an app" at
 `--type-meta`, `--text-secondary`, no background or border, `minHeight:
@@ -201,7 +201,7 @@ info order (heading hidden with the link); email row order. Update the
 inventory tests (`token-contrast.test.ts`, `screen-min-height.test.ts`) only
 if they now list a new file, and say which in the report.
 
-### Task 3: the one-time sheet on the group home
+### Task 3: the one-time sheet on the group home *(Partly superseded by Task 4, 29 Sept 2026: heading and subline removed, the arrival flow opens a small ask first, pictures framed and recropped. Task 4 wins where they differ.)*
 
 **`InstallHintOnArrival`** (`src/app/groups/[id]/InstallHintOnArrival.tsx`,
 client), mounted from `GroupHome.tsx` beside `EmailAskNote`. It opens
