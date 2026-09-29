@@ -27,8 +27,6 @@ import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from "react
 
 export interface InstallHintSheetProps {
   browser: "safari" | "chrome"
-  heading: string
-  subline: string
   buttonLabel: string
   onClose: () => void
 }
@@ -49,7 +47,7 @@ interface Step {
   ring: Ring
 }
 
-const VIEW_MORE_RING: Ring = { kind: "circle", cx: 85.6, cy: 27, d: 20 }
+const VIEW_MORE_RING: Ring = { kind: "circle", cx: 87.75, cy: 28.2, d: 20 }
 
 function stepsFor(browser: "safari" | "chrome"): Step[] {
   const first: Step =
@@ -86,7 +84,7 @@ function stepsFor(browser: "safari" | "chrome"): Step[] {
       ),
       src: `/install-hint/${browser}-view-more.png`,
       alt: `The ${browser === "safari" ? "Safari" : "Chrome"} share menu with View More circled`,
-      ratio: "820 / 350",
+      ratio: "800 / 340",
       ring: VIEW_MORE_RING,
     },
     {
@@ -97,8 +95,8 @@ function stepsFor(browser: "safari" | "chrome"): Step[] {
       ),
       src: "/install-hint/add-to-home-screen.png",
       alt: "The Add to Home Screen row highlighted in the share menu",
-      ratio: "848 / 150",
-      ring: { kind: "box", inset: 1, top: 6, height: 88 },
+      ratio: "790 / 95",
+      ring: { kind: "circle", cx: 7.85, cy: 55, d: 10.5 },
     },
   ]
 }
@@ -135,8 +133,6 @@ function ringStyle(ring: Ring): React.CSSProperties {
 
 export default function InstallHintSheet({
   browser,
-  heading,
-  subline,
   buttonLabel,
   onClose,
 }: InstallHintSheetProps) {
@@ -251,24 +247,18 @@ export default function InstallHintSheet({
           <h2
             id={headingId}
             style={{
-              margin: 0,
-              fontSize: "var(--type-heading)",
+              margin: "2px 0 16px",
+              // 1.125rem (18px) is between --type-meta and --type-heading and
+              // has no token; kept literal on purpose (no new token). Measured
+              // to fit one row at 390pt.
+              fontSize: "1.125rem",
               lineHeight: "var(--leading-tight)",
               fontWeight: 700,
               color: "var(--text-primary)",
             }}
           >
-            {heading}
+            Follow the 3 steps below to add its icon.
           </h2>
-          <p
-            style={{
-              margin: "4px 0 16px",
-              fontSize: "var(--type-meta)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            {subline}
-          </p>
 
           <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {steps.map((step, i) => (
@@ -304,23 +294,34 @@ export default function InstallHintSheet({
                     {step.text}
                   </span>
                 </div>
+                {/* Frame: sits under the step text (36 = number 24 + gap 12), not the
+                    number, and lifts the picture off the sheet. */}
                 <div
                   style={{
-                    position: "relative",
                     marginTop: 8,
-                    border: "1px solid var(--hairline)",
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    aspectRatio: step.ratio,
+                    marginLeft: 36,
+                    padding: 8,
+                    backgroundColor: "var(--surface-base)",
+                    borderRadius: 14,
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={step.src}
-                    alt={step.alt}
-                    style={{ display: "block", width: "100%", height: "100%" }}
-                  />
-                  <span aria-hidden="true" style={ringStyle(step.ring)} />
+                  <div
+                    style={{
+                      position: "relative",
+                      border: "1px solid var(--hairline)",
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      aspectRatio: step.ratio,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={step.src}
+                      alt={step.alt}
+                      style={{ display: "block", width: "100%", height: "100%" }}
+                    />
+                    <span aria-hidden="true" style={ringStyle(step.ring)} />
+                  </div>
                 </div>
               </li>
             ))}
@@ -331,7 +332,12 @@ export default function InstallHintSheet({
           // The class owns bottom and side padding (with !important), so only
           // the top is set inline. Reused for its home-bar and notch insets.
           className="email-ask-safe-bottom"
-          style={{ paddingTop: 12, flex: "0 0 auto" }}
+          style={{
+            paddingTop: 20,
+            marginTop: 4,
+            borderTop: "1px solid var(--hairline)",
+            flex: "0 0 auto",
+          }}
         >
           <button
             type="button"

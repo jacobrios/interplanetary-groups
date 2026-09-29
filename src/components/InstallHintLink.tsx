@@ -73,8 +73,6 @@ export default function InstallHintLink({ eyebrow, style }: Props) {
       {open && (
         <InstallHintSheet
           browser={browser}
-          heading="Put Orbit on your home screen"
-          subline="It opens like an app, full screen, one tap away."
           buttonLabel="Got it"
           onClose={() => setOpen(false)}
         />

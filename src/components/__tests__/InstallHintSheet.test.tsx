@@ -8,8 +8,6 @@ function setup(browser: "safari" | "chrome") {
   render(
     <InstallHintSheet
       browser={browser}
-      heading="Use Orbit like an app?"
-      subline="Three taps."
       buttonLabel="Not now"
       onClose={onClose}
     />
@@ -49,7 +47,36 @@ describe("InstallHintSheet", () => {
     const dialog = screen.getByRole("dialog")
     expect(dialog.getAttribute("aria-modal")).toBe("true")
     const id = dialog.getAttribute("aria-labelledby")!
-    expect(document.getElementById(id)?.textContent).toBe("Use Orbit like an app?")
+    expect(document.getElementById(id)?.textContent).toBe("Follow the 3 steps below to add its icon.")
+  })
+
+  it("has the one lead line and neither the old heading nor subline", () => {
+    setup("safari")
+    const lead = screen.getByText("Follow the 3 steps below to add its icon.")
+    expect(lead.tagName).toBe("H2")
+    expect(lead.style.fontSize).toBe("1.125rem")
+    expect(lead.style.fontWeight).toBe("700")
+    expect(screen.queryByText("Use Orbit like an app?")).toBeNull()
+    expect(screen.queryByText("Three taps.")).toBeNull()
+  })
+
+  it("frames each picture, and rules off the button area", () => {
+    setup("safari")
+    for (const img of screen.getAllByRole("img")) {
+      const picture = img.parentElement!
+      expect(picture.style.border).toBe("1px solid var(--hairline)")
+      expect(picture.style.borderRadius).toBe("10px")
+      const frame = picture.parentElement!
+      expect(frame.style.marginLeft).toBe("36px")
+      expect(frame.style.marginTop).toBe("8px")
+      expect(frame.style.padding).toBe("8px")
+      expect(frame.style.backgroundColor).toBe("var(--surface-base)")
+      expect(frame.style.borderRadius).toBe("14px")
+    }
+    const area = screen.getByRole("button", { name: "Not now" }).parentElement!
+    expect(area.style.borderTop).toBe("1px solid var(--hairline)")
+    expect(area.style.marginTop).toBe("4px")
+    expect(area.style.paddingTop).toBe("20px")
   })
 
   it("closes on the button, Escape and the scrim, but not on a tap inside", () => {
@@ -70,7 +97,7 @@ describe("InstallHintSheet", () => {
     opener.focus()
     document.body.style.overflow = "scroll"
     const { unmount } = render(
-      <InstallHintSheet browser="safari" heading="H" subline="S" buttonLabel="Not now" onClose={() => {}} />
+      <InstallHintSheet browser="safari" buttonLabel="Not now" onClose={() => {}} />
     )
     expect(document.activeElement).toBe(screen.getByRole("dialog"))
     expect(document.body.style.overflow).toBe("hidden")

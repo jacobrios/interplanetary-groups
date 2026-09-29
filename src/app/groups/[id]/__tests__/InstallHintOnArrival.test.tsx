@@ -4,7 +4,7 @@
 // (as in the platform tests) so the real detection hook runs.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor, act } from "@testing-library/react"
+import { render, screen, waitFor, act, fireEvent } from "@testing-library/react"
 import EmailAskNote from "../EmailAskNote"
 
 import InstallHintOnArrival from "../InstallHintOnArrival"
@@ -52,9 +52,40 @@ describe("InstallHintOnArrival", () => {
     stub(IPHONE_SAFARI)
     render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
     expect(await screen.findByRole("dialog", { name: HEADING })).toBeTruthy()
-    expect(screen.getByText("Put it on your home screen. It opens full screen, one tap away.")).toBeTruthy()
+    expect(screen.getByText("Add it as an icon to your home screen.")).toBeTruthy()
     expect(window.localStorage.getItem(FLAG)).not.toBeNull()
     screen.getByRole("button", { name: "Not now" }).click()
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("Show me swaps to the steps sheet; Got it ends it for good", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
+    await screen.findByRole("dialog", { name: HEADING })
+    fireEvent.click(screen.getByRole("button", { name: "Show me" }))
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+    expect(screen.getByRole("dialog", { name: "Follow the 3 steps below to add its icon." })).toBeTruthy()
+    expect(screen.getAllByRole("img")).toHaveLength(3)
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    await act(async () => {})
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  it("Escape and the scrim end the steps sheet too", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
+    await screen.findByRole("dialog", { name: HEADING })
+    fireEvent.click(screen.getByRole("button", { name: "Show me" }))
+    fireEvent.keyDown(document, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  })
+
+  it("Escape ends the small sheet", async () => {
+    stub(IPHONE_SAFARI)
+    render(<InstallHintOnArrival emailAsk={ASK_NOT_DUE} viewerIsFounder={false} />)
+    await screen.findByRole("dialog", { name: HEADING })
+    fireEvent.keyDown(document, { key: "Escape" })
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
   })
 

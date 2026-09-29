@@ -2,7 +2,7 @@
 
 // src/app/groups/[id]/InstallHintOnArrival.tsx
 //
-// The one-time "use Orbit like an app?" sheet, shown once per device to a
+// The one-time "use Orbit like an app?" ask (a small sheet; "Show me" opens the steps), shown once per device to a
 // member (never the founder, who met the same line on onboarding step 3) on
 // iPhone Safari or iPhone Chrome outside the installed app.
 //
@@ -12,7 +12,7 @@
 // answer, and held in state: a later render can neither open a skipped sheet
 // nor close an open one. (Same lesson as the shown-latch in EmailAskNote.)
 //
-// The flag is written the moment the sheet opens, so every way out (button,
+// The flag is written the moment the small sheet opens, so every way out (button,
 // scrim, Escape, navigating away) ends it for good and closing writes
 // nothing. Storage that throws on read or write means we stay silent: this is
 // a nudge, and a nudge that could repeat forever is worse than none.
@@ -30,6 +30,7 @@
 
 import { useEffect, useState } from "react"
 import { useInstallHintBrowser } from "@/lib/install-hint/platform"
+import InstallHintAsk from "@/components/InstallHintAsk"
 import InstallHintSheet from "@/components/InstallHintSheet"
 import { emailAskWillOpen } from "@/lib/auth/email-offer"
 import { emailAskCookieIsFresh } from "@/lib/auth/email-ask-cooldown"
@@ -67,7 +68,7 @@ export default function InstallHintOnArrival({ emailAsk, viewerIsFounder }: Prop
         emailAskCookieIsFresh()
       )
   )
-  const [decision, setDecision] = useState<"pending" | "open" | "closed" | "skipped">("pending")
+  const [decision, setDecision] = useState<"pending" | "open" | "steps" | "closed" | "skipped">("pending")
 
   useEffect(() => {
     if (decision !== "pending" || browser === null) return
@@ -87,15 +88,21 @@ export default function InstallHintOnArrival({ emailAsk, viewerIsFounder }: Prop
     setDecision(next)
   }, [browser, decision, emailSheetWillOpen, viewerIsFounder])
 
-  if (decision !== "open" || browser === null) return null
+  if ((decision !== "open" && decision !== "steps") || browser === null) return null
 
+  // "Show me" swaps the small ask for the steps sheet in place. The flag was
+  // already written when the ask opened, so every way out of either sheet ends
+  // it for good and neither writes anything.
+  if (decision === "steps") {
+    return (
+      <InstallHintSheet
+        browser={browser}
+        buttonLabel="Got it"
+        onClose={() => setDecision("closed")}
+      />
+    )
+  }
   return (
-    <InstallHintSheet
-      browser={browser}
-      heading="Use Orbit like an app?"
-      subline="Put it on your home screen. It opens full screen, one tap away."
-      buttonLabel="Not now"
-      onClose={() => setDecision("closed")}
-    />
+    <InstallHintAsk onShowMe={() => setDecision("steps")} onClose={() => setDecision("closed")} />
   )
 }
