@@ -342,9 +342,8 @@ describe("submitEventEdit", () => {
     // runtime behavior (await the real call through, then race) is what
     // this test actually exercises.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const spy = (vi.spyOn(prisma.event, "findUnique") as any).mockImplementation(
-      async (args: any) => {
+      async (args: unknown) => {
         calls++
         const result = await originalFindUnique(args)
         if (calls === 1) {
