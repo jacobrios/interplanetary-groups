@@ -12,6 +12,7 @@ vi.mock("@/lib/orbit/reconcile", () => ({ reconcileScheduledEvents: vi.fn(async 
 vi.mock("@/lib/orbit/endgame", () => ({ runGaugeEndgame: vi.fn(async () => []) }))
 vi.mock("@/lib/proposals/endgame", () => ({ runProposalEndgame: vi.fn(async () => []) }))
 vi.mock("@/lib/digest/run", () => ({ runDailyDigest: vi.fn(async () => []) }))
+vi.mock("@/lib/usage/run", () => ({ runWeeklyUsageReport: vi.fn(async () => ({ status: "not_report_hour" })) }))
 vi.mock("@/lib/health/heartbeat", () => ({ reportHealth: vi.fn(async () => "reported_ok") }))
 vi.mock("@/lib/health/check", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/health/check")>()),
@@ -23,6 +24,7 @@ import { runHealthCheck } from "@/lib/health/check"
 import { reportHealth } from "@/lib/health/heartbeat"
 import { reconcileScheduledEvents } from "@/lib/orbit/reconcile"
 import { runDailyDigest } from "@/lib/digest/run"
+import { runWeeklyUsageReport } from "@/lib/usage/run"
 
 const HEALTHY = { ok: true as const, ranSteps: [], skipped: [] }
 const BROKEN = { ok: false as const, failedStep: "user_row" as const, detail: "P2022" }
@@ -89,6 +91,26 @@ describe("the orbit cron's health report", () => {
 
     expect(response.status).toBe(200)
     expect(vi.mocked(reportHealth).mock.calls[0][0]).toEqual(HEALTHY)
+  })
+
+  it("treats a usage report failure as fail-soft: 200, other results kept, healthy reported", async () => {
+    vi.mocked(runWeeklyUsageReport).mockRejectedValueOnce(new Error("usage exploded"))
+
+    const response = await call()
+
+    expect(response.status).toBe(200)
+    expect(vi.mocked(reportHealth).mock.calls[0][0]).toEqual(HEALTHY)
+    const body = await response.json()
+    expect(body.usageReport).toBeNull()
+    expect(body.digest).toEqual([])
+  })
+
+  it("returns the usage report result under usageReport", async () => {
+    vi.mocked(runWeeklyUsageReport).mockResolvedValueOnce({ status: "sent", result: "ok" })
+
+    const body = await (await call()).json()
+
+    expect(body.usageReport).toEqual({ status: "sent", result: "ok" })
   })
 
   it("never lets an unauthorized caller touch the heartbeat", async () => {

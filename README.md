@@ -115,7 +115,7 @@ Multiple venues per event, nested events, travel and logistics features, forward
 | AI | Claude via the Anthropic SDK, for structured extraction and Orbit's chat copy |
 | Email | Resend, on two separate sending subdomains so a digest that collects spam complaints cannot damage the sending reputation login codes depend on |
 | Testing | Vitest, plus two graded model benches that run outside the suite |
-| Hosting | Vercel, with an hourly cron that schedules the next recurring plan, follows up on ideas and votes that have stalled, and sends the digest |
+| Hosting | Vercel, with an hourly cron that schedules the next recurring plan, follows up on ideas and votes that have stalled, sends the digest, and emails the owner a weekly usage report |
 
 About 160 test files cover the normalization boundary, vote thresholds, RSVP and roster derivation, timezone handling, recurring-event generation, the membership wall, and the digest's send rules. Model calls are not mocked into always-succeeding shapes; the tests exercise what happens when extraction returns something wrong, because that is the case that matters.
 

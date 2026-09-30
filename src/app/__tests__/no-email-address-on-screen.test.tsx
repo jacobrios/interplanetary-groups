@@ -523,6 +523,8 @@ describe("the two legitimate addresses, which are what prove the detector works"
 const SRC = path.resolve(__dirname, "../..")
 const REPO = path.resolve(__dirname, "../../..")
 
+const USAGE_OWNER_LOOKUP = "src/lib/usage/run.ts"
+
 function read(relative: string): string {
   return readFileSync(path.join(REPO, relative), "utf8")
 }
@@ -807,10 +809,34 @@ describe("a fixed, named set of queries can see an address, each scoped to who i
     // which is the whole User row. Prisma does not follow relations unless
     // asked, so the addresses hanging off that user do not come with it. This
     // is the assertion that keeps it that way.
+    //
+    // THE DECISION (usage analytics slice, 29 September 2026, the owner's
+    // call): exactly one file is excused, src/lib/usage/run.ts, and only for
+    // the `where` relation filter `contactMethods: { some:` inside
+    // findOwnerUserIds. That lookup filters by the single address in the
+    // owner's own USAGE_REPORT_TO setting and returns account ids only, so no
+    // address is read out, rendered or logged. A second such site reddens
+    // here and needs its own decision. The next test keeps this exception
+    // load-bearing.
     const offenders = readAllSourceFiles()
       .filter(([, source]) => /contactMethods\s*:\s*(?:true|\{)/.test(source))
       .map(([relative]) => relative)
+      .filter((relative) => relative !== USAGE_OWNER_LOOKUP)
     expect(offenders).toEqual([])
+  })
+
+  it("keeps the one relation-filter exception narrow, so it cannot rot into decoration", () => {
+    const source = read(USAGE_OWNER_LOOKUP)
+    // Every mention of the relation in the file is the one filter form.
+    expect(source.match(/contactMethods/g)).toHaveLength(1)
+    expect(source.match(/contactMethods\s*:\s*\{\s*some\s*:/g)).toHaveLength(1)
+    // It sits inside findOwnerUserIds, which selects ids and nothing else.
+    const fn = source.slice(source.indexOf("export async function findOwnerUserIds"))
+    const body = braceBlockAfter(fn, fn.indexOf(")"))
+    expect(body).toMatch(/contactMethods\s*:\s*\{\s*some\s*:/)
+    expect(body).toMatch(/select:\s*\{\s*id:\s*true\s*,?\s*\}/)
+    expect(body).not.toMatch(/include\s*:/)
+    expect(body.match(/select\s*:/g)).toHaveLength(1)
   })
 
   it("keeps the User row itself free of an address, which is what makes include: { user: true } safe", () => {

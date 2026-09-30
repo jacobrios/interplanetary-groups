@@ -16,6 +16,7 @@
     "eval:detect": "tsx scripts/eval-detect.ts",
     "eval:onboarding": "tsx scripts/eval-onboarding.ts",
     "email:test": "tsx --env-file=.env scripts/send-test-email.ts",
+    "usage": "tsx --env-file=.env scripts/usage-report.ts",
     "digest:test": "tsx --env-file=.env scripts/send-test-digest.ts",
     "qa:health": "tsx --env-file=.env scripts/qa-health.ts",
     "qa:stage-chatsync": "tsx --env-file=.env scripts/qa-stage-chatsync.ts",
