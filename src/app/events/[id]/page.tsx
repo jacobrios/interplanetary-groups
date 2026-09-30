@@ -95,7 +95,9 @@ export default async function EventPage({ params }: Props) {
   // Edit | Call off row to EditEventDetails, because editing takes over the
   // card and hides the pills below it. Anything else keeps the card below.
   // The JSX re-checks `viewer` only so TS can see it is non-null.
-  const canEdit = !isCancelled && event.startsAt.getTime() > Date.now()
+  // The render reads the clock once; canEdit and the proposal read share it.
+  const now = new Date()
+  const canEdit = !isCancelled && event.startsAt.getTime() > now.getTime()
   const localParts = getLocalParts(event.startsAt, event.group.timeZone)
   const dateLocal = `${String(localParts.year).padStart(4, "0")}-${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}`
   const timeLocal = `${String(localParts.hour).padStart(2, "0")}:${String(localParts.minute).padStart(2, "0")}`
@@ -104,7 +106,7 @@ export default async function EventPage({ params }: Props) {
   // Same group-scoped read the group home uses (src/lib/proposals/read.ts),
   // filtered to this event by the derivation's own keyed map — never a
   // second, event-scoped query path to keep in sync with the home's.
-  const liveProposals = await findLiveProposals(event.group.id, new Date())
+  const liveProposals = await findLiveProposals(event.group.id, now)
   // Non-null in practice: the members-only wall above already returned for a
   // null viewer, since isMember requires viewer !== null. TS can't see that
   // narrowing across the boolean, so this narrows on `viewer` itself instead
