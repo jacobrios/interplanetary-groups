@@ -49,9 +49,7 @@ async function main(): Promise<void> {
   const excludeUserIds = to ? await findOwnerUserIds(to) : []
 
   const report = await collectUsage(new Date(), { excludeUserIds })
-  const { subject, text } = composeUsageReport(report, { ownerRecognised: excludeUserIds.length > 0 })
-  console.log(subject)
-  console.log("")
+  const { text } = composeUsageReport(report, { ownerRecognised: excludeUserIds.length > 0 })
   console.log(text)
 }
 
