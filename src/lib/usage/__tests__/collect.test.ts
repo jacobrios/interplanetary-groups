@@ -295,6 +295,19 @@ describe("collectUsage", () => {
     }
   })
 
+  it("counts a person new overall only when their first join anywhere is in the window", async () => {
+    const a = await makeUser("a")
+    const b = await makeUser("b")
+    // b was in g1 before the window and joins g2 inside it: not new overall,
+    // but new to g2.
+    const g1 = await makeGroup("earliest1", a.id, [{ userId: a.id }, { userId: b.id, joinedAt: OUT }])
+    const g2 = await makeGroup("earliest2", a.id, [{ userId: a.id }, { userId: b.id, joinedAt: IN }])
+    const r = await usageOf([], g1, g2)
+    expect(r.overall.people).toEqual({ week: 0, allTime: 2 })
+    const second = r.perGroup.find((pg) => pg.id === g2.id)!
+    expect(second.metrics.people.week).toBe(1)
+  })
+
   it("excludes a group the excluded user founded and one they merely joined, and counts both", async () => {
     const owner = await makeUser("owner")
     const other = await makeUser("other")

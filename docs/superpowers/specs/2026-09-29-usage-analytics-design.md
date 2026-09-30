@@ -32,8 +32,10 @@ untested: real delivery to an inbox (QA script), and `npm run usage` itself
 (run by hand, output shown).
 
 **Debt opened.** A rare duplicate email if Vercel fires twice in the hour; a
-skipped week if that hour fails; RSVPs this week counts a changed old answer
-as this week's; an anonymous test group of the owner's that never signed in
+skipped week if that hour fails; RSVPs counts current answers on plans, not
+answers given (promotion carries votes over, a passed time change resets them,
+a changed old answer counts in the week it changed; added 29 Sept 2026, final
+review); an anonymous test group of the owner's that never signed in
 is not recognised as his.
 
 ---

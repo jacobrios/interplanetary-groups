@@ -141,9 +141,18 @@ export async function collectUsage(
     for (const v of gvs) if (inWindow(v.updatedAt)) active.add(v.userId)
     for (const v of pvs) if (inWindow(v.updatedAt)) active.add(v.userId)
 
+    // New means the person's earliest join across these groups is in the
+    // window, so someone already in one included group who joins another is
+    // not new overall. For a single group this is just "joined it this week".
+    const earliestJoin = new Map<string, Date>()
+    for (const m of memberships) {
+      const seen = earliestJoin.get(m.userId)
+      if (!seen || m.joinedAt < seen) earliestJoin.set(m.userId, m.joinedAt)
+    }
+
     return {
       people: {
-        week: new Set(memberships.filter((m) => inWindow(m.joinedAt)).map((m) => m.userId)).size,
+        week: Array.from(earliestJoin.values()).filter((d) => inWindow(d)).length,
         allTime: new Set(memberships.map((m) => m.userId)).size,
       },
       openedActive: new Set(memberships.filter((m) => inWindow(m.lastSeenAt)).map((m) => m.userId)).size,

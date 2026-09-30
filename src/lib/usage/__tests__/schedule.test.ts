@@ -31,4 +31,13 @@ describe("isUsageReportHour", () => {
   it("is false at 7:00 CST on a winter Monday", () => {
     expect(isUsageReportHour(new Date("2026-12-07T13:00:00.000Z"))).toBe(false)
   })
+  // The changeover Mondays. A hardcoded UTC offset would fail one of each pair.
+  it("is true at 8:00 CST on the Monday after fall back, and false an hour later", () => {
+    expect(isUsageReportHour(new Date("2026-11-02T14:00:00.000Z"))).toBe(true)
+    expect(isUsageReportHour(new Date("2026-11-02T13:00:00.000Z"))).toBe(false)
+  })
+  it("is true at 8:00 CDT on the Monday after spring forward, and false an hour later", () => {
+    expect(isUsageReportHour(new Date("2026-03-09T13:00:00.000Z"))).toBe(true)
+    expect(isUsageReportHour(new Date("2026-03-09T14:00:00.000Z"))).toBe(false)
+  })
 })
